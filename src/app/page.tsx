@@ -288,7 +288,7 @@ export default function Home() {
   return (
     <div className="min-h-screen overflow-x-hidden" style={{ background: "var(--bg-primary)" }}>
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 backdrop-blur-md border-b" style={{ background: "var(--bg-primary)", opacity: 0.97, borderColor: "var(--border-primary)" }}>
+      <nav className="sticky top-0 z-50 backdrop-blur-xl border-b transition-colors duration-300" style={{ backgroundColor: "color-mix(in srgb, var(--bg-primary) 85%, transparent)", borderColor: "var(--border-primary)" }}>
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/20">
@@ -456,28 +456,28 @@ export default function Home() {
          MASCOT PARADE - scrolling mascot strip
          ============================================ */}
       <section className="py-6 overflow-hidden border-y" style={{ background: "var(--bg-secondary)", borderColor: "var(--border-primary)" }}>
-        <div className="flex animate-scroll-left gap-12 items-center">
-          {[...Array(3)].map((_, setIdx) => (
-            <div key={setIdx} className="flex gap-12 items-center flex-shrink-0">
+        <div className="flex animate-scroll-left items-center w-max">
+          {[...Array(2)].map((_, setIdx) => (
+            <div key={setIdx} className="flex gap-12 items-center flex-shrink-0 pr-12">
               <div className="flex items-center gap-3 flex-shrink-0">
-                <BearMascot className="w-12 h-12" />
-                <span className="text-sm font-bold th-text-secondary whitespace-nowrap">Gấu Finance</span>
+                <BearMascot className="w-14 h-14" />
+                <span className="text-base font-bold th-text-secondary whitespace-nowrap">Gấu Finance</span>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
-                <BunnyMascot className="w-12 h-12" />
-                <span className="text-sm font-bold th-text-secondary whitespace-nowrap">Thỏ Bảy Màu</span>
+                <BunnyMascot className="w-14 h-14" />
+                <span className="text-base font-bold th-text-secondary whitespace-nowrap">Thỏ Bảy Màu</span>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
-                <CatMascot className="w-12 h-12" />
-                <span className="text-sm font-bold th-text-secondary whitespace-nowrap">Mèo Đường Phố</span>
+                <CatMascot className="w-14 h-14" />
+                <span className="text-base font-bold th-text-secondary whitespace-nowrap">Mèo Đường Phố</span>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
-                <ChickMascot className="w-12 h-12" />
-                <span className="text-sm font-bold th-text-secondary whitespace-nowrap">Gà DJ</span>
+                <ChickMascot className="w-14 h-14" />
+                <span className="text-base font-bold th-text-secondary whitespace-nowrap">Gà DJ</span>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
-                <PandaMascot className="w-12 h-12" />
-                <span className="text-sm font-bold th-text-secondary whitespace-nowrap">Gấu Trúc Chill</span>
+                <PandaMascot className="w-14 h-14" />
+                <span className="text-base font-bold th-text-secondary whitespace-nowrap">Gấu Trúc Chill</span>
               </div>
               <div className="w-px h-8 flex-shrink-0" style={{ background: "var(--border-secondary)" }} />
             </div>
@@ -513,7 +513,7 @@ export default function Home() {
               { id: "crypto", title: "HODL to the moon", category: "Crypto / Tài chính", icon: Bitcoin, color: "#f97316" },
               { id: "student", title: "Thi ngày mai, hôm nay mới học", category: "Học sinh / Sinh viên", icon: GraduationCap, color: "#3b82f6" },
             ].map((meme) => (
-              <div key={meme.id} className="group relative rounded-2xl overflow-hidden border transition-all hover:shadow-xl hover:-translate-y-1 cursor-default"
+              <div key={meme.id} className="group relative rounded-2xl overflow-hidden border transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 cursor-pointer"
                 style={{ borderColor: "var(--border-primary)" }}
               >
                 <div className="aspect-square relative overflow-hidden">
@@ -576,42 +576,42 @@ export default function Home() {
               title="AI Content Engine"
               description="Nhập ý tưởng, AI tạo headline, subtext, caption với giọng điệu chuẩn meme Việt Nam. Hỗ trợ ảnh tham khảo."
               gradient="from-violet-500 to-indigo-500"
-              mascot={<BearMascot className="w-16 h-16 opacity-20 absolute -bottom-2 -right-2" />}
+              mascot={<BearMascot className="w-28 h-28 opacity-[0.15] absolute -bottom-4 -right-4 transition-all duration-500 group-hover:scale-110 group-hover:-rotate-3 group-hover:opacity-30" />}
             />
             <FeatureCard
               icon={<Users size={24} />}
               title="Hệ thống nhân vật"
               description="Tạo và quản lý nhân vật mascot với nhiều biểu cảm. AI tự động chọn nhân vật phù hợp cho mỗi meme."
               gradient="from-pink-500 to-rose-500"
-              mascot={<BunnyMascot className="w-16 h-16 opacity-20 absolute -bottom-2 -right-2" />}
+              mascot={<BunnyMascot className="w-28 h-28 opacity-[0.15] absolute -bottom-4 -right-4 transition-all duration-500 group-hover:scale-110 group-hover:-rotate-3 group-hover:opacity-30" />}
             />
             <FeatureCard
               icon={<Palette size={24} />}
               title="8 phong cách AI"
               description="Streetwear Flex, Chibi Cute, Manga Anime, Pixel Retro... Chọn phong cách phù hợp với fanpage."
               gradient="from-amber-500 to-orange-500"
-              mascot={<CatMascot className="w-16 h-16 opacity-20 absolute -bottom-2 -right-2" />}
+              mascot={<CatMascot className="w-28 h-28 opacity-[0.15] absolute -bottom-4 -right-4 transition-all duration-500 group-hover:scale-110 group-hover:-rotate-3 group-hover:opacity-30" />}
             />
             <FeatureCard
               icon={<ImageIcon size={24} />}
               title="AI tạo ảnh"
               description="Gemini AI tạo ảnh meme hoàn chỉnh với nhân vật, text overlay và background. Hoặc dùng Canvas tự ghép."
               gradient="from-emerald-500 to-teal-500"
-              mascot={<ChickMascot className="w-16 h-16 opacity-20 absolute -bottom-2 -right-2" />}
+              mascot={<ChickMascot className="w-28 h-28 opacity-[0.15] absolute -bottom-4 -right-4 transition-all duration-500 group-hover:scale-110 group-hover:-rotate-3 group-hover:opacity-30" />}
             />
             <FeatureCard
               icon={<Download size={24} />}
               title="Xuất nhiều định dạng"
               description="1:1 (Feed), 9:16 (Story/Reels), 16:9 (YouTube), 4:5 (IG Portrait). Có watermark tuỳ chỉnh."
               gradient="from-blue-500 to-cyan-500"
-              mascot={<PandaMascot className="w-16 h-16 opacity-20 absolute -bottom-2 -right-2" />}
+              mascot={<PandaMascot className="w-28 h-28 opacity-[0.15] absolute -bottom-4 -right-4 transition-all duration-500 group-hover:scale-110 group-hover:-rotate-3 group-hover:opacity-30" />}
             />
             <FeatureCard
               icon={<Layers size={24} />}
               title="Quản lý dự án"
               description="Mỗi fanpage là một dự án riêng với nhân vật, phong cách và watermark riêng. Lưu trữ mọi meme."
               gradient="from-purple-500 to-fuchsia-500"
-              mascot={<BearMascot className="w-16 h-16 opacity-20 absolute -bottom-2 -right-2" />}
+              mascot={<BearMascot className="w-28 h-28 opacity-[0.15] absolute -bottom-4 -right-4 transition-all duration-500 group-hover:scale-110 group-hover:-rotate-3 group-hover:opacity-30" />}
             />
           </div>
         </div>
@@ -675,7 +675,7 @@ export default function Home() {
             ].map((s) => (
               <div
                 key={s.name}
-                className="group relative p-5 rounded-2xl border overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1 cursor-default"
+                className="group relative p-5 rounded-2xl border overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-default"
                 style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
               >
                 <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" style={{ background: s.color }} />
@@ -725,7 +725,7 @@ export default function Home() {
             ].map((t) => (
               <div
                 key={t.name}
-                className="p-6 rounded-2xl border transition-all hover:shadow-md hover:-translate-y-1"
+                className="group p-6 rounded-2xl border transition-all duration-300 hover:shadow-xl hover:-translate-y-2"
                 style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
               >
                 <div className="flex gap-1 mb-4">
@@ -845,12 +845,13 @@ function FeatureCard({ icon, title, description, gradient, mascot }: {
   icon: React.ReactNode; title: string; description: string; gradient: string; mascot?: React.ReactNode
 }) {
   return (
-    <div className="relative p-6 rounded-2xl border transition-all hover:shadow-md hover:-translate-y-1 overflow-hidden" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 bg-gradient-to-br ${gradient} text-white shadow-md`}>
+    <div className="group relative p-6 rounded-2xl border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 overflow-hidden" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
+      <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+      <div className={`relative z-10 w-12 h-12 rounded-xl flex items-center justify-center mb-4 bg-gradient-to-br ${gradient} text-white shadow-md group-hover:scale-110 transition-transform duration-300`}>
         {icon}
       </div>
-      <h3 className="text-lg font-semibold th-text-primary mb-2">{title}</h3>
-      <p className="text-sm th-text-tertiary leading-relaxed">{description}</p>
+      <h3 className="relative z-10 text-lg font-semibold th-text-primary mb-2 group-hover:text-violet-600 transition-colors">{title}</h3>
+      <p className="relative z-10 text-sm th-text-tertiary leading-relaxed">{description}</p>
       {mascot}
     </div>
   );
