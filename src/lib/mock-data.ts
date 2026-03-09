@@ -1,0 +1,197 @@
+import type { Project, Character, CharacterPose, Meme } from "@/types/database";
+
+// ============================================
+// Mock data for dev/testing without Supabase
+// ============================================
+
+export const MOCK_USER = {
+  id: "dev-user-001",
+  email: "dev@memefactory.local",
+};
+
+export const MOCK_PROJECTS: Project[] = [
+  {
+    id: "proj-001",
+    user_id: MOCK_USER.id,
+    name: "Bò và Gấu Finance",
+    description: "Meme chân chứng khoán, tài chính cá nhân cho giới trẻ Việt Nam",
+    style_prompt: "Giọng hài hước, châm biếm nhẹ nhàng về chứng khoán. Dùng ngôn ngữ gen Z, có emoji. Mỗi meme phải có punch line bất ngờ.",
+    watermark_url: null,
+    watermark_position: "bottom-right",
+    watermark_opacity: 0.8,
+    default_format: "1:1",
+    created_at: "2026-03-01T08:00:00Z",
+    updated_at: "2026-03-09T10:00:00Z",
+  },
+  {
+    id: "proj-002",
+    user_id: MOCK_USER.id,
+    name: "Dev Memes VN",
+    description: "Meme về đời sống lập trình viên Việt Nam",
+    style_prompt: "Giọng tự nhạo bản thân, developer humor. Pha trộn tiếng Anh và tiếng Việt tự nhiên.",
+    watermark_url: null,
+    watermark_position: "top-left",
+    watermark_opacity: 0.7,
+    default_format: "1:1",
+    created_at: "2026-02-15T08:00:00Z",
+    updated_at: "2026-03-08T14:00:00Z",
+  },
+];
+
+export const MOCK_CHARACTERS: (Character & { poses: CharacterPose[] })[] = [
+  {
+    id: "char-001",
+    project_id: "proj-001",
+    name: "Bò Bull",
+    description: "Con bò đực màu nâu, mặc áo hoodie xanh, đi giày Nike đỏ. Thân hình to khoẻ.",
+    personality: "Lạc quan, hay flexing, thích chứng khoán lên xanh, tự tin thái quá",
+    avatar_url: null,
+    created_at: "2026-03-01T09:00:00Z",
+    updated_at: "2026-03-09T10:00:00Z",
+    poses: [
+      {
+        id: "pose-001",
+        character_id: "char-001",
+        name: "Ăn mừng",
+        emotion: "happy",
+        image_url: "/mock/bull-happy.png",
+        description: "Bò giơ 2 tay lên trời, mặt cười toe toét",
+        is_transparent: true,
+        created_at: "2026-03-01T09:30:00Z",
+      },
+      {
+        id: "pose-002",
+        character_id: "char-001",
+        name: "Sốc nặng",
+        emotion: "surprised",
+        image_url: "/mock/bull-surprised.png",
+        description: "Bò mở to mắt, miệng chữ O",
+        is_transparent: true,
+        created_at: "2026-03-01T09:35:00Z",
+      },
+      {
+        id: "pose-003",
+        character_id: "char-001",
+        name: "Khóc lóc",
+        emotion: "crying",
+        image_url: "/mock/bull-crying.png",
+        description: "Bò ngồi khóc, nước mắt chảy thành dòng",
+        is_transparent: true,
+        created_at: "2026-03-01T09:40:00Z",
+      },
+    ],
+  },
+  {
+    id: "char-002",
+    project_id: "proj-001",
+    name: "Gấu Bear",
+    description: "Con gấu đen, đeo kính, cầm laptop. Thân hình mập mạp dễ thương.",
+    personality: "Bi quan, lúc nào cũng sợ thị trường sập, hay cảnh báo rủi ro",
+    avatar_url: null,
+    created_at: "2026-03-01T10:00:00Z",
+    updated_at: "2026-03-09T10:00:00Z",
+    poses: [
+      {
+        id: "pose-004",
+        character_id: "char-002",
+        name: "Lo lắng",
+        emotion: "scared",
+        image_url: "/mock/bear-scared.png",
+        description: "Gấu ôm laptop, mặt lo lắng nhìn màn hình đỏ loè",
+        is_transparent: true,
+        created_at: "2026-03-01T10:30:00Z",
+      },
+      {
+        id: "pose-005",
+        character_id: "char-002",
+        name: "Khinh bỉ",
+        emotion: "cool",
+        image_url: "/mock/bear-cool.png",
+        description: "Gấu khoanh tay, mặt nhìn xuống, kiểu 'tao đã bảo rồi'",
+        is_transparent: true,
+        created_at: "2026-03-01T10:35:00Z",
+      },
+    ],
+  },
+  {
+    id: "char-003",
+    project_id: "proj-002",
+    name: "Code Monkey",
+    description: "Con khỉ nhỏ mặc áo thun 'I <3 JS', đội mũ lưỡi trai ngược",
+    personality: "Hay than vãn, làm việc 996, uống cà phê nhiều, debug đến 3h sáng",
+    avatar_url: null,
+    created_at: "2026-02-15T09:00:00Z",
+    updated_at: "2026-03-08T14:00:00Z",
+    poses: [
+      {
+        id: "pose-006",
+        character_id: "char-003",
+        name: "Mệt mỏi",
+        emotion: "tired",
+        image_url: "/mock/monkey-tired.png",
+        description: "Khỉ nằm gục trên bàn phím, mắt thâm quầng",
+        is_transparent: true,
+        created_at: "2026-02-15T09:30:00Z",
+      },
+      {
+        id: "pose-007",
+        character_id: "char-003",
+        name: "Eureka!",
+        emotion: "excited",
+        image_url: "/mock/monkey-excited.png",
+        description: "Khỉ đứng bật dậy, mắt sáng, bóng đèn trên đầu",
+        is_transparent: true,
+        created_at: "2026-02-15T09:35:00Z",
+      },
+    ],
+  },
+];
+
+export const MOCK_MEMES: Meme[] = [
+  {
+    id: "meme-001",
+    project_id: "proj-001",
+    title: "VN-Index hôm nay",
+    original_idea: "Thị trường chứng khoán hôm nay đỏ lửa",
+    generated_content: {
+      headline: "Team xe điện lúc này:",
+      subtext: "",
+      caption: "Khi VIC và VHM cùng tăng trần, anh em team xe điện vui như tết #bovagau #chungkhoan",
+      layout_suggestion: { text_position: "center", character_positions: [] },
+      tone: "hài hước",
+    },
+    selected_characters: [
+      { character_id: "char-001", character_name: "Bò Bull", pose_id: "pose-001", pose_name: "Ăn mừng", emotion: "happy" },
+    ],
+    format: "1:1",
+    image_url: null,
+    canvas_data: null,
+    has_watermark: true,
+    status: "completed",
+    created_at: "2026-03-09T08:00:00Z",
+    updated_at: "2026-03-09T08:00:00Z",
+  },
+  {
+    id: "meme-002",
+    project_id: "proj-001",
+    title: "Cắt lỗ",
+    original_idea: "Khi mua đỉnh bán đáy",
+    generated_content: {
+      headline: "Mua đỉnh bán đáy là nghệ thuật",
+      subtext: "— Mọi người thua lỗ nói thế",
+      caption: "Ai cũng là thiên tài... cho đến khi mở tài khoản chứng khoán #bovagau",
+      layout_suggestion: { text_position: "top", character_positions: [] },
+      tone: "châm biếm",
+    },
+    selected_characters: [
+      { character_id: "char-002", character_name: "Gấu Bear", pose_id: "pose-005", pose_name: "Khinh bỉ", emotion: "cool" },
+    ],
+    format: "1:1",
+    image_url: null,
+    canvas_data: null,
+    has_watermark: true,
+    status: "completed",
+    created_at: "2026-03-08T15:00:00Z",
+    updated_at: "2026-03-08T15:00:00Z",
+  },
+];
