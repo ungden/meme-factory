@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+    <linearGradient id="star" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- Bear face - main mascot -->
+  <!-- Ears -->
+  <circle cx="165" cy="155" r="52" fill="#C49A2E"/>
+  <circle cx="165" cy="155" r="34" fill="#E8C96A"/>
+  <circle cx="347" cy="155" r="52" fill="#C49A2E"/>
+  <circle cx="347" cy="155" r="34" fill="#E8C96A"/>
+  <!-- Head -->
+  <circle cx="256" cy="240" r="105" fill="#C49A2E"/>
+  <!-- Face -->
+  <ellipse cx="256" cy="260" rx="70" ry="58" fill="#E8C96A"/>
+  <!-- Eyes -->
+  <circle cx="220" cy="230" r="16" fill="#1a1a2e"/>
+  <circle cx="292" cy="230" r="16" fill="#1a1a2e"/>
+  <circle cx="226" cy="224" r="6" fill="white"/>
+  <circle cx="298" cy="224" r="6" fill="white"/>
+  <!-- Nose -->
+  <ellipse cx="256" cy="258" rx="14" ry="10" fill="#8B6914"/>
+  <ellipse cx="256" cy="255" rx="5" ry="3.5" fill="#C49A2E"/>
+  <!-- Mouth - big smile -->
+  <path d="M234 274 Q256 296 278 274" stroke="#8B6914" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <!-- Blush -->
+  <circle cx="195" cy="265" r="14" fill="#FF9999" opacity="0.4"/>
+  <circle cx="317" cy="265" r="14" fill="#FF9999" opacity="0.4"/>
+  <!-- Sparkle top-right -->
+  <path d="M400 90 L408 114 L432 122 L408 130 L400 154 L392 130 L368 122 L392 114Z" fill="url(#star)"/>
+  <!-- Small sparkle -->
+  <path d="M130 350 L134 362 L146 366 L134 370 L130 382 L126 370 L114 366 L126 362Z" fill="url(#star)" opacity="0.7"/>
+  <!-- Pencil/pen in hand -->
+  <rect x="330" y="320" width="12" height="80" rx="4" fill="white" transform="rotate(-30 336 360)"/>
+  <polygon points="322,398 328,418 340,398" fill="#fbbf24" transform="rotate(-30 336 360)"/>
+  <rect x="330" y="316" width="12" height="14" rx="2" fill="#ec4899" transform="rotate(-30 336 360)"/>
+  <!-- Text "MF" at bottom -->
+  <text x="256" y="450" text-anchor="middle" font-family="system-ui, sans-serif" font-weight="900" font-size="60" fill="white" opacity="0.95">MEME FACTORY</text>
+</svg>

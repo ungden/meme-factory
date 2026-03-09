@@ -18,28 +18,51 @@ export const viewport: Viewport = {
   ],
 };
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://meme-factory-bice.vercel.app";
+
 export const metadata: Metadata = {
-  title: "Meme Factory - Công cụ tạo meme AI cho fanpage Việt Nam",
-  description: "Tạo meme chuyên nghiệp cho fanpage với AI. Quản lý nhân vật, tạo nội dung, xuất ảnh nhiều định dạng. Phù hợp cho Bò và Gấu, Thỏ Bảy Màu và các fanpage Việt Nam.",
-  keywords: ["meme", "fanpage", "AI", "Viet Nam", "content creator", "social media", "meme generator"],
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "Meme Factory — Tạo meme AI cho fanpage Việt Nam",
+    template: "%s | Meme Factory",
+  },
+  description: "Biến ý tưởng thành meme siêu dễ thương với AI. Quản lý nhân vật mascot, tạo nội dung và xuất ảnh cho fanpage chứng khoán, couple, gaming, ẩm thực và nhiều chủ đề khác.",
+  keywords: ["meme", "fanpage", "AI", "Việt Nam", "content creator", "social media", "meme generator", "Gemini AI", "mascot", "chứng khoán", "comic"],
   authors: [{ name: "Meme Factory" }],
+  creator: "Meme Factory",
   openGraph: {
-    title: "Meme Factory - Công cụ tạo meme AI cho fanpage",
-    description: "Tạo meme chuyên nghiệp cho fanpage với AI. Quản lý nhân vật, tạo nội dung, xuất ảnh nhiều định dạng.",
+    title: "Meme Factory — Tạo meme AI cho fanpage Việt Nam",
+    description: "Biến ý tưởng thành meme siêu dễ thương. 8 phong cách AI, 15 biểu cảm nhân vật, xuất 4 định dạng. 100% miễn phí!",
     type: "website",
     locale: "vi_VN",
     siteName: "Meme Factory",
+    url: SITE_URL,
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Meme Factory — Công cụ tạo meme AI cho fanpage Việt Nam",
+        type: "image/png",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Meme Factory - Công cụ tạo meme AI cho fanpage",
-    description: "Tạo meme chuyên nghiệp cho fanpage với AI.",
+    title: "Meme Factory — Tạo meme AI cho fanpage Việt Nam",
+    description: "Biến ý tưởng thành meme siêu dễ thương. 8 phong cách AI, 15 biểu cảm nhân vật. 100% miễn phí!",
+    images: ["/og-image.png"],
   },
   icons: {
     icon: [
-      { url: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>", type: "image/svg+xml" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
     ],
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
   },
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
