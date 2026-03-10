@@ -22,7 +22,7 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "@/components/theme-provider";
 import { IS_MOCK_MODE } from "@/lib/use-store";
 import { useWallet } from "@/contexts/WalletContext";
-import { Coins } from "lucide-react";
+import { Coins, Shield } from "lucide-react";
 
 interface SidebarProps {
   projectId?: string;
@@ -35,6 +35,22 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
   const { theme, toggleTheme } = useTheme();
   const { points, isLoading: walletLoading } = useWallet();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check admin role
+  useEffect(() => {
+    if (IS_MOCK_MODE) return;
+    const checkAdmin = async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data } = await supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
+        setIsAdmin(data?.role === "admin");
+      } catch { /* ignore */ }
+    };
+    checkAdmin();
+  }, []);
 
   // Close sidebar on route change
   useEffect(() => {
@@ -152,6 +168,16 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
 
       {/* Footer */}
       <div className="p-3 border-t space-y-1" style={{ borderColor: "var(--border-primary)" }}>
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl transition-all th-bg-hover"
+            style={{ color: "#ef4444" }}
+          >
+            <Shield size={18} />
+            Quản trị
+          </Link>
+        )}
         <button
           onClick={toggleTheme}
           aria-label={theme === "light" ? "Chuyển giao diện tối" : "Chuyển giao diện sáng"}

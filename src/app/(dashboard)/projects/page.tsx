@@ -12,6 +12,7 @@ import Textarea from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { Plus, FolderOpen, Image, Users, MoreVertical, Trash2, Edit2, Zap } from "lucide-react";
 import { useState } from "react";
+import AnnouncementBanner from "@/components/ui/announcement-banner";
 
 export default function ProjectsPage() {
   const { projects, loading, create, remove } = useProjects();
@@ -63,6 +64,9 @@ export default function ProjectsPage() {
             </p>
           </div>
         )}
+
+        {/* Announcements */}
+        <AnnouncementBanner />
 
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
