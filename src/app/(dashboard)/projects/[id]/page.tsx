@@ -22,7 +22,7 @@ export default function ProjectOverviewPage() {
     return (
       <div className="flex">
         <Sidebar projectId={projectId} />
-        <main className="ml-64 flex-1 p-8">
+        <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
           <div className="animate-pulse space-y-6">
             <div className="h-8 w-64 th-bg-tertiary rounded-lg" />
             <div className="grid grid-cols-3 gap-5">
@@ -57,7 +57,7 @@ export default function ProjectOverviewPage() {
   return (
     <div className="flex">
       <Sidebar projectId={projectId} projectName={project.name} />
-      <main className="ml-64 flex-1 p-8">
+      <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold th-text-primary">{project.name}</h1>
           {project.description && <p className="th-text-tertiary mt-1">{project.description}</p>}
@@ -160,7 +160,7 @@ export default function ProjectOverviewPage() {
                   <div className="aspect-square th-bg-tertiary rounded-t-2xl overflow-hidden flex items-center justify-center">
                     {meme.image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={meme.image_url} alt="" className="w-full h-full object-cover" />
+                      <img src={meme.image_url} alt={(meme.generated_content as { headline?: string })?.headline || meme.original_idea} loading="lazy" className="w-full h-full object-cover" />
                     ) : (
                       <div className="text-center p-4">
                         <Image size={24} className="mx-auto th-text-muted mb-2" />

@@ -48,10 +48,12 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Redirect to login if not authenticated and trying to access dashboard
+  // Skip redirect for API routes (they handle auth themselves via Bearer token or API key)
   if (
     !user &&
     !request.nextUrl.pathname.startsWith("/login") &&
     !request.nextUrl.pathname.startsWith("/auth") &&
+    !request.nextUrl.pathname.startsWith("/api") &&
     request.nextUrl.pathname !== "/"
   ) {
     const url = request.nextUrl.clone();

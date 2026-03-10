@@ -20,7 +20,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("meme-factory-theme") as Theme | null;
+      const saved = localStorage.getItem("aida-theme") as Theme | null;
       if (saved === "light" || saved === "dark") {
         setTheme(saved);
       } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
@@ -38,7 +38,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.classList.remove("light", "dark");
     root.classList.add(theme);
     try {
-      localStorage.setItem("meme-factory-theme", theme);
+      localStorage.setItem("aida-theme", theme);
     } catch {
       // localStorage unavailable
     }

@@ -1,0 +1,34 @@
+CREATE OR REPLACE FUNCTION atomic_refund_points(
+  _user_id UUID,
+  _cost INTEGER,
+  _description TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  _wallet RECORD;
+  _new_points INTEGER;
+BEGIN
+  SELECT id, points INTO _wallet
+  FROM wallets
+  WHERE user_id = _user_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Wallet not found');
+  END IF;
+
+  _new_points := _wallet.points + _cost;
+
+  UPDATE wallets
+  SET points = _new_points, updated_at = NOW()
+  WHERE id = _wallet.id;
+
+  INSERT INTO transactions (user_id, amount, type, description, status)
+  VALUES (_user_id, 0, 'refund', _description, 'failed');
+
+  RETURN jsonb_build_object('success', true, 'points', _new_points);
+END;
+$$;

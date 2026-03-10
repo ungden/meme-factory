@@ -1,5 +1,5 @@
 // ============================================
-// Database Types - Meme Factory
+// Database Types - AIDA
 // ============================================
 
 export interface Project {
@@ -203,6 +203,57 @@ export interface ImageGenResponse {
   text?: string; // optional text response from model
   error?: string;
   code?: string;
+}
+
+// ============================================
+// Wallet & Payment Types
+// ============================================
+
+export interface Wallet {
+  id: string;
+  user_id: string;
+  balance: number;
+  points: number;
+  free_trial_claimed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type TransactionType = "topup" | "payment" | "refund";
+export type TransactionStatus = "completed" | "pending" | "failed";
+
+export interface Transaction {
+  id: string;
+  user_id: string;
+  type: TransactionType;
+  amount: number;
+  description: string;
+  status: TransactionStatus;
+  reference_id: string | null;
+  created_at: string;
+}
+
+export type TopupOrderStatus = "pending" | "completed" | "expired" | "failed";
+
+export interface TopupOrder {
+  id: string;
+  user_id: string;
+  amount: number;
+  status: TopupOrderStatus;
+  payment_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TopupInfo {
+  orderId: string;
+  amount: number;
+  description: string;
+  qrUrl: string;
+  beneficiary: string;
+  bankBin?: string;
+  bankName?: string;
+  accountName?: string;
 }
 
 // ============================================

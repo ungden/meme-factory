@@ -294,7 +294,7 @@ export default function Home() {
             <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/20">
               <Sparkles size={18} className="text-white" />
             </div>
-            <span className="text-lg font-bold th-text-primary">Meme Factory</span>
+            <span className="text-lg font-bold th-text-primary">AIDA</span>
           </Link>
           <div className="flex items-center gap-3">
             <button
@@ -344,21 +344,21 @@ export default function Home() {
                 <Zap size={14} /> Được hỗ trợ bởi Gemini AI
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold th-text-primary mb-6 leading-tight animate-fade-up">
-                Biến ý tưởng thành<br />
+                Xây dựng fanpage<br />
                 <span className="bg-gradient-to-r from-violet-600 via-pink-500 to-amber-500 bg-clip-text text-transparent">
-                  meme siêu dễ thương
+                  chuyên nghiệp bằng AI
                 </span>
               </h1>
               <p className="text-lg md:text-xl th-text-secondary mb-8 max-w-xl leading-relaxed">
-                Tạo meme với nhân vật mascot riêng cho fanpage. AI lo hết từ nội dung đến hình ảnh
-                &mdash; bạn chỉ cần ý tưởng!
+                Tạo nội dung, hình ảnh và meme với nhân vật mascot riêng cho fanpage. AI lo hết từ ý tưởng đến sản phẩm
+                &mdash; bạn chỉ cần sáng tạo!
               </p>
               <div className="flex flex-col sm:flex-row items-center gap-4 lg:justify-start justify-center">
                 <Link
                   href="/login"
                   className="group inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold rounded-2xl hover:from-violet-700 hover:to-indigo-700 transition-all shadow-lg shadow-violet-500/25 text-lg"
                 >
-                  Bắt đầu tạo meme
+                  Bắt đầu ngay
                   <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                 </Link>
                 <a href="#demo" className="inline-flex items-center gap-2 px-6 py-4 font-semibold rounded-2xl transition-all th-text-secondary th-bg-hover">
@@ -495,7 +495,7 @@ export default function Home() {
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mb-4 bg-gradient-to-r from-pink-500/10 to-violet-500/10 th-text-accent">
               <PartyPopper size={14} /> SHOWCASE — TẠO BỞI AI
             </div>
-            <h2 className="text-3xl md:text-4xl font-extrabold th-text-primary mb-4">Meme cho mọi chủ đề fanpage</h2>
+            <h2 className="text-3xl md:text-4xl font-extrabold th-text-primary mb-4">Nội dung cho mọi chủ đề fanpage</h2>
             <p className="text-lg th-text-tertiary max-w-2xl mx-auto">
               Chứng khoán, tình yêu, office, gaming, ẩm thực, crypto... Chỉ cần nhập ý tưởng, AI lo hết!
             </p>
@@ -760,7 +760,7 @@ export default function Home() {
             <h2 className="text-3xl md:text-4xl font-extrabold th-text-primary mb-4">Câu hỏi thường gặp</h2>
           </div>
           <div className="space-y-3">
-            <FaqItem q="Meme Factory có miễn phí không?" a="Hoàn toàn miễn phí! Bạn chỉ cần tài khoản và Gemini API key (miễn phí). Không giới hạn số lượng meme." />
+            <FaqItem q="AIDA có miễn phí không?" a="Tính năng tạo nội dung AI hoàn toàn miễn phí! Tạo hình ảnh AI sử dụng hệ thống điểm (points) với giá rất hợp lý." />
             <FaqItem q="Cần kinh nghiệm thiết kế không?" a="Không cần. AI tự động tạo nội dung, chọn nhân vật và ghép ảnh. Bạn chỉ cần nhập ý tưởng bằng tiếng Việt." />
             <FaqItem q="Hỗ trợ những phong cách nào?" a="8 phong cách: Streetwear Flex, Chibi Cute, Flat Vector, Manga Anime, Watercolor, Pixel Retro, Graffiti Urban, Corporate Mascot." />
             <FaqItem q="Có thể dùng cho fanpage kinh doanh không?" a="Hoàn toàn được. Mỗi fanpage là một dự án riêng với watermark, phong cách và nhân vật riêng." />
@@ -789,10 +789,10 @@ export default function Home() {
             </div>
 
             <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4 relative z-10">
-              Sẵn sàng tạo meme?
+              Sẵn sàng xây dựng fanpage?
             </h2>
             <p className="text-lg text-white/80 mb-8 relative z-10">
-              Tham gia cùng hàng nghìn content creators Việt Nam. Miễn phí, không cần thẻ tín dụng.
+              Tham gia cùng hàng nghìn content creators Việt Nam. Bắt đầu miễn phí ngay hôm nay.
             </p>
             <Link
               href="/login"
@@ -815,7 +815,7 @@ export default function Home() {
               <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-lg flex items-center justify-center">
                 <Sparkles size={14} className="text-white" />
               </div>
-              <span className="font-bold th-text-primary">Meme Factory</span>
+              <span className="font-bold th-text-primary">AIDA</span>
               <div className="flex items-center gap-1 ml-2">
                 <BearMascot className="w-5 h-5" />
                 <BunnyMascot className="w-5 h-5" />
@@ -828,7 +828,7 @@ export default function Home() {
               <span>Dành cho content creators Việt Nam</span>
             </div>
             <p className="text-sm th-text-muted">
-              &copy; {new Date().getFullYear()} Meme Factory
+              &copy; {new Date().getFullYear()} AIDA
             </p>
           </div>
         </div>

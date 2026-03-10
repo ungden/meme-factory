@@ -92,8 +92,8 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl mb-4">
             <Sparkles size={28} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold th-text-primary">Meme Factory</h1>
-          <p className="th-text-tertiary mt-1">Tạo meme chuyên nghiệp cho fanpage của bạn</p>
+          <h1 className="text-2xl font-bold th-text-primary">AIDA</h1>
+          <p className="th-text-tertiary mt-1">Giải pháp xây dựng fanpage bằng AI</p>
         </div>
 
         {/* Dev mode - skip login */}

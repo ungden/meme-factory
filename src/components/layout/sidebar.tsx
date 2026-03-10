@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import {
   FolderOpen,
   Sparkles,
@@ -12,6 +13,9 @@ import {
   ChevronLeft,
   Sun,
   Moon,
+  Menu,
+  X,
+  Wallet,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -27,6 +31,33 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Close sidebar on escape key
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileOpen(false);
+    };
+    document.addEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleEsc);
+  }, []);
+
+  // Prevent body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
 
   const handleSignOut = async () => {
     if (!IS_MOCK_MODE) {
@@ -38,6 +69,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
 
   const mainNav = [
     { href: "/projects", label: "Tất cả dự án", icon: FolderOpen },
+    { href: "/wallet", label: "Ví tiền", icon: Wallet },
   ];
 
   const projectNav = projectId
@@ -49,23 +81,20 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
       ]
     : [];
 
-  return (
-    <aside
-      className="fixed left-0 top-0 h-screen w-64 border-r flex flex-col z-40 transition-colors duration-200"
-      style={{ background: "var(--bg-sidebar)", borderColor: "var(--border-primary)" }}
-    >
+  const sidebarContent = (
+    <>
       {/* Logo */}
       <div className="p-5 border-b" style={{ borderColor: "var(--border-primary)" }}>
         <Link href="/projects" className="flex items-center gap-2.5">
           <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl flex items-center justify-center">
             <Sparkles size={18} className="text-white" />
           </div>
-          <span className="text-lg font-bold th-text-primary">Meme Factory</span>
+          <span className="text-lg font-bold th-text-primary">AIDA</span>
         </Link>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto" aria-label="Điều hướng chính">
         {projectId && (
           <>
             <Link
@@ -91,29 +120,88 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         {projectNav.map((item) => (
           <NavItem key={item.href} {...item} active={pathname === item.href} />
         ))}
+
+        {/* Ví tiền — luôn hiển thị */}
+        {projectId && (
+          <>
+            <div className="h-px my-2" style={{ background: "var(--border-primary)" }} />
+            <NavItem href="/wallet" label="Ví tiền" icon={Wallet} active={pathname === "/wallet"} />
+          </>
+        )}
       </nav>
 
       {/* Footer */}
       <div className="p-3 border-t space-y-1" style={{ borderColor: "var(--border-primary)" }}>
-        {/* Theme toggle */}
         <button
           onClick={toggleTheme}
+          aria-label={theme === "light" ? "Chuyển giao diện tối" : "Chuyển giao diện sáng"}
           className="w-full flex items-center gap-3 px-3 py-2.5 text-sm th-text-secondary rounded-xl transition-all cursor-pointer th-bg-hover"
         >
           {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
           {theme === "light" ? "Giao diện tối" : "Giao diện sáng"}
         </button>
 
-        {/* Settings page - coming soon */}
         <button
           onClick={handleSignOut}
+          aria-label="Đăng xuất"
           className="w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl transition-all cursor-pointer th-text-danger th-bg-hover"
         >
           <LogOut size={18} />
           Đăng xuất
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile hamburger button */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        aria-label="Mở menu"
+        className="fixed top-4 left-4 z-50 p-2.5 rounded-xl md:hidden transition-all"
+        style={{ background: "var(--bg-card)", border: "1px solid var(--border-primary)" }}
+      >
+        <Menu size={20} className="th-text-primary" />
+      </button>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 md:hidden"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Mobile sidebar */}
+      <aside
+        className={`fixed left-0 top-0 h-screen w-72 border-r flex flex-col z-50 transition-transform duration-300 md:hidden ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+        style={{ background: "var(--bg-sidebar)", borderColor: "var(--border-primary)" }}
+        aria-label="Menu điều hướng"
+      >
+        {/* Close button */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          aria-label="Đóng menu"
+          className="absolute top-4 right-4 p-1.5 rounded-lg th-bg-hover th-text-muted"
+        >
+          <X size={18} />
+        </button>
+        {sidebarContent}
+      </aside>
+
+      {/* Desktop sidebar */}
+      <aside
+        className="hidden md:flex fixed left-0 top-0 h-screen w-64 border-r flex-col z-40 transition-colors duration-200"
+        style={{ background: "var(--bg-sidebar)", borderColor: "var(--border-primary)" }}
+        aria-label="Menu điều hướng"
+      >
+        {sidebarContent}
+      </aside>
+    </>
   );
 }
 
@@ -131,6 +219,7 @@ function NavItem({
   return (
     <Link
       href={href}
+      aria-current={active ? "page" : undefined}
       className={`flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl transition-all ${
         active
           ? "font-medium th-bg-accent-light th-text-accent"

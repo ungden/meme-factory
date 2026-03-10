@@ -13,6 +13,8 @@ import { useToast } from "@/components/ui/toast";
 import { Zap, Sparkles, Download, Save, RotateCcw, ChevronRight, Check, Wand2, Layers, ImageIcon, Loader2, Upload, X } from "lucide-react";
 import type { MemeContent, MemeFormat, SelectedCharacter, EmotionTag } from "@/types/database";
 import { FORMAT_DIMENSIONS } from "@/types/database";
+import { useWallet } from "@/contexts/WalletContext";
+import { POINT_COSTS, hasEnoughPoints } from "@/lib/point-pricing";
 
 type RenderMode = "canvas" | "ai";
 
@@ -41,6 +43,7 @@ export default function GeneratePage() {
   const { saveMeme } = useMemes(projectId);
 
   const toast = useToast();
+  const { points, refreshBalance } = useWallet();
   const loading = projLoading || charsLoading;
 
   // Steps
@@ -208,6 +211,13 @@ export default function GeneratePage() {
     const v = variations[selectedVariation];
     if (!v) return;
 
+    // Refresh balance then check points
+    await refreshBalance();
+    if (!hasEnoughPoints(points, "meme")) {
+      toast.error(`Không đủ points. Tạo meme cần ${POINT_COSTS.meme} points, bạn có ${points} points. Vui lòng mua thêm trong Ví tiền.`);
+      return;
+    }
+
     setAiGenerating(true);
     setAiError(null);
     setAiImageBase64(null);
@@ -241,6 +251,8 @@ export default function GeneratePage() {
         setAiError(result.error);
       } else if (result.image) {
         setAiImageBase64(result.image);
+        // Refresh wallet to show updated points
+        refreshBalance();
       }
     } catch (err) {
       setAiError(err instanceof Error ? err.message : "Lỗi không xác định khi tạo ảnh AI");
@@ -252,6 +264,12 @@ export default function GeneratePage() {
   // Phase 5: Generate background with AI
   const handleBgGenerate = async () => {
     if (!bgPrompt.trim()) return;
+
+    // Check points
+    if (!hasEnoughPoints(points, "background")) {
+      toast.error(`Không đủ points. Tạo background cần ${POINT_COSTS.background} points, bạn có ${points} points.`);
+      return;
+    }
 
     setBgGenerating(true);
     setBgError(null);
@@ -270,6 +288,7 @@ export default function GeneratePage() {
         setBgError(result.error);
       } else if (result.image) {
         setBgImageBase64(result.image);
+        refreshBalance();
       }
     } catch (err) {
       setBgError(err instanceof Error ? err.message : "Lỗi không xác định khi tạo background");
@@ -345,7 +364,7 @@ export default function GeneratePage() {
     return (
       <div className="flex">
         <Sidebar projectId={projectId} />
-        <main className="ml-64 flex-1 p-8">
+        <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
           <div className="animate-pulse h-96 th-bg-card rounded-2xl" />
         </main>
       </div>
@@ -355,7 +374,7 @@ export default function GeneratePage() {
   return (
     <div className="flex">
       <Sidebar projectId={projectId} projectName={project?.name} />
-      <main className="ml-64 flex-1 p-8">
+      <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold th-text-primary">Tạo Meme</h1>
@@ -484,11 +503,11 @@ export default function GeneratePage() {
 
                 {characters.length > 0 && (
                   <div>
-                    <p className="text-xs th-text-tertiary mb-2">Available characters:</p>
+                    <p className="text-xs th-text-tertiary mb-2">Nhân vật có sẵn:</p>
                     <div className="flex gap-2 flex-wrap">
                       {characters.map((c) => (
                         <span key={c.id} className="px-3 py-1 th-bg-tertiary th-border rounded-full text-xs th-text-secondary" style={{ borderWidth: "1px", borderStyle: "solid", borderColor: "var(--border-primary)" }}>
-                          {c.name} ({c.poses.length} poses)
+                          {c.name} ({c.poses.length} biểu cảm)
                         </span>
                       ))}
                     </div>
@@ -623,8 +642,11 @@ export default function GeneratePage() {
                         </div>
                         <Button size="lg" onClick={handleAiGenerate}>
                           <Wand2 size={18} />
-                          Tạo ảnh bằng AI
+                          Tạo ảnh bằng AI ({POINT_COSTS.meme} pts)
                         </Button>
+                        <p className="text-xs th-text-muted">
+                          Bạn có <strong>{points}</strong> points
+                        </p>
                       </div>
                     )}
 
@@ -669,10 +691,11 @@ export default function GeneratePage() {
                             />
                           </div>
                         </div>
-                        <div className="flex justify-center">
+                        <div className="flex items-center justify-center gap-3">
                           <Button variant="outline" size="sm" onClick={handleAiGenerate}>
-                            <RotateCcw size={14} /> Tạo lại ảnh khác
+                            <RotateCcw size={14} /> Tạo lại ({POINT_COSTS.meme} pts)
                           </Button>
+                          <span className="text-xs th-text-muted">{points} pts còn lại</span>
                         </div>
                       </div>
                     )}

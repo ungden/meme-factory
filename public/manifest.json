@@ -1,7 +1,7 @@
 {
-  "name": "Meme Factory",
-  "short_name": "MemeFactory",
-  "description": "Công cụ tạo meme AI cho fanpage Việt Nam",
+  "name": "AIDA",
+  "short_name": "AIDA",
+  "description": "Giải pháp xây dựng fanpage bằng AI",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

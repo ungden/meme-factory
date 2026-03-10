@@ -7,11 +7,14 @@ import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
 import Card from "@/components/ui/card";
 import Modal from "@/components/ui/modal";
+import ConfirmModal from "@/components/ui/confirm-modal";
+import { useToast } from "@/components/ui/toast";
 import Input from "@/components/ui/input";
 import Textarea from "@/components/ui/textarea";
 import {
   Plus,
   Upload,
+  UploadCloud,
   Trash2,
   Edit2,
   Image as ImageIcon,
@@ -22,8 +25,11 @@ import {
   Loader2,
   RotateCcw,
 } from "lucide-react";
+import { BulkUploader } from "@/components/ui/bulk-uploader";
 import type { Character, EmotionTag } from "@/types/database";
 import { PROMPT_TEMPLATES, type PromptTemplate } from "@/lib/prompt-templates";
+import { useWallet } from "@/contexts/WalletContext";
+import { POINT_COSTS, hasEnoughPoints } from "@/lib/point-pricing";
 
 const EMOTION_OPTIONS: { value: EmotionTag; label: string; emoji: string }[] = [
   { value: "happy", label: "Vui", emoji: "😊" },
@@ -46,10 +52,14 @@ export default function CharactersPage() {
   const params = useParams();
   const projectId = params.id as string;
 
+  const toast = useToast();
   const { project } = useProject(projectId);
   const { characters, loading, createCharacter, updateCharacter, deleteCharacter, addPose, deletePose } = useCharacters(projectId);
+  const { points, refreshBalance } = useWallet();
 
   const [expandedChar, setExpandedChar] = useState<string | null>(null);
+  const [deleteCharTarget, setDeleteCharTarget] = useState<string | null>(null);
+  const [deletePoseTarget, setDeletePoseTarget] = useState<string | null>(null);
 
   // Character form
   const [showCharModal, setShowCharModal] = useState(false);
@@ -69,6 +79,11 @@ export default function CharactersPage() {
   const [poseFile, setPoseFile] = useState<File | null>(null);
   const [posePreview, setPosePreview] = useState<string | null>(null);
   const [poseSaving, setPoseSaving] = useState(false);
+
+  // Bulk upload
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
+  const [bulkUploadCharId, setBulkUploadCharId] = useState<string | null>(null);
+  const [bulkUploadEmotion, setBulkUploadEmotion] = useState<EmotionTag>("neutral");
 
   // AI Pose generation
   const [showAiPoseModal, setShowAiPoseModal] = useState(false);
@@ -97,12 +112,18 @@ export default function CharactersPage() {
   const saveCharacter = async (e: React.FormEvent) => {
     e.preventDefault();
     setCharSaving(true);
-    if (editingChar) {
-      await updateCharacter(editingChar.id, charForm);
-    } else {
-      await createCharacter(charForm);
+    try {
+      if (editingChar) {
+        await updateCharacter(editingChar.id, charForm);
+        toast.success(`Đã cập nhật nhân vật "${charForm.name}"`);
+      } else {
+        await createCharacter(charForm);
+        toast.success(`Đã tạo nhân vật "${charForm.name}"`);
+      }
+      setShowCharModal(false);
+    } catch {
+      toast.error("Không thể lưu nhân vật. Vui lòng thử lại.");
     }
-    setShowCharModal(false);
     setCharSaving(false);
   };
 
@@ -129,10 +150,29 @@ export default function CharactersPage() {
     try {
       await addPose(poseCharId, { ...poseForm, file: poseFile });
       setShowPoseModal(false);
+      toast.success("Đã tải lên tư thế thành công");
     } catch (err) {
-      alert("Upload failed: " + (err instanceof Error ? err.message : "Unknown error"));
+      toast.error("Tải lên thất bại: " + (err instanceof Error ? err.message : "Lỗi không xác định"));
     }
     setPoseSaving(false);
+  };
+
+  const openBulkUpload = (charId: string) => {
+    setBulkUploadCharId(charId);
+    setBulkUploadEmotion("neutral");
+    setShowBulkUploadModal(true);
+  };
+
+  const handleBulkUploadFile = async (file: File) => {
+    if (!bulkUploadCharId) return;
+    const nameWithoutExt = file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ");
+    await addPose(bulkUploadCharId, {
+      name: nameWithoutExt || "Pose",
+      emotion: bulkUploadEmotion,
+      description: "",
+      is_transparent: false,
+      file,
+    });
   };
 
   const openAiPose = (charId: string) => {
@@ -156,6 +196,13 @@ export default function CharactersPage() {
     if (!aiPoseCharId) return;
     const char = characters.find((c) => c.id === aiPoseCharId);
     if (!char) return;
+
+    // Refresh balance then check points
+    await refreshBalance();
+    if (!hasEnoughPoints(points, "character")) {
+      toast.error(`Không đủ points. Tạo ảnh nhân vật cần ${POINT_COSTS.character} points, bạn có ${points} points. Vui lòng mua thêm trong Ví tiền.`);
+      return;
+    }
 
     setAiPoseGenerating(true);
     setAiPoseError(null);
@@ -183,6 +230,7 @@ export default function CharactersPage() {
         setAiPoseError(result.error);
       } else if (result.image) {
         setAiPoseImage(result.image);
+        refreshBalance();
       }
     } catch (err) {
       setAiPoseError(err instanceof Error ? err.message : "Lỗi không xác định khi tạo pose bằng AI");
@@ -211,8 +259,9 @@ export default function CharactersPage() {
       });
 
       setShowAiPoseModal(false);
+      toast.success("Đã lưu pose AI thành công");
     } catch (err) {
-      alert("Lưu pose thất bại: " + (err instanceof Error ? err.message : "Unknown error"));
+      toast.error("Lưu pose thất bại: " + (err instanceof Error ? err.message : "Lỗi không xác định"));
     }
 
     setAiPoseSaving(false);
@@ -221,16 +270,16 @@ export default function CharactersPage() {
   return (
     <div className="flex">
       <Sidebar projectId={projectId} projectName={project?.name} />
-      <main className="ml-64 flex-1 p-8">
+      <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold th-text-primary">Characters</h1>
-            <p className="th-text-tertiary mt-1">Manage your fanpage characters and their poses</p>
+            <h1 className="text-2xl font-bold th-text-primary">Nhân vật</h1>
+            <p className="th-text-tertiary mt-1">Quản lý nhân vật và biểu cảm cho fanpage</p>
           </div>
           <Button onClick={openCreateChar} size="lg">
             <Plus size={18} />
-            New Character
+            Thêm nhân vật
           </Button>
         </div>
 
@@ -246,11 +295,11 @@ export default function CharactersPage() {
             <div className="w-20 h-20 th-bg-card rounded-2xl flex items-center justify-center mb-4">
               <SmilePlus size={32} className="th-text-muted" />
             </div>
-            <h3 className="text-lg font-medium th-text-secondary">No characters yet</h3>
-            <p className="th-text-muted mt-1 mb-5">Create characters and upload their poses to start making memes</p>
+            <h3 className="text-lg font-medium th-text-secondary">Chưa có nhân vật nào</h3>
+            <p className="th-text-muted mt-1 mb-5">Tạo nhân vật và tải lên biểu cảm để bắt đầu làm meme</p>
             <Button onClick={openCreateChar}>
               <Plus size={18} />
-              Create First Character
+              Tạo nhân vật đầu tiên
             </Button>
           </div>
         ) : (
@@ -271,15 +320,15 @@ export default function CharactersPage() {
                     </div>
                     <div>
                       <h3 className="font-semibold th-text-primary">{char.name}</h3>
-                      <p className="text-sm th-text-tertiary line-clamp-1">{char.personality || char.description || "No description"}</p>
-                      <p className="text-xs th-text-muted mt-0.5">{char.poses.length} pose{char.poses.length !== 1 ? "s" : ""}</p>
+                      <p className="text-sm th-text-tertiary line-clamp-1">{char.personality || char.description || "Chưa có mô tả"}</p>
+                      <p className="text-xs th-text-muted mt-0.5">{char.poses.length} biểu cảm</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openEditChar(char); }}>
+                    <Button variant="ghost" size="sm" aria-label={`Chỉnh sửa ${char.name}`} onClick={(e) => { e.stopPropagation(); openEditChar(char); }}>
                       <Edit2 size={14} />
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); if (confirm("Delete this character and all poses?")) deleteCharacter(char.id); }}>
+                    <Button variant="ghost" size="sm" aria-label={`Xoá ${char.name}`} onClick={(e) => { e.stopPropagation(); setDeleteCharTarget(char.id); }}>
                       <Trash2 size={14} style={{ color: "var(--danger)" }} />
                     </Button>
                     {expandedChar === char.id ? <ChevronUp size={18} className="th-text-tertiary" /> : <ChevronDown size={18} className="th-text-tertiary" />}
@@ -289,21 +338,25 @@ export default function CharactersPage() {
                 {expandedChar === char.id && (
                   <div className="px-5 pb-5 border-t pt-4 th-border" style={{ borderColor: "var(--border-primary)" }}>
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-medium th-text-secondary">Poses / Emotions</h4>
-                      <div className="flex gap-2">
+                      <h4 className="text-sm font-medium th-text-secondary">Tư thế / Biểu cảm</h4>
+                      <div className="flex gap-2 flex-wrap">
                         <Button size="sm" variant="outline" onClick={() => openAiPose(char.id)}>
                           <Wand2 size={14} />
-                          AI Generate
+                          Tạo bằng AI (3 pts)
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => openBulkUpload(char.id)}>
+                          <UploadCloud size={14} />
+                          Tải lên hàng loạt
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => openAddPose(char.id)}>
                           <Upload size={14} />
-                          Upload Pose
+                          Tải lên tư thế
                         </Button>
                       </div>
                     </div>
                     {char.poses.length === 0 ? (
                       <div className="text-center py-8 th-text-muted text-sm">
-                        No poses yet. Upload character images with different emotions.
+                        Chưa có tư thế nào. Tải lên ảnh nhân vật với các biểu cảm khác nhau.
                       </div>
                     ) : (
                       <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -326,7 +379,8 @@ export default function CharactersPage() {
                                 <p className="text-xs th-text-tertiary">{emotionInfo?.emoji} {emotionInfo?.label || pose.emotion}</p>
                               </div>
                               <button
-                                onClick={() => { if (confirm("Delete this pose?")) deletePose(pose.id); }}
+                                aria-label={`Xoá tư thế ${pose.name}`}
+                                onClick={() => setDeletePoseTarget(pose.id)}
                                 className="absolute top-1 right-1 p-1 bg-red-500/80 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
                               >
                                 <Trash2 size={12} className="text-white" />
@@ -344,31 +398,31 @@ export default function CharactersPage() {
         )}
 
         {/* Create/Edit Character Modal */}
-        <Modal isOpen={showCharModal} onClose={() => setShowCharModal(false)} title={editingChar ? "Edit Character" : "New Character"}>
+        <Modal isOpen={showCharModal} onClose={() => setShowCharModal(false)} title={editingChar ? "Chỉnh sửa nhân vật" : "Thêm nhân vật mới"}>
           <form onSubmit={saveCharacter} className="space-y-4">
             <Input id="char-name" label="Tên nhân vật" placeholder='VD: "Bò Bull", "Gấu Bear", "Thỏ Bảy Màu"' value={charForm.name} onChange={(e) => setCharForm((f) => ({ ...f, name: e.target.value }))} required />
             <Textarea id="char-desc" label="Mô tả ngoại hình" placeholder="Mô tả hình dáng nhân vật để AI hiểu ngữ cảnh" value={charForm.description} onChange={(e) => setCharForm((f) => ({ ...f, description: e.target.value }))} rows={2} />
             <Textarea id="char-personality" label="Tính cách" placeholder='VD: "Lạc quan, hay flexing, thích chứng khoán lên xanh, tự tin thái quá"' value={charForm.personality} onChange={(e) => setCharForm((f) => ({ ...f, personality: e.target.value }))} rows={2} />
             <div className="flex gap-3 justify-end pt-2">
-              <Button variant="ghost" type="button" onClick={() => setShowCharModal(false)}>Cancel</Button>
-              <Button type="submit" loading={charSaving}>{editingChar ? "Save Changes" : "Create Character"}</Button>
+              <Button variant="ghost" type="button" onClick={() => setShowCharModal(false)}>Huỷ</Button>
+              <Button type="submit" loading={charSaving}>{editingChar ? "Lưu thay đổi" : "Tạo nhân vật"}</Button>
             </div>
           </form>
         </Modal>
 
         {/* Upload Pose Modal */}
-        <Modal isOpen={showPoseModal} onClose={() => setShowPoseModal(false)} title="Upload Character Pose">
+        <Modal isOpen={showPoseModal} onClose={() => setShowPoseModal(false)} title="Tải lên tư thế">
           <form onSubmit={savePose} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium th-text-secondary mb-1.5">Pose Image</label>
+              <label className="block text-sm font-medium th-text-secondary mb-1.5">Ảnh tư thế</label>
               <div className="border-2 border-dashed rounded-xl p-6 text-center th-border-accent-hover transition-colors cursor-pointer th-border" onClick={() => document.getElementById("pose-file")?.click()}>
                 {posePreview ? (
                   <img src={posePreview} alt="Preview" className="w-32 h-32 mx-auto object-contain rounded-lg" />
                 ) : (
                   <>
                     <ImageIcon size={32} className="mx-auto th-text-muted mb-2" />
-                    <p className="text-sm th-text-tertiary">Click to upload</p>
-                    <p className="text-xs th-text-muted mt-1">PNG with transparent background recommended</p>
+                    <p className="text-sm th-text-tertiary">Bấm để chọn ảnh</p>
+                    <p className="text-xs th-text-muted mt-1">Khuyến nghị PNG nền trong suốt</p>
                   </>
                 )}
                 <input id="pose-file" type="file" accept="image/*" className="hidden" onChange={handlePoseFileChange} />
@@ -376,7 +430,7 @@ export default function CharactersPage() {
             </div>
             <Input id="pose-name" label="Tên tư thế" placeholder='VD: "Giơ tay ăn mừng", "Khóc lóc", "Ngồi suy nghĩ"' value={poseForm.name} onChange={(e) => setPoseForm((f) => ({ ...f, name: e.target.value }))} required />
             <div>
-              <label className="block text-sm font-medium th-text-secondary mb-1.5">Emotion</label>
+              <label className="block text-sm font-medium th-text-secondary mb-1.5">Biểu cảm</label>
               <div className="grid grid-cols-4 gap-2">
                 {EMOTION_OPTIONS.map((opt) => (
                   <button key={opt.value} type="button" onClick={() => setPoseForm((f) => ({ ...f, emotion: opt.value }))}
@@ -391,17 +445,65 @@ export default function CharactersPage() {
             <Textarea id="pose-desc" label="Mô tả (tuỳ chọn)" placeholder="Mô tả tư thế này để AI hiểu ngữ cảnh" value={poseForm.description} onChange={(e) => setPoseForm((f) => ({ ...f, description: e.target.value }))} rows={2} />
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={poseForm.is_transparent} onChange={(e) => setPoseForm((f) => ({ ...f, is_transparent: e.target.checked }))} className="w-4 h-4 rounded accent-[var(--accent)]" style={{ borderColor: "var(--border-primary)", background: "var(--bg-tertiary)" }} />
-              <span className="text-sm th-text-secondary">Has transparent background</span>
+              <span className="text-sm th-text-secondary">Có nền trong suốt</span>
             </label>
             <div className="flex gap-3 justify-end pt-2">
-              <Button variant="ghost" type="button" onClick={() => setShowPoseModal(false)}>Cancel</Button>
-              <Button type="submit" loading={poseSaving} disabled={!poseFile}>Upload Pose</Button>
+              <Button variant="ghost" type="button" onClick={() => setShowPoseModal(false)}>Huỷ</Button>
+              <Button type="submit" loading={poseSaving} disabled={!poseFile}>Tải lên tư thế</Button>
             </div>
           </form>
         </Modal>
 
+        {/* Bulk Upload Modal */}
+        <Modal isOpen={showBulkUploadModal} onClose={() => setShowBulkUploadModal(false)} title="Tải lên hàng loạt" size="xl">
+          <div className="space-y-4">
+            {/* Character info */}
+            {bulkUploadCharId && (() => {
+              const char = characters.find((c) => c.id === bulkUploadCharId);
+              if (!char) return null;
+              return (
+                <div className="flex items-center gap-3 p-3 rounded-xl th-bg-tertiary">
+                  <div className="w-10 h-10 rounded-xl th-bg-card flex items-center justify-center text-sm font-bold th-text-tertiary">
+                    {char.name[0]?.toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium th-text-primary">{char.name}</p>
+                    <p className="text-xs th-text-tertiary">Tải nhiều ảnh pose cùng lúc cho nhân vật này</p>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Emotion selector for all uploads */}
+            <div>
+              <label className="block text-sm font-medium th-text-secondary mb-1.5">Cảm xúc mặc định cho tất cả ảnh</label>
+              <div className="grid grid-cols-7 gap-1.5">
+                {EMOTION_OPTIONS.map((opt) => (
+                  <button key={opt.value} type="button" onClick={() => setBulkUploadEmotion(opt.value)}
+                    className={`px-1 py-2 rounded-lg text-xs text-center transition-all border ${
+                      bulkUploadEmotion === opt.value ? "th-border-accent th-text-accent th-bg-accent-light" : "th-bg-tertiary th-border th-text-secondary th-bg-hover"
+                    }`}>
+                    <span className="text-base block">{opt.emoji}</span>
+                    <span className="text-[10px] block mt-0.5">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Bulk Uploader */}
+            <BulkUploader
+              onUpload={handleBulkUploadFile}
+              accept="image/*"
+              maxFiles={50}
+              maxSizeMB={10}
+              label="Kéo thả nhiều ảnh pose vào đây"
+              hint="Hỗ trợ PNG, JPG, WebP. Tối đa 50 ảnh, mỗi ảnh ≤ 10MB. Tên file sẽ thành tên pose."
+            />
+          </div>
+        </Modal>
+
         {/* AI Generate Pose Modal */}
-        <Modal isOpen={showAiPoseModal} onClose={() => setShowAiPoseModal(false)} title="AI Generate Pose" size="xl">
+        <Modal isOpen={showAiPoseModal} onClose={() => setShowAiPoseModal(false)} title="Tạo tư thế bằng AI" size="xl">
           <div className="space-y-5">
             {/* Character info */}
             {aiPoseCharId && (() => {
@@ -496,7 +598,7 @@ export default function CharactersPage() {
 
             {/* Emotion selector */}
             <div>
-              <label className="block text-sm font-medium th-text-secondary mb-1.5">Emotion / Tư thế</label>
+              <label className="block text-sm font-medium th-text-secondary mb-1.5">Biểu cảm / Tư thế</label>
               <div className="grid grid-cols-7 gap-1.5">
                 {EMOTION_OPTIONS.map((opt) => (
                   <button key={opt.value} type="button" onClick={() => setAiPoseEmotion(opt.value)}
@@ -530,7 +632,7 @@ export default function CharactersPage() {
             {!aiPoseImage && !aiPoseGenerating && (
               <Button className="w-full" size="lg" onClick={handleAiPoseGenerate}>
                 <Wand2 size={18} />
-                Tạo Pose bằng AI ({selectedTemplate?.nameVi || "Custom"})
+                Tạo Pose bằng AI ({selectedTemplate?.nameVi || "Custom"}) — 3 pts
               </Button>
             )}
 
@@ -572,7 +674,7 @@ export default function CharactersPage() {
                 </div>
                 <div className="flex gap-3">
                   <Button variant="outline" className="flex-1" onClick={handleAiPoseGenerate}>
-                    <RotateCcw size={14} /> Tạo lại
+                    <RotateCcw size={14} /> Tạo lại (3 pts)
                   </Button>
                   <Button className="flex-1" onClick={handleSaveAiPose} loading={aiPoseSaving}>
                     <ImageIcon size={14} /> Lưu Pose
@@ -582,6 +684,38 @@ export default function CharactersPage() {
             )}
           </div>
         </Modal>
+
+        {/* Delete Character Confirmation */}
+        <ConfirmModal
+          isOpen={!!deleteCharTarget}
+          onClose={() => setDeleteCharTarget(null)}
+          onConfirm={async () => {
+            if (!deleteCharTarget) return;
+            await deleteCharacter(deleteCharTarget);
+            toast.success("Đã xoá nhân vật");
+            setDeleteCharTarget(null);
+          }}
+          title="Xoá nhân vật?"
+          message="Nhân vật và tất cả tư thế sẽ bị xoá vĩnh viễn. Hành động này không thể hoàn tác."
+          confirmText="Xoá nhân vật"
+          variant="danger"
+        />
+
+        {/* Delete Pose Confirmation */}
+        <ConfirmModal
+          isOpen={!!deletePoseTarget}
+          onClose={() => setDeletePoseTarget(null)}
+          onConfirm={async () => {
+            if (!deletePoseTarget) return;
+            await deletePose(deletePoseTarget);
+            toast.success("Đã xoá tư thế");
+            setDeletePoseTarget(null);
+          }}
+          title="Xoá tư thế?"
+          message="Tư thế này sẽ bị xoá vĩnh viễn. Hành động này không thể hoàn tác."
+          confirmText="Xoá tư thế"
+          variant="danger"
+        />
       </main>
     </div>
   );

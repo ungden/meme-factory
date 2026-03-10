@@ -27,18 +27,18 @@ export const PROMPT_TEMPLATES: PromptTemplate[] = [
     description: "Nhân vật con vật nhân hóa mặc đồ streetwear, sneakers, dây chuyền vàng. Thái độ tự tin, flexing. Style Money Studio / Bò và Gấu.",
     preview: "🔥",
     previewUrl: "/templates/streetwear-flex.webp",
-    characterStyle: `Cartoon nhân hóa (anthropomorphic) style fanpage meme tài chính Việt Nam (Money Studio, Bò và Gấu).
+    characterStyle: `Cartoon nhân hóa (anthropomorphic) style fanpage meme tài chính Việt Nam.
 - Nhân vật con vật đứng 2 chân như người, tỉ lệ cơ thể semi-realistic (không chibi)
-- Trang phục streetwear: hoodie/jacket, quần short/jeans, sneakers Nike/Jordan đỏ-trắng
-- Accessories: dây chuyền vàng dollar, kính mát, ngậm xì gà, đồng hồ
-- Semi-realistic cartoon rendering: bóng đổ rõ, texture vải, chi tiết giày sắc nét
+- Trang phục streetwear: hoodie/jacket, quần short/jeans, sneakers
+- Accessories tuỳ nhân vật: dây chuyền, kính mát, mũ, đồng hồ... (theo mô tả nhân vật)
+- Semi-realistic cartoon rendering: bóng đổ rõ, texture vải, chi tiết sắc nét
 - Bold outlines 2-3px, nét sắc sảo professional
-- Thái độ: tự tin ngông, "big boss" energy, power pose
+- Thái độ: tự tin, năng lượng mạnh, power pose
 - Góc nhìn: slight low-angle perspective cho dramatic effect
 - Tông màu chủ đạo: teal/cyan, đỏ, vàng gold`,
-    memeStyle: `Cartoon meme fanpage tài chính VN (Money Studio, Bò và Gấu). Nhân vật anthropomorphic streetwear, semi-realistic shading, bold outlines, dynamic low-angle pose. Background: cityscape/speed lines. Tông teal-đỏ-vàng.`,
-    exampleDescription: "Con bò đực nhân hóa, màu nâu, sừng nhọn, mõm hồng. Mặc hoodie xanh teal, sneakers Jordan đỏ, đeo dây chuyền vàng dollar, ngậm xì gà",
-    exampleEmotion: "Tự tin flexing, nhếch mép cười nham hiểm, tay giơ 2 điện thoại",
+    memeStyle: `Cartoon meme fanpage tài chính VN. Nhân vật anthropomorphic streetwear, semi-realistic shading, bold outlines, dynamic low-angle pose. Background: cityscape/speed lines. Tông teal-đỏ-vàng.`,
+    exampleDescription: "Con bò đực nhân hóa, màu nâu, sừng nhọn, mõm hồng. Mặc hoodie xanh teal, sneakers đỏ, đeo dây chuyền vàng",
+    exampleEmotion: "Tự tin flexing, nhếch mép cười, tay giơ 2 điện thoại",
     tags: ["finance", "streetwear", "flex", "trending"],
   },
   {
@@ -161,9 +161,9 @@ export const PROMPT_TEMPLATES: PromptTemplate[] = [
 - Character design edgy: expression ngông, attitude strong
 - Mixed media feel: stencil + freehand + marker
 - Background elements: brick wall, concrete, tags
-- Trang phục: baggy pants, cap ngược, gold chains, bomber jacket`,
+- Trang phục urban/street theo mô tả nhân vật`,
     memeStyle: `Graffiti street art meme. Spray paint texture, bold neon colors, thick irregular lines, urban rebellious energy. Edgy, raw, energetic.`,
-    exampleDescription: "Con khỉ nhân hóa, mặc bomber jacket đen, cap ngược, chain vàng, cầm bình spray paint",
+    exampleDescription: "Con khỉ nhân hóa, mặc bomber jacket đen, cap ngược, cầm bình spray paint",
     exampleEmotion: "Ngông, cười toe toét, tay chỉ thẳng vào camera",
     tags: ["urban", "graffiti", "hiphop", "edgy"],
   },

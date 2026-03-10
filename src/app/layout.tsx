@@ -18,39 +18,39 @@ export const viewport: Viewport = {
   ],
 };
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://meme-factory-bice.vercel.app";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://aida.vn";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Meme Factory — Tạo meme AI cho fanpage Việt Nam",
-    template: "%s | Meme Factory",
+    default: "AIDA — Giải pháp xây dựng fanpage bằng AI",
+    template: "%s | AIDA",
   },
-  description: "Biến ý tưởng thành meme siêu dễ thương với AI. Quản lý nhân vật mascot, tạo nội dung và xuất ảnh cho fanpage chứng khoán, couple, gaming, ẩm thực và nhiều chủ đề khác.",
-  keywords: ["meme", "fanpage", "AI", "Việt Nam", "content creator", "social media", "meme generator", "Gemini AI", "mascot", "chứng khoán", "comic"],
-  authors: [{ name: "Meme Factory" }],
-  creator: "Meme Factory",
+  description: "Xây dựng fanpage chuyên nghiệp với AI. Quản lý nhân vật mascot, tạo nội dung, hình ảnh và meme cho fanpage chứng khoán, couple, gaming, ẩm thực và nhiều chủ đề khác.",
+  keywords: ["AIDA", "fanpage", "AI", "Việt Nam", "content creator", "social media", "xây dựng fanpage", "Gemini AI", "mascot", "meme", "comic"],
+  authors: [{ name: "AIDA" }],
+  creator: "AIDA",
   openGraph: {
-    title: "Meme Factory — Tạo meme AI cho fanpage Việt Nam",
-    description: "Biến ý tưởng thành meme siêu dễ thương. 8 phong cách AI, 15 biểu cảm nhân vật, xuất 4 định dạng. 100% miễn phí!",
+    title: "AIDA — Giải pháp xây dựng fanpage bằng AI",
+    description: "Xây dựng fanpage chuyên nghiệp với AI. Tạo nội dung, hình ảnh, meme với nhân vật mascot riêng. Dành cho content creators Việt Nam.",
     type: "website",
     locale: "vi_VN",
-    siteName: "Meme Factory",
+    siteName: "AIDA",
     url: SITE_URL,
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Meme Factory — Công cụ tạo meme AI cho fanpage Việt Nam",
+        alt: "AIDA — Giải pháp xây dựng fanpage bằng AI",
         type: "image/png",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Meme Factory — Tạo meme AI cho fanpage Việt Nam",
-    description: "Biến ý tưởng thành meme siêu dễ thương. 8 phong cách AI, 15 biểu cảm nhân vật. 100% miễn phí!",
+    title: "AIDA — Giải pháp xây dựng fanpage bằng AI",
+    description: "Xây dựng fanpage chuyên nghiệp với AI. Tạo nội dung, hình ảnh, meme với nhân vật mascot riêng.",
     images: ["/og-image.png"],
   },
   icons: {

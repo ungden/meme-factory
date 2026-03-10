@@ -65,7 +65,7 @@ export async function generateMemeImage(params: {
     )
     .join("\n");
 
-  const defaultMemeStyle = `Phong cách: Cartoon meme fanpage Việt Nam (Money Studio, Bò và Gấu). Nhân vật nhân hóa streetwear, semi-realistic shading, bold outlines, dynamic pose, low-angle perspective. Màu tươi sáng, tông teal/đỏ/vàng.`;
+  const defaultMemeStyle = `Phong cách: Cartoon meme fanpage Việt Nam. Bold outlines, shading rõ ràng, dynamic composition. Màu sắc tươi sáng bão hoà, bắt mắt trên news feed.`;
 
   const prompt = `Bạn là designer chuyên tạo meme cho fanpage comic Việt Nam. Hãy tạo một meme image hoàn chỉnh, chất lượng cao, sẵn sàng đăng social media.
 
@@ -84,7 +84,7 @@ ${style ? `PHONG CÁCH: ${style}` : defaultMemeStyle}
 YÊU CẦU BẮT BUỘC:
 1. TEXT HEADLINE phải: font đậm (bold), kích thước LỚN, có viền đen/shadow để nổi bật trên mọi background, DỄ ĐỌC ngay từ thumbnail
 2. Text tiếng Việt PHẢI CÓ DẤU đầy đủ và chính xác (ă, â, ê, ô, ơ, ư, đ, dấu thanh...)
-3. Nhân vật phải biểu cảm RÕ RÀNG, cute/chibi style, mắt to, đầu to tỉ lệ chibi
+3. Nhân vật phải biểu cảm RÕ RÀNG, phù hợp phong cách đã chọn
 4. Bố cục cân đối, bắt mắt, phù hợp tỉ lệ ${format}, có đủ breathing room giữa text và nhân vật
 5. Màu sắc tươi sáng, bão hoà, nhìn nổi bật trên news feed
 6. Phù hợp đăng lên Facebook, Instagram — thu hút engagement
@@ -152,14 +152,14 @@ export async function generateCharacterPose(params: {
   const { characterName, characterDescription, emotion, style, existingPoseImages } =
     params;
 
-  const defaultStyle = `PHONG CÁCH: 
-- Cartoon nhân hóa (anthropomorphic) style giống fanpage meme tài chính/chứng khoán Việt Nam (Money Studio, Bò và Gấu)
-- Nhân vật con vật mặc đồ streetwear: hoodie, sneakers, dây chuyền vàng, kính mát
-- Semi-realistic cartoon shading — có bóng đổ, texture vải, chi tiết giày rõ
-- Bold outlines, nét vẽ sắc sảo, chất lượng cao
-- Thái độ tự tin, ngông, flexing — kiểu "big boss" energy
-- Góc nhìn dynamic, tư thế mạnh mẽ (power pose), low-angle perspective
-- Màu sắc: teal/cyan, đỏ, vàng gold — tông trendy`;
+  const defaultStyle = `PHONG CÁCH:
+- Cartoon nhân hóa (anthropomorphic) chất lượng cao, phù hợp fanpage meme Việt Nam
+- Bold outlines sắc sảo (2-3px), nét vẽ professional
+- Semi-realistic cartoon shading: có bóng đổ, highlights, texture rõ ràng
+- Trang phục và phụ kiện: THEO MÔ TẢ NHÂN VẬT bên trên (không tự thêm)
+- Biểu cảm khuôn mặt rõ ràng, có cá tính, phù hợp emotion được yêu cầu
+- Tư thế dynamic, có năng lượng, phù hợp tính cách nhân vật
+- Màu sắc tươi sáng, bão hoà, hài hoà với tổng thể`;
 
   const prompt = `Bạn là họa sĩ chuyên vẽ mascot/nhân vật cho fanpage meme Việt Nam (chứng khoán, tài chính, đời sống). Hãy tạo một character illustration chất lượng cao, có cá tính mạnh.
 
@@ -173,10 +173,10 @@ YÊU CẦU BẮT BUỘC:
 1. Full body character (toàn thân), KHÔNG bị cắt, nhìn rõ từ đầu đến chân
 2. Background: TRẮNG TINH (#FFFFFF) hoặc gradient nhạt đơn giản — để dễ tách nền
 3. Bold outlines sắc sảo, chi tiết rõ ràng, professional quality
-4. Biểu cảm khuôn mặt CÓ CÁ TÍNH — nhân vật phải có "thái độ", không hiền lành nhạt nhẽo. Emotion "${emotion}" phải thể hiện rõ trên mặt
-5. Trang phục streetwear/urban: hoodie, sneakers, accessories (dây chuyền, kính, mũ...) — trừ khi mô tả nói khác
-6. Tư thế dynamic, có năng lượng — KHÔNG đứng thẳng tay xuôi nhàm chán
-7. Semi-realistic cartoon rendering: có bóng đổ, highlight, texture vải/da — KHÔNG flat boring
+4. Biểu cảm khuôn mặt: Emotion "${emotion}" phải thể hiện RÕ RÀNG trên mặt — phù hợp tính cách nhân vật
+5. Trang phục và phụ kiện: THEO ĐÚNG MÔ TẢ NHÂN VẬT bên trên — KHÔNG tự thêm trang phục/phụ kiện ngoài mô tả
+6. Tư thế tự nhiên, có năng lượng, phù hợp với emotion và tính cách nhân vật
+7. Rendering chất lượng cao, phù hợp phong cách đã chọn (có thể semi-realistic, chibi, flat... tuỳ style)
 8. KHÔNG có text, chữ viết, watermark, logo trên ảnh
 9. Nhân vật phải có đặc điểm nhận dạng UNIQUE, dễ nhớ, phù hợp làm mascot fanpage
 ${existingPoseImages?.length ? "10. QUAN TRỌNG NHẤT: Giữ CHÍNH XÁC design, phong cách, tỉ lệ cơ thể, màu sắc outfit, và mọi đặc điểm nhận dạng của nhân vật từ các ảnh reference đính kèm. Chỉ thay đổi biểu cảm và tư thế." : ""}`;

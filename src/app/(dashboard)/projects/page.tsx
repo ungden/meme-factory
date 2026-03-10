@@ -53,7 +53,7 @@ export default function ProjectsPage() {
   return (
     <div className="flex">
       <Sidebar />
-      <main className="ml-64 flex-1 p-8">
+      <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
         {/* Dev mode banner */}
         {IS_MOCK_MODE && (
           <div className="mb-6 px-4 py-3 border rounded-xl flex items-center gap-3 th-bg-accent-light th-border-accent">
@@ -111,6 +111,7 @@ export default function ProjectsPage() {
                     </div>
                     <div className="relative">
                       <button
+                        aria-label="Tuỳ chọn dự án"
                         onClick={(e) => {
                           e.stopPropagation();
                           setMenuOpen(menuOpen === project.id ? null : project.id);
@@ -189,7 +190,7 @@ export default function ProjectsPage() {
             <Textarea
               id="project-style"
               label="Phong cách AI"
-              placeholder='VD: "Giong hai huoc, cham biem nhe nhang, dung ngon ngu gen Z..."'
+              placeholder='VD: "Giọng hài hước, châm biếm nhẹ nhàng, dùng ngôn ngữ gen Z..."'
               value={newProject.style_prompt}
               onChange={(e) => setNewProject((p) => ({ ...p, style_prompt: e.target.value }))}
               rows={3}
