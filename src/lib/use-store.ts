@@ -427,6 +427,9 @@ export function useMemes(projectRef: string) {
       body: JSON.stringify({ project_id: project.id, ...input }),
     });
     const data = await res.json();
+    if (!res.ok || !data?.meme) {
+      throw new Error(data?.error || "Không thể lưu meme vào thư viện");
+    }
     await load();
     return data.meme;
   }, [projectRef, load]);

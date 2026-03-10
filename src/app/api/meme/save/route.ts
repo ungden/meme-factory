@@ -49,12 +49,14 @@ export async function POST(request: NextRequest) {
           upsert: false,
         });
 
-      if (!uploadError) {
-        const { data: urlData } = supabase.storage
-          .from("memes")
-          .getPublicUrl(filePath);
-        image_url = urlData.publicUrl;
+      if (uploadError) {
+        return NextResponse.json({ error: `Upload ảnh thất bại: ${uploadError.message}` }, { status: 500 });
       }
+
+      const { data: urlData } = supabase.storage
+        .from("memes")
+        .getPublicUrl(filePath);
+      image_url = urlData.publicUrl;
     }
 
     // Save meme record

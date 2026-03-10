@@ -508,8 +508,8 @@ export default function GeneratePage() {
         image_base64: imageData,
       });
       toast.success("Đã lưu meme vào thư viện!");
-    } catch {
-      toast.error("Không thể lưu meme. Vui lòng thử lại.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không thể lưu meme. Vui lòng thử lại.");
     }
     setSaving(false);
   };
