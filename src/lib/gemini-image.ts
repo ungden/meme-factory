@@ -264,7 +264,7 @@ function extractImageFromResponse(response: any): { image: string; text?: string
 
   const parts = response?.candidates?.[0]?.content?.parts;
   if (!parts || parts.length === 0) {
-    throw new Error("No content returned from Gemini image generation");
+    throw new Error("Không nhận được kết quả từ AI. Vui lòng thử lại.");
   }
 
   for (const part of parts) {
@@ -278,8 +278,8 @@ function extractImageFromResponse(response: any): { image: string; text?: string
 
   if (!imageData) {
     throw new Error(
-      "No image data returned from Gemini. The model may have refused the request or returned text only." +
-        (textContent ? ` Model response: ${textContent}` : "")
+      "AI không tạo được ảnh. Vui lòng thử lại với mô tả khác." +
+        (textContent ? ` Phản hồi: ${textContent}` : "")
     );
   }
 

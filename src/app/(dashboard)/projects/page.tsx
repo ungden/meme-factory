@@ -59,7 +59,7 @@ export default function ProjectsPage() {
           <div className="mb-6 px-4 py-3 border rounded-xl flex items-center gap-3 th-bg-accent-light th-border-accent">
             <Zap size={18} className="th-text-accent" />
             <p className="text-sm th-text-accent">
-               <strong>Chế độ Dev</strong> — Đang chạy với dữ liệu mẫu. Kết nối Supabase + Gemini để go live.
+               <strong>Chế độ Dev</strong> — Đang chạy với dữ liệu mẫu. Kết nối database để go live.
             </p>
           </div>
         )}

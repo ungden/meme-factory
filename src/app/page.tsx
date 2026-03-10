@@ -341,7 +341,7 @@ export default function Home() {
             {/* Text content */}
             <div className="flex-1 text-center lg:text-left">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-6 th-bg-accent-light th-text-accent border" style={{ borderColor: "var(--accent-border)" }}>
-                <Zap size={14} /> Được hỗ trợ bởi Gemini AI
+                <Zap size={14} /> Được hỗ trợ bởi AIDA AI
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold th-text-primary mb-6 leading-tight animate-fade-up">
                 Xây dựng fanpage<br />
@@ -595,7 +595,7 @@ export default function Home() {
             <FeatureCard
               icon={<ImageIcon size={24} />}
               title="AI tạo ảnh"
-              description="Gemini AI tạo ảnh meme hoàn chỉnh với nhân vật, text overlay và background. Hoặc dùng Canvas tự ghép."
+              description="AIDA AI tạo ảnh meme hoàn chỉnh với nhân vật, text overlay và background. Hoặc dùng Canvas tự ghép."
               gradient="from-emerald-500 to-teal-500"
               mascot={<ChickMascot className="w-28 h-28 opacity-[0.15] absolute -bottom-4 -right-4 transition-all duration-500 group-hover:scale-110 group-hover:-rotate-3 group-hover:opacity-30" />}
             />
@@ -823,7 +823,7 @@ export default function Home() {
               </div>
             </div>
             <div className="flex items-center gap-6 text-sm th-text-muted">
-              <span>Powered by Gemini AI</span>
+              <span>Powered by AIDA AI</span>
               <span>|</span>
               <span>Dành cho content creators Việt Nam</span>
             </div>

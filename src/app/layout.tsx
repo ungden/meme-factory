@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     template: "%s | AIDA",
   },
   description: "Xây dựng fanpage chuyên nghiệp với AI. Quản lý nhân vật mascot, tạo nội dung, hình ảnh và meme cho fanpage chứng khoán, couple, gaming, ẩm thực và nhiều chủ đề khác.",
-  keywords: ["AIDA", "fanpage", "AI", "Việt Nam", "content creator", "social media", "xây dựng fanpage", "Gemini AI", "mascot", "meme", "comic"],
+  keywords: ["AIDA", "fanpage", "AI", "Việt Nam", "content creator", "social media", "xây dựng fanpage", "AIDA AI", "mascot", "meme", "comic"],
   authors: [{ name: "AIDA" }],
   creator: "AIDA",
   openGraph: {

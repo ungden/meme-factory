@@ -645,7 +645,7 @@ export default function GeneratePage() {
                         <div className="text-center">
                           <p className="th-text-primary font-semibold text-lg">Tạo ảnh meme bằng AI</p>
                           <p className="th-text-tertiary text-sm mt-1 max-w-sm">
-                            Gemini AI sẽ tạo ảnh meme hoàn chỉnh dựa trên nội dung, nhân vật và phong cách đã chọn
+                            AIDA AI sẽ tạo ảnh meme hoàn chỉnh dựa trên nội dung, nhân vật và phong cách đã chọn
                           </p>
                         </div>
                         <Button size="lg" onClick={handleAiGenerate}>
