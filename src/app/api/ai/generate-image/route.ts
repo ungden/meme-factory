@@ -86,16 +86,16 @@ export async function POST(request: NextRequest) {
             format, style, backgroundDescription, referenceImages, customPrompt,
           } = body;
 
-          if (!headline) {
+          if (!headline && !customPrompt) {
             // Refund points since we already deducted
             if (cost > 0) {
               await supabaseAdmin.rpc("atomic_refund_points", {
                 _user_id: user.id, _cost: cost,
-                _description: `Hoàn ${cost} pts — thiếu headline`,
+                _description: `Hoàn ${cost} pts — thiếu headline/prompt`,
               });
             }
             return NextResponse.json(
-              { error: "headline is required for meme generation" },
+              { error: "Cần headline hoặc prompt mô tả để tạo meme" },
               { status: 400 }
             );
           }
