@@ -67,14 +67,17 @@ export async function generateMemeImage(params: {
     )
     .join("\n");
 
+  const hasHeadline = Boolean(headline?.trim());
+  const requiredCharacters = characters.map((c) => c.name).filter(Boolean);
+
   const defaultMemeStyle = `Phong cách: Cartoon meme fanpage Việt Nam. Bold outlines, shading rõ ràng, dynamic composition. Màu sắc tươi sáng bão hoà, bắt mắt trên news feed.`;
 
   const prompt = `Bạn là designer chuyên tạo meme cho fanpage comic Việt Nam. Hãy tạo một meme image hoàn chỉnh, chất lượng cao, sẵn sàng đăng social media.
 
-HEADLINE TEXT (viết lên ảnh, font đậm nổi bật): "${headline}"
-${subtext ? `SUBTEXT (nhỏ hơn, bên dưới headline): "${subtext}"` : ""}
+${hasHeadline ? `HEADLINE TEXT (viết lên ảnh, font đậm nổi bật): "${headline}"` : "TEXT OVERLAY: KHÔNG chèn chữ lên ảnh. Tuyệt đối không render headline/subtext/watermark."}
+${hasHeadline && subtext ? `SUBTEXT (nhỏ hơn, bên dưới headline): "${subtext}"` : ""}
 Tone/Mood: ${tone}
-Bố cục text: ${textPosition === "top" ? "Text ở phía trên ảnh" : textPosition === "bottom" ? "Text ở phía dưới ảnh" : textPosition === "center" ? "Text ở chính giữa" : "Text phía trên"}
+${hasHeadline ? `Bố cục text: ${textPosition === "top" ? "Text ở phía trên ảnh" : textPosition === "bottom" ? "Text ở phía dưới ảnh" : textPosition === "center" ? "Text ở chính giữa" : "Text phía trên"}` : "Bố cục: tập trung vào hình minh hoạ, không dành vùng cho text."}
 
 NHÂN VẬT trong ảnh:
 ${charDescriptions || "(Không có nhân vật cụ thể — tạo illustration/scene phù hợp với nội dung meme)"}
@@ -83,10 +86,11 @@ ${backgroundDescription ? `BACKGROUND: ${backgroundDescription}` : "Background: 
 
 ${style ? `PHONG CÁCH: ${style}` : defaultMemeStyle}
 ${customPrompt ? `\nYÊU CẦU BỔ SUNG TỪ NGƯỜI DÙNG: ${customPrompt}` : ""}
+${requiredCharacters.length ? `\nNHÂN VẬT BẮT BUỘC PHẢI XUẤT HIỆN: ${requiredCharacters.join(", ")}. Không được thay thế bằng nhân vật generic.` : ""}
 
 YÊU CẦU BẮT BUỘC:
-1. TEXT HEADLINE phải: font đậm (bold), kích thước LỚN, có viền đen/shadow để nổi bật trên mọi background, DỄ ĐỌC ngay từ thumbnail
-2. Text tiếng Việt PHẢI CÓ DẤU đầy đủ và chính xác (ă, â, ê, ô, ơ, ư, đ, dấu thanh...)
+1. ${hasHeadline ? "TEXT HEADLINE phải: font đậm (bold), kích thước LỚN, có viền đen/shadow để nổi bật trên mọi background, DỄ ĐỌC ngay từ thumbnail" : "KHÔNG hiển thị bất kỳ chữ nào trên ảnh (no text, no watermark, no logo)."}
+2. ${hasHeadline ? "Text tiếng Việt PHẢI CÓ DẤU đầy đủ và chính xác (ă, â, ê, ô, ơ, ư, đ, dấu thanh...)" : "Không có text trong ảnh."}
 3. Nhân vật phải biểu cảm RÕ RÀNG, phù hợp phong cách đã chọn
 4. Bố cục cân đối, bắt mắt, phù hợp tỉ lệ ${format}, có đủ breathing room giữa text và nhân vật
 5. Màu sắc tươi sáng, bão hoà, nhìn nổi bật trên news feed

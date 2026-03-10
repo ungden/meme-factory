@@ -9,15 +9,12 @@ import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import Input from "@/components/ui/input";
 import Textarea from "@/components/ui/textarea";
 import Modal from "@/components/ui/modal";
-import MemeCanvas, { MemeCanvasHandle } from "@/components/meme/meme-canvas";
 import { useToast } from "@/components/ui/toast";
-import { Zap, Sparkles, Download, Save, RotateCcw, ChevronRight, Check, Wand2, Layers, ImageIcon, Loader2, Upload, X, Tags, Plus } from "lucide-react";
+import { Zap, Sparkles, Download, Save, RotateCcw, ChevronRight, Check, Wand2, ImageIcon, Loader2, Upload, X, Tags, Plus } from "lucide-react";
 import type { MemeContent, MemeFormat, SelectedCharacter, EmotionTag } from "@/types/database";
 import { FORMAT_DIMENSIONS } from "@/types/database";
 import { useWallet } from "@/contexts/WalletContext";
 import { POINT_COSTS, hasEnoughPoints } from "@/lib/point-pricing";
-
-type RenderMode = "canvas" | "ai";
 
 interface ContentVariation {
   content: MemeContent;
@@ -37,7 +34,6 @@ interface ContentVariation {
 export default function GeneratePage() {
   const params = useParams();
   const projectId = params.id as string;
-  const canvasRef = useRef<MemeCanvasHandle>(null);
 
   const { project, loading: projLoading } = useProject(projectId);
   const { characters, loading: charsLoading, createCharacter } = useCharacters(projectId);
@@ -54,21 +50,12 @@ export default function GeneratePage() {
   const [variations, setVariations] = useState<ContentVariation[]>([]);
   const [selectedVariation, setSelectedVariation] = useState(0);
   const [format, setFormat] = useState<MemeFormat>("1:1");
-  const [showWatermark, setShowWatermark] = useState(true);
-  const [bgColor, setBgColor] = useState("#1a1a2e");
   const [saving, setSaving] = useState(false);
 
-  // Phase 3: AI/Canvas render mode
-  const [renderMode, setRenderMode] = useState<RenderMode>("canvas");
+  // AI image generation
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiImageBase64, setAiImageBase64] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
-
-  // Phase 5: AI background generation
-  const [bgPrompt, setBgPrompt] = useState("");
-  const [bgGenerating, setBgGenerating] = useState(false);
-  const [bgImageBase64, setBgImageBase64] = useState<string | null>(null);
-  const [bgError, setBgError] = useState<string | null>(null);
 
   // Reference images for meme ideas
   const [refImages, setRefImages] = useState<{ file: File; preview: string; base64: string; mimeType: string }[]>([]);
@@ -327,10 +314,12 @@ export default function GeneratePage() {
     const normalizedIdea = idea.trim();
     if (!normalizedIdea) return;
 
+    const promptWithoutMentions = normalizedIdea.replace(/@([\p{L}\p{N}_\-\s]+)/gu, "$1").trim();
+
     const selectedChars = characters.filter((c) => selectedCharacterIds.has(c.id));
     const directVariation: ContentVariation = {
       content: {
-        headline: normalizedIdea.length > 70 ? `${normalizedIdea.slice(0, 67)}...` : normalizedIdea,
+        headline: "",
         subtext: undefined,
         caption: undefined,
         tone: "theo ý tưởng người dùng",
@@ -351,7 +340,7 @@ export default function GeneratePage() {
           reasoning: "Người dùng chọn thủ công",
         };
       }),
-      headline: normalizedIdea.length > 70 ? `${normalizedIdea.slice(0, 67)}...` : normalizedIdea,
+      headline: "",
       subtext: undefined,
       caption: undefined,
       tone: "theo ý tưởng người dùng",
@@ -361,21 +350,8 @@ export default function GeneratePage() {
     setVariations([directVariation]);
     setSelectedVariation(0);
     setTaggedCharacterIds(new Set(selectedChars.map((c) => c.id)));
+    setAiCustomPrompt((prev) => (prev.trim() ? prev : promptWithoutMentions));
     setStep(3);
-    setRenderMode("ai");
-  };
-
-  const getCanvasCharacters = () => {
-    if (!variations[selectedVariation]) return [];
-    return variations[selectedVariation].suggested_characters
-      .map((sc) => {
-        const char = characters.find((c) => c.id === sc.character_id);
-        if (!char) return null;
-        const pose = char.poses.find((p) => p.id === sc.pose_id) || char.poses[0];
-        if (!pose) return null;
-        return { ...sc, pose_id: pose.id, pose_image_url: pose.image_url };
-      })
-      .filter(Boolean) as (SelectedCharacter & { pose_image_url: string })[];
   };
 
   // Phase 3: Generate meme with AI
@@ -462,7 +438,7 @@ export default function GeneratePage() {
         format,
         style: project?.style_prompt || undefined,
         customPrompt: aiCustomPrompt.trim() || undefined,
-        backgroundDescription: bgImageBase64 ? undefined : bgPrompt || undefined,
+        backgroundDescription: undefined,
         referenceImages: mergedRefImages.length > 0
           ? mergedRefImages.map((img) => ({ base64: img.base64, mimeType: img.mimeType }))
           : undefined,
@@ -482,58 +458,11 @@ export default function GeneratePage() {
     setAiGenerating(false);
   };
 
-  // Phase 5: Generate background with AI
-  const handleBgGenerate = async () => {
-    if (!bgPrompt.trim()) return;
-
-    // Check points
-    if (!hasEnoughPoints(points, "background")) {
-      toast.error(`Không đủ points. Tạo background cần ${POINT_COSTS.background} points, bạn có ${points} points.`);
-      return;
-    }
-
-    setBgGenerating(true);
-    setBgError(null);
-    setBgImageBase64(null);
-
-    try {
-      const v = variations[selectedVariation];
-      const result = await generateImage({
-        type: "background",
-        description: bgPrompt.trim(),
-        mood: v?.tone,
-        format,
-      });
-
-      if (result.error) {
-        setBgError(result.error);
-      } else if (result.image) {
-        setBgImageBase64(result.image);
-        refreshBalance();
-      }
-    } catch (err) {
-      setBgError(err instanceof Error ? err.message : "Lỗi không xác định khi tạo background");
-    }
-
-    setBgGenerating(false);
-  };
-
   const handleExport = () => {
-    if (renderMode === "ai" && aiImageBase64) {
-      // Download AI-generated image
-      const link = document.createElement("a");
-      link.download = `meme-ai-${Date.now()}.png`;
-      link.href = `data:image/png;base64,${aiImageBase64}`;
-      link.click();
-      return;
-    }
-
-    // Canvas mode export
-    const dataUrl = canvasRef.current?.exportImage();
-    if (!dataUrl) return;
+    if (!aiImageBase64) return;
     const link = document.createElement("a");
-    link.download = `meme-${Date.now()}.png`;
-    link.href = dataUrl;
+    link.download = `meme-ai-${Date.now()}.png`;
+    link.href = `data:image/png;base64,${aiImageBase64}`;
     link.click();
   };
 
@@ -541,13 +470,12 @@ export default function GeneratePage() {
     if (!variations[selectedVariation]) return;
     setSaving(true);
 
-    let imageData: string | null | undefined;
-
-    if (renderMode === "ai" && aiImageBase64) {
-      imageData = `data:image/png;base64,${aiImageBase64}`;
-    } else {
-      imageData = canvasRef.current?.exportImage();
+    if (!aiImageBase64) {
+      toast.error("Bạn cần tạo ảnh AI trước khi lưu");
+      setSaving(false);
+      return;
     }
+    const imageData = `data:image/png;base64,${aiImageBase64}`;
 
     const v = variations[selectedVariation];
     try {
@@ -556,7 +484,7 @@ export default function GeneratePage() {
         generated_content: v.content,
         selected_characters: v.suggested_characters,
         format,
-        has_watermark: showWatermark,
+        has_watermark: false,
         image_base64: imageData,
       });
       toast.success("Đã lưu meme vào thư viện!");
@@ -573,9 +501,6 @@ export default function GeneratePage() {
     setSelectedVariation(0);
     setAiImageBase64(null);
     setAiError(null);
-    setBgImageBase64(null);
-    setBgPrompt("");
-    setBgError(null);
     setAiCustomPrompt("");
     setTaggedCharacterIds(new Set());
     setSelectedCharacterIds(new Set());
@@ -903,61 +828,7 @@ export default function GeneratePage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Preview area */}
             <div className="lg:col-span-2 space-y-4">
-              {/* Render Mode Toggle */}
-              <Card>
-                <CardContent>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium th-text-secondary mr-2">Chế độ tạo ảnh:</span>
-                    <button
-                      onClick={() => { setRenderMode("canvas"); setAiError(null); }}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-                        renderMode === "canvas"
-                          ? "th-border-accent th-bg-accent-light th-text-accent"
-                          : "th-bg-tertiary th-text-secondary border-transparent th-bg-hover"
-                      }`}
-                    >
-                      <Layers size={16} />
-                      Canvas
-                    </button>
-                    <button
-                      onClick={() => { setRenderMode("ai"); }}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-                        renderMode === "ai"
-                          ? "th-border-accent th-bg-accent-light th-text-accent"
-                          : "th-bg-tertiary th-text-secondary border-transparent th-bg-hover"
-                      }`}
-                    >
-                      <Wand2 size={16} />
-                      AI Generate
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: "rgba(139,92,246,0.15)", color: "#8b5cf6" }}>
-                        {POINT_COSTS.meme} pts
-                      </span>
-                    </button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Canvas Mode Preview */}
-              {renderMode === "canvas" && (
-                <Card>
-                  <CardContent className="flex justify-center p-6">
-                    <MemeCanvas
-                      ref={canvasRef}
-                      content={variations[selectedVariation].content}
-                      characters={getCanvasCharacters()}
-                      format={format}
-                      watermarkUrl={project?.watermark_url}
-                      watermarkPosition={project?.watermark_position}
-                      watermarkOpacity={project?.watermark_opacity}
-                      showWatermark={showWatermark}
-                      backgroundColor={bgColor}
-                    />
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* AI Mode Preview */}
-              {renderMode === "ai" && (
+              {/* AI Preview */}
                 <Card>
                   <CardContent className="p-6">
                     {/* No image yet — show generate button */}
@@ -1033,7 +904,6 @@ export default function GeneratePage() {
                     )}
                   </CardContent>
                 </Card>
-              )}
             </div>
 
             {/* Controls sidebar */}
@@ -1055,7 +925,6 @@ export default function GeneratePage() {
               </Card>
 
               {/* AI reference and prompt controls */}
-              {renderMode === "ai" && (
                 <Card>
                   <CardHeader><h3 className="text-sm font-semibold th-text-primary">Ref ảnh + Prompt AI</h3></CardHeader>
                   <CardContent className="space-y-3">
@@ -1148,109 +1017,9 @@ export default function GeneratePage() {
                     </div>
                   </CardContent>
                 </Card>
-              )}
+              
 
-              {/* Background — only show for Canvas mode */}
-              {renderMode === "canvas" && (
-                <Card>
-                  <CardHeader><h3 className="text-sm font-semibold th-text-primary">Hình nền</h3></CardHeader>
-                  <CardContent className="space-y-3">
-                    {/* Color swatches */}
-                    <div className="flex gap-2 flex-wrap">
-                      {["#1a1a2e", "#16213e", "#0f3460", "#533483", "#e94560", "#1b1b2f", "#162447", "#1f4068", "#e8e8e8", "#ffffff"].map((color) => (
-                        <button key={color} onClick={() => { setBgColor(color); setBgImageBase64(null); }}
-                          className={`w-9 h-9 rounded-lg border-2 transition-all ${bgColor === color && !bgImageBase64 ? "scale-110" : "th-bg-hover"}`}
-                          style={{
-                            backgroundColor: color,
-                            borderColor: bgColor === color && !bgImageBase64 ? "var(--accent)" : "var(--border-primary)",
-                          }} />
-                      ))}
-                      <input type="color" value={bgColor} onChange={(e) => { setBgColor(e.target.value); setBgImageBase64(null); }} className="w-9 h-9 rounded-lg cursor-pointer border-0" />
-                    </div>
-
-                    {/* Phase 5: AI Background Generation */}
-                    <div className="pt-2 space-y-2" style={{ borderTop: "1px solid var(--border-primary)" }}>
-                      <p className="text-xs font-medium th-text-tertiary flex items-center gap-1.5">
-                        <ImageIcon size={12} />
-                        AI Background
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: "rgba(139,92,246,0.15)", color: "#8b5cf6" }}>
-                          {POINT_COSTS.background} pts
-                        </span>
-                      </p>
-                      <div className="flex gap-2">
-                        <Input
-                          id="bg-prompt"
-                          placeholder="VD: Phố cổ Hà Nội buổi tối..."
-                          value={bgPrompt}
-                          onChange={(e) => setBgPrompt(e.target.value)}
-                          className="text-xs flex-1"
-                        />
-                        <Button
-                          size="sm"
-                          onClick={handleBgGenerate}
-                          loading={bgGenerating}
-                          disabled={!bgPrompt.trim()}
-                        >
-                          <Wand2 size={14} />
-                        </Button>
-                      </div>
-
-                      {bgError && (
-                        <p className="text-xs th-text-danger">{bgError}</p>
-                      )}
-
-                      {bgImageBase64 && (
-                        <div className="space-y-2">
-                          <div className="relative rounded-lg overflow-hidden">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={`data:image/png;base64,${bgImageBase64}`}
-                              alt="AI generated background"
-                              className="w-full h-24 object-cover rounded-lg"
-                            />
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 text-xs"
-                              onClick={() => setBgImageBase64(null)}
-                            >
-                              Xoá
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 text-xs"
-                              onClick={handleBgGenerate}
-                              loading={bgGenerating}
-                            >
-                              Tạo lại ({POINT_COSTS.background} pts)
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Watermark — only show for Canvas mode */}
-              {renderMode === "canvas" && (
-                <Card>
-                  <CardContent>
-                    <label className="flex items-center justify-between cursor-pointer">
-                      <span className="text-sm th-text-secondary">Thêm watermark</span>
-                      <div className="relative w-11 h-6 rounded-full transition-colors cursor-pointer"
-                        style={{ background: showWatermark ? "var(--accent)" : "var(--border-secondary)" }}
-                        onClick={() => setShowWatermark(!showWatermark)}>
-                        <div className="absolute top-0.5 w-5 h-5 rounded-full transition-transform"
-                          style={{ background: "var(--bg-primary)", transform: showWatermark ? "translateX(22px)" : "translateX(2px)" }} />
-                      </div>
-                    </label>
-                  </CardContent>
-                </Card>
-              )}
+              
 
               {/* Caption */}
               {variations[selectedVariation].caption && (
@@ -1275,7 +1044,7 @@ export default function GeneratePage() {
                   className="w-full"
                   size="lg"
                   onClick={handleExport}
-                  disabled={renderMode === "ai" && !aiImageBase64}
+                  disabled={!aiImageBase64}
                 >
                   <Download size={18} /> Tải xuống PNG
                 </Button>
@@ -1285,7 +1054,7 @@ export default function GeneratePage() {
                   size="lg"
                   onClick={handleSave}
                   loading={saving}
-                  disabled={renderMode === "ai" && !aiImageBase64}
+                  disabled={!aiImageBase64}
                 >
                   <Save size={18} /> Lưu vào thư viện
                 </Button>
