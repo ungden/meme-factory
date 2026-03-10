@@ -440,6 +440,19 @@ export default function GeneratePage() {
         setAiError(result.error);
       } else if (result.image) {
         setAiImageBase64(result.image);
+        try {
+          await saveMeme({
+            original_idea: idea,
+            generated_content: v.content,
+            selected_characters: v.suggested_characters,
+            format,
+            has_watermark: false,
+            image_base64: `data:image/png;base64,${result.image}`,
+          });
+          toast.success("Đã tự động lưu vào bộ sưu tập");
+        } catch (saveErr) {
+          toast.error(saveErr instanceof Error ? saveErr.message : "Tạo ảnh xong nhưng lưu bộ sưu tập thất bại");
+        }
         // Refresh wallet to show updated points
         refreshBalance();
       }
