@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = (await request.json()) as GenerateContentRequest;
-    const { project_id, idea, tone, num_variations, referenceImages } = body;
+    const { project_id, idea, tone, num_variations, referenceImages, adHocCharacters } = body;
 
     // Verify project ownership
     const { data: project } = await supabase
@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
       idea: tone ? `${idea} (Tone: ${tone})` : idea,
       projectStyle: project.style_prompt || undefined,
       characters: characterData,
+      adHocCharacters,
       numVariations: num_variations || 3,
       referenceImages,
     });

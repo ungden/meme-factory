@@ -131,6 +131,7 @@ export interface GenerateContentRequest {
   idea: string;
   tone?: string;
   characters?: { id: string; name: string; personality: string }[];
+  adHocCharacters?: string[];
   num_variations?: number; // how many content versions to generate
   referenceImages?: ReferenceImage[];
 }

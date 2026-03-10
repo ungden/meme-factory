@@ -91,8 +91,12 @@ YÊU CẦU BẮT BUỘC:
 4. Bố cục cân đối, bắt mắt, phù hợp tỉ lệ ${format}, có đủ breathing room giữa text và nhân vật
 5. Màu sắc tươi sáng, bão hoà, nhìn nổi bật trên news feed
 6. Phù hợp đăng lên Facebook, Instagram — thu hút engagement
-${characters.some((c) => c.poseImageBase64) ? "7. QUAN TRỌNG NHẤT: Giữ CHÍNH XÁC phong cách, màu sắc, đặc điểm nhận dạng của nhân vật từ ảnh reference đính kèm" : ""}
-${referenceImages?.length ? `${characters.some((c) => c.poseImageBase64) ? "8" : "7"}. ẢNH THAM KHẢO: User đính kèm ${referenceImages.length} ảnh reference. Hãy tham khảo bố cục, style, mood, context từ các ảnh này khi tạo meme. Nếu ảnh là meme mẫu → tham khảo cách bố trí. Nếu ảnh là tin tức/biểu đồ → lấy context thông tin.` : ""}`;
+${characters.some((c) => c.poseImageBase64)
+  ? "7. QUAN TRỌNG NHẤT: PHẢI giữ đúng nhận diện nhân vật từ ảnh tham chiếu (mặt, màu lông/da, quần áo, phụ kiện, tỉ lệ). KHÔNG thay thành nhân vật generic."
+  : ""}
+${referenceImages?.length
+  ? `${characters.some((c) => c.poseImageBase64) ? "8" : "7"}. ẢNH THAM KHẢO NGỮ CẢNH: User đính kèm ${referenceImages.length} ảnh. Chỉ dùng để học bố cục/mood/context.`
+  : ""}`;
 
   // Build content parts: text prompt + reference images
   const contents: (
@@ -100,9 +104,12 @@ ${referenceImages?.length ? `${characters.some((c) => c.poseImageBase64) ? "8" :
     | { inlineData: { mimeType: string; data: string } }
   )[] = [{ text: prompt }];
 
-  // Add user reference images first (up to 4)
+  // Add user reference images first (up to 10 for object/style/context)
   if (referenceImages) {
-    for (const img of referenceImages.slice(0, 4)) {
+    for (const [idx, img] of referenceImages.slice(0, 10).entries()) {
+      contents.push({
+        text: `Ảnh tham khảo ngữ cảnh #${idx + 1}: dùng để học bố cục, ánh sáng, bối cảnh.`,
+      });
       contents.push({
         inlineData: {
           mimeType: img.mimeType,
@@ -115,6 +122,9 @@ ${referenceImages?.length ? `${characters.some((c) => c.poseImageBase64) ? "8" :
   // Add character reference images (up to 4 for character consistency)
   const charImages = characters.filter((c) => c.poseImageBase64);
   for (const char of charImages.slice(0, 4)) {
+    contents.push({
+      text: `Ảnh nhân vật tham chiếu: ${char.name}. PHẢI giữ nhận diện nhân vật này, chỉ thay đổi hành động/biểu cảm theo yêu cầu.`,
+    });
     contents.push({
       inlineData: {
         mimeType: char.poseMimeType || "image/png",

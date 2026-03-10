@@ -33,11 +33,12 @@ export async function generateMemeContent(params: {
     description: string;
     available_emotions: string[];
   }[];
+  adHocCharacters?: string[];
   numVariations?: number;
   referenceImages?: { base64: string; mimeType: string }[];
 }): Promise<MemeContentResult[]> {
   const ai = getClient();
-  const { idea, projectStyle, characters, numVariations = 3, referenceImages } = params;
+  const { idea, projectStyle, characters, adHocCharacters = [], numVariations = 3, referenceImages } = params;
 
   const characterList = characters
     .map(
@@ -58,15 +59,20 @@ ${hasRefImages ? `\nẢNH THAM KHẢO: User đã đính kèm ${referenceImages!.
 ${projectStyle ? `PHONG CÁCH FANPAGE: ${projectStyle}` : ""}
 
 CÁC NHÂN VẬT CÓ SẴN:
-${characterList}
+${characterList || "(Chưa có nhân vật sẵn)"}
+
+NHÂN VẬT MENTION MỘT LẦN (không cần có trong thư viện):
+${adHocCharacters.length > 0 ? adHocCharacters.map((n) => `- ${n}`).join("\n") : "(Không có)"}
 
 YÊU CẦU:
 1. Headline: Ngắn gọn, dễ đọc trên ảnh (tối đa 50 ký tự), đúng giọng meme Việt Nam
 2. Subtext (optional): Câu phụ bổ sung nếu cần (tối đa 30 ký tự)
 3. Caption: Nội dung đăng kèm trên social media (2-3 câu)
-4. Chọn nhân vật phù hợp nhất với nội dung, giải thích lý do
-5. Gợi ý biểu cảm phù hợp từ danh sách có sẵn
-6. Gợi ý vị trí text (top/bottom/center/split)
+4. Nếu có nhân vật sẵn thì ưu tiên chọn nhân vật phù hợp nhất với nội dung, giải thích lý do
+5. Nếu có nhân vật mention một lần thì được phép dùng chúng dù không có trong thư viện
+6. Nếu không có nhân vật phù hợp thì để mảng suggested_characters rỗng []
+7. Gợi ý biểu cảm phù hợp từ danh sách có sẵn (nếu dùng nhân vật thư viện)
+8. Gợi ý vị trí text (top/bottom/center/split)
 
 Trả về JSON array, mỗi phần tử có format:
 {

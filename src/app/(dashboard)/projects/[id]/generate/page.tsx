@@ -8,9 +8,10 @@ import Button from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import Input from "@/components/ui/input";
 import Textarea from "@/components/ui/textarea";
+import Modal from "@/components/ui/modal";
 import MemeCanvas, { MemeCanvasHandle } from "@/components/meme/meme-canvas";
 import { useToast } from "@/components/ui/toast";
-import { Zap, Sparkles, Download, Save, RotateCcw, ChevronRight, Check, Wand2, Layers, ImageIcon, Loader2, Upload, X, Tags } from "lucide-react";
+import { Zap, Sparkles, Download, Save, RotateCcw, ChevronRight, Check, Wand2, Layers, ImageIcon, Loader2, Upload, X, Tags, Plus } from "lucide-react";
 import type { MemeContent, MemeFormat, SelectedCharacter, EmotionTag } from "@/types/database";
 import { FORMAT_DIMENSIONS } from "@/types/database";
 import { useWallet } from "@/contexts/WalletContext";
@@ -39,7 +40,7 @@ export default function GeneratePage() {
   const canvasRef = useRef<MemeCanvasHandle>(null);
 
   const { project, loading: projLoading } = useProject(projectId);
-  const { characters, loading: charsLoading } = useCharacters(projectId);
+  const { characters, loading: charsLoading, createCharacter } = useCharacters(projectId);
   const { saveMeme } = useMemes(projectId);
 
   const toast = useToast();
@@ -72,10 +73,20 @@ export default function GeneratePage() {
   // Reference images for meme ideas
   const [refImages, setRefImages] = useState<{ file: File; preview: string; base64: string; mimeType: string }[]>([]);
   const refInputRef = useRef<HTMLInputElement>(null);
+  const imageDataCacheRef = useRef<Record<string, { base64: string; mimeType: string }>>({});
   const [aiRefImages, setAiRefImages] = useState<{ file: File; preview: string; base64: string; mimeType: string }[]>([]);
   const aiRefInputRef = useRef<HTMLInputElement>(null);
   const [aiCustomPrompt, setAiCustomPrompt] = useState("");
   const [taggedCharacterIds, setTaggedCharacterIds] = useState<Set<string>>(new Set());
+  const [oneOffCharacters, setOneOffCharacters] = useState<string[]>([]);
+  const [oneOffInput, setOneOffInput] = useState("");
+  const [showQuickCharacterModal, setShowQuickCharacterModal] = useState(false);
+  const [quickCharacterSaving, setQuickCharacterSaving] = useState(false);
+  const [quickCharacterForm, setQuickCharacterForm] = useState({
+    name: "",
+    description: "",
+    personality: "",
+  });
   const MAX_REF_IMAGES = 4;
   const MAX_REF_SIZE_MB = 5;
 
@@ -92,6 +103,17 @@ export default function GeneratePage() {
       reader.readAsDataURL(file);
     });
   };
+
+  const imageUrlToInlineData = useCallback(async (url: string) => {
+    if (imageDataCacheRef.current[url]) return imageDataCacheRef.current[url];
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Không thể tải ảnh nhân vật (${response.status})`);
+    const blob = await response.blob();
+    const base64 = await fileToBase64(new File([blob], "character-ref", { type: blob.type || "image/png" }));
+    const data = { base64, mimeType: blob.type || "image/png" };
+    imageDataCacheRef.current[url] = data;
+    return data;
+  }, []);
 
   const addRefImages = useCallback(async (files: File[]) => {
     const remaining = MAX_REF_IMAGES - refImages.length;
@@ -160,6 +182,55 @@ export default function GeneratePage() {
     });
   };
 
+  const appendMentionToIdea = (name: string) => {
+    setIdea((prev) => `${prev.trimEnd()} @${name} `.trimStart());
+  };
+
+  const addOneOffCharacter = () => {
+    const value = oneOffInput.trim().replace(/^@+/, "");
+    if (!value) return;
+    if (oneOffCharacters.some((n) => n.toLowerCase() === value.toLowerCase())) {
+      setOneOffInput("");
+      return;
+    }
+    setOneOffCharacters((prev) => [...prev, value]);
+    appendMentionToIdea(value);
+    setOneOffInput("");
+  };
+
+  const removeOneOffCharacter = (name: string) => {
+    setOneOffCharacters((prev) => prev.filter((n) => n !== name));
+  };
+
+  const openQuickCharacterModal = () => {
+    setQuickCharacterForm({ name: "", description: "", personality: "" });
+    setShowQuickCharacterModal(true);
+  };
+
+  const handleQuickCreateCharacter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = quickCharacterForm.name.trim();
+    if (!name) return;
+    setQuickCharacterSaving(true);
+    try {
+      const created = await createCharacter({
+        name,
+        description: quickCharacterForm.description.trim() || `Nhân vật ${name}`,
+        personality: quickCharacterForm.personality.trim() || "Linh hoạt theo ngữ cảnh meme",
+      });
+      if (created) {
+        appendMentionToIdea(created.name);
+        toast.success(`Đã tạo nhanh nhân vật "${created.name}"`);
+        setShowQuickCharacterModal(false);
+      } else {
+        toast.error("Không thể tạo nhân vật. Vui lòng thử lại.");
+      }
+    } catch {
+      toast.error("Không thể tạo nhân vật. Vui lòng thử lại.");
+    }
+    setQuickCharacterSaving(false);
+  };
+
   // Clipboard paste handler for reference images (Step 1 only)
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
@@ -200,6 +271,7 @@ export default function GeneratePage() {
         idea: idea.trim(),
         characters,
         projectStyle: project?.style_prompt || undefined,
+        adHocCharacters: oneOffCharacters,
         referenceImages: refImages.length > 0
           ? refImages.map((img) => ({ base64: img.base64, mimeType: img.mimeType }))
           : undefined,
@@ -272,10 +344,11 @@ export default function GeneratePage() {
 
     try {
       const taggedCharacters = characters.filter((c) => taggedCharacterIds.has(c.id));
-      const sourceCharacters = taggedCharacters.length > 0
+      const sourceCharacterInputs = taggedCharacters.length > 0
         ? taggedCharacters.map((char) => {
             const suggested = v.suggested_characters.find((sc) => sc.character_id === char.id);
             return {
+              id: char.id,
               name: char.name,
               emotion: suggested?.suggested_emotion || suggested?.emotion || "neutral",
               description: char.description,
@@ -284,11 +357,46 @@ export default function GeneratePage() {
         : v.suggested_characters.map((sc) => {
             const char = characters.find((c) => c.id === sc.character_id);
             return {
+              id: sc.character_id,
               name: sc.character_name,
               emotion: sc.suggested_emotion || sc.emotion,
               description: char?.description,
             };
           });
+
+      const sourceCharacters = await Promise.all(
+        sourceCharacterInputs.map(async (item) => {
+          const fullChar = characters.find((c) => c.id === item.id);
+          const suggestedPoseId = v.suggested_characters.find((sc) => sc.character_id === item.id)?.pose_id;
+          const selectedPose = fullChar?.poses.find((p) => p.id === suggestedPoseId) || fullChar?.poses[0];
+          const refUrl = selectedPose?.image_url || fullChar?.avatar_url || fullChar?.poses[0]?.image_url;
+
+          if (!refUrl || refUrl.startsWith("/mock/")) {
+            return {
+              name: item.name,
+              emotion: item.emotion,
+              description: item.description,
+            };
+          }
+
+          try {
+            const inline = await imageUrlToInlineData(refUrl);
+            return {
+              name: item.name,
+              emotion: item.emotion,
+              description: item.description,
+              poseImageBase64: inline.base64,
+              poseMimeType: inline.mimeType,
+            };
+          } catch {
+            return {
+              name: item.name,
+              emotion: item.emotion,
+              description: item.description,
+            };
+          }
+        })
+      );
 
       const mergedRefImages = [...refImages, ...aiRefImages].slice(0, 4);
 
@@ -418,6 +526,8 @@ export default function GeneratePage() {
     setBgError(null);
     setAiCustomPrompt("");
     setTaggedCharacterIds(new Set());
+    setOneOffCharacters([]);
+    setOneOffInput("");
     // Clean up reference image object URLs
     refImages.forEach((img) => URL.revokeObjectURL(img.preview));
     aiRefImages.forEach((img) => URL.revokeObjectURL(img.preview));
@@ -566,18 +676,81 @@ export default function GeneratePage() {
                   </div>
                 </div>
 
-                {characters.length > 0 && (
-                  <div>
-                    <p className="text-xs th-text-tertiary mb-2">Nhân vật có sẵn:</p>
-                    <div className="flex gap-2 flex-wrap">
-                      {characters.map((c) => (
-                        <span key={c.id} className="px-3 py-1 th-bg-tertiary th-border rounded-full text-xs th-text-secondary" style={{ borderWidth: "1px", borderStyle: "solid", borderColor: "var(--border-primary)" }}>
-                          {c.name} ({c.poses.length} biểu cảm)
-                        </span>
-                      ))}
-                    </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs th-text-tertiary">Nhân vật có sẵn (click để mention):</p>
+                    <Button size="sm" variant="outline" onClick={openQuickCharacterModal}>
+                      <Plus size={14} /> Tạo nhanh nhân vật
+                    </Button>
                   </div>
-                )}
+
+                  {characters.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {characters.map((c) => {
+                        const avatar = c.avatar_url || c.poses[0]?.image_url;
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => appendMentionToIdea(c.name)}
+                            className="flex items-center gap-2 p-2 rounded-xl th-bg-tertiary th-bg-hover text-left"
+                          >
+                            <div className="w-9 h-9 rounded-lg overflow-hidden th-bg-card flex items-center justify-center text-xs font-bold th-text-muted">
+                              {avatar ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={avatar} alt={c.name} className="w-full h-full object-cover" />
+                              ) : (
+                                c.name[0]?.toUpperCase()
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium th-text-primary truncate">@{c.name}</p>
+                              <p className="text-[11px] th-text-muted">{c.poses.length} biểu cảm</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs th-text-muted">Chưa có nhân vật thư viện. Bạn vẫn có thể tạo meme ngay, hoặc tạo nhanh ở nút bên trên.</p>
+                  )}
+
+                  <div>
+                    <p className="text-xs th-text-tertiary mb-1.5">Nhân vật dùng 1 lần (không lưu thư viện):</p>
+                    <div className="flex gap-2">
+                      <Input
+                        id="one-off-character"
+                        placeholder="VD: Anh xe ôm công nghệ, chú mèo hàng xóm..."
+                        value={oneOffInput}
+                        onChange={(e) => setOneOffInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addOneOffCharacter();
+                          }
+                        }}
+                        className="text-sm"
+                      />
+                      <Button type="button" variant="outline" onClick={addOneOffCharacter}>
+                        <Plus size={14} /> Thêm
+                      </Button>
+                    </div>
+                    {oneOffCharacters.length > 0 && (
+                      <div className="flex gap-2 flex-wrap mt-2">
+                        {oneOffCharacters.map((name) => (
+                          <span key={name} className="px-2 py-1 rounded-lg text-xs th-bg-accent-light th-text-accent flex items-center gap-1">
+                            @{name}
+                            <button type="button" onClick={() => removeOneOffCharacter(name)} className="th-text-accent">
+                              <X size={12} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <p className="text-xs th-text-muted">Bạn không bắt buộc phải có nhân vật sẵn trong thư viện để tạo meme.</p>
                 <Button size="lg" className="w-full" onClick={handleGenerate} loading={generating} disabled={!idea.trim()}>
                   <Zap size={18} />
                   {generating ? "AI đang xử lý..." : "Tạo nội dung meme"}
@@ -1037,6 +1210,39 @@ export default function GeneratePage() {
             </div>
           </div>
         )}
+
+        <Modal isOpen={showQuickCharacterModal} onClose={() => setShowQuickCharacterModal(false)} title="Tạo nhanh nhân vật">
+          <form onSubmit={handleQuickCreateCharacter} className="space-y-4">
+            <Input
+              id="quick-char-name"
+              label="Tên nhân vật"
+              placeholder="VD: Cô chủ quán cà phê"
+              value={quickCharacterForm.name}
+              onChange={(e) => setQuickCharacterForm((prev) => ({ ...prev, name: e.target.value }))}
+              required
+            />
+            <Textarea
+              id="quick-char-desc"
+              label="Mô tả ngoại hình (tuỳ chọn)"
+              placeholder="VD: Áo khoác denim, tóc ngắn, đeo kính tròn"
+              value={quickCharacterForm.description}
+              onChange={(e) => setQuickCharacterForm((prev) => ({ ...prev, description: e.target.value }))}
+              rows={2}
+            />
+            <Textarea
+              id="quick-char-personality"
+              label="Tính cách (tuỳ chọn)"
+              placeholder="VD: Nói chuyện hài hước, hơi cà khịa"
+              value={quickCharacterForm.personality}
+              onChange={(e) => setQuickCharacterForm((prev) => ({ ...prev, personality: e.target.value }))}
+              rows={2}
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" type="button" onClick={() => setShowQuickCharacterModal(false)}>Huỷ</Button>
+              <Button type="submit" loading={quickCharacterSaving}>Tạo và mention</Button>
+            </div>
+          </form>
+        </Modal>
       </main>
     </div>
   );
