@@ -56,6 +56,10 @@ function buildProjectSlug(name: string, id: string): string {
   return `${slugifyProjectName(name)}-${id.slice(0, 8)}`;
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 // ============================================
 // PROJECTS
 // ============================================
@@ -147,16 +151,14 @@ export function useProject(projectId: string) {
       return;
     }
     const supabase = createClient();
-    supabase
-      .from("projects")
-      .select("*")
-      .or(`id.eq.${projectId},slug.eq.${projectId}`)
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }: { data: Project | null }) => {
-        setProject(data);
-        setLoading(false);
-      });
+    const query = supabase.from("projects").select("*").limit(1);
+    const request = isUuid(projectId)
+      ? query.eq("id", projectId).maybeSingle()
+      : query.eq("slug", projectId).maybeSingle();
+    request.then(({ data }: { data: Project | null }) => {
+      setProject(data);
+      setLoading(false);
+    });
   }, [projectId]);
 
   return { project, loading };
@@ -182,12 +184,10 @@ export function useCharacters(projectRef: string) {
       return;
     }
     const supabase = createClient();
-    const { data: project } = await supabase
-      .from("projects")
-      .select("id")
-      .or(`id.eq.${projectRef},slug.eq.${projectRef}`)
-      .limit(1)
-      .maybeSingle();
+    const projectQuery = supabase.from("projects").select("id").limit(1);
+    const { data: project } = isUuid(projectRef)
+      ? await projectQuery.eq("id", projectRef).maybeSingle()
+      : await projectQuery.eq("slug", projectRef).maybeSingle();
     if (!project) {
       setCharacters([]);
       setLoading(false);
@@ -227,12 +227,10 @@ export function useCharacters(projectRef: string) {
       return newChar;
     }
     const supabase = createClient();
-    const { data: project } = await supabase
-      .from("projects")
-      .select("id")
-      .or(`id.eq.${projectRef},slug.eq.${projectRef}`)
-      .limit(1)
-      .maybeSingle();
+    const projectQuery = supabase.from("projects").select("id").limit(1);
+    const { data: project } = isUuid(projectRef)
+      ? await projectQuery.eq("id", projectRef).maybeSingle()
+      : await projectQuery.eq("slug", projectRef).maybeSingle();
     if (!project) return null;
     const { data, error } = await supabase.from("characters").insert({ project_id: project.id, ...input }).select().single();
     if (error) console.error("Failed to create character:", error.message);
@@ -368,12 +366,10 @@ export function useMemes(projectRef: string) {
       return;
     }
     const supabase = createClient();
-    const { data: project } = await supabase
-      .from("projects")
-      .select("id")
-      .or(`id.eq.${projectRef},slug.eq.${projectRef}`)
-      .limit(1)
-      .maybeSingle();
+    const projectQuery = supabase.from("projects").select("id").limit(1);
+    const { data: project } = isUuid(projectRef)
+      ? await projectQuery.eq("id", projectRef).maybeSingle()
+      : await projectQuery.eq("slug", projectRef).maybeSingle();
     if (!project) {
       setMemes([]);
       setLoading(false);
@@ -420,12 +416,10 @@ export function useMemes(projectRef: string) {
       return newMeme;
     }
     const supabase = createClient();
-    const { data: project } = await supabase
-      .from("projects")
-      .select("id")
-      .or(`id.eq.${projectRef},slug.eq.${projectRef}`)
-      .limit(1)
-      .maybeSingle();
+    const projectQuery = supabase.from("projects").select("id").limit(1);
+    const { data: project } = isUuid(projectRef)
+      ? await projectQuery.eq("id", projectRef).maybeSingle()
+      : await projectQuery.eq("slug", projectRef).maybeSingle();
     if (!project) throw new Error("Project not found");
     const res = await fetch("/api/meme/save", {
       method: "POST",
