@@ -516,6 +516,11 @@ export default function GeneratePage() {
                 <Button size="lg" className="w-full" onClick={handleGenerate} loading={generating} disabled={!idea.trim()}>
                   <Zap size={18} />
                   {generating ? "AI đang xử lý..." : "Tạo nội dung meme"}
+                  {!generating && (
+                    <span className="ml-1.5 px-2 py-0.5 rounded-md text-xs font-medium" style={{ background: "rgba(34,197,94,0.2)", color: "#22c55e" }}>
+                      Miễn phí
+                    </span>
+                  )}
                 </Button>
               </CardContent>
             </Card>
@@ -600,6 +605,9 @@ export default function GeneratePage() {
                     >
                       <Wand2 size={16} />
                       AI Generate
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: "rgba(139,92,246,0.15)", color: "#8b5cf6" }}>
+                        {POINT_COSTS.meme} pts
+                      </span>
                     </button>
                   </div>
                 </CardContent>
@@ -672,7 +680,7 @@ export default function GeneratePage() {
                         </div>
                         <div className="flex justify-center">
                           <Button onClick={handleAiGenerate}>
-                            <RotateCcw size={16} /> Thử lại
+                            <RotateCcw size={16} /> Thử lại ({POINT_COSTS.meme} pts)
                           </Button>
                         </div>
                       </div>
@@ -745,6 +753,9 @@ export default function GeneratePage() {
                       <p className="text-xs font-medium th-text-tertiary flex items-center gap-1.5">
                         <ImageIcon size={12} />
                         AI Background
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: "rgba(139,92,246,0.15)", color: "#8b5cf6" }}>
+                          {POINT_COSTS.background} pts
+                        </span>
                       </p>
                       <div className="flex gap-2">
                         <Input
@@ -794,7 +805,7 @@ export default function GeneratePage() {
                               onClick={handleBgGenerate}
                               loading={bgGenerating}
                             >
-                              Tạo lại
+                              Tạo lại ({POINT_COSTS.background} pts)
                             </Button>
                           </div>
                         </div>

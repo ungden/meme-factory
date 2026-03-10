@@ -21,6 +21,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/components/theme-provider";
 import { IS_MOCK_MODE } from "@/lib/use-store";
+import { useWallet } from "@/contexts/WalletContext";
+import { Coins } from "lucide-react";
 
 interface SidebarProps {
   projectId?: string;
@@ -31,6 +33,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
+  const { points, isLoading: walletLoading } = useWallet();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Close sidebar on route change
@@ -92,6 +95,23 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           <span className="text-lg font-bold th-text-primary">AIDA</span>
         </Link>
       </div>
+
+      {/* Point Balance */}
+      <Link
+        href="/wallet"
+        className="mx-3 mt-3 flex items-center justify-between px-3 py-2.5 rounded-xl transition-all th-bg-hover"
+        style={{ background: "var(--bg-tertiary)" }}
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}>
+            <Coins size={14} className="text-white" />
+          </div>
+          <span className="text-sm font-medium th-text-secondary">Points</span>
+        </div>
+        <span className="text-sm font-bold th-text-primary">
+          {walletLoading ? "..." : points.toLocaleString("vi-VN")}
+        </span>
+      </Link>
 
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto" aria-label="Điều hướng chính">
