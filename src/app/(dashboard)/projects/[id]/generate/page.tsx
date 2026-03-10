@@ -29,6 +29,14 @@ interface ContentVariation {
   caption?: string;
   tone: string;
   text_position: string;
+  visual_direction?: {
+    scene?: string;
+    character_styling?: string;
+    composition?: string;
+    camera?: string;
+    lighting?: string;
+    art_style?: string;
+  };
 }
 
 export default function GeneratePage() {
@@ -65,6 +73,10 @@ export default function GeneratePage() {
   const [aiRefImages, setAiRefImages] = useState<{ file: File; preview: string; base64: string; mimeType: string }[]>([]);
   const aiRefInputRef = useRef<HTMLInputElement>(null);
   const [aiCustomPrompt, setAiCustomPrompt] = useState("");
+  const [enableWatermark, setEnableWatermark] = useState(true);
+  const [watermarkText, setWatermarkText] = useState("");
+  const [watermarkLogo, setWatermarkLogo] = useState<{ preview: string; base64: string; mimeType: string } | null>(null);
+  const watermarkLogoInputRef = useRef<HTMLInputElement>(null);
   const [taggedCharacterIds, setTaggedCharacterIds] = useState<Set<string>>(new Set());
   const [oneOffCharacters, setOneOffCharacters] = useState<string[]>([]);
   const [oneOffInput, setOneOffInput] = useState("");
@@ -161,6 +173,24 @@ export default function GeneratePage() {
       return prev.filter((_, i) => i !== index);
     });
   }, []);
+
+  const handleWatermarkLogoUpload = async (file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Logo watermark phải là file ảnh");
+      return;
+    }
+    if (file.size > MAX_REF_SIZE_MB * 1024 * 1024) {
+      toast.error(`Logo watermark tối đa ${MAX_REF_SIZE_MB}MB`);
+      return;
+    }
+    const preview = URL.createObjectURL(file);
+    const base64 = await fileToBase64(file);
+    setWatermarkLogo((prev) => {
+      if (prev) URL.revokeObjectURL(prev.preview);
+      return { preview, base64, mimeType: file.type };
+    });
+  };
 
   const toggleTaggedCharacter = (characterId: string) => {
     setTaggedCharacterIds((prev) => {
@@ -259,6 +289,12 @@ export default function GeneratePage() {
     setTaggedCharacterIds(new Set(selected.suggested_characters.map((c) => c.character_id)));
   }, [selectedVariation, variations]);
 
+  useEffect(() => {
+    if (!watermarkText && project?.name) {
+      setWatermarkText(project.name);
+    }
+  }, [project?.name, watermarkText]);
+
   const handleGenerate = async () => {
     if (!idea.trim()) return;
     setGenerating(true);
@@ -298,6 +334,7 @@ export default function GeneratePage() {
           caption: (v.caption as string) || (v.content as MemeContent)?.caption,
           tone: (v.tone as string) || (v.content as MemeContent)?.tone || "",
           text_position: (v.text_position as string) || (v.content as MemeContent)?.layout_suggestion?.text_position || "top",
+          visual_direction: (v.visual_direction as ContentVariation["visual_direction"]) || undefined,
         }));
         setVariations(mapped);
         setSelectedVariation(0);
@@ -355,6 +392,19 @@ export default function GeneratePage() {
     setTaggedCharacterIds(new Set(selectedChars.map((c) => c.id)));
     setAiCustomPrompt((prev) => (prev.trim() ? prev : promptWithoutMentions));
     setStep(3);
+  };
+
+  const buildAutoVisualPrompt = (v: ContentVariation) => {
+    const d = v.visual_direction;
+    if (!d) return "";
+    return [
+      d.scene ? `Bối cảnh: ${d.scene}` : "",
+      d.character_styling ? `Nhân vật/Thần thái/Outfit: ${d.character_styling}` : "",
+      d.composition ? `Bố cục: ${d.composition}` : "",
+      d.camera ? `Góc máy: ${d.camera}` : "",
+      d.lighting ? `Ánh sáng: ${d.lighting}` : "",
+      d.art_style ? `Phong cách: ${d.art_style}` : "",
+    ].filter(Boolean).join("\n");
   };
 
   // Phase 3: Generate meme with AI
@@ -423,6 +473,23 @@ export default function GeneratePage() {
 
       const mergedRefImages = [...refImages, ...aiRefImages].slice(0, 4);
 
+      const autoVisualPrompt = buildAutoVisualPrompt(v);
+      const finalCustomPrompt = [autoVisualPrompt, aiCustomPrompt.trim()].filter(Boolean).join("\n\n");
+
+      let watermarkLogoData: { base64?: string; mimeType?: string } = {};
+      if (enableWatermark) {
+        if (watermarkLogo) {
+          watermarkLogoData = { base64: watermarkLogo.base64, mimeType: watermarkLogo.mimeType };
+        } else if (project?.watermark_url) {
+          try {
+            const inlineLogo = await imageUrlToInlineData(project.watermark_url);
+            watermarkLogoData = { base64: inlineLogo.base64, mimeType: inlineLogo.mimeType };
+          } catch {
+            // Keep text watermark fallback if project logo cannot be loaded
+          }
+        }
+      }
+
       const result = await generateImage({
         type: "meme",
         headline: v.headline,
@@ -432,7 +499,13 @@ export default function GeneratePage() {
         characters: sourceCharacters,
         format,
         style: project?.style_prompt || undefined,
-        customPrompt: aiCustomPrompt.trim() || undefined,
+        customPrompt: finalCustomPrompt || undefined,
+        watermark: {
+          enabled: enableWatermark,
+          text: enableWatermark ? (watermarkText.trim() || project?.name || undefined) : undefined,
+          logoBase64: watermarkLogoData.base64,
+          logoMimeType: watermarkLogoData.mimeType,
+        },
         backgroundDescription: undefined,
         referenceImages: mergedRefImages.length > 0
           ? mergedRefImages.map((img) => ({ base64: img.base64, mimeType: img.mimeType }))
@@ -449,7 +522,7 @@ export default function GeneratePage() {
             generated_content: v.content,
             selected_characters: v.suggested_characters,
             format,
-            has_watermark: false,
+            has_watermark: enableWatermark,
             image_base64: `data:image/png;base64,${result.image}`,
           });
           toast.success("Đã tự động lưu vào bộ sưu tập");
@@ -492,7 +565,7 @@ export default function GeneratePage() {
         generated_content: v.content,
         selected_characters: v.suggested_characters,
         format,
-        has_watermark: false,
+        has_watermark: enableWatermark,
         image_base64: imageData,
       });
       toast.success("Đã lưu meme vào thư viện!");
@@ -515,6 +588,10 @@ export default function GeneratePage() {
     setSelectedCharacterIds(new Set());
     setOneOffCharacters([]);
     setOneOffInput("");
+    setEnableWatermark(true);
+    setWatermarkText(project?.name || "");
+    if (watermarkLogo) URL.revokeObjectURL(watermarkLogo.preview);
+    setWatermarkLogo(null);
     // Clean up reference image object URLs
     refImages.forEach((img) => URL.revokeObjectURL(img.preview));
     aiRefImages.forEach((img) => URL.revokeObjectURL(img.preview));
@@ -821,6 +898,14 @@ export default function GeneratePage() {
                         ))}
                       </div>
                     )}
+                    {v.visual_direction && (
+                      <div className="p-2 rounded-lg" style={{ background: "var(--bg-tertiary)", opacity: 0.6 }}>
+                        <p className="text-xs th-text-tertiary mb-1">AI visual direction:</p>
+                        <p className="text-xs th-text-secondary line-clamp-3">
+                          {v.visual_direction.scene || v.visual_direction.character_styling || v.visual_direction.composition || "Đã có chỉ dẫn hình ảnh chi tiết"}
+                        </p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -930,6 +1015,73 @@ export default function GeneratePage() {
                       <span className="text-xs th-text-muted">{val.label}</span>
                     </button>
                   ))}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader><h3 className="text-sm font-semibold th-text-primary">Watermark</h3></CardHeader>
+                <CardContent className="space-y-3">
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <span className="text-sm th-text-secondary">Bật watermark góc phải dưới</span>
+                    <input
+                      type="checkbox"
+                      checked={enableWatermark}
+                      onChange={(e) => setEnableWatermark(e.target.checked)}
+                      className="w-4 h-4 accent-[var(--accent)]"
+                    />
+                  </label>
+
+                  {enableWatermark && (
+                    <>
+                      <Input
+                        id="watermark-text"
+                        label="Text watermark"
+                        placeholder="VD: Cậu Vàng Finance"
+                        value={watermarkText}
+                        onChange={(e) => setWatermarkText(e.target.value)}
+                        className="text-sm"
+                      />
+
+                      <div>
+                        <p className="text-xs font-medium th-text-secondary mb-1.5">Logo watermark (tuỳ chọn)</p>
+                        <div
+                          className="border rounded-xl p-3 text-center cursor-pointer th-border th-bg-hover"
+                          onClick={() => watermarkLogoInputRef.current?.click()}
+                        >
+                          <input
+                            ref={watermarkLogoInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              void handleWatermarkLogoUpload(e.target.files?.[0] || null);
+                              e.target.value = "";
+                            }}
+                          />
+                          {watermarkLogo ? (
+                            <div className="flex items-center justify-center gap-2">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={watermarkLogo.preview} alt="Watermark logo" className="w-10 h-10 object-contain rounded" />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (watermarkLogo) URL.revokeObjectURL(watermarkLogo.preview);
+                                  setWatermarkLogo(null);
+                                }}
+                              >
+                                Xoá logo
+                              </Button>
+                            </div>
+                          ) : (
+                            <p className="text-xs th-text-muted">Tải logo để AI gắn đúng watermark theo brand</p>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 

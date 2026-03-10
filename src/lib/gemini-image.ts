@@ -42,6 +42,12 @@ export async function generateMemeImage(params: {
   }[];
   format: string;
   style?: string;
+  watermark?: {
+    enabled: boolean;
+    text?: string;
+    logoBase64?: string;
+    logoMimeType?: string;
+  };
   backgroundDescription?: string;
   referenceImages?: { base64: string; mimeType: string }[];
 }): Promise<{ image: string; text?: string }> {
@@ -55,6 +61,7 @@ export async function generateMemeImage(params: {
     characters,
     format,
     style,
+    watermark,
     backgroundDescription,
     referenceImages,
     customPrompt,
@@ -90,6 +97,7 @@ ${backgroundDescription ? `BACKGROUND: ${backgroundDescription}` : "Background: 
 ${style ? `PHONG CÁCH: ${style}` : defaultMemeStyle}
 ${customPrompt ? `\nYÊU CẦU BỔ SUNG TỪ NGƯỜI DÙNG: ${customPrompt}` : ""}
 ${requiredCharacters.length ? `\nNHÂN VẬT BẮT BUỘC PHẢI XUẤT HIỆN: ${requiredCharacters.join(", ")}. Không được thay thế bằng nhân vật generic.` : ""}
+${watermark?.enabled ? `\nWATERMARK: Bắt buộc đặt watermark ở góc dưới bên phải (bottom-right), nhỏ gọn, không che nội dung chính.${watermark.text ? ` Nội dung watermark text: "${watermark.text}".` : ""}${watermark.logoBase64 ? " Dùng logo tham chiếu được đính kèm." : ""}` : "\nWATERMARK: Không thêm watermark."}
 
 YÊU CẦU BẮT BUỘC:
 1. ${hasHeadline ? "TEXT HEADLINE phải: font đậm (bold), kích thước LỚN, có viền đen/shadow để nổi bật trên mọi background, DỄ ĐỌC ngay từ thumbnail" : hasDialogueHint ? "Nếu prompt có thoại/câu nói thì render đúng chính tả tiếng Việt trong speech bubble/caption tương ứng từng nhân vật." : "Không bắt buộc text. Chỉ thêm text khi prompt yêu cầu rõ ràng."}
@@ -136,6 +144,18 @@ ${referenceImages?.length
       inlineData: {
         mimeType: char.poseMimeType || "image/png",
         data: char.poseImageBase64!,
+      },
+    });
+  }
+
+  if (watermark?.enabled && watermark.logoBase64) {
+    contents.push({
+      text: "Ảnh logo watermark tham chiếu: đặt đúng ở góc dưới bên phải, kích thước nhỏ, rõ ràng.",
+    });
+    contents.push({
+      inlineData: {
+        mimeType: watermark.logoMimeType || "image/png",
+        data: watermark.logoBase64,
       },
     });
   }

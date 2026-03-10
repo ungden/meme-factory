@@ -14,6 +14,14 @@ export interface MemeContentResult {
   caption?: string;
   tone: string;
   text_position: "top" | "bottom" | "center" | "split";
+  visual_direction?: {
+    scene: string;
+    character_styling: string;
+    composition: string;
+    camera: string;
+    lighting: string;
+    art_style: string;
+  };
   suggested_characters: {
     character_id: string;
     character_name: string;
@@ -73,6 +81,13 @@ YÊU CẦU:
 6. Nếu không có nhân vật phù hợp thì để mảng suggested_characters rỗng []
 7. Gợi ý biểu cảm phù hợp từ danh sách có sẵn (nếu dùng nhân vật thư viện)
 8. Gợi ý vị trí text (top/bottom/center/split)
+9. Tạo visual_direction đủ chi tiết để AI image gen dùng ngay, gồm:
+   - scene: bối cảnh cụ thể
+   - character_styling: thần thái, biểu cảm, outfit/phụ kiện phù hợp ngữ cảnh
+   - composition: nhân vật đứng/ngồi ở đâu, tương quan foreground/background
+   - camera: góc máy, cỡ cảnh
+   - lighting: ánh sáng chính
+   - art_style: phong cách minh hoạ
 
 Trả về JSON array, mỗi phần tử có format:
 {
@@ -81,6 +96,14 @@ Trả về JSON array, mỗi phần tử có format:
   "caption": "...",
   "tone": "hài hước/châm biếm/tình cảm/motivational/...",
   "text_position": "top|bottom|center|split",
+  "visual_direction": {
+    "scene": "...",
+    "character_styling": "...",
+    "composition": "...",
+    "camera": "...",
+    "lighting": "...",
+    "art_style": "..."
+  },
   "suggested_characters": [
     {
       "character_id": "...",

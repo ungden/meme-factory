@@ -176,6 +176,12 @@ export interface ImageGenMemeParams {
   }[];
   format: string;
   style?: string;
+  watermark?: {
+    enabled: boolean;
+    text?: string;
+    logoBase64?: string;
+    logoMimeType?: string;
+  };
   backgroundDescription?: string;
   referenceImages?: ReferenceImage[];
 }

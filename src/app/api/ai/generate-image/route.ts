@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
         case "meme": {
           const {
             headline, subtext, tone, textPosition, characters: chars,
-            format, style, backgroundDescription, referenceImages, customPrompt,
+            format, style, backgroundDescription, referenceImages, customPrompt, watermark,
           } = body;
 
           if (!headline && !customPrompt) {
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
           result = await generateMemeImage({
             headline, subtext, tone: tone || "hài hước",
             textPosition: textPosition || "top", characters: chars || [],
-            format: format || "1:1", style, backgroundDescription, referenceImages, customPrompt,
+            format: format || "1:1", style, backgroundDescription, referenceImages, customPrompt, watermark,
           });
           break;
         }
