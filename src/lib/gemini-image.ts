@@ -69,12 +69,15 @@ export async function generateMemeImage(params: {
 
   const hasHeadline = Boolean(headline?.trim());
   const requiredCharacters = characters.map((c) => c.name).filter(Boolean);
+  const hasDialogueHint = Boolean(
+    customPrompt && /["“”':]|hội thoại|nói|thoại|speech|bubble|khung hình/i.test(customPrompt)
+  );
 
   const defaultMemeStyle = `Phong cách: Cartoon meme fanpage Việt Nam. Bold outlines, shading rõ ràng, dynamic composition. Màu sắc tươi sáng bão hoà, bắt mắt trên news feed.`;
 
   const prompt = `Bạn là designer chuyên tạo meme cho fanpage comic Việt Nam. Hãy tạo một meme image hoàn chỉnh, chất lượng cao, sẵn sàng đăng social media.
 
-${hasHeadline ? `HEADLINE TEXT (viết lên ảnh, font đậm nổi bật): "${headline}"` : "TEXT OVERLAY: KHÔNG chèn chữ lên ảnh. Tuyệt đối không render headline/subtext/watermark."}
+${hasHeadline ? `HEADLINE TEXT (viết lên ảnh, font đậm nổi bật): "${headline}"` : hasDialogueHint ? "TEXT MODE: Không có headline cố định. Hãy render text hội thoại/tường thuật nếu user mô tả trong prompt (speech bubble/caption trong khung hình)." : "TEXT MODE: Không có headline cố định. Chỉ thêm text nếu prompt yêu cầu rõ ràng; nếu không thì ưu tiên ảnh sạch, ít chữ."}
 ${hasHeadline && subtext ? `SUBTEXT (nhỏ hơn, bên dưới headline): "${subtext}"` : ""}
 Tone/Mood: ${tone}
 ${hasHeadline ? `Bố cục text: ${textPosition === "top" ? "Text ở phía trên ảnh" : textPosition === "bottom" ? "Text ở phía dưới ảnh" : textPosition === "center" ? "Text ở chính giữa" : "Text phía trên"}` : "Bố cục: tập trung vào hình minh hoạ, không dành vùng cho text."}
@@ -89,14 +92,14 @@ ${customPrompt ? `\nYÊU CẦU BỔ SUNG TỪ NGƯỜI DÙNG: ${customPrompt}` :
 ${requiredCharacters.length ? `\nNHÂN VẬT BẮT BUỘC PHẢI XUẤT HIỆN: ${requiredCharacters.join(", ")}. Không được thay thế bằng nhân vật generic.` : ""}
 
 YÊU CẦU BẮT BUỘC:
-1. ${hasHeadline ? "TEXT HEADLINE phải: font đậm (bold), kích thước LỚN, có viền đen/shadow để nổi bật trên mọi background, DỄ ĐỌC ngay từ thumbnail" : "KHÔNG hiển thị bất kỳ chữ nào trên ảnh (no text, no watermark, no logo)."}
-2. ${hasHeadline ? "Text tiếng Việt PHẢI CÓ DẤU đầy đủ và chính xác (ă, â, ê, ô, ơ, ư, đ, dấu thanh...)" : "Không có text trong ảnh."}
+1. ${hasHeadline ? "TEXT HEADLINE phải: font đậm (bold), kích thước LỚN, có viền đen/shadow để nổi bật trên mọi background, DỄ ĐỌC ngay từ thumbnail" : hasDialogueHint ? "Nếu prompt có thoại/câu nói thì render đúng chính tả tiếng Việt trong speech bubble/caption tương ứng từng nhân vật." : "Không bắt buộc text. Chỉ thêm text khi prompt yêu cầu rõ ràng."}
+2. ${hasHeadline || hasDialogueHint ? "Text tiếng Việt PHẢI CÓ DẤU đầy đủ và chính xác (ă, â, ê, ô, ơ, ư, đ, dấu thanh...)" : "Nếu không cần text thì ưu tiên ảnh sạch."}
 3. Nhân vật phải biểu cảm RÕ RÀNG, phù hợp phong cách đã chọn
 4. Bố cục cân đối, bắt mắt, phù hợp tỉ lệ ${format}, có đủ breathing room giữa text và nhân vật
 5. Màu sắc tươi sáng, bão hoà, nhìn nổi bật trên news feed
 6. Phù hợp đăng lên Facebook, Instagram — thu hút engagement
 ${characters.some((c) => c.poseImageBase64)
-  ? "7. QUAN TRỌNG NHẤT: PHẢI giữ đúng nhận diện nhân vật từ ảnh tham chiếu (mặt, màu lông/da, quần áo, phụ kiện, tỉ lệ). KHÔNG thay thành nhân vật generic."
+  ? "7. QUAN TRỌNG NHẤT: PHẢI giữ đúng nhận diện cốt lõi nhân vật từ ảnh tham chiếu (khuôn mặt, màu chủ đạo, đặc điểm nhận dạng chính). ĐƯỢC PHÉP thay đổi trang phục, pose, bối cảnh, góc máy theo nội dung meme nếu vẫn nhận ra đúng nhân vật."
   : ""}
 ${referenceImages?.length
   ? `${characters.some((c) => c.poseImageBase64) ? "8" : "7"}. ẢNH THAM KHẢO NGỮ CẢNH: User đính kèm ${referenceImages.length} ảnh. Chỉ dùng để học bố cục/mood/context.`
@@ -127,7 +130,7 @@ ${referenceImages?.length
   const charImages = characters.filter((c) => c.poseImageBase64);
   for (const char of charImages.slice(0, 4)) {
     contents.push({
-      text: `Ảnh nhân vật tham chiếu: ${char.name}. PHẢI giữ nhận diện nhân vật này, chỉ thay đổi hành động/biểu cảm theo yêu cầu.`,
+      text: `Ảnh nhân vật tham chiếu: ${char.name}. Giữ nhận diện cốt lõi nhân vật này; cho phép biến đổi trang phục/bối cảnh/phụ kiện theo ngữ cảnh meme nếu hợp lý.`,
     });
     contents.push({
       inlineData: {
