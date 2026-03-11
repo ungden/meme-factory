@@ -91,6 +91,8 @@ export interface MemeContent {
   headline: string; // main text on the meme
   subtext?: string; // secondary text
   caption?: string; // social media caption
+  image_prompt?: string; // visual-only brief for image generation
+  text_rendering_notes?: string; // notes about text placement/treatment on image
   layout_suggestion: LayoutSuggestion;
   tone: string; // "hài hước", "châm biếm", "tình cảm"...
 }

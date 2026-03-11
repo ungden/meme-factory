@@ -27,6 +27,8 @@ interface ContentVariation {
   headline: string;
   subtext?: string;
   caption?: string;
+  image_prompt?: string;
+  text_rendering_notes?: string;
   tone: string;
   text_position: string;
   visual_direction?: {
@@ -317,6 +319,8 @@ export default function GeneratePage() {
             headline: v.headline as string,
             subtext: v.subtext as string | undefined,
             caption: v.caption as string | undefined,
+            image_prompt: v.image_prompt as string | undefined,
+            text_rendering_notes: v.text_rendering_notes as string | undefined,
             layout_suggestion: { text_position: (v.text_position as string) || "top", character_positions: [] },
             tone: v.tone as string,
           },
@@ -332,6 +336,8 @@ export default function GeneratePage() {
           headline: (v.headline as string) || (v.content as MemeContent)?.headline || "",
           subtext: (v.subtext as string) || (v.content as MemeContent)?.subtext,
           caption: (v.caption as string) || (v.content as MemeContent)?.caption,
+          image_prompt: (v.image_prompt as string) || (v.content as MemeContent)?.image_prompt,
+          text_rendering_notes: (v.text_rendering_notes as string) || (v.content as MemeContent)?.text_rendering_notes,
           tone: (v.tone as string) || (v.content as MemeContent)?.tone || "",
           text_position: (v.text_position as string) || (v.content as MemeContent)?.layout_suggestion?.text_position || "top",
           visual_direction: (v.visual_direction as ContentVariation["visual_direction"]) || undefined,
@@ -396,15 +402,19 @@ export default function GeneratePage() {
 
   const buildAutoVisualPrompt = (v: ContentVariation) => {
     const d = v.visual_direction;
-    if (!d) return "";
-    return [
-      d.scene ? `Bối cảnh: ${d.scene}` : "",
-      d.character_styling ? `Nhân vật/Thần thái/Outfit: ${d.character_styling}` : "",
-      d.composition ? `Bố cục: ${d.composition}` : "",
-      d.camera ? `Góc máy: ${d.camera}` : "",
-      d.lighting ? `Ánh sáng: ${d.lighting}` : "",
-      d.art_style ? `Phong cách: ${d.art_style}` : "",
-    ].filter(Boolean).join("\n");
+    const parts = [
+      v.image_prompt ? `[IMAGE BRIEF - chi mo ta phan hinh anh, KHONG phai text render]\n${v.image_prompt}` : "",
+      d?.scene ? `Bối cảnh: ${d.scene}` : "",
+      d?.character_styling ? `Nhân vật/Thần thái/Outfit: ${d.character_styling}` : "",
+      d?.composition ? `Bố cục: ${d.composition}` : "",
+      d?.camera ? `Góc máy: ${d.camera}` : "",
+      d?.lighting ? `Ánh sáng: ${d.lighting}` : "",
+      d?.art_style ? `Phong cách: ${d.art_style}` : "",
+      v.text_rendering_notes
+        ? `[TEXT RENDERING NOTES - chi huong dan render text tren anh]\n${v.text_rendering_notes}`
+        : "",
+    ].filter(Boolean);
+    return parts.join("\n");
   };
 
   // Phase 3: Generate meme with AI

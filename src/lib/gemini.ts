@@ -12,6 +12,8 @@ export interface MemeContentResult {
   headline: string;
   subtext?: string;
   caption?: string;
+  image_prompt?: string;
+  text_rendering_notes?: string;
   tone: string;
   text_position: "top" | "bottom" | "center" | "split";
   visual_direction?: {
@@ -72,6 +74,14 @@ ${characterList || "(Chưa có nhân vật sẵn)"}
 NHÂN VẬT MENTION 1 LẦN:
 ${adHocCharacters.length > 0 ? adHocCharacters.map((n) => `- ${n}`).join("\n") : "(Không có)"}
 
+=== TÁCH RÕ TEXT TRÊN ẢNH VS PROMPT ẢNH ===
+- headline = CHÍNH XÁC text chính phải render lên ảnh
+- subtext = CHÍNH XÁC text phụ phải render lên ảnh, nếu không cần thì null
+- image_prompt = mô tả cảnh/hành động/biểu cảm/bối cảnh chỉ dành cho AI vẽ ảnh
+- text_rendering_notes = ghi chú về cách đặt text, kiểu text, speech bubble hay caption trong khung hình
+- TUYỆT ĐỐI không nhét mô tả cảnh vào headline hoặc subtext
+- TUYỆT ĐỐI không nhét text cần render lên ảnh vào image_prompt, trừ khi đó là yêu cầu về speech bubble và phải ghi ở text_rendering_notes
+
 === GIỌNG VĂN — QUAN TRỌNG NHẤT ===
 Headline PHẢI giống cách người Việt thực sự nói/nghĩ. Hãy tưởng tượng đây là câu người ta lẩm bẩm trong đầu, nhắn trong group chat, hoặc post story than thở.
 
@@ -131,6 +141,17 @@ Tạo visual_direction chi tiết cho AI image gen:
 - lighting: ánh sáng
 - art_style: phong cách minh hoạ
 
+image_prompt phải là 1 đoạn ngắn 1-3 câu, viết như art director brief:
+- mô tả rõ ai đang làm gì, ở đâu, cảm xúc nào, vật thể nào cần xuất hiện
+- chỉ mô tả phần hình ảnh, không lặp lại headline/subtext
+- đủ cụ thể để model ảnh hiểu scene ngay cả khi bỏ qua phần headline
+
+text_rendering_notes phải nói thật rõ:
+- text nào là headline cố định trên ảnh
+- có/không có subtext
+- text nằm top/bottom/center/split hay trong speech bubble
+- nếu là thoại nhân vật thì ghi rõ nhân vật nào nói câu nào
+
 === TỰ KIỂM TRA TRƯỚC KHI TRẢ KẾT QUẢ ===
 Tự chấm từng variation theo 4 tiêu chí sau, thang điểm 1-10:
 - naturalness: có giống người Việt thật nói không?
@@ -145,6 +166,8 @@ Trả về JSON array, mỗi phần tử:
   "headline": "...",
   "subtext": "..." hoặc null,
   "caption": "..." hoặc null,
+  "image_prompt": "...",
+  "text_rendering_notes": "..." hoặc null,
   "tone": "hài hước/châm biếm/tự sự/absurd/wholesome/dark humor/...",
   "text_position": "top|bottom|center|split",
   "visual_direction": {

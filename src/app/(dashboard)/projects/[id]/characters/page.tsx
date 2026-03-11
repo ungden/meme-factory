@@ -96,7 +96,7 @@ export default function CharactersPage() {
   const [aiPoseImage, setAiPoseImage] = useState<string | null>(null);
   const [aiPoseError, setAiPoseError] = useState<string | null>(null);
   const [aiPoseSaving, setAiPoseSaving] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(PROMPT_TEMPLATES[0]);
+  const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
   const [showTemplateGuide, setShowTemplateGuide] = useState(false);
 
   const openCreateChar = () => {
@@ -183,14 +183,13 @@ export default function CharactersPage() {
     setAiPoseStyle("");
     setAiPoseImage(null);
     setAiPoseError(null);
-    setSelectedTemplate(PROMPT_TEMPLATES[0]);
+    setSelectedTemplate(null);
     setShowTemplateGuide(false);
     setShowAiPoseModal(true);
   };
 
   const selectTemplate = (template: PromptTemplate) => {
     setSelectedTemplate(template);
-    setAiPoseStyle(template.characterStyle);
     setShowTemplateGuide(false);
   };
 
@@ -217,8 +216,8 @@ export default function CharactersPage() {
         char.personality ? `Tính cách: ${char.personality}` : "",
       ].filter(Boolean).join(". ");
 
-      // Ưu tiên: custom style > template style > project style
-      const styleToUse = aiPoseStyle || selectedTemplate?.characterStyle || project?.style_prompt || undefined;
+      // Chỉ dùng style khi user chủ động chọn template hoặc tự nhập custom style
+      const styleToUse = aiPoseStyle.trim() || selectedTemplate?.characterStyle || undefined;
 
       const result = await generateImage({
         type: "character",
@@ -552,6 +551,18 @@ export default function CharactersPage() {
                 </button>
               </div>
               <div className="grid grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTemplate(null)}
+                  className={`rounded-xl text-center transition-all border p-3 ${
+                    !selectedTemplate ? "th-border-accent ring-2 th-ring-accent th-bg-accent-light" : "th-border th-bg-hover"
+                  }`}
+                >
+                  <span className={`text-xs font-medium block ${!selectedTemplate ? "th-text-accent" : "th-text-primary"}`}>
+                    Không ép template
+                  </span>
+                  <span className="text-[10px] th-text-muted block mt-1">Giữ đúng mô tả nhân vật</span>
+                </button>
                 {PROMPT_TEMPLATES.map((t) => (
                   <button
                     key={t.id}
@@ -633,11 +644,11 @@ export default function CharactersPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium th-text-secondary">Style tuỳ chỉnh</label>
-                <span className="text-[10px] th-text-muted">(để trống = dùng template đã chọn)</span>
+                <span className="text-[10px] th-text-muted">(để trống = chỉ dùng mô tả nhân vật{selectedTemplate ? ` + template ${selectedTemplate.nameVi}` : ""})</span>
               </div>
               <Textarea
                 id="ai-pose-style"
-                placeholder={selectedTemplate ? `Đang dùng: ${selectedTemplate.nameVi}. Nhập ở đây để override...` : 'VD: "Chibi dễ thương", "Flat vector"...'}
+                placeholder={selectedTemplate ? `Đang dùng template ${selectedTemplate.nameVi}. Nhập ở đây để override...` : 'VD: "Chibi dễ thương", "Flat vector", hoặc để trống để AI bám mô tả nhân vật...'}
                 value={aiPoseStyle}
                 onChange={(e) => setAiPoseStyle(e.target.value)}
                 rows={2}
@@ -649,7 +660,7 @@ export default function CharactersPage() {
             {!aiPoseImage && !aiPoseGenerating && (
               <Button className="w-full" size="lg" onClick={handleAiPoseGenerate}>
                 <Wand2 size={18} />
-                Tạo Pose bằng AI ({selectedTemplate?.nameVi || "Custom"}) — 3 pts
+                Tạo Pose bằng AI ({selectedTemplate?.nameVi || "Không template"}) — 3 pts
               </Button>
             )}
 

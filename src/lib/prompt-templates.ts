@@ -28,14 +28,13 @@ export const PROMPT_TEMPLATES: PromptTemplate[] = [
     preview: "🔥",
     previewUrl: "/templates/streetwear-flex.webp",
     characterStyle: `Cartoon nhân hóa (anthropomorphic) style fanpage meme tài chính Việt Nam.
-- Nhân vật con vật đứng 2 chân như người, tỉ lệ cơ thể semi-realistic (không chibi)
-- Trang phục streetwear: hoodie/jacket, quần short/jeans, sneakers
-- Accessories tuỳ nhân vật: dây chuyền, kính mát, mũ, đồng hồ... (theo mô tả nhân vật)
-- Semi-realistic cartoon rendering: bóng đổ rõ, texture vải, chi tiết sắc nét
+- Nhân vật đứng 2 chân như người, tỉ lệ semi-realistic (không chibi)
+- Semi-realistic cartoon rendering: bóng đổ rõ, texture rõ, chi tiết sắc nét
 - Bold outlines 2-3px, nét sắc sảo professional
-- Thái độ: tự tin, năng lượng mạnh, power pose
+- Thái độ hình ảnh: tự tin, năng lượng mạnh, power pose
 - Góc nhìn: slight low-angle perspective cho dramatic effect
-- Tông màu chủ đạo: teal/cyan, đỏ, vàng gold`,
+- Tông màu chủ đạo: teal/cyan, đỏ, vàng gold
+- Phong cách này chỉ quyết định artwork/rendering; outfit và phụ kiện phải theo mô tả nhân vật, không tự thêm`,
     memeStyle: `Cartoon meme fanpage tài chính VN. Nhân vật anthropomorphic streetwear, semi-realistic shading, bold outlines, dynamic low-angle pose. Background: cityscape/speed lines. Tông teal-đỏ-vàng.`,
     exampleDescription: "Con bò đực nhân hóa, màu nâu, sừng nhọn, mõm hồng. Mặc hoodie xanh teal, sneakers đỏ, đeo dây chuyền vàng",
     exampleEmotion: "Tự tin flexing, nhếch mép cười, tay giơ 2 điện thoại",
@@ -55,7 +54,7 @@ export const PROMPT_TEMPLATES: PromptTemplate[] = [
 - Bold outlines đậm 3-4px, clean vector lines
 - Màu pastel tươi sáng, bão hoà vừa phải
 - Biểu cảm cường điệu hoá: mắt sáng lấp lánh, miệng rộng, má hồng
-- Trang phục đơn giản, dễ nhận diện
+- Outfit và phụ kiện giữ theo mô tả nhân vật, không tự bịa thêm
 - Không cần chi tiết phức tạp, focus vào sự cute`,
     memeStyle: `Chibi meme cute style fanpage VN (Thỏ Bảy Màu). Đầu to mắt tròn, flat color, bold outlines, pastel tươi sáng, biểu cảm cường điệu dễ thương.`,
     exampleDescription: "Con thỏ trắng chibi, tai dài hồng, mắt to tròn đen láy, má ửng hồng, mặc áo thun vàng",
@@ -96,7 +95,7 @@ export const PROMPT_TEMPLATES: PromptTemplate[] = [
 - Semi-realistic body proportion (không chibi)
 - Cel shading rõ ràng: shadow layer + highlight layer
 - Speed lines và effect particles khi cần
-- Trang phục anime: school uniform, battle outfit, hoặc casual cool
+- Outfit và phụ kiện giữ theo mô tả nhân vật, chỉ render lại theo ngôn ngữ anime
 - Biểu cảm dramatic kiểu manga: mồ hôi rơi, vein pop, sparkle eyes
 - Nét vẽ clean, thin lines cho chi tiết, thick lines cho outline`,
     memeStyle: `Anime/manga meme style. Mắt anime lớn, cel shading, speed lines, dramatic expressions, dynamic composition. Biểu cảm cường điệu kiểu manga.`,
@@ -161,7 +160,7 @@ export const PROMPT_TEMPLATES: PromptTemplate[] = [
 - Character design edgy: expression ngông, attitude strong
 - Mixed media feel: stencil + freehand + marker
 - Background elements: brick wall, concrete, tags
-- Trang phục urban/street theo mô tả nhân vật`,
+- Outfit và phụ kiện giữ theo mô tả nhân vật, không tự chuyển sang đồ streetwear`,
     memeStyle: `Graffiti street art meme. Spray paint texture, bold neon colors, thick irregular lines, urban rebellious energy. Edgy, raw, energetic.`,
     exampleDescription: "Con khỉ nhân hóa, mặc bomber jacket đen, cap ngược, cầm bình spray paint",
     exampleEmotion: "Ngông, cười toe toét, tay chỉ thẳng vào camera",
@@ -178,7 +177,7 @@ export const PROMPT_TEMPLATES: PromptTemplate[] = [
 - Clean, polished, high-quality rendering
 - Smooth gradients và soft shadows
 - Proportions friendly: không quá cartoon, không quá realistic
-- Trang phục professional: suit, tie, hoặc branded uniform
+- Outfit và phụ kiện giữ theo mô tả nhân vật; chỉ đổi ngôn ngữ render cho sạch và chuyên nghiệp
 - Biểu cảm friendly, approachable, trustworthy
 - Color palette clean: 2-3 brand colors + neutrals
 - Phù hợp in ấn, web, app icon — scalable design

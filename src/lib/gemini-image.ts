@@ -95,7 +95,7 @@ ${charDescriptions || "(Không có nhân vật cụ thể — tạo illustration
 ${backgroundDescription ? `BACKGROUND: ${backgroundDescription}` : "Background: Màu gradient hoặc scene đơn giản phù hợp nội dung, không quá phức tạp để text vẫn dễ đọc."}
 
 ${style ? `PHONG CÁCH: ${style}` : defaultMemeStyle}
-${customPrompt ? `\nYÊU CẦU BỔ SUNG TỪ NGƯỜI DÙNG: ${customPrompt}` : ""}
+${customPrompt ? `\nBRIEF BỔ SUNG: ${customPrompt}` : ""}
 ${requiredCharacters.length ? `\nNHÂN VẬT BẮT BUỘC PHẢI XUẤT HIỆN: ${requiredCharacters.join(", ")}. Không được thay thế bằng nhân vật generic.` : ""}
 ${watermark?.enabled ? `\nWATERMARK: Bắt buộc đặt watermark ở góc dưới bên phải (bottom-right), nhỏ gọn, không che nội dung chính.${watermark.text ? ` Nội dung watermark text: "${watermark.text}".` : ""}${watermark.logoBase64 ? " Dùng logo tham chiếu được đính kèm." : ""}` : "\nWATERMARK: Không thêm watermark."}
 
@@ -106,6 +106,9 @@ YÊU CẦU BẮT BUỘC:
 4. Bố cục cân đối, bắt mắt, phù hợp tỉ lệ ${format}, có đủ breathing room giữa text và nhân vật
 5. Màu sắc tươi sáng, bão hoà, nhìn nổi bật trên news feed
 6. Phù hợp đăng lên Facebook, Instagram — thu hút engagement
+6.1. TEXT render trên ảnh CHỈ lấy từ HEADLINE TEXT và SUBTEXT ở trên, hoặc từ phần hướng dẫn text chuyên biệt trong BRIEF BỔ SUNG. Không được biến mô tả scene trong BRIEF BỔ SUNG thành chữ mới trên ảnh.
+6.2. Nếu BRIEF BỔ SUNG có nhãn [IMAGE BRIEF] thì đó là mô tả hình ảnh, KHÔNG phải text để viết lên ảnh.
+6.3. Nếu BRIEF BỔ SUNG có nhãn [TEXT RENDERING NOTES] thì đó là hướng dẫn dàn trang/chèn text, không phải mô tả bối cảnh.
 ${characters.some((c) => c.poseImageBase64)
   ? "7. QUAN TRỌNG NHẤT — CHARACTER CONSISTENCY: Mỗi nhân vật có ảnh reference đính kèm bên dưới. Bạn PHẢI vẽ nhân vật GIỐNG CHÍNH XÁC ảnh reference: cùng loài (species), cùng khuôn mặt, cùng màu da/lông/tóc, cùng đặc điểm nhận dạng (sừng, đuôi, tai, mắt...), cùng art style. CHỈ thay đổi biểu cảm, tư thế, bối cảnh. Nếu reference là con bò cartoon thì output PHẢI là con bò cartoon đó — KHÔNG được vẽ nhân vật khác."
   : ""}
@@ -207,7 +210,8 @@ export async function generateCharacterPose(params: {
 - Cartoon nhân hóa (anthropomorphic) chất lượng cao, phù hợp fanpage meme Việt Nam
 - Bold outlines sắc sảo (2-3px), nét vẽ professional
 - Semi-realistic cartoon shading: có bóng đổ, highlights, texture rõ ràng
-- Trang phục và phụ kiện: THEO MÔ TẢ NHÂN VẬT bên trên (không tự thêm)
+- Phong cách chỉ ảnh hưởng NÉT VẼ / RENDERING / SHADING / TỈ LỆ / MÀU SẮC TỔNG THỂ
+- KHÔNG dùng phong cách để tự thêm trang phục, phụ kiện, nghề nghiệp, archetype hay đổi loài nhân vật
 - Biểu cảm khuôn mặt rõ ràng, có cá tính, phù hợp emotion được yêu cầu
 - Tư thế dynamic, có năng lượng, phù hợp tính cách nhân vật
 - Màu sắc tươi sáng, bão hoà, hài hoà với tổng thể`;
@@ -218,14 +222,15 @@ NHÂN VẬT: "${characterName}"
 MÔ TẢ CHI TIẾT: ${characterDescription}
 BIỂU CẢM/TƯ THẾ CẦN THỂ HIỆN: ${emotion}
 
-${style ? `PHONG CÁCH YÊU CẦU: ${style}` : defaultStyle}
+${style ? `PHONG CÁCH YÊU CẦU: ${style}
+QUY TẮC DIỄN GIẢI PHONG CÁCH: Phần PHONG CÁCH YÊU CẦU chỉ được dùng để quyết định nét vẽ, chất liệu, shading, line art, bảng màu, tỉ lệ minh hoạ, level chi tiết. KHÔNG được suy ra hay tự thêm outfit, phụ kiện, nghề nghiệp hoặc persona nếu mô tả nhân vật không nói tới.` : defaultStyle}
 
 YÊU CẦU BẮT BUỘC:
 1. Full body character (toàn thân), KHÔNG bị cắt, nhìn rõ từ đầu đến chân
 2. Background: TRẮNG TINH (#FFFFFF) hoặc gradient nhạt đơn giản — để dễ tách nền
 3. Bold outlines sắc sảo, chi tiết rõ ràng, professional quality
 4. Biểu cảm khuôn mặt: Emotion "${emotion}" phải thể hiện RÕ RÀNG trên mặt — phù hợp tính cách nhân vật
-5. Trang phục và phụ kiện: THEO ĐÚNG MÔ TẢ NHÂN VẬT bên trên — KHÔNG tự thêm trang phục/phụ kiện ngoài mô tả
+5. Trang phục và phụ kiện: THEO ĐÚNG MÔ TẢ NHÂN VẬT bên trên — KHÔNG tự thêm trang phục/phụ kiện ngoài mô tả, kể cả khi phong cách gợi nhớ streetwear/corporate/graffiti/anime...
 6. Tư thế tự nhiên, có năng lượng, phù hợp với emotion và tính cách nhân vật
 7. Rendering chất lượng cao, phù hợp phong cách đã chọn (có thể semi-realistic, chibi, flat... tuỳ style)
 8. KHÔNG có text, chữ viết, watermark, logo trên ảnh
