@@ -186,16 +186,32 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Image generation error:", error);
 
-    const message =
-      error instanceof Error ? error.message : "Failed to generate image";
+    const rawMessage =
+      error instanceof Error ? error.message : "";
 
-    if (message.includes("not configured")) {
+    // Sanitize: only return safe, user-facing messages — never leak model names, API keys, or internal details
+    let userMessage = "Không thể tạo ảnh. Vui lòng thử lại.";
+
+    if (rawMessage.includes("not configured")) {
       return NextResponse.json(
-        { error: message, code: "NOT_CONFIGURED" },
+        { error: "Hệ thống AI chưa được cấu hình. Vui lòng liên hệ admin.", code: "NOT_CONFIGURED" },
         { status: 503 }
       );
     }
+    if (rawMessage.includes("Không nhận được kết quả")) {
+      userMessage = "AI không trả về kết quả. Vui lòng thử lại.";
+    } else if (rawMessage.includes("không tạo được ảnh")) {
+      userMessage = "AI không tạo được ảnh. Vui lòng thử mô tả khác.";
+    } else if (rawMessage.includes("Không đủ points") || rawMessage.includes("INSUFFICIENT_POINTS")) {
+      userMessage = rawMessage; // Point messages are safe to show
+    } else if (rawMessage.includes("Lỗi trừ points")) {
+      userMessage = "Lỗi hệ thống khi xử lý points. Vui lòng thử lại.";
+    } else if (rawMessage.includes("SAFETY") || rawMessage.includes("blocked")) {
+      userMessage = "Nội dung bị từ chối bởi bộ lọc an toàn. Vui lòng thử ý tưởng khác.";
+    } else if (rawMessage.includes("quota") || rawMessage.includes("rate limit") || rawMessage.includes("429")) {
+      userMessage = "Hệ thống đang quá tải. Vui lòng thử lại sau ít phút.";
+    }
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: userMessage }, { status: 500 });
   }
 }

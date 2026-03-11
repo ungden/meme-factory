@@ -76,8 +76,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ variations: enrichedResults });
   } catch (error) {
     console.error("Generate content error:", error);
+
+    const rawMessage = error instanceof Error ? error.message : "";
+
+    // Sanitize: never leak model names or internal details to frontend
+    let userMessage = "Không thể tạo nội dung. Vui lòng thử lại.";
+
+    if (rawMessage.includes("not configured")) {
+      userMessage = "Hệ thống AI chưa được cấu hình. Vui lòng liên hệ admin.";
+    } else if (rawMessage.includes("SAFETY") || rawMessage.includes("blocked")) {
+      userMessage = "Nội dung bị từ chối bởi bộ lọc an toàn. Vui lòng thử ý tưởng khác.";
+    } else if (rawMessage.includes("quota") || rawMessage.includes("rate limit") || rawMessage.includes("429")) {
+      userMessage = "Hệ thống đang quá tải. Vui lòng thử lại sau ít phút.";
+    }
+
     return NextResponse.json(
-      { error: "Failed to generate content" },
+      { error: userMessage },
       { status: 500 }
     );
   }

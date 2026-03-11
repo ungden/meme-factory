@@ -333,10 +333,11 @@ function extractImageFromResponse(response: any): { image: string; text?: string
   }
 
   if (!imageData) {
-    throw new Error(
-      "AI không tạo được ảnh. Vui lòng thử lại với mô tả khác." +
-        (textContent ? ` Phản hồi: ${textContent}` : "")
-    );
+    // Log AI response for debugging but don't expose to user
+    if (textContent) {
+      console.error("AI returned text instead of image:", textContent);
+    }
+    throw new Error("AI không tạo được ảnh. Vui lòng thử lại với mô tả khác.");
   }
 
   return { image: imageData, text: textContent };
