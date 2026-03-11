@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { loginWithGoogleAction } from "@/app/(auth)/auth/actions";
 import { IS_MOCK_MODE } from "@/lib/use-store";
 import Button from "@/components/ui/button";
 import Input from "@/components/ui/input";
@@ -11,15 +12,6 @@ import { Sparkles, Mail, Lock, AlertTriangle, Zap } from "lucide-react";
 function isSupabaseConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   return !!url && url.startsWith("https://") && !url.includes("placeholder");
-}
-
-function getAuthBaseUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_APP_URL;
-  if (configured && /^https?:\/\//.test(configured)) {
-    return configured.replace(/\/$/, "");
-  }
-  if (typeof window !== "undefined") return window.location.origin;
-  return "";
 }
 
 export default function LoginPage() {
@@ -64,15 +56,16 @@ export default function LoginPage() {
     setMessage(null);
 
     const supabase = createClient();
-    const authBase = getAuthBaseUrl();
 
     try {
       if (isSignUp) {
+        // For email signup, redirectTo goes through API callback route (server-side code exchange)
+        const authBase = typeof window !== "undefined" ? window.location.origin : "";
         const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: `${authBase}/auth/callback?next=${encodeURIComponent(redirectPath)}`,
+            emailRedirectTo: `${authBase}/api/auth/callback?next=${encodeURIComponent(redirectPath)}`,
           },
         });
         if (error) throw error;
@@ -104,7 +97,7 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = () => {
     if (!configured) {
       setError("Supabase chưa được cấu hình");
       return;
@@ -113,19 +106,10 @@ export default function LoginPage() {
     setGoogleLoading(true);
     setError(null);
 
-    const supabase = createClient();
-    const authBase = getAuthBaseUrl();
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: `${authBase}/auth/callback?next=${encodeURIComponent(redirectPath)}` },
-      });
-      if (error) throw error;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Không thể đăng nhập Google";
-      setError(msg);
-      setGoogleLoading(false);
-    }
+    // Submit via hidden form to call Server Action
+    // This stores code_verifier in server cookies (not browser)
+    const form = document.getElementById("google-login-form") as HTMLFormElement;
+    if (form) form.requestSubmit();
   };
 
   return (
@@ -225,6 +209,11 @@ export default function LoginPage() {
             <span className="text-xs th-text-muted uppercase">hoặc</span>
             <div className="flex-1 h-px" style={{ background: "var(--border-primary)" }} />
           </div>
+
+          {/* Hidden form for Google OAuth — calls Server Action so code_verifier is stored in server cookies */}
+          <form id="google-login-form" action={loginWithGoogleAction} className="hidden">
+            <input type="hidden" name="next" value={redirectPath} />
+          </form>
 
           <Button
             variant="outline"

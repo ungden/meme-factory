@@ -18,10 +18,6 @@ export function createClient() {
     );
   }
 
-  client = createBrowserClient(url, key, {
-    auth: {
-      flowType: "pkce",
-    },
-  });
+  client = createBrowserClient(url, key);
   return client;
 }

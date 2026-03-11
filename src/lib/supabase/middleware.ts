@@ -12,6 +12,13 @@ function isValidUrl(url: string | undefined): boolean {
 }
 
 export async function updateSession(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Skip auth callback — let its Route Handler manage cookies & redirect directly
+  if (pathname.startsWith("/api/auth/callback")) {
+    return NextResponse.next();
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
