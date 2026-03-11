@@ -25,6 +25,10 @@ function getPointAction(type: string): PointAction {
 }
 
 export async function POST(request: NextRequest) {
+  let userId: string | null = null;
+  let deductedCost = 0;
+  let deductedAction: PointAction | null = null;
+
   try {
     const supabase = await createServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
@@ -34,6 +38,8 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    userId = user.id;
 
     const body = await request.json();
     const { type } = body;
@@ -74,108 +80,74 @@ export async function POST(request: NextRequest) {
           { status: 402 }
         );
       }
+
+      deductedCost = cost;
+      deductedAction = action;
     }
 
     let result: { image: string; text?: string };
 
-    try {
-      switch (type) {
-        case "meme": {
-          const {
-            headline, subtext, tone, textPosition, characters: chars,
-            format, style, backgroundDescription, referenceImages, customPrompt, watermark,
-          } = body;
+    switch (type) {
+      case "meme": {
+        const {
+          headline, subtext, tone, textPosition, characters: chars,
+          format, style, backgroundDescription, referenceImages, customPrompt, watermark,
+        } = body;
 
-          if (!headline && !customPrompt) {
-            // Refund points since we already deducted
-            if (cost > 0) {
-              await supabaseAdmin.rpc("atomic_refund_points", {
-                _user_id: user.id, _cost: cost,
-                _description: `Hoàn ${cost} pts — thiếu headline/prompt`,
-              });
-            }
-            return NextResponse.json(
-              { error: "Cần headline hoặc prompt mô tả để tạo meme" },
-              { status: 400 }
-            );
-          }
-
-          result = await generateMemeImage({
-            headline, subtext, tone: tone || "hài hước",
-            textPosition: textPosition || "top", characters: chars || [],
-            format: format || "1:1", style, backgroundDescription, referenceImages, customPrompt, watermark,
-          });
-          break;
+        if (!headline && !customPrompt) {
+          throw new Error("VALIDATION_HEADLINE_REQUIRED");
         }
 
-        case "character": {
-          const { characterName, characterDescription, emotion, style, existingPoseImages } = body;
-
-          if (!characterName || !characterDescription || !emotion) {
-            if (cost > 0) {
-              await supabaseAdmin.rpc("atomic_refund_points", {
-                _user_id: user.id, _cost: cost,
-                _description: `Hoàn ${cost} pts — thiếu thông tin nhân vật`,
-              });
-            }
-            return NextResponse.json(
-              { error: "characterName, characterDescription, and emotion are required" },
-              { status: 400 }
-            );
-          }
-
-          result = await generateCharacterPose({
-            characterName, characterDescription, emotion, style, existingPoseImages,
-          });
-          break;
-        }
-
-        case "background": {
-          const { description, mood, format } = body;
-
-          if (!description) {
-            if (cost > 0) {
-              await supabaseAdmin.rpc("atomic_refund_points", {
-                _user_id: user.id, _cost: cost,
-                _description: `Hoàn ${cost} pts — thiếu mô tả background`,
-              });
-            }
-            return NextResponse.json(
-              { error: "description is required for background generation" },
-              { status: 400 }
-            );
-          }
-
-          result = await generateBackground({
-            description, mood, format: format || "1:1",
-          });
-          break;
-        }
-
-        default:
-          return NextResponse.json({ error: "Unknown type" }, { status: 400 });
-      }
-    } catch (genError) {
-      // Atomic refund on generation failure + audit trail
-      if (cost > 0) {
-        await supabaseAdmin.rpc("atomic_refund_points", {
-          _user_id: user.id,
-          _cost: cost,
-          _description: `Hoàn ${cost} pts — lỗi tạo ${POINT_LABELS[action]}`,
+        result = await generateMemeImage({
+          headline, subtext, tone: tone || "hài hước",
+          textPosition: textPosition || "top", characters: chars || [],
+          format: format || "1:1", style, backgroundDescription, referenceImages, customPrompt, watermark,
         });
+        break;
       }
-      throw genError;
+
+      case "character": {
+        const { characterName, characterDescription, emotion, style, existingPoseImages } = body;
+
+        if (!characterName || !characterDescription || !emotion) {
+          throw new Error("VALIDATION_CHARACTER_REQUIRED");
+        }
+
+        result = await generateCharacterPose({
+          characterName, characterDescription, emotion, style, existingPoseImages,
+        });
+        break;
+      }
+
+      case "background": {
+        const { description, mood, format } = body;
+
+        if (!description) {
+          throw new Error("VALIDATION_BACKGROUND_REQUIRED");
+        }
+
+        result = await generateBackground({
+          description, mood, format: format || "1:1",
+        });
+        break;
+      }
+
+      default:
+        return NextResponse.json({ error: "Unknown type" }, { status: 400 });
     }
 
     // Record point usage transaction (only on success)
     if (cost > 0) {
-      await supabaseAdmin.from("transactions").insert({
+      const { error: txError } = await supabaseAdmin.from("transactions").insert({
         user_id: user.id,
         amount: 0,
         type: "payment",
         description: `${POINT_LABELS[action]} (-${cost} points)`,
         status: "completed",
       });
+      if (txError) {
+        throw new Error("POINT_TX_FAILED");
+      }
     }
 
     return NextResponse.json({
@@ -189,6 +161,18 @@ export async function POST(request: NextRequest) {
     const rawMessage =
       error instanceof Error ? error.message : "";
 
+    // Guarantee: if points were deducted and request fails, refund immediately
+    if (userId && deductedCost > 0 && deductedAction) {
+      const { error: refundError } = await supabaseAdmin.rpc("atomic_refund_points", {
+        _user_id: userId,
+        _cost: deductedCost,
+        _description: `Hoàn ${deductedCost} pts — lỗi tạo ${POINT_LABELS[deductedAction]}`,
+      });
+      if (refundError) {
+        console.error("Point refund failed:", refundError.message);
+      }
+    }
+
     // Sanitize: only return safe, user-facing messages — never leak model names, API keys, or internal details
     let userMessage = "Không thể tạo ảnh. Vui lòng thử lại.";
 
@@ -197,6 +181,15 @@ export async function POST(request: NextRequest) {
         { error: "Hệ thống AI chưa được cấu hình. Vui lòng liên hệ admin.", code: "NOT_CONFIGURED" },
         { status: 503 }
       );
+    }
+    if (rawMessage.includes("VALIDATION_HEADLINE_REQUIRED")) {
+      return NextResponse.json({ error: "Cần headline hoặc prompt mô tả để tạo meme" }, { status: 400 });
+    }
+    if (rawMessage.includes("VALIDATION_CHARACTER_REQUIRED")) {
+      return NextResponse.json({ error: "characterName, characterDescription, and emotion are required" }, { status: 400 });
+    }
+    if (rawMessage.includes("VALIDATION_BACKGROUND_REQUIRED")) {
+      return NextResponse.json({ error: "description is required for background generation" }, { status: 400 });
     }
     if (rawMessage.includes("Không nhận được kết quả")) {
       userMessage = "AI không trả về kết quả. Vui lòng thử lại.";
