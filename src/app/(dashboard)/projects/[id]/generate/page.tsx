@@ -915,6 +915,9 @@ export default function GeneratePage() {
             </div>
             <div className="flex gap-3">
               <Button variant="outline" onClick={() => setStep(1)}>Quay lại</Button>
+              <Button variant="outline" onClick={handleGenerate} loading={generating}>
+                <RotateCcw size={16} /> {generating ? "Đang tạo lại..." : "Tạo lại 3 ý tưởng"}
+              </Button>
               <Button onClick={() => setStep(3)} disabled={!hasPickedVariation}>Tiếp tục xem trước <ChevronRight size={16} /></Button>
             </div>
           </div>
