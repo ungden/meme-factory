@@ -89,10 +89,8 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
     } catch {
       // Ignore and force navigation to login
     } finally {
-      setMobileOpen(false);
-      router.replace("/login");
-      router.refresh();
-      setSigningOut(false);
+      // Hard navigation clears all client state and lets middleware handle clean redirect
+      window.location.href = "/login";
     }
   };
 

@@ -13,6 +13,15 @@ function isSupabaseConfigured(): boolean {
   return !!url && url.startsWith("https://") && !url.includes("placeholder");
 }
 
+function getAuthBaseUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_APP_URL;
+  if (configured && /^https?:\/\//.test(configured)) {
+    return configured.replace(/\/$/, "");
+  }
+  if (typeof window !== "undefined") return window.location.origin;
+  return "";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -55,6 +64,7 @@ export default function LoginPage() {
     setMessage(null);
 
     const supabase = createClient();
+    const authBase = getAuthBaseUrl();
 
     try {
       if (isSignUp) {
@@ -62,7 +72,7 @@ export default function LoginPage() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectPath)}`,
+            emailRedirectTo: `${authBase}/auth/callback?next=${encodeURIComponent(redirectPath)}`,
           },
         });
         if (error) throw error;
@@ -73,8 +83,9 @@ export default function LoginPage() {
           password,
         });
         if (error) throw error;
-        router.replace(redirectPath);
-        router.refresh();
+        // Hard navigation ensures middleware picks up fresh session cookies
+        // router.replace + refresh causes flash because RSC fetch races with middleware
+        window.location.href = redirectPath;
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Có lỗi xảy ra";
@@ -103,10 +114,11 @@ export default function LoginPage() {
     setError(null);
 
     const supabase = createClient();
+    const authBase = getAuthBaseUrl();
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectPath)}` },
+        options: { redirectTo: `${authBase}/auth/callback?next=${encodeURIComponent(redirectPath)}` },
       });
       if (error) throw error;
     } catch (err) {
