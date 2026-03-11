@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     // Sanitize: never leak model names or internal details to frontend
     let userMessage = "Không thể tạo nội dung. Vui lòng thử lại.";
 
-    if (rawMessage.includes("not configured")) {
+    if (rawMessage.includes("not configured") || rawMessage.includes("AI_KEY_NOT_CONFIGURED")) {
       userMessage = "Hệ thống AI chưa được cấu hình. Vui lòng liên hệ admin.";
     } else if (rawMessage.includes("SAFETY") || rawMessage.includes("blocked")) {
       userMessage = "Nội dung bị từ chối bởi bộ lọc an toàn. Vui lòng thử ý tưởng khác.";

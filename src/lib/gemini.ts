@@ -1,10 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
+import { getGeminiApiKey } from "@/lib/server-secrets";
 
-function getClient() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === "your-gemini-api-key") {
-    throw new Error("GEMINI_API_KEY is not configured in .env.local");
-  }
+async function getClient() {
+  const apiKey = await getGeminiApiKey();
   return new GoogleGenAI({ apiKey });
 }
 
@@ -47,7 +45,7 @@ export async function generateMemeContent(params: {
   numVariations?: number;
   referenceImages?: { base64: string; mimeType: string }[];
 }): Promise<MemeContentResult[]> {
-  const ai = getClient();
+  const ai = await getClient();
   const { idea, projectStyle, characters, adHocCharacters = [], numVariations = 3, referenceImages } = params;
 
   const characterList = characters

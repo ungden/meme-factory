@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
     // Sanitize: only return safe, user-facing messages — never leak model names, API keys, or internal details
     let userMessage = "Không thể tạo ảnh. Vui lòng thử lại.";
 
-    if (rawMessage.includes("not configured")) {
+    if (rawMessage.includes("not configured") || rawMessage.includes("AI_KEY_NOT_CONFIGURED")) {
       return NextResponse.json(
         { error: "Hệ thống AI chưa được cấu hình. Vui lòng liên hệ admin.", code: "NOT_CONFIGURED" },
         { status: 503 }

@@ -564,7 +564,7 @@ export async function generateImage(
   } catch {
     return {
       image: "",
-      error: "Không thể kết nối server. Kiểm tra GEMINI_API_KEY trong .env.local",
+      error: "Không thể kết nối server. Vui lòng thử lại sau.",
       code: "NOT_CONFIGURED",
     };
   }

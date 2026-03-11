@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { getGeminiApiKey } from "@/lib/server-secrets";
 
 // ============================================
 // Gemini Nano Banana 2 - Image Generation
@@ -8,11 +9,8 @@ import { GoogleGenAI } from "@google/genai";
 
 const IMAGE_MODEL = "gemini-3.1-flash-image-preview";
 
-function getClient(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === "your_gemini_api_key") {
-    throw new Error("GEMINI_API_KEY is not configured in .env.local");
-  }
+async function getClient(): Promise<GoogleGenAI> {
+  const apiKey = await getGeminiApiKey();
   return new GoogleGenAI({ apiKey });
 }
 
@@ -51,7 +49,7 @@ export async function generateMemeImage(params: {
   backgroundDescription?: string;
   referenceImages?: { base64: string; mimeType: string }[];
 }): Promise<{ image: string; text?: string }> {
-  const ai = getClient();
+  const ai = await getClient();
 
   const {
     headline,
@@ -201,7 +199,7 @@ export async function generateCharacterPose(params: {
   style?: string;
   existingPoseImages?: { base64: string; mimeType: string }[];
 }): Promise<{ image: string; text?: string }> {
-  const ai = getClient();
+  const ai = await getClient();
 
   const { characterName, characterDescription, emotion, style, existingPoseImages } =
     params;
@@ -277,7 +275,7 @@ export async function generateBackground(params: {
   mood?: string;
   format: string;
 }): Promise<{ image: string; text?: string }> {
-  const ai = getClient();
+  const ai = await getClient();
 
   const { description, mood, format } = params;
   const aspectRatio = FORMAT_TO_ASPECT[format] || "1:1";
