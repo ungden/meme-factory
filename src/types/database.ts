@@ -216,6 +216,7 @@ export type ImageGenRequest =
 export interface ImageGenResponse {
   image: string; // base64 encoded image data
   text?: string; // optional text response from model
+  generation_request_id?: string;
   error?: string;
   code?: string;
 }

@@ -11,42 +11,20 @@ export async function GET(req: Request) {
     const limit = 30;
     const offset = (page - 1) * limit;
 
-    // AI logs are transactions with descriptions matching AI actions
     let query = supabaseAdmin
-      .from("transactions")
+      .from("project_transactions")
       .select("*", { count: "exact" })
-      .or("description.ilike.%ảnh nhân vật%,description.ilike.%ảnh meme%,description.ilike.%background%,description.ilike.%Hoàn points%")
+      .not("ai_action", "is", null)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
-    // Additional type filter
-    if (type === "character") {
-      query = supabaseAdmin
-        .from("transactions")
-        .select("*", { count: "exact" })
-        .ilike("description", "%ảnh nhân vật%")
-        .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
-    } else if (type === "meme") {
-      query = supabaseAdmin
-        .from("transactions")
-        .select("*", { count: "exact" })
-        .ilike("description", "%ảnh meme%")
-        .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
-    } else if (type === "background") {
-      query = supabaseAdmin
-        .from("transactions")
-        .select("*", { count: "exact" })
-        .ilike("description", "%background%")
-        .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
-    }
+    if (type) query = query.eq("ai_action", type);
 
     const { data: logs, count } = await query;
 
-    // Look up emails
-    const userIds = [...new Set((logs ?? []).map((l) => l.user_id))];
+    const userIds = [...new Set((logs ?? []).map((l) => l.actor_user_id).filter(Boolean))] as string[];
+    const projectIds = [...new Set((logs ?? []).map((l) => l.project_id))];
+
     const emails: Record<string, string> = {};
     await Promise.all(
       userIds.map(async (uid) => {
@@ -55,20 +33,19 @@ export async function GET(req: Request) {
       })
     );
 
+    const { data: projects } = await supabaseAdmin
+      .from("projects")
+      .select("id, name")
+      .in("id", projectIds.length > 0 ? projectIds : ["00000000-0000-0000-0000-000000000000"]);
+    const projectNames = Object.fromEntries((projects || []).map((p) => [p.id, p.name]));
+
     return NextResponse.json({
       logs: (logs ?? []).map((l) => {
-        // Determine AI type from description
-        let aiType = "other";
-        const desc = (l.description ?? "").toLowerCase();
-        if (desc.includes("nhân vật") || desc.includes("character")) aiType = "character";
-        else if (desc.includes("meme")) aiType = "meme";
-        else if (desc.includes("background")) aiType = "background";
-        else if (desc.includes("hoàn points") || desc.includes("refund")) aiType = "refund";
-
         return {
           ...l,
-          user_email: emails[l.user_id] ?? "N/A",
-          ai_type: aiType,
+          user_email: l.actor_user_id ? emails[l.actor_user_id] ?? "N/A" : "System",
+          ai_type: l.ai_action || "other",
+          project_name: projectNames[l.project_id] ?? "N/A",
         };
       }),
       total: count ?? 0,

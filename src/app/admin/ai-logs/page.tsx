@@ -7,11 +7,16 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface AILog {
   id: string;
-  user_id: string;
+  actor_user_id: string;
   user_email: string;
   amount: number;
   type: string;
   ai_type: string;
+  project_name: string;
+  output_kind?: string | null;
+  output_id?: string | null;
+  output_url?: string | null;
+  output_title?: string | null;
   description: string;
   status: string;
   created_at: string;
@@ -96,7 +101,9 @@ export default function AdminAILogsPage() {
                 <tr style={{ background: "var(--bg-tertiary)" }}>
                   <th className="text-left py-2.5 px-4 text-xs font-medium th-text-muted uppercase">Thời gian</th>
                   <th className="text-left py-2.5 px-4 text-xs font-medium th-text-muted uppercase">Email</th>
+                  <th className="text-left py-2.5 px-4 text-xs font-medium th-text-muted uppercase">Dự án</th>
                   <th className="text-left py-2.5 px-4 text-xs font-medium th-text-muted uppercase">Loại</th>
+                  <th className="text-left py-2.5 px-4 text-xs font-medium th-text-muted uppercase">Output</th>
                   <th className="text-left py-2.5 px-4 text-xs font-medium th-text-muted uppercase">Mô tả</th>
                   <th className="text-left py-2.5 px-4 text-xs font-medium th-text-muted uppercase">Trạng thái</th>
                   <th className="text-right py-2.5 px-4 text-xs font-medium th-text-muted uppercase">Points</th>
@@ -105,10 +112,10 @@ export default function AdminAILogsPage() {
               <tbody>
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i}><td colSpan={6} className="py-4 px-4"><div className="h-5 th-bg-tertiary rounded animate-pulse" /></td></tr>
+                    <tr key={i}><td colSpan={8} className="py-4 px-4"><div className="h-5 th-bg-tertiary rounded animate-pulse" /></td></tr>
                   ))
                 ) : logs.length === 0 ? (
-                  <tr><td colSpan={6} className="py-12 text-center th-text-muted">Chưa có log AI generation</td></tr>
+                  <tr><td colSpan={8} className="py-12 text-center th-text-muted">Chưa có log AI generation</td></tr>
                 ) : (
                   logs.map((log) => {
                     const style = AI_TYPE_STYLES[log.ai_type] || AI_TYPE_STYLES.other;
@@ -116,10 +123,29 @@ export default function AdminAILogsPage() {
                       <tr key={log.id} className="border-t" style={{ borderColor: "var(--border-primary)" }}>
                         <td className="py-2.5 px-4 th-text-muted text-xs whitespace-nowrap">{formatDate(log.created_at)}</td>
                         <td className="py-2.5 px-4 th-text-primary text-xs truncate max-w-[160px]">{log.user_email}</td>
+                        <td className="py-2.5 px-4 th-text-secondary text-xs truncate max-w-[160px]">{log.project_name}</td>
                         <td className="py-2.5 px-4">
                           <span className="px-2 py-0.5 rounded-md text-xs font-medium" style={{ background: style.bg, color: style.color }}>
                             {style.label}
                           </span>
+                        </td>
+                        <td className="py-2.5 px-4 th-text-secondary text-xs">
+                          {log.output_kind === "meme" ? (
+                            <div className="max-w-[220px]">
+                              <p className="truncate">{log.output_title || "Meme"}</p>
+                              {log.output_url ? (
+                                <a href={log.output_url} target="_blank" rel="noreferrer" className="th-text-accent underline">
+                                  Xem output
+                                </a>
+                              ) : (
+                                <span className="th-text-muted">Không có URL</span>
+                              )}
+                            </div>
+                          ) : log.output_kind ? (
+                            <span>{log.output_kind}</span>
+                          ) : (
+                            <span className="th-text-muted">Chưa gắn output</span>
+                          )}
                         </td>
                         <td className="py-2.5 px-4 th-text-secondary text-xs truncate max-w-[250px]">{log.description}</td>
                         <td className="py-2.5 px-4 text-xs" style={{ color: log.status === "completed" ? "#22c55e" : log.status === "failed" ? "#ef4444" : "#f59e0b" }}>

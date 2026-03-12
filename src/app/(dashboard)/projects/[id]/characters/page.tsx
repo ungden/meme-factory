@@ -95,6 +95,7 @@ export default function CharactersPage() {
   const [aiPoseImage, setAiPoseImage] = useState<string | null>(null);
   const [aiPoseError, setAiPoseError] = useState<string | null>(null);
   const [aiPoseSaving, setAiPoseSaving] = useState(false);
+  const [aiPoseRequestId, setAiPoseRequestId] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
   const [showTemplateGuide, setShowTemplateGuide] = useState(false);
 
@@ -200,6 +201,7 @@ export default function CharactersPage() {
     setAiPoseGenerating(true);
     setAiPoseError(null);
     setAiPoseImage(null);
+    setAiPoseRequestId(null);
 
     try {
       // Gộp đầy đủ thông tin: description + personality + project style
@@ -224,6 +226,7 @@ export default function CharactersPage() {
         setAiPoseError(result.error);
       } else if (result.image) {
         setAiPoseImage(result.image);
+        setAiPoseRequestId(result.generation_request_id || null);
         refreshBalance();
       }
     } catch (err) {
@@ -244,13 +247,32 @@ export default function CharactersPage() {
       const file = new File([blob], `ai-pose-${aiPoseEmotion}-${Date.now()}.png`, { type: "image/png" });
 
       const emotionInfo = EMOTION_OPTIONS.find((e) => e.value === aiPoseEmotion);
-      await addPose(aiPoseCharId, {
+      const newPose = await addPose(aiPoseCharId, {
         name: `${emotionInfo?.label || aiPoseEmotion} (AI)`,
         emotion: aiPoseEmotion,
         description: `AI generated pose - ${emotionInfo?.label || aiPoseEmotion}`,
         is_transparent: false,
         file,
       });
+
+      if (aiPoseRequestId && newPose?.id) {
+        await fetch("/api/ai/log-output", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_id: project?.id || projectId,
+            request_id: aiPoseRequestId,
+            output_kind: "character_pose",
+            output_id: newPose.id,
+            output_url: newPose.image_url,
+            output_title: newPose.name,
+            metadata: {
+              character_id: aiPoseCharId,
+              emotion: aiPoseEmotion,
+            },
+          }),
+        });
+      }
 
       setShowAiPoseModal(false);
       toast.success("Đã lưu pose AI thành công");

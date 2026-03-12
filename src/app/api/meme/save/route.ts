@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +27,7 @@ export async function POST(request: NextRequest) {
       has_watermark,
       image_base64,
       source_meme_id,
+      generation_request_id,
     } = body;
 
     // Verify access (owner or shared member via RLS)
@@ -115,6 +122,29 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (generation_request_id && meme?.id) {
+      await supabaseAdmin
+        .from("project_transactions")
+        .update({
+          output_kind: "meme",
+          output_id: meme.id,
+          output_url: meme.image_url,
+          output_title: (meme.generated_content as { headline?: string })?.headline || meme.original_idea,
+          metadata: {
+            ...(typeof meme.generated_content === "object" && meme.generated_content
+              ? { generated_content: meme.generated_content }
+              : {}),
+            format: meme.format,
+            has_watermark: meme.has_watermark,
+          },
+        })
+        .eq("project_id", project_id)
+        .eq("actor_user_id", user.id)
+        .eq("request_id", generation_request_id)
+        .eq("type", "payment")
+        .eq("status", "completed");
     }
 
     return NextResponse.json({ meme });

@@ -305,7 +305,7 @@ export function useCharacters(projectRef: string) {
         return updated;
       });
       await load();
-      return;
+      return newPose;
     }
     const supabase = createClient();
     const fileExt = input.file.name.split(".").pop();
@@ -313,20 +313,21 @@ export function useCharacters(projectRef: string) {
     const { error: uploadError } = await supabase.storage.from("character-poses").upload(filePath, input.file);
     if (uploadError) throw uploadError;
     const { data: urlData } = supabase.storage.from("character-poses").getPublicUrl(filePath);
-    await supabase.from("character_poses").insert({
+    const { data: insertedPose } = await supabase.from("character_poses").insert({
       character_id: characterId,
       name: input.name,
       emotion: input.emotion,
       image_url: urlData.publicUrl,
       description: input.description || null,
       is_transparent: input.is_transparent,
-    });
+    }).select().single();
     // Auto-set avatar to first pose if no avatar yet
     const char = characters.find((c) => c.id === characterId);
     if (char && !char.avatar_url) {
       await supabase.from("characters").update({ avatar_url: urlData.publicUrl }).eq("id", characterId);
     }
     await load();
+    return insertedPose as CharacterPose | undefined;
   }, [projectRef, load, characters]);
 
   const deletePose = useCallback(async (poseId: string) => {
@@ -395,6 +396,7 @@ export function useMemes(projectRef: string) {
     has_watermark: boolean;
     image_base64?: string | null;
     source_meme_id?: string | null;
+    generation_request_id?: string | null;
   }) => {
     if (IS_MOCK_MODE) {
       const newMeme: Meme = {

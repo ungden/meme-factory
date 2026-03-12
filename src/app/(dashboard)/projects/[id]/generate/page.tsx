@@ -68,6 +68,7 @@ export default function GeneratePage() {
   // AI image generation
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiImageBase64, setAiImageBase64] = useState<string | null>(null);
+  const [aiGenerationRequestId, setAiGenerationRequestId] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
 
   // Reference images for meme ideas
@@ -361,6 +362,7 @@ export default function GeneratePage() {
       setTaggedCharacterIds(new Set(selectedChars.map((c) => c.character_id)));
       setAiCustomPrompt("");
       setAiImageBase64(null);
+      setAiGenerationRequestId(null);
       setAiError(null);
       setStep(3);
       setPrefillAppliedKey(key);
@@ -495,6 +497,8 @@ export default function GeneratePage() {
     setAiGenerating(true);
     setAiError(null);
     setAiImageBase64(null);
+    setAiGenerationRequestId(null);
+    setAiGenerationRequestId(null);
 
     try {
       const taggedCharacters = characters.filter((c) => taggedCharacterIds.has(c.id));
@@ -593,6 +597,7 @@ export default function GeneratePage() {
         setAiError(result.error);
       } else if (result.image) {
         setAiImageBase64(result.image);
+        setAiGenerationRequestId(result.generation_request_id || null);
         try {
           await saveMeme({
             original_idea: idea,
@@ -602,6 +607,7 @@ export default function GeneratePage() {
             has_watermark: enableWatermark,
             image_base64: `data:image/png;base64,${result.image}`,
             source_meme_id: lineageSourceMemeId,
+            generation_request_id: result.generation_request_id,
           });
           toast.success("Đã tự động lưu vào bộ sưu tập");
         } catch (saveErr) {
@@ -646,6 +652,7 @@ export default function GeneratePage() {
         has_watermark: enableWatermark,
         image_base64: imageData,
         source_meme_id: lineageSourceMemeId,
+        generation_request_id: aiGenerationRequestId,
       });
       toast.success("Đã lưu meme vào thư viện!");
     } catch (err) {
@@ -665,6 +672,7 @@ export default function GeneratePage() {
     setSelectedVariation(0);
     setHasPickedVariation(false);
     setAiImageBase64(null);
+    setAiGenerationRequestId(null);
     setAiError(null);
     setAiGenerating(false);
     setGenerating(false);

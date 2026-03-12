@@ -27,6 +27,7 @@ function getPointAction(type: string): PointAction {
 export async function POST(request: NextRequest) {
   let actorUserId: string | null = null;
   let projectId: string | null = null;
+  let generationRequestId: string | null = null;
   let deductedCost = 0;
   let deductedAction: PointAction | null = null;
 
@@ -73,6 +74,7 @@ export async function POST(request: NextRequest) {
     // Point System — Atomic Deduct via RPC
     // ============================================
     const action = getPointAction(type);
+    generationRequestId = crypto.randomUUID();
     const cost = POINT_COSTS[action];
 
     if (cost > 0) {
@@ -81,6 +83,12 @@ export async function POST(request: NextRequest) {
         _actor_user_id: user.id,
         _cost: cost,
         _description: `${POINT_LABELS[action]} (-${cost} points) từ ví dự án`,
+        _request_id: generationRequestId,
+        _ai_action: type,
+        _metadata: {
+          type,
+          project_id: projectId,
+        },
       });
 
       if (deductRpcErr) {
@@ -158,6 +166,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       image: result.image,
       text: result.text,
+      generation_request_id: generationRequestId,
       pointsUsed: cost,
     });
   } catch (error) {
@@ -173,6 +182,11 @@ export async function POST(request: NextRequest) {
         _actor_user_id: actorUserId,
         _cost: deductedCost,
         _description: `Hoàn ${deductedCost} pts vào ví dự án — lỗi tạo ${POINT_LABELS[deductedAction]}`,
+        _request_id: generationRequestId,
+        _ai_action: deductedAction,
+        _metadata: {
+          reason: "generation_failed",
+        },
       });
       if (refundError) {
         console.error("Point refund failed:", refundError.message);
