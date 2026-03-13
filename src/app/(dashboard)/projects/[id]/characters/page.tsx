@@ -31,6 +31,7 @@ import { BulkUploader } from "@/components/ui/bulk-uploader";
 import type { Character, EmotionTag } from "@/types/database";
 import { PROMPT_TEMPLATES, type PromptTemplate } from "@/lib/prompt-templates";
 import { useWallet } from "@/contexts/WalletContext";
+import { trackEvent } from "@/lib/analytics";
 
 const EMOTION_OPTIONS: { value: EmotionTag; label: string; emoji: string }[] = [
   { value: "happy", label: "Vui", emoji: "😊" },
@@ -223,13 +224,33 @@ export default function CharactersPage() {
       });
 
       if (result.error) {
+        trackEvent("generate_image_failed", {
+          action: "character",
+          project_id: project?.id || projectId,
+          reason: result.code || "api_error",
+        });
         setAiPoseError(result.error);
       } else if (result.image) {
         setAiPoseImage(result.image);
         setAiPoseRequestId(result.generation_request_id || null);
+        trackEvent("generate_image_success", {
+          action: "character",
+          project_id: project?.id || projectId,
+          points_spent: result.pointsUsed ?? 3,
+          request_id: result.generation_request_id || undefined,
+        });
+        trackEvent("project_points_spent", {
+          action: "character",
+          project_id: project?.id || projectId,
+          points: result.pointsUsed ?? 3,
+        });
         refreshBalance();
       }
     } catch (err) {
+      trackEvent("generate_image_exception", {
+        action: "character",
+        project_id: project?.id || projectId,
+      });
       setAiPoseError(err instanceof Error ? err.message : "Lỗi không xác định khi tạo pose bằng AI");
     }
 
@@ -273,6 +294,11 @@ export default function CharactersPage() {
           }),
         });
       }
+
+      trackEvent("save_pose_success", {
+        project_id: project?.id || projectId,
+        request_id: aiPoseRequestId || undefined,
+      });
 
       setShowAiPoseModal(false);
       toast.success("Đã lưu pose AI thành công");

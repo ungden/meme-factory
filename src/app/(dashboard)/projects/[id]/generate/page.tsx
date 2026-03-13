@@ -14,6 +14,7 @@ import { Zap, Sparkles, Download, Save, RotateCcw, ChevronRight, Check, Wand2, I
 import type { MemeContent, MemeFormat, SelectedCharacter, EmotionTag } from "@/types/database";
 import { FORMAT_DIMENSIONS } from "@/types/database";
 import { POINT_COSTS } from "@/lib/point-pricing";
+import { trackEvent } from "@/lib/analytics";
 
 interface ContentVariation {
   content: MemeContent;
@@ -610,10 +611,26 @@ export default function GeneratePage() {
       });
 
       if (result.error) {
+        trackEvent("generate_image_failed", {
+          action: "meme",
+          project_id: project?.id || projectId,
+          reason: result.code || "api_error",
+        });
         setAiError(result.error);
       } else if (result.image) {
         setAiImageBase64(result.image);
         setAiGenerationRequestId(result.generation_request_id || null);
+        trackEvent("generate_image_success", {
+          action: "meme",
+          project_id: project?.id || projectId,
+          points_spent: result.pointsUsed ?? POINT_COSTS.meme,
+          request_id: result.generation_request_id || undefined,
+        });
+        trackEvent("project_points_spent", {
+          action: "meme",
+          project_id: project?.id || projectId,
+          points: result.pointsUsed ?? POINT_COSTS.meme,
+        });
         try {
           await saveMeme({
             original_idea: idea,
@@ -625,14 +642,26 @@ export default function GeneratePage() {
             source_meme_id: lineageSourceMemeId,
             generation_request_id: result.generation_request_id,
           });
+          trackEvent("save_meme_success", {
+            project_id: project?.id || projectId,
+            request_id: result.generation_request_id || undefined,
+          });
           toast.success("Đã tự động lưu vào bộ sưu tập");
         } catch (saveErr) {
+          trackEvent("save_meme_failed", {
+            project_id: project?.id || projectId,
+            request_id: result.generation_request_id || undefined,
+          });
           toast.error(saveErr instanceof Error ? saveErr.message : "Tạo ảnh xong nhưng lưu bộ sưu tập thất bại");
         }
         // Refresh project wallet points
         fetchProjectPoints();
       }
     } catch (err) {
+      trackEvent("generate_image_exception", {
+        action: "meme",
+        project_id: project?.id || projectId,
+      });
       setAiError(err instanceof Error ? err.message : "Lỗi không xác định khi tạo ảnh AI");
     }
 

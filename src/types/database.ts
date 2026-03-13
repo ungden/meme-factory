@@ -217,6 +217,7 @@ export interface ImageGenResponse {
   image: string; // base64 encoded image data
   text?: string; // optional text response from model
   generation_request_id?: string;
+  pointsUsed?: number;
   error?: string;
   code?: string;
 }

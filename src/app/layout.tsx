@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/ui/toast";
+import GARouteTracker from "@/components/analytics/ga-route-tracker";
+import { GA_ID } from "@/lib/analytics";
 import "./globals.css";
-
-const GA_ID = "G-6VSHM22RWN";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -90,6 +90,7 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans antialiased`}>
         <ThemeProvider>
           <ToastProvider>
+            <GARouteTracker />
             {children}
           </ToastProvider>
         </ThemeProvider>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useProject } from "@/lib/use-store";
 import { useWallet } from "@/contexts/WalletContext";
+import { trackEvent } from "@/lib/analytics";
 import Sidebar from "@/components/layout/sidebar";
 import Card, { CardContent } from "@/components/ui/card";
 import Button from "@/components/ui/button";
@@ -60,6 +61,10 @@ export default function ProjectWalletPage() {
       if (!res.ok) {
         alert(data?.error || "Không thể nạp points vào ví dự án");
       } else {
+        trackEvent("project_points_deposit", {
+          project_id: project?.id || projectId,
+          points,
+        });
         fetchWallet();
         refreshBalance();
       }
