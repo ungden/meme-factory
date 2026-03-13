@@ -34,6 +34,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
   const { points, isLoading: walletLoading } = useWallet();
+  const [projectPoints, setProjectPoints] = useState<number | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -57,6 +58,26 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  // Load project wallet points when inside a project
+  useEffect(() => {
+    const fetchProjectPoints = async () => {
+      if (!projectId) {
+        setProjectPoints(null);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/projects/${projectId}/wallet`);
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          setProjectPoints(Number(data.points || 0));
+        }
+      } catch {
+        // ignore
+      }
+    };
+    fetchProjectPoints();
+  }, [projectId, pathname]);
 
   // Close sidebar on escape key
   useEffect(() => {
@@ -124,7 +145,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
 
       {/* Point Balance */}
       <Link
-        href="/wallet"
+        href={projectId ? `/projects/${projectId}/wallet` : "/wallet"}
         className="mx-3 mt-3 flex items-center justify-between px-3 py-2.5 rounded-xl transition-all th-bg-hover"
         style={{ background: "var(--bg-tertiary)" }}
       >
@@ -132,10 +153,10 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}>
             <Coins size={14} className="text-white" />
           </div>
-          <span className="text-sm font-medium th-text-secondary">Points</span>
+          <span className="text-sm font-medium th-text-secondary">{projectId ? "Project pts" : "Points"}</span>
         </div>
         <span className="text-sm font-bold th-text-primary">
-          {walletLoading ? "..." : points.toLocaleString("vi-VN")}
+          {projectId ? (projectPoints === null ? "..." : projectPoints.toLocaleString("vi-VN")) : (walletLoading ? "..." : points.toLocaleString("vi-VN"))}
         </span>
       </Link>
 

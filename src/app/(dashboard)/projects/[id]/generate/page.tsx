@@ -13,7 +13,6 @@ import { useToast } from "@/components/ui/toast";
 import { Zap, Sparkles, Download, Save, RotateCcw, ChevronRight, Check, Wand2, ImageIcon, Loader2, Upload, X, Tags, Plus } from "lucide-react";
 import type { MemeContent, MemeFormat, SelectedCharacter, EmotionTag } from "@/types/database";
 import { FORMAT_DIMENSIONS } from "@/types/database";
-import { useWallet } from "@/contexts/WalletContext";
 import { POINT_COSTS } from "@/lib/point-pricing";
 
 interface ContentVariation {
@@ -52,8 +51,8 @@ export default function GeneratePage() {
   const { memes, saveMeme } = useMemes(projectId);
 
   const toast = useToast();
-  const { points, refreshBalance } = useWallet();
   const loading = projLoading || charsLoading;
+  const [projectPoints, setProjectPoints] = useState(0);
 
   // Steps
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -100,6 +99,23 @@ export default function GeneratePage() {
   const fromMode = searchParams.get("mode");
   const lineageSourceMemeId = fromMode === "regenerate" ? fromMemeId : null;
   const [prefillAppliedKey, setPrefillAppliedKey] = useState<string | null>(null);
+
+  const fetchProjectPoints = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/wallet`);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setProjectPoints(Number(data.points || 0));
+      }
+    } catch {
+      // ignore
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    fetchProjectPoints();
+  }, [projectId, fetchProjectPoints]);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -613,8 +629,8 @@ export default function GeneratePage() {
         } catch (saveErr) {
           toast.error(saveErr instanceof Error ? saveErr.message : "Tạo ảnh xong nhưng lưu bộ sưu tập thất bại");
         }
-        // Refresh wallet to show updated points
-        refreshBalance();
+        // Refresh project wallet points
+        fetchProjectPoints();
       }
     } catch (err) {
       setAiError(err instanceof Error ? err.message : "Lỗi không xác định khi tạo ảnh AI");
@@ -1040,7 +1056,7 @@ export default function GeneratePage() {
                           Tạo ảnh bằng AI ({POINT_COSTS.meme} pts)
                         </Button>
                         <p className="text-xs th-text-muted">
-                          Bạn có <strong>{points}</strong> points
+                          Ví dự án còn <strong>{projectPoints}</strong> points
                         </p>
                       </div>
                     )}
@@ -1090,7 +1106,7 @@ export default function GeneratePage() {
                           <Button variant="outline" size="sm" onClick={handleAiGenerate}>
                             <RotateCcw size={14} /> Tạo lại ({POINT_COSTS.meme} pts)
                           </Button>
-                          <span className="text-xs th-text-muted">{points} pts còn lại</span>
+                          <span className="text-xs th-text-muted">Ví dự án: {projectPoints} pts</span>
                         </div>
                       </div>
                     )}
