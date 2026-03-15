@@ -41,13 +41,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ suggestions });
   } catch (error) {
     console.error("Suggest characters error:", error);
-    const msg = error instanceof Error ? error.message : "";
+    const msg = error instanceof Error ? error.message : String(error);
     if (msg.includes("429") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("rate limit")) {
       return NextResponse.json(
         { error: "Hệ thống AI đang quá tải (hết quota ngày). Vui lòng thử lại sau vài giờ." },
         { status: 429 }
       );
     }
-    return NextResponse.json({ error: "Không thể gợi ý nhân vật lúc này" }, { status: 500 });
+    if (msg.includes("AI_KEY_NOT_CONFIGURED") || msg.includes("not configured")) {
+      return NextResponse.json(
+        { error: "Hệ thống AI chưa được cấu hình API key. Liên hệ admin." },
+        { status: 503 }
+      );
+    }
+    // Trả debug info tạm để xác định lỗi production
+    return NextResponse.json(
+      { error: "Không thể gợi ý nhân vật lúc này", debug: msg.substring(0, 300) },
+      { status: 500 }
+    );
   }
 }
