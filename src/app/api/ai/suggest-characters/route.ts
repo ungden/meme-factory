@@ -22,11 +22,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Thiếu project_id hoặc mô tả fanpage" }, { status: 400 });
     }
 
-    const { data: project } = await supabase
-      .from("projects")
-      .select("id, style_prompt")
-      .eq("id", project_id)
-      .maybeSingle();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(project_id);
+    const projectQuery = supabase.from("projects").select("id, style_prompt").limit(1);
+    const { data: project } = isUuid
+      ? await projectQuery.eq("id", project_id).maybeSingle()
+      : await projectQuery.eq("slug", project_id).maybeSingle();
 
     if (!project) {
       return NextResponse.json({ error: "Project không tồn tại hoặc bạn không có quyền" }, { status: 404 });

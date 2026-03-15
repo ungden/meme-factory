@@ -225,6 +225,10 @@ export default function CharactersPage() {
         description: string;
         why_fit: string;
       }) => ({ selected: true, ...s }));
+      if (items.length === 0) {
+        toast.error("AI không trả về gợi ý nào. Thử mô tả fanpage chi tiết hơn.");
+        return;
+      }
       setSuggestItems(items);
       trackEvent("suggest_characters_success", {
         project_id: project?.id || projectId,
@@ -255,40 +259,49 @@ export default function CharactersPage() {
     });
     let success = 0;
     let generated = 0;
-    for (const item of selected) {
-      const created = await createCharacter({
-        name: item.name,
-        personality: item.personality,
-        description: `${item.description}${item.role ? `. Vai trò: ${item.role}` : ""}`,
-      });
-      if (created) {
-        success += 1;
+    try {
+      for (const item of selected) {
+        const created = await createCharacter({
+          name: item.name,
+          personality: item.personality,
+          description: `${item.description}${item.role ? `. Vai trò: ${item.role}` : ""}`,
+        });
+        if (created) {
+          success += 1;
 
-        if (autoGenerateBaseImage) {
-          const result = await generateImage({
-            project_id: project?.id || projectId,
-            type: "character",
-            characterName: created.name,
-            characterDescription: `${created.description}${created.personality ? `. Tính cách: ${created.personality}` : ""}`,
-            emotion: "neutral",
-            style: project?.style_prompt || undefined,
-          });
+          if (autoGenerateBaseImage) {
+            try {
+              const result = await generateImage({
+                project_id: project?.id || projectId,
+                type: "character",
+                characterName: created.name,
+                characterDescription: `${created.description}${created.personality ? `. Tính cách: ${created.personality}` : ""}`,
+                emotion: "neutral",
+                style: project?.style_prompt || undefined,
+              });
 
-          if (result.image) {
-            const response = await fetch(`data:image/png;base64,${result.image}`);
-            const blob = await response.blob();
-            const file = new File([blob], `ai-character-base-${Date.now()}.png`, { type: "image/png" });
-            await addPose(created.id, {
-              name: "Base (AI)",
-              emotion: "neutral",
-              description: "AI generated base character image",
-              is_transparent: false,
-              file,
-            });
-            generated += 1;
+              if (result.image) {
+                const response = await fetch(`data:image/png;base64,${result.image}`);
+                const blob = await response.blob();
+                const file = new File([blob], `ai-character-base-${Date.now()}.png`, { type: "image/png" });
+                await addPose(created.id, {
+                  name: "Base (AI)",
+                  emotion: "neutral",
+                  description: "AI generated base character image",
+                  is_transparent: false,
+                  file,
+                });
+                generated += 1;
+              }
+            } catch (imgErr) {
+              console.error(`Failed to generate base image for "${item.name}":`, imgErr);
+            }
           }
         }
       }
+    } catch (err) {
+      console.error("Bulk character creation error:", err);
+      toast.error("Có lỗi xảy ra khi tạo nhân vật");
     }
     setCreatingSuggested(false);
 
