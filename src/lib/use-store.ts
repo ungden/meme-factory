@@ -463,6 +463,7 @@ export async function generateContent(input: {
   characters: CharWithPoses[];
   projectStyle?: string;
   adHocCharacters?: string[];
+  noCharacters?: boolean;
   referenceImages?: { base64: string; mimeType: string }[];
 }) {
   // Try server API route first (works in both real and mock mode if GEMINI_API_KEY is set server-side)
@@ -473,7 +474,8 @@ export async function generateContent(input: {
       body: JSON.stringify({
         project_id: input.project_id,
         idea: input.idea,
-        adHocCharacters: input.adHocCharacters,
+        adHocCharacters: input.noCharacters ? [] : input.adHocCharacters,
+        noCharacters: input.noCharacters || false,
         num_variations: 3,
         referenceImages: input.referenceImages,
       }),

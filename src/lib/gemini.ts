@@ -103,13 +103,14 @@ export async function generateMemeContent(params: {
     available_emotions: string[];
   }[];
   adHocCharacters?: string[];
+  noCharacters?: boolean;
   numVariations?: number;
   referenceImages?: { base64: string; mimeType: string }[];
 }): Promise<MemeContentResult[]> {
   const ai = await getClient();
-  const { idea, projectStyle, characters, adHocCharacters = [], numVariations = 3, referenceImages } = params;
+  const { idea, projectStyle, characters, adHocCharacters = [], noCharacters = false, numVariations = 3, referenceImages } = params;
 
-  const characterList = characters
+  const characterList = noCharacters ? "" : characters
     .map(
       (c) =>
         `- "${c.name}" (ID: ${c.id}): ${c.description}. Tính cách: ${c.personality}. Biểu cảm có sẵn: ${c.available_emotions.join(", ")}`
@@ -118,20 +119,28 @@ export async function generateMemeContent(params: {
 
   const hasRefImages = referenceImages && referenceImages.length > 0;
 
+  const characterSection = noCharacters
+    ? `CHẾ ĐỘ: KHÔNG DÙNG NHÂN VẬT THƯ VIỆN.
+User muốn tạo meme KHÔNG có nhân vật mascot riêng. Meme này dùng người nổi tiếng, meme template, hoặc tình huống đời thường.
+- suggested_characters PHẢI để rỗng [].
+- image_prompt mô tả người/nhân vật cụ thể theo ý tưởng (VD: Donald Trump, Elon Musk, anh shipper, cô gái văn phòng...) hoặc scene thuần tuý.
+- KHÔNG tự bịa nhân vật mascot hay character_id.`
+    : `NHÂN VẬT CÓ SẴN:
+${characterList || "(Chưa có nhân vật sẵn)"}
+
+NHÂN VẬT MENTION 1 LẦN:
+${adHocCharacters.length > 0 ? adHocCharacters.map((n) => `- ${n}`).join("\n") : "(Không có)"}`;
+
   const prompt = `Bạn là admin fanpage meme Việt Nam lâu năm, chuyên viết content viral. Bạn hiểu rõ cách nói chuyện trên mạng xã hội VN: tự nhiên, sắc, đời thường, hơi láo đúng lúc. Đọc lên phải thấy như người thật nghĩ ra, không phải AI hay copywriter.
 
-NHIỆM VỤ: Viết ${numVariations} phiên bản meme từ ý tưởng bên dưới. Mỗi phiên bản phải khác nhau rõ ràng về góc nhìn hoặc cách đẩy joke.
+NHIỆM VỤ: Viết ${numVariations} phiên bản meme từ ý tưởng bên dưới. Mỗi phiên bản phải khác nhau rõ ràng về góc nhìn hoặc cách đẩy joke. BÁM SÁT ý tưởng gốc — không được đi xa khỏi chủ đề user đưa ra.
 
 Ý TƯỞNG: "${idea}"
 ${hasRefImages ? `\nẢNH THAM KHẢO: User đính kèm ${referenceImages!.length} ảnh. Phân tích context, mood, style từ ảnh để content sát thực tế hơn.` : ""}
 
 ${projectStyle ? `PHONG CÁCH FANPAGE: ${projectStyle}` : ""}
 
-NHÂN VẬT CÓ SẴN:
-${characterList || "(Chưa có nhân vật sẵn)"}
-
-NHÂN VẬT MENTION 1 LẦN:
-${adHocCharacters.length > 0 ? adHocCharacters.map((n) => `- ${n}`).join("\n") : "(Không có)"}
+${characterSection}
 
 === TÁCH RÕ TEXT TRÊN ẢNH VS PROMPT ẢNH ===
 - headline = CHÍNH XÁC text chính phải render lên ảnh
@@ -165,6 +174,7 @@ VÍ DỤ GƯỢNG / AI VIBE — CẤM DÙNG:
 - "Trạng thái cảm xúc khó diễn tả"
 
 NGUYÊN TẮC VIẾT:
+- BÁM SÁT Ý TƯỞNG GỐC: Headline/subtext/image_prompt phải xoay quanh đúng chủ đề user nhập. Không được đổi sang chủ đề khác dù có liên quan. Nếu user nói về Trump thì meme phải về Trump, không được chuyển thành meme chung chung.
 - Viết như đang kể chuyện, than, cà khịa hoặc tự bóc phốt bản thân
 - Ưu tiên 1 tình huống cụ thể, có thể hình dung ngay, thay vì ý lớn chung chung
 - Headline tối đa 2 vế; tránh văn mẫu, tránh khẩu hiệu, tránh triết lý sống
@@ -186,10 +196,11 @@ Các angle nên rải ra giữa các kiểu sau:
 - deadpan: câu rất tỉnh nhưng buồn cười vì quá thật
 
 === QUY TẮC CHỌN NHÂN VẬT ===
-- Ưu tiên nhân vật có sẵn nếu phù hợp. Giải thích ngắn gọn, thật cụ thể.
+${noCharacters ? `- User đã chọn KHÔNG DÙNG NHÂN VẬT THƯ VIỆN. suggested_characters BẮT BUỘC là mảng rỗng [].
+- KHÔNG tự tạo character_id hay character_name. image_prompt mô tả trực tiếp người/nhân vật trong scene.` : `- Ưu tiên nhân vật có sẵn nếu phù hợp. Giải thích ngắn gọn, thật cụ thể.
 - Nhân vật mention 1 lần được phép dùng dù không có trong thư viện
 - Nếu không nhân vật nào hợp thì để suggested_characters rỗng []
-- Gợi ý biểu cảm từ danh sách có sẵn (nếu dùng nhân vật thư viện)
+- Gợi ý biểu cảm từ danh sách có sẵn (nếu dùng nhân vật thư viện)`}
 
 === VISUAL DIRECTION ===
 Tạo visual_direction chi tiết cho AI image gen:

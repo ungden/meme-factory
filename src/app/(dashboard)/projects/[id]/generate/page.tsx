@@ -398,6 +398,7 @@ export default function GeneratePage() {
         characters: noCharacters ? [] : characters,
         projectStyle: project?.style_prompt || undefined,
         adHocCharacters: noCharacters ? [] : oneOffCharacters,
+        noCharacters,
         referenceImages: refImages.length > 0
           ? refImages.map((img) => ({ base64: img.base64, mimeType: img.mimeType }))
           : undefined,

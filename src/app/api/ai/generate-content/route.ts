@@ -12,8 +12,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = (await request.json()) as GenerateContentRequest;
-    const { project_id, idea, tone, num_variations, referenceImages, adHocCharacters } = body;
+    const body = (await request.json()) as GenerateContentRequest & { noCharacters?: boolean };
+    const { project_id, idea, tone, num_variations, referenceImages, adHocCharacters, noCharacters } = body;
 
     // Verify project access (owner or shared member via RLS)
     const { data: project } = await supabase
@@ -26,28 +26,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Get characters with their available poses/emotions
-    const { data: characters } = await supabase
-      .from("characters")
-      .select("*, character_poses(*)")
-      .eq("project_id", project_id);
+    // Get characters with their available poses/emotions (skip if noCharacters)
+    let characterData: { id: string; name: string; personality: string; description: string; available_emotions: string[] }[] = [];
+    let characters: Record<string, unknown>[] | null = null;
 
-    const characterData = (characters || []).map((c: Record<string, unknown>) => ({
-      id: c.id as string,
-      name: c.name as string,
-      personality: c.personality as string,
-      description: c.description as string,
-      available_emotions: ((c.character_poses as { emotion: string }[]) || []).map(
-        (p) => p.emotion
-      ),
-    }));
+    if (!noCharacters) {
+      const { data: charRows } = await supabase
+        .from("characters")
+        .select("*, character_poses(*)")
+        .eq("project_id", project_id);
+
+      characters = charRows;
+      characterData = (charRows || []).map((c: Record<string, unknown>) => ({
+        id: c.id as string,
+        name: c.name as string,
+        personality: c.personality as string,
+        description: c.description as string,
+        available_emotions: ((c.character_poses as { emotion: string }[]) || []).map(
+          (p) => p.emotion
+        ),
+      }));
+    }
 
     // Generate meme content with Gemini
     const results = await generateMemeContent({
       idea: tone ? `${idea} (Tone: ${tone})` : idea,
       projectStyle: project.style_prompt || undefined,
       characters: characterData,
-      adHocCharacters,
+      adHocCharacters: noCharacters ? [] : adHocCharacters,
+      noCharacters: noCharacters || false,
       numVariations: num_variations || 3,
       referenceImages,
     });
