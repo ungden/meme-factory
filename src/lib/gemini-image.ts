@@ -78,7 +78,7 @@ export async function generateMemeImage(params: {
     customPrompt && /["“”':]|hội thoại|nói|thoại|speech|bubble|khung hình/i.test(customPrompt)
   );
 
-  const defaultMemeStyle = `Phong cách: Cartoon meme fanpage Việt Nam. Bold outlines, shading rõ ràng, dynamic composition. Màu sắc tươi sáng bão hoà, bắt mắt trên news feed.`;
+  const defaultMemeStyle = `Phong cách: Cartoon meme fanpage Việt Nam. Bold outlines, shading rõ ràng, dynamic composition. Màu sắc tươi sáng bão hoà, bắt mắt trên news feed. Đây là ảnh minh hoạ (illustration), KHÔNG phải ảnh chụp thật.`;
 
   const prompt = `Bạn là designer chuyên tạo meme cho fanpage comic Việt Nam. Hãy tạo một meme image hoàn chỉnh, chất lượng cao, sẵn sàng đăng social media.
 
@@ -104,6 +104,8 @@ YÊU CẦU BẮT BUỘC:
 4. Bố cục cân đối, bắt mắt, phù hợp tỉ lệ ${format}, có đủ breathing room giữa text và nhân vật
 5. Màu sắc tươi sáng, bão hoà, nhìn nổi bật trên news feed
 6. Phù hợp đăng lên Facebook, Instagram — thu hút engagement
+6.4. OUTPUT PHẢI LÀ ILLUSTRATION/COMIC ART. Tuyệt đối KHÔNG photorealistic, KHÔNG ảnh chụp thật, KHÔNG live-action/cinematic photo.
+6.5. Nếu brief có người nổi tiếng (VD: Donald Trump), hãy vẽ theo phong cách minh hoạ/caricature nhất quán với comic style, không tạo ảnh chân dung thật.
 6.1. TEXT render trên ảnh CHỈ lấy từ HEADLINE TEXT và SUBTEXT ở trên, hoặc từ phần hướng dẫn text chuyên biệt trong BRIEF BỔ SUNG. Không được biến mô tả scene trong BRIEF BỔ SUNG thành chữ mới trên ảnh.
 6.2. Nếu BRIEF BỔ SUNG có nhãn [IMAGE BRIEF] thì đó là mô tả hình ảnh, KHÔNG phải text để viết lên ảnh.
 6.3. Nếu BRIEF BỔ SUNG có nhãn [TEXT RENDERING NOTES] thì đó là hướng dẫn dàn trang/chèn text, không phải mô tả bối cảnh.
