@@ -47,15 +47,9 @@ export default function WalletScreen() {
       </Card>
 
       <Card>
-        <Title>Tạo đơn nạp tiền</Title>
-        <InputField label="Số tiền" value={amount} onChangeText={setAmount} placeholder="100000" />
-        <Button onPress={() => void createTopup()}>Tạo QR chuyển khoản</Button>
-        {topup ? (
-          <>
-            <Subtle>Nội dung chuyển khoản: {topup.description}</Subtle>
-            <Image source={{ uri: topup.qrUrl }} style={{ width: "100%", height: 260, borderRadius: 20 }} resizeMode="contain" />
-          </>
-        ) : null}
+        <Title>Nạp tiền (Topup)</Title>
+        <Subtle>Để tuân thủ chính sách thanh toán của App Store, tính năng nạp tiền hiện chỉ được hỗ trợ trên website.</Subtle>
+        <Subtle>Vui lòng truy cập aida.vn bằng trình duyệt để nạp points.</Subtle>
       </Card>
 
       <Card>
