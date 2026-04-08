@@ -15,6 +15,7 @@ import type { MemeContent, MemeFormat, SelectedCharacter, EmotionTag } from "@/t
 import { FORMAT_DIMENSIONS } from "@/types/database";
 import { POINT_COSTS } from "@/lib/point-pricing";
 import { trackEvent } from "@/lib/analytics";
+import { compressImageToBase64 } from "@/lib/image-utils";
 
 interface ContentVariation {
   content: MemeContent;
@@ -118,45 +119,6 @@ export default function GeneratePage() {
     if (!projectId) return;
     fetchProjectPoints();
   }, [projectId, fetchProjectPoints]);
-
-  const compressImageToBase64 = (file: File | Blob, maxWidth = 1024): Promise<{ base64: string, mimeType: string }> => {
-    return new Promise((resolve, reject) => {
-      const img = new window.Image();
-      const url = URL.createObjectURL(file);
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        let width = img.width;
-        let height = img.height;
-        if (width > maxWidth || height > maxWidth) {
-          if (width > height) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
-          } else {
-            width = Math.round((width * maxWidth) / height);
-            height = maxWidth;
-          }
-        }
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.fillStyle = "#FFFFFF"; // in case of transparent PNGs
-          ctx.fillRect(0, 0, width, height);
-          ctx.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
-          resolve({ base64: dataUrl.split(",")[1], mimeType: "image/jpeg" });
-        } else {
-          reject(new Error("Canvas context is null"));
-        }
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error("Image load error"));
-      };
-      img.src = url;
-    });
-  };
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -1234,6 +1196,9 @@ export default function GeneratePage() {
                           </div>
                         </div>
                         <div className="flex items-center justify-center gap-3">
+                          <Button variant="outline" size="sm" onClick={handleExport}>
+                            <Download size={14} /> Tải xuống
+                          </Button>
                           <Button variant="outline" size="sm" onClick={handleAiGenerate}>
                             <RotateCcw size={14} /> Tạo lại ({POINT_COSTS.meme} pts)
                           </Button>
