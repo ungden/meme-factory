@@ -82,7 +82,7 @@ export function ContinuityStudio({ projectId, projectName }: { projectId: string
   const [selectedVariant, setSelectedVariant] = useState(0);
   const [policy, setPolicy] = useState<ContinuityPolicy>("balanced");
   const [model, setModel] = useState("gemini-3.1-flash-image");
-  const [prompt, setPrompt] = useState("Đêm điện ảnh trong một con hẻm Sài Gòn ướt mưa. Linh quay về phía Minh trong khi Minh cầm chiếc điện thoại đỏ bằng tay phải. Phong cách thời trang cao cấp, mặt đường phản chiếu ánh đèn, da chân thực và màu phim tiết chế.");
+  const [prompt, setPrompt] = useState("Buổi sáng dịu sau mưa trong một con hẻm Sài Gòn thanh lịch. Linh đứng gần cổng xanh ngọc và quay nhẹ về phía Minh; Minh giữ chiếc điện thoại đỏ bằng tay phải. Phong cách quiet luxury editorial, ánh sáng ngọc trai, da thật, bảng màu than chì và xanh patina, hạt phim tinh tế.");
   const [job, setJob] = useState<GenerationJob | null>(null);
   const [toast, setToast] = useState<Toast>(null);
   const [expert, setExpert] = useState(false);
