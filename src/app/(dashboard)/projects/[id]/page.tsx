@@ -86,7 +86,7 @@ export default function ProjectOverviewPage() {
         </div>
 
         <Card hover onClick={() => router.push(`/projects/${projectId}/studio`)} className="mb-8 overflow-hidden">
-          <CardContent className="relative flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between" style={{ background: "linear-gradient(115deg, #101827 0%, #111827 55%, #172554 100%)" }}>
+          <div className="relative flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between" style={{ background: "linear-gradient(115deg, #101827 0%, #111827 55%, #172554 100%)" }}>
             <div className="flex items-center gap-4">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-950/40">
                 <Clapperboard size={26} />
@@ -102,7 +102,7 @@ export default function ProjectOverviewPage() {
             <button className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-500">
               Mở Studio <ArrowRight size={16} />
             </button>
-          </CardContent>
+          </div>
         </Card>
 
         {/* Quick Actions */}
