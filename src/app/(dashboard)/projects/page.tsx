@@ -116,7 +116,7 @@ export default function ProjectsPage() {
                 >
                   <button onClick={() => router.push(`/projects/${project.slug}`)} className="block w-full text-left" aria-label={`Mở dự án ${project.name}`}>
                     <div className="relative aspect-[16/8.5] overflow-hidden bg-slate-900">
-                      <Image src={projectCovers[index % projectCovers.length]} alt="" fill sizes="(max-width: 1280px) 50vw, 33vw" className="object-cover transition duration-500 group-hover:scale-[1.03]" />
+                      <Image src={projectCovers[index % projectCovers.length]} alt="" fill priority={index === 0} sizes="(max-width: 1280px) 50vw, 33vw" className="object-cover transition duration-500 group-hover:scale-[1.03]" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
                       <div className="absolute bottom-3 left-3 flex gap-2">
                         <span className="rounded-full border border-white/15 bg-black/40 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-md">ĐA ĐỊNH DẠNG</span>

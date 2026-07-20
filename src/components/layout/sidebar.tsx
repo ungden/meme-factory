@@ -66,6 +66,10 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         setProjectPoints(null);
         return;
       }
+      if (IS_MOCK_MODE) {
+        setProjectPoints(0);
+        return;
+      }
       try {
         const res = await fetch(`/api/projects/${projectId}/wallet`);
         const data = await res.json().catch(() => ({}));

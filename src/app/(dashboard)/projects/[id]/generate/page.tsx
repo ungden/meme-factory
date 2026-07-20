@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useProject, useCharacters, useMemes, generateContent, generateImage } from "@/lib/use-store";
+import { IS_MOCK_MODE, useProject, useCharacters, useMemes, generateContent, generateImage } from "@/lib/use-store";
 import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
@@ -107,6 +107,10 @@ export default function GeneratePage() {
   const resolvedWatermarkText = watermarkText ?? project?.name ?? "";
 
   const fetchProjectPoints = useCallback(async () => {
+    if (IS_MOCK_MODE) {
+      setProjectPoints(0);
+      return;
+    }
     try {
       const res = await fetch(`/api/projects/${projectId}/wallet`);
       const data = await res.json().catch(() => ({}));
@@ -969,8 +973,11 @@ export default function GeneratePage() {
 
                       {characters.length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {characters.map((c) => {
-                            const avatar = c.avatar_url || c.poses[0]?.image_url;
+                          {characters.map((c, index) => {
+                            const rawAvatar = c.avatar_url || c.poses[0]?.image_url;
+                            const avatar = rawAvatar && !rawAvatar.startsWith("/mock/")
+                              ? rawAvatar
+                              : (index % 2 === 0 ? "/continuity/linh-master.webp" : "/continuity/minh-master.webp");
                             const selected = selectedCharacterIds.has(c.id);
                             return (
                               <button
