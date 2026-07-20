@@ -83,13 +83,13 @@ export function ContinuityStudio({ projectId, projectName }: { projectId: string
   const { saveMeme } = useMemes(projectId);
 
   const projectAssets = useMemo<Asset[]>(() => {
-    const characterAssets = characters.map((character) => ({
+    const characterAssets = characters.map((character, index) => ({
       id: character.id,
       versionId: character.continuity_asset_id ? `${character.continuity_asset_id}:latest` : `${character.id}:legacy`,
       name: character.name,
       kind: "character" as const,
       status: (character.avatar_url || character.poses.length ? "locked" : "draft") as Asset["status"],
-      thumbnail: character.avatar_url || character.poses[0]?.image_url || "/continuity/linh-master.webp",
+      thumbnail: character.avatar_url || (character.poses[0]?.image_url?.startsWith("/mock/") ? assets[index % 2].thumbnail : character.poses[0]?.image_url) || assets[index % 2].thumbnail,
       coverage: Math.min(100, 35 + character.poses.length * 15 + (character.avatar_url ? 20 : 0)),
       referenceCount: character.poses.length + (character.avatar_url ? 1 : 0),
       notes: [character.description, character.personality].filter(Boolean).join(" · ") || "Chưa có ghi chú continuity.",
@@ -255,7 +255,6 @@ export function ContinuityStudio({ projectId, projectName }: { projectId: string
           expert={expert}
           setExpert={(value) => { setExpert(value); if (!value && view === "workflow") setView("studio"); }}
           job={job}
-          onRun={runGeneration}
         />
 
         {view === "studio" && (
@@ -268,7 +267,7 @@ export function ContinuityStudio({ projectId, projectName }: { projectId: string
             setModel={setModel}
             selectedVariant={selectedVariant}
             setSelectedVariant={setSelectedVariant}
-            routedCount={manifestSummary?.selected ?? (3 + projectAssets.filter((asset) => asset.kind === "character").slice(0, 2).length)}
+            routedCount={manifestSummary?.selected ?? (4 + projectAssets.filter((asset) => asset.kind === "character").slice(0, 2).length)}
             droppedCount={manifestSummary?.dropped ?? 0}
             job={job}
             variants={generatedVariants}
@@ -321,7 +320,7 @@ function Sidebar({ active, onNavigate, projectId }: { active: View; onNavigate: 
   );
 }
 
-function Topbar({ view, projectName, expert, setExpert, job, onRun }: { view: View; projectName: string; expert: boolean; setExpert: (value: boolean) => void; job: GenerationJob | null; onRun: () => void }) {
+function Topbar({ view, projectName, expert, setExpert, job }: { view: View; projectName: string; expert: boolean; setExpert: (value: boolean) => void; job: GenerationJob | null }) {
   const titles: Record<View, string> = { studio: "Scene 02 / Shot 02D", assets: "Project Assets", character: "Character Reference Builder", review: "Output Review & Repair", workflow: "Cinematic Shot Workflow" };
   return (
     <header className="topbar">
@@ -329,7 +328,6 @@ function Topbar({ view, projectName, expert, setExpert, job, onRun }: { view: Vi
       <div className="top-actions">
         <label className="mode-switch"><span>App</span><button className={expert ? "on" : ""} onClick={() => setExpert(!expert)} aria-label="Toggle Expert mode"><i /></button><span className={expert ? "selected" : ""}>Expert</span></label>
         <div className="queue-status"><span className={job?.status === "running" ? "pulse" : ""} /><QueueIcon size={17} /> Queue <b>{job && !["completed", "cancelled"].includes(job.status) ? 1 : 0}</b></div>
-        <button className="primary run-button" onClick={onRun}><SparkleIcon size={18} weight="fill" /> Run shot <CaretDownIcon size={13} /></button>
       </div>
     </header>
   );
@@ -342,80 +340,134 @@ function StudioView(props: {
   onAsset: (asset: Asset) => void; onToast: (toast: Toast) => void;
 }) {
   const imageSrc = props.variants[props.selectedVariant];
-  return (
-    <div className="studio-layout">
-      <aside className="input-panel panel-scroll">
-        <div className="panel-heading"><div><span className="eyebrow">APP MODE</span><h2>Shot inputs</h2></div><button className="icon-button"><ArrowCounterClockwiseIcon size={17} /></button></div>
-        <InputGroup title="Cast" color="cyan" count={String(props.projectAssets.filter((asset) => asset.kind === "character").slice(0, 2).length)}>
-          {props.projectAssets.filter((asset) => asset.kind === "character").slice(0, 2).map((asset) => <AssetPill key={asset.id} asset={asset} onClick={() => props.onAsset(asset)} />)}
-        </InputGroup>
-        <InputGroup title="Look" color="amber" count="1"><AssetPill asset={assets[2]} onClick={() => props.onAsset(assets[2])} /></InputGroup>
-        <InputGroup title="Item" color="orange" count="1"><AssetPill asset={assets[3]} onClick={() => props.onAsset(assets[3])} /></InputGroup>
-        <InputGroup title="Environment" color="green" count="1"><AssetPill asset={assets[4]} onClick={() => props.onAsset(assets[4])} /></InputGroup>
-        <div className="field-block"><label>Shot direction</label><textarea value={props.prompt} onChange={(event) => props.setPrompt(event.target.value)} /><span className="char-count">{props.prompt.length} / 32,000</span></div>
-        <button className="primary full" onClick={props.onRun}><SparkleIcon size={18} weight="fill" /> Generate 1 variant</button>
-        <div className="cost-note"><span>Production cost</span><strong>{props.model === "gemini-3.1-flash-image" ? "5 project pts" : "Benchmark only"}</strong></div>
-      </aside>
+  const [drawer, setDrawer] = useState<"assets" | "settings" | "manifest" | null>(null);
+  const [timelineOpen, setTimelineOpen] = useState(true);
+  const [modeOpen, setModeOpen] = useState(false);
+  const [drawerSearch, setDrawerSearch] = useState("");
+  const [framing, setFraming] = useState("Medium full");
+  const [lens, setLens] = useState("50mm portrait");
+  const [aspect, setAspect] = useState("16:9");
+  const [resolution, setResolution] = useState("1536 × 1024");
+  const selectedIngredients = [
+    ...props.projectAssets.filter((asset) => asset.kind === "character").slice(0, 2),
+    ...assets.slice(2, 6),
+  ];
 
-      <section className="canvas-column">
-        <div className="output-card">
-          <div className="output-meta"><div><span className="status-dot" /> {props.job?.status === "completed" ? "Generated just now" : "Generated today, 10:42 PM"}</div><span>Variant {String(props.selectedVariant + 1).padStart(2, "0")} / 04</span></div>
-          <div className="hero-frame">
+  return (
+    <div className="flow-studio">
+      <section className="flow-workspace">
+        <div className="flow-canvas-toolbar">
+          <div><span className="status-dot" /><strong>Shot 02D</strong><span>{props.job?.status === "completed" ? "Generated just now" : "The red phone"}</span></div>
+          <div>
+            <button className="flow-toolbar-button" onClick={props.onSave} disabled={props.saving}><DownloadSimpleIcon size={17} />{props.saving ? "Saving…" : "Save"}</button>
+            <button className="flow-toolbar-button" onClick={props.onReview}><MagicWandIcon size={17} />Review</button>
+            <button className="icon-button" onClick={() => setDrawer(drawer === "manifest" ? null : "manifest")} aria-label="Open reference manifest"><GitBranchIcon size={17} /></button>
+          </div>
+        </div>
+
+        <div className="flow-canvas">
+          <div className="flow-hero-frame">
             <Image src={imageSrc} fill unoptimized={imageSrc.startsWith("data:")} loading="eager" alt="Generated continuity shot" sizes="(max-width: 1400px) 60vw, 1000px" />
             <div className="safe-guides"><i /><i /></div>
+            <div className="canvas-badge"><span className="status-dot" />Ready to refine</div>
             {props.job && props.job.status !== "completed" && props.job.status !== "cancelled" && (
               <div className="generation-overlay"><CircleNotchIcon className="spin" size={28} /><strong>{props.job.status === "queued" ? "Preparing references" : "Generating variants"}</strong><span>{props.job.progress}% · manifest locked</span><div><i style={{ width: `${Math.max(props.job.progress, 8)}%` }} /></div></div>
             )}
           </div>
-          <div className="variant-strip">
+          <div className="flow-variant-strip">
             {props.variants.map((variant, index) => (
               <button key={variant} className={props.selectedVariant === index ? "selected" : ""} onClick={() => props.setSelectedVariant(index)}>
-                <Image src={variant} fill unoptimized={variant.startsWith("data:")} alt={`Generated variant ${index + 1}`} sizes="180px" /><span>{String(index + 1).padStart(2, "0")}</span>
+                <Image src={variant} fill unoptimized={variant.startsWith("data:")} loading={index === props.selectedVariant ? "eager" : undefined} alt={`Generated variant ${index + 1}`} sizes="180px" /><span>{String(index + 1).padStart(2, "0")}</span>
               </button>
             ))}
-          </div>
-          <div className="output-actions">
-            <button className="secondary" disabled={props.saving} onClick={props.onSave}><DownloadSimpleIcon size={18} /> {props.saving ? "Saving…" : "Save"}</button>
-            <button className="secondary" onClick={props.onReview}><MagicWandIcon size={18} /> Review & repair</button>
-            <button className="primary" onClick={props.onRun}><ArrowsClockwiseIcon size={18} /> Run again</button>
+            <button className="regenerate-tile" onClick={props.onRun}><ArrowsClockwiseIcon size={18} /><span>New</span></button>
           </div>
         </div>
-        <ShotTimeline />
+
+        <div className="flow-composer-wrap">
+          <div className="flow-composer">
+            <div className="composer-heading">
+              <button className="composer-mode" onClick={() => setModeOpen(!modeOpen)} aria-expanded={modeOpen}><SparkleIcon size={16} weight="fill" />Ingredients to image<CaretDownIcon size={13} /></button>
+              {modeOpen && <div className="composer-mode-menu"><button className="selected" onClick={() => setModeOpen(false)}><SparkleIcon size={15} />Ingredients to image<span>Generate a new shot</span></button><button onClick={() => { setModeOpen(false); props.onReview(); }}><MagicWandIcon size={15} />Edit current output<span>Open Review & Repair</span></button></div>}
+              <span>{props.model === "gemini-3.1-flash-image" ? "Nano Banana 2" : props.model === "gemini-3-pro-image" ? "Nano Banana Pro" : "GPT Image 2"}</span>
+            </div>
+            <div className="ingredient-strip">
+              {selectedIngredients.map((asset) => (
+                <button key={`${asset.id}-${asset.versionId}`} className={`ingredient-chip ${asset.kind}`} onClick={() => props.onAsset(asset)} title={asset.name}>
+                  <span><Image src={asset.thumbnail} fill alt={asset.name} sizes="34px" /></span><strong>{asset.name}</strong>
+                </button>
+              ))}
+              <button className="ingredient-add" onClick={() => setDrawer("assets")}><PlusIcon size={16} /><span>Add</span></button>
+            </div>
+            <textarea aria-label="Shot direction" value={props.prompt} onChange={(event) => props.setPrompt(event.target.value)} placeholder="Describe the shot, action, camera and mood…" />
+            <div className="composer-footer">
+              <div>
+                <button onClick={() => setDrawer(drawer === "assets" ? null : "assets")}><PlusIcon size={17} />Ingredients</button>
+                <button onClick={() => setDrawer(drawer === "settings" ? null : "settings")}><SlidersHorizontalIcon size={17} />Settings</button>
+                <button onClick={() => setDrawer(drawer === "manifest" ? null : "manifest")}><GitBranchIcon size={17} />{props.routedCount} refs</button>
+              </div>
+              <span>{props.model === "gemini-3.1-flash-image" ? "5 project pts" : "Benchmark only"}</span>
+              <button className="composer-run" onClick={props.onRun}><SparkleIcon size={18} weight="fill" />Generate</button>
+            </div>
+          </div>
+        </div>
+
+        <ShotTimeline open={timelineOpen} onToggle={() => setTimelineOpen(!timelineOpen)} onToast={props.onToast} />
       </section>
 
-      <aside className="inspector panel-scroll">
-        <div className="panel-heading"><div><span className="eyebrow">SHOT 02D</span><h2>Inspector</h2></div><SlidersHorizontalIcon size={20} /></div>
-        <div className="inspector-section"><h3>Camera</h3><SelectRow label="Framing" value="Medium full" /><SelectRow label="Lens intent" value="50mm portrait" /><SelectRow label="Aspect ratio" value="16:9" /></div>
-        <div className="inspector-section"><h3>Continuity</h3><div className="segmented">{(["strict", "balanced", "creative"] as ContinuityPolicy[]).map((item) => <button key={item} className={props.policy === item ? "selected" : ""} onClick={() => props.setPolicy(item)}>{item}</button>)}</div><p>{props.policy === "strict" ? "Use more identity masters and minimize reinterpretation." : props.policy === "balanced" ? "Lock identity while allowing camera and light variation." : "Use fewer references and allow broader reinterpretation."}</p></div>
-        <div className="inspector-section"><h3>Output</h3><label className="select-label">Model<select value={props.model} onChange={(event) => props.setModel(event.target.value)}><option value="gemini-3.1-flash-image">Nano Banana 2 · Live</option><option value="gemini-3-pro-image">Nano Banana Pro · Benchmark</option><option value="gpt-image-2">GPT Image 2 · Repair only</option></select></label><SelectRow label="Resolution" value={props.model === "gemini-3-pro-image" ? "2K" : "1536 × 1024"} /><SelectRow label="Per run" value="1 image" /></div>
-        <div className="manifest-card"><div><GitBranchIcon size={18} /><strong>Reference manifest</strong></div><span><b>{props.routedCount}</b> selected · <b>{props.droppedCount}</b> dropped</span><div className="manifest-thumbs">{assets.slice(0, 6).map((asset) => <span key={asset.id}><Image src={asset.thumbnail} fill alt="" sizes="36px" /></span>)}</div><button onClick={() => props.onToast({ title: "Manifest verified", detail: "Every reference is versioned and hash-locked for this run." })}>View routing details</button></div>
-      </aside>
+      {drawer && (
+        <aside className="flow-context-drawer panel-scroll">
+          <div className="drawer-heading">
+            <div><span className="eyebrow">SHOT 02D</span><h2>{drawer === "assets" ? "Ingredients" : drawer === "settings" ? "Shot settings" : "Reference manifest"}</h2></div>
+            <button className="icon-button" onClick={() => setDrawer(null)} aria-label="Close drawer"><XIcon size={16} /></button>
+          </div>
+
+          {drawer === "assets" && (
+            <>
+              <label className="drawer-search"><MagnifyingGlassIcon size={16} /><input value={drawerSearch} onChange={(event) => setDrawerSearch(event.target.value)} placeholder="Search characters, looks, items…" /></label>
+              <p className="drawer-copy">Click an ingredient to inspect its locked master and coverage.</p>
+              <div className="drawer-asset-grid">
+                {props.projectAssets.filter((asset) => asset.name.toLowerCase().includes(drawerSearch.toLowerCase())).map((asset) => <button key={asset.id} onClick={() => props.onAsset(asset)}><span><Image src={asset.thumbnail} fill alt={asset.name} sizes="110px" /></span><strong>{asset.name}</strong><small>{asset.kind} · {asset.referenceCount} refs</small></button>)}
+              </div>
+            </>
+          )}
+
+          {drawer === "settings" && (
+            <>
+              <div className="inspector-section"><h3>Continuity</h3><div className="segmented">{(["strict", "balanced", "creative"] as ContinuityPolicy[]).map((item) => <button key={item} className={props.policy === item ? "selected" : ""} onClick={() => props.setPolicy(item)}>{item}</button>)}</div><p>{props.policy === "strict" ? "Prioritize identity and exact items." : props.policy === "balanced" ? "Preserve identity with room for camera and light." : "Allow broader visual reinterpretation."}</p></div>
+              <div className="inspector-section"><h3>Camera</h3><label className="drawer-select-row"><span>Framing</span><select value={framing} onChange={(event) => setFraming(event.target.value)}><option>Close up</option><option>Medium full</option><option>Wide shot</option></select></label><label className="drawer-select-row"><span>Lens intent</span><select value={lens} onChange={(event) => setLens(event.target.value)}><option>35mm editorial</option><option>50mm portrait</option><option>85mm compression</option></select></label><label className="drawer-select-row"><span>Aspect ratio</span><select value={aspect} onChange={(event) => setAspect(event.target.value)}><option>16:9</option><option>4:5</option><option>1:1</option></select></label></div>
+              <div className="inspector-section"><h3>Output</h3><label className="select-label">Model<select value={props.model} onChange={(event) => props.setModel(event.target.value)}><option value="gemini-3.1-flash-image">Nano Banana 2 · Live</option><option value="gemini-3-pro-image">Nano Banana Pro · Benchmark</option><option value="gpt-image-2">GPT Image 2 · Repair only</option></select></label><label className="drawer-select-row"><span>Resolution</span><select value={resolution} onChange={(event) => setResolution(event.target.value)}><option>1536 × 1024</option><option>2K</option><option>4K</option></select></label></div>
+            </>
+          )}
+
+          {drawer === "manifest" && (
+            <>
+              <div className="manifest-summary"><GitBranchIcon size={19} /><div><strong>{props.routedCount} references selected</strong><span>{props.droppedCount ? `${props.droppedCount} dropped with reasons` : "No references dropped"}</span></div></div>
+              <div className="manifest-list">{selectedIngredients.map((asset, index) => <button key={asset.id} onClick={() => props.onAsset(asset)}><span><Image src={asset.thumbnail} fill alt={asset.name} sizes="40px" /></span><div><strong>{asset.name}</strong><small>{index < 2 ? "Identity master" : asset.kind === "style" ? "Style reference" : `Exact ${asset.kind}`}</small></div><b>#{index + 1}</b></button>)}</div>
+              <button className="secondary full" onClick={() => props.onToast({ title: "Manifest verified", detail: "Every reference is versioned and hash-locked for this run." })}>Verify routing details</button>
+            </>
+          )}
+        </aside>
+      )}
     </div>
   );
 }
 
-function InputGroup({ title, color, count, children }: { title: string; color: string; count: string; children: React.ReactNode }) {
-  return <div className={`input-group ${color}`}><div className="group-label"><span>{title}</span><b>{count}</b><button><PlusIcon size={14} /></button></div><div className="asset-pills">{children}</div></div>;
-}
-
-function AssetPill({ asset, onClick }: { asset: Asset; onClick: () => void }) {
-  return <button className="asset-pill" onClick={onClick}><span><Image src={asset.thumbnail} fill alt={asset.name} sizes="44px" /></span><div><strong>{asset.name}</strong><small>{asset.isSample ? "Sample reference" : asset.status === "locked" ? "Master locked" : "Draft asset"}</small></div><XIcon size={13} /></button>;
+function ShotTimeline({ open, onToggle, onToast }: { open: boolean; onToggle: () => void; onToast: (toast: Toast) => void }) {
+  const [selectedShot, setSelectedShot] = useState("02D");
+  return (
+    <div className={`flow-timeline ${open ? "open" : ""}`}>
+      <div className="flow-timeline-heading"><button onClick={onToggle}><CaretDownIcon size={15} /><FilmSlateIcon size={17} /><strong>Scene 02 — The handoff</strong><span>5 shots</span></button><div><button aria-label="Change timeline view" onClick={() => onToast({ title: "Filmstrip view", detail: "Scene 02 is already using the compact creator view." })}><GridFourIcon size={16} /></button><button onClick={() => onToast({ title: "Shot draft created", detail: "A new shot will inherit the approved parent and locked masters." })}><PlusIcon size={16} />Add shot</button></div></div>
+      {open && <div className="flow-shot-track">
+        {shots.map((shot) => <button key={shot.id} className={`flow-shot-card ${shot.code === selectedShot ? "active" : ""}`} onClick={() => setSelectedShot(shot.code)}><span><Image src={shot.thumbnail} fill alt={shot.title} sizes="132px" /><b>{shot.code}</b></span><div><strong>{shot.title}</strong><small>{shot.camera} · {shot.lens}</small></div><i className={`shot-status ${shot.status}`} /></button>)}
+        <button className="flow-add-shot" onClick={() => onToast({ title: "Shot draft created", detail: "A new shot will inherit the approved parent and locked masters." })}><PlusIcon size={18} /><span>Add shot</span></button>
+      </div>}
+    </div>
+  );
 }
 
 function SelectRow({ label, value }: { label: string; value: string }) {
-  return <button className="select-row"><span>{label}</span><strong>{value}</strong><CaretDownIcon size={13} /></button>;
-}
-
-function ShotTimeline() {
-  return (
-    <div className="timeline-card">
-      <div className="timeline-heading"><div><FilmSlateIcon size={17} /><strong>Scene 02 — The handoff</strong><span>5 shots</span></div><div><button><GridFourIcon size={16} /></button><button><PlusIcon size={16} /> Add shot</button></div></div>
-      <div className="shot-track">
-        {shots.map((shot) => <button key={shot.id} className={`shot-card ${shot.code === "02D" ? "active" : ""}`}><span className="shot-image"><Image src={shot.thumbnail} fill alt={shot.title} sizes="150px" /><b>{shot.code}</b></span><strong>{shot.title}</strong><small>{shot.camera} · {shot.lens}</small><i className={`shot-status ${shot.status}`} />{shot.parentShotId && <span className="parent-link">from {shot.parentShotId.toUpperCase()}</span>}</button>)}
-        <button className="add-shot"><PlusIcon size={20} /><span>Add shot</span></button>
-      </div>
-    </div>
-  );
+  return <button className="drawer-row"><span>{label}</span><strong>{value}</strong><CaretDownIcon size={13} /></button>;
 }
 
 function AssetLibrary(props: { visibleAssets: Asset[]; selectedAsset: Asset; setSelectedAsset: (asset: Asset) => void; filter: AssetKind | "all"; setFilter: (filter: AssetKind | "all") => void; search: string; setSearch: (value: string) => void; onCreateCharacter: () => void; onToast: (toast: Toast) => void }) {

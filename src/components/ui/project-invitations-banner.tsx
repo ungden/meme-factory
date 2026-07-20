@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/button";
+import { IS_MOCK_MODE } from "@/lib/use-store";
 
 interface ProjectInvitation {
   id: string;
@@ -18,6 +19,7 @@ export default function ProjectInvitationsBanner() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const fetchInvitations = async () => {
+    if (IS_MOCK_MODE) return;
     try {
       const res = await fetch("/api/projects/invitations");
       const data = await res.json();

@@ -1,38 +1,42 @@
-# Continuity Studio design QA
+# Continuity Studio — Google Flow App Mode QA
 
-- Source visual truth: `/Users/alexle/Documents/fashionhub/ChatGPT Image Jul 20, 2026, 01_29_09 PM (5).png` for App Mode and `/Users/alexle/Documents/fashionhub/ChatGPT Image Jul 20, 2026, 01_29_09 PM (6).png` for Review & Repair.
-- Browser-rendered implementation: `/Users/alexle/Documents/fashionhub/meme-factory/artifacts/continuity-studio-final-1440x900.png` and `/Users/alexle/Documents/fashionhub/meme-factory/artifacts/continuity-review-1440x900.png`.
-- Full-view comparison: `/Users/alexle/Documents/fashionhub/meme-factory/artifacts/design-qa-app-mode-final-comparison.png` and `/Users/alexle/Documents/fashionhub/meme-factory/artifacts/design-qa-review-comparison.png`.
-- Focused comparison: `/Users/alexle/Documents/fashionhub/meme-factory/artifacts/design-qa-inputs-focused-comparison.png`.
-- Viewport: 1440 x 900 desktop.
-- State: dark App Mode, sample Scene 02 / Shot 02D; Review surface with phone finding selected; Expert Workflow enabled and inspected separately.
+- Source visual truth: `https://storage.ghost.io/c/49/a0/49a0c44f-2e08-4cc3-80a6-bf8207f188f4/content/images/size/w1200/2025/05/Flow-2.jpg` — Google Flow Ingredients composer.
+- Browser-rendered implementation: `/Users/alexle/Documents/fashionhub/meme-factory/artifacts/studio-flow-app-mode-1440x900.png`.
+- Source capture: `/Users/alexle/Documents/fashionhub/meme-factory/artifacts/google-flow-reference-1440x900.png`.
+- Full-view comparison: `/Users/alexle/Documents/fashionhub/meme-factory/artifacts/google-flow-vs-studio.png`.
+- Focused composer comparison: `/Users/alexle/Documents/fashionhub/meme-factory/artifacts/google-flow-composer-vs-studio.png`.
+- Viewport: 1440 x 900 desktop, device pixel ratio 1.
+- State: dark App Mode, Scene 02 / Shot 02D, first generated variant selected, timeline expanded, contextual drawer closed.
 
 ## Findings
 
-- No actionable P0, P1, or P2 visual mismatch remains.
-- Fonts and typography: compact neutral sans hierarchy, small uppercase group labels, control weights, truncation, and readable line heights match the supplied dense creator-tool direction.
-- Spacing and layout rhythm: the narrow navigation rail, input panel, image-led center stage, inspector, and bottom shot timeline preserve the reference hierarchy. The inspector and timeline are intentional additions required by the product plan.
-- Colors and visual tokens: near-black neutral panels, restrained blue accent, semantic asset colors, muted borders, and review pass/review/fail colors remain consistent across surfaces.
-- Image quality and asset fidelity: supplied production-quality source assets are used directly, with stable cover/contain behavior and no placeholder drawings or emoji assets.
-- Copy and content: project assets load from the real project when available. Supplied visual examples are explicitly labeled `Sample reference`; Nano Banana 2 is marked `Live`; benchmark-only and repair-only providers are not presented as live production routes.
+- No actionable P0, P1, or P2 mismatch remains. The implementation adapts the selected Flow interaction hierarchy rather than reproducing Google branding or product-specific controls.
+- Fonts and typography: Geist preserves Flow's compact neutral sans hierarchy, restrained weights, short labels, clear prompt copy, and readable ingredient truncation.
+- Spacing and layout rhythm: the output canvas is the dominant region; the composer is centered directly below it; variants float contextually over the output; the filmstrip is visually secondary and remains fully visible at 1440 x 900.
+- Colors and visual tokens: near-black canvas, slightly raised neutral surfaces, low-contrast borders, one blue primary action, and category-colored ingredient underlines match the reference's restrained dark-system treatment.
+- Image quality and asset fidelity: real continuity masters and output assets are rendered directly with stable crops. No generated placeholder art, emoji, CSS illustrations, or handcrafted SVG substitutes are present.
+- Copy and content: `Ingredients to image`, asset chips, model label, reference count, estimated points, and `Generate` form one understandable sentence-like workflow. Provider constraints remain explicit in Settings.
+- Interaction states: Assets, Settings, and Manifest open as contextual drawers; continuity policy and model selection update live; the shot timeline collapses and reopens; prompt editing and variant selection remain functional.
 
 ## Primary interactions tested
 
-- Studio, Assets, Characters, Review, and expert-gated Workflow navigation.
-- Asset search/filter surface and Character Builder four-step flow.
-- Expert mode toggle and typed workflow graph visibility.
-- Review finding selection, repair controls, preserve toggles, and approval preview state.
-- Browser console checked: no errors.
+- Open and close Shot Settings from the composer.
+- Switch continuity policy from Balanced to Creative and back.
+- Switch Nano Banana 2 to Nano Banana Pro and back; composer model label updates immediately.
+- Open Reference Manifest and verify selected/dropped-reference copy.
+- Collapse and reopen Scene 02 filmstrip.
+- Confirm route renders in local mock mode without production credentials.
+- Browser console checked: no runtime errors. Local-only Supabase configuration warnings are expected in mock mode.
 
 ## Comparison history
 
-1. Initial comparison found the visual structure matched, but sample masters, four-variant pricing, and unconnected provider options could be mistaken for live project state (P1 product-truth issue).
-2. Fixed by loading real project characters, routing Run through the existing production image API, saving generated output through the existing Gallery path, labeling sample references, showing one output and five project points per live run, and marking Pro/GPT routes as benchmark or repair-only.
-3. Post-fix browser capture at the same viewport confirms the layout remains faithful and the production state is now explicit.
+1. First browser pass found broken mock-character thumbnails and a filmstrip that extended below the 1440 x 900 viewport (P2).
+2. Replaced unavailable `/mock/` thumbnails with continuity-master fallbacks, corrected the pre-run manifest estimate to six ingredients, and reduced the filmstrip height.
+3. Second browser pass confirmed intact thumbnails, a fully visible filmstrip, correct contextual drawer behavior, and a Flow-like composer hierarchy at the target viewport.
 
 ## Follow-up polish
 
-- P3: localize the remaining English control labels after the core workflow terminology is finalized.
-- P3: replace the sample scene timeline with persisted Scene/Shot records when shot versioning lands.
+- P3: replace sample Scene 02 records with persisted Scene/Shot versions once database-backed shot authoring lands.
+- P3: add keyboard `@asset` search inside the prompt composer after the shot asset-selection API becomes writable.
 
 final result: passed
