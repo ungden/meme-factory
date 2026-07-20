@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import AdminSidebar from "@/components/admin/admin-sidebar";
 import { createClient } from "@/lib/supabase/client";
-import { Search, ChevronLeft, ChevronRight, Users, Image, Trash2 } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Users, Image as ImageIcon, Trash2 } from "lucide-react";
+import { useDeferredTask } from "@/lib/use-deferred-task";
 
 interface ProjectRow {
   id: string;
@@ -43,9 +44,7 @@ export default function AdminProjectsPage() {
     setLoading(false);
   }, [page, search]);
 
-  useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
+  useDeferredTask(fetchProjects);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,7 +138,7 @@ export default function AdminProjectsPage() {
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span className="inline-flex items-center gap-1 text-xs th-text-secondary">
-                          <Image size={12} /> {p.memes_count}
+                          <ImageIcon size={12} /> {p.memes_count}
                         </span>
                       </td>
                       <td className="py-3 px-4 th-text-muted text-xs">{new Date(p.created_at).toLocaleDateString("vi-VN")}</td>

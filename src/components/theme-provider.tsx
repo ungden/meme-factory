@@ -19,17 +19,21 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("aida-theme") as Theme | null;
-      if (saved === "light" || saved === "dark") {
-        setTheme(saved);
-      } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-        setTheme("dark");
+    const timeoutId = window.setTimeout(() => {
+      try {
+        const saved = localStorage.getItem("aida-theme") as Theme | null;
+        if (saved === "light" || saved === "dark") {
+          setTheme(saved);
+        } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+          setTheme("dark");
+        }
+      } catch {
+        // localStorage unavailable (private browsing, SSR)
       }
-    } catch {
-      // localStorage unavailable (private browsing, SSR)
-    }
-    setMounted(true);
+      setMounted(true);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, []);
 
   useEffect(() => {

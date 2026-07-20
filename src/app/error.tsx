@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle, RotateCcw, Home } from "lucide-react";
+import Link from "next/link";
 
 export default function RootError({
   error,
@@ -32,7 +33,7 @@ export default function RootError({
           >
             <RotateCcw size={16} /> Thử lại
           </button>
-          <a
+          <Link
             href="/"
             className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-xl border transition-all"
             style={{
@@ -42,7 +43,7 @@ export default function RootError({
             }}
           >
             <Home size={16} /> Về trang chủ
-          </a>
+          </Link>
         </div>
       </div>
     </div>

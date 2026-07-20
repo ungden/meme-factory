@@ -10,7 +10,7 @@
  */
 
 import sharp from "sharp";
-import { readdirSync, writeFileSync, unlinkSync, existsSync } from "fs";
+import { readdirSync, writeFileSync, unlinkSync } from "fs";
 import { join, dirname, basename, extname } from "path";
 import { fileURLToPath } from "url";
 
@@ -39,7 +39,6 @@ async function optimizeDir(dir, maxSize, label) {
 
     try {
       // Get original size
-      const meta = await sharp(inputPath).metadata();
       const origSize = (await sharp(inputPath).toBuffer()).length;
 
       // Generate optimized WebP

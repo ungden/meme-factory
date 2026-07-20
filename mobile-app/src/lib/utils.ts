@@ -26,3 +26,7 @@ export function slugifyProjectName(name: string) {
 export function buildProjectSlug(name: string) {
   return `${slugifyProjectName(name)}-${Math.random().toString(36).slice(2, 10)}`;
 }
+
+export function buildPoseUploadPath(projectId: string, characterId: string, extension: string) {
+  return `${projectId}/${characterId}/${Date.now()}.${extension}`;
+}

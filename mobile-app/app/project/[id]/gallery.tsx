@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Alert, Image, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import type { Meme } from "@/types/models";
 import { Button, Card, EmptyState, Screen, Subtle, Title } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
+import { useDeferredTask } from "@/hooks/use-deferred-task";
 
 export default function GalleryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -19,7 +20,7 @@ export default function GalleryScreen() {
     setMemes((data || []) as Meme[]);
   }, [id]);
 
-  useEffect(() => { void load(); }, [load]);
+  useDeferredTask(load);
 
   const remove = async (memeId: string) => {
     const { error } = await supabase.from("memes").delete().eq("id", memeId);
@@ -41,7 +42,7 @@ export default function GalleryScreen() {
 
       {memes.map((meme) => (
         <Card key={meme.id}>
-          {meme.image_url ? <Image source={{ uri: meme.image_url }} style={{ width: "100%", height: 320, borderRadius: 20 }} resizeMode="cover" /> : null}
+          {meme.image_url ? <Image alt={meme.generated_content?.headline || meme.original_idea} source={{ uri: meme.image_url }} style={{ width: "100%", height: 320, borderRadius: 20 }} resizeMode="cover" /> : null}
           <Title>{meme.generated_content?.headline || meme.original_idea}</Title>
           <Subtle>{meme.generated_content?.caption || meme.original_idea}</Subtle>
           <View style={{ gap: 4 }}>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import NextImage from "next/image";
 import { useProject, useCharacters, generateImage } from "@/lib/use-store";
 import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
@@ -508,7 +509,7 @@ export default function CharactersPage() {
                     <div className="w-14 h-14 th-bg-tertiary rounded-2xl overflow-hidden flex items-center justify-center text-xl font-bold th-text-tertiary">
                       {(char.avatar_url || char.poses[0]?.image_url) ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={(char.avatar_url || char.poses[0]?.image_url)!} alt={char.name} className="w-full h-full object-cover" />
+                        <img src={char.avatar_url || char.poses[0]?.image_url || ""} alt={char.name} className="w-full h-full object-cover" />
                       ) : (
                         char.name[0]?.toUpperCase()
                       )}
@@ -566,7 +567,7 @@ export default function CharactersPage() {
                             <div key={pose.id} className="group relative th-bg-tertiary rounded-xl overflow-hidden">
                               <div className="aspect-square flex items-center justify-center" style={{ background: "var(--bg-tertiary)", opacity: 0.5 }}>
                                 {pose.image_url && !pose.image_url.startsWith("/mock/") ? (
-                                  <img src={pose.image_url} alt={pose.name} className="w-full h-full object-contain" />
+                                  <NextImage src={pose.image_url} alt={pose.name} width={240} height={240} unoptimized className="w-full h-full object-contain" />
                                 ) : (
                                   <div className="text-center p-2">
                                     <ImageIcon size={24} className="mx-auto th-text-muted" />
@@ -721,7 +722,7 @@ export default function CharactersPage() {
               <label className="block text-sm font-medium th-text-secondary mb-1.5">Ảnh tư thế</label>
               <div className="border-2 border-dashed rounded-xl p-6 text-center th-border-accent-hover transition-colors cursor-pointer th-border" onClick={() => document.getElementById("pose-file")?.click()}>
                 {posePreview ? (
-                  <img src={posePreview} alt="Preview" className="w-32 h-32 mx-auto object-contain rounded-lg" />
+                  <NextImage src={posePreview} alt="Xem trước tư thế" width={128} height={128} unoptimized className="w-32 h-32 mx-auto object-contain rounded-lg" />
                 ) : (
                   <>
                     <ImageIcon size={32} className="mx-auto th-text-muted mb-2" />

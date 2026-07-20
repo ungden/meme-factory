@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { apiFetch } from "@/lib/api";
 import type { ProjectWalletResponse } from "@/types/models";
 import { Button, Card, InputField, Screen, StatRow, Subtle, Title } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
+import { useDeferredTask } from "@/hooks/use-deferred-task";
 
 export default function ProjectWalletScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -20,7 +21,7 @@ export default function ProjectWalletScreen() {
     }
   }, [id]);
 
-  useEffect(() => { void load(); }, [load]);
+  useDeferredTask(load);
 
   const deposit = async () => {
     try {

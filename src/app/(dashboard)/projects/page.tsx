@@ -10,7 +10,7 @@ import ConfirmModal from "@/components/ui/confirm-modal";
 import Input from "@/components/ui/input";
 import Textarea from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { Plus, FolderOpen, Image, Users, MoreVertical, Trash2, Edit2, Zap } from "lucide-react";
+import { Plus, FolderOpen, Image as ImageIcon, Users, MoreVertical, Trash2, Edit2, Zap } from "lucide-react";
 import { useState } from "react";
 import AnnouncementBanner from "@/components/ui/announcement-banner";
 
@@ -160,7 +160,7 @@ export default function ProjectsPage() {
                       <Users size={12} /> Nhân vật
                     </span>
                     <span className="flex items-center gap-1">
-                      <Image size={12} /> Meme
+                      <ImageIcon size={12} /> Meme
                     </span>
                     <span>
                       {new Date(project.updated_at).toLocaleDateString("vi-VN")}

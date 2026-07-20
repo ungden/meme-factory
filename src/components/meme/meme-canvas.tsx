@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useCallback, useState, forwardRef, useImperativeHandle } from "react";
-import type { MemeContent, MemeFormat, SelectedCharacter, CharacterPose } from "@/types/database";
+import type { MemeContent, MemeFormat, SelectedCharacter } from "@/types/database";
 import { FORMAT_DIMENSIONS } from "@/types/database";
 
 interface MemeCanvasProps {
@@ -99,12 +99,12 @@ const MemeCanvas = forwardRef<MemeCanvasHandle, MemeCanvasProps>(
         if (!img) return;
 
         // Calculate position based on number of characters
-        let x: number, y: number, charWidth: number, charHeight: number;
+        let x: number, y: number;
 
         const maxCharHeight = dims.height * 0.65;
         const aspectRatio = img.width / img.height;
-        charHeight = maxCharHeight;
-        charWidth = charHeight * aspectRatio;
+        const charHeight = maxCharHeight;
+        const charWidth = charHeight * aspectRatio;
 
         if (numChars === 1) {
           x = (dims.width - charWidth) / 2;
@@ -227,7 +227,7 @@ const MemeCanvas = forwardRef<MemeCanvasHandle, MemeCanvasProps>(
         ctx.drawImage(watermarkImg, wmX, wmY, wmWidth, wmHeight);
         ctx.globalAlpha = 1;
       }
-    }, [content, characters, loadedImages, format, dims, showWatermark, watermarkImg, watermarkPosition, watermarkOpacity, backgroundColor]);
+    }, [content, characters, loadedImages, dims, showWatermark, watermarkImg, watermarkPosition, watermarkOpacity, backgroundColor]);
 
     useEffect(() => {
       drawCanvas();

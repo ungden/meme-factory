@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     const offset = (page - 1) * limit;
 
     // Get all wallets with pagination
-    let query = supabaseAdmin
+    const query = supabaseAdmin
       .from("wallets")
       .select("user_id, balance, points, free_trial_claimed, created_at", { count: "exact" })
       .order("created_at", { ascending: false })

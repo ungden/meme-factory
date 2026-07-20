@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useParams } from "next/navigation";
 import { useProject } from "@/lib/use-store";
+import { useDeferredTask } from "@/lib/use-deferred-task";
 import Sidebar from "@/components/layout/sidebar";
 import Card, { CardContent } from "@/components/ui/card";
 import Button from "@/components/ui/button";
@@ -35,7 +36,8 @@ export default function ProjectMembersPage() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    if (!projectId) return;
     setLoading(true);
     try {
       const membersRes = await fetch(`/api/projects/${projectId}/members`);
@@ -50,12 +52,9 @@ export default function ProjectMembersPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    if (!projectId) return;
-    fetchData();
   }, [projectId]);
+
+  useDeferredTask(fetchData);
 
   const addMember = async () => {
     const email = memberEmail.trim();
@@ -72,7 +71,7 @@ export default function ProjectMembersPage() {
         alert(data?.error || "Không thể gửi lời mời");
       } else {
         setMemberEmail("");
-        fetchData();
+        void fetchData();
       }
     } finally {
       setBusy(false);
@@ -91,7 +90,7 @@ export default function ProjectMembersPage() {
       if (!res.ok) {
         alert(data?.error || "Không thể xoá thành viên");
       } else {
-        fetchData();
+        void fetchData();
       }
     } finally {
       setBusy(false);
@@ -110,7 +109,7 @@ export default function ProjectMembersPage() {
       if (!res.ok) {
         alert(data?.error || "Không thể huỷ lời mời");
       } else {
-        fetchData();
+        void fetchData();
       }
     } finally {
       setBusy(false);

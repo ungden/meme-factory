@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Image, Text, View } from "react-native";
+import { Alert, Text, View } from "react-native";
 import { apiFetch } from "@/lib/api";
 import type { WalletBalanceResponse } from "@/types/models";
-import { Button, Card, InputField, Screen, StatRow, Subtle, Title } from "@/components/ui";
+import { Button, Card, Screen, StatRow, Subtle, Title } from "@/components/ui";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default function WalletScreen() {
   const [wallet, setWallet] = useState<WalletBalanceResponse | null>(null);
-  const [amount, setAmount] = useState("100000");
   const [loading, setLoading] = useState(false);
-  const [topup, setTopup] = useState<{ qrUrl: string; description: string; amount: number } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -24,19 +22,6 @@ export default function WalletScreen() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
-
-  const createTopup = async () => {
-    try {
-      const data = await apiFetch<{ qrUrl: string; description: string; amount: number }>("/api/wallet/create-topup", {
-        method: "POST",
-        body: JSON.stringify({ amount: Number(amount) }),
-      });
-      setTopup(data);
-      void load();
-    } catch (error) {
-      Alert.alert("Không thể tạo đơn nạp", error instanceof Error ? error.message : "Có lỗi xảy ra");
-    }
-  };
 
   return (
     <Screen>

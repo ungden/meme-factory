@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Alert, Image, Switch, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import type { Character, CharacterPose } from "@/types/models";
 import { Button, Card, InputField, Screen, Subtle, Title } from "@/components/ui";
+import { buildPoseUploadPath } from "@/lib/utils";
+import { useDeferredTask } from "@/hooks/use-deferred-task";
 
 export default function CharactersScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -35,7 +37,7 @@ export default function CharactersScreen() {
     );
   }, [id]);
 
-  useEffect(() => { void load(); }, [load]);
+  useDeferredTask(load);
 
   const createCharacter = async () => {
     const { error } = await supabase.from("characters").insert({
@@ -61,7 +63,7 @@ export default function CharactersScreen() {
     const response = await fetch(asset.uri);
     const blob = await response.blob();
     const extension = (asset.fileName?.split(".").pop() || "png").toLowerCase();
-    const filePath = `${id}/${characterId}/${Date.now()}.${extension}`;
+    const filePath = buildPoseUploadPath(id, characterId, extension);
 
     const upload = await supabase.storage.from("character-poses").upload(filePath, blob, {
       contentType: asset.mimeType || "image/png",
@@ -128,7 +130,7 @@ export default function CharactersScreen() {
         <Card key={character.id}>
           <Title right={<Button variant="ghost" onPress={() => setSelectedCharacterId((current) => current === character.id ? null : character.id)}>{selectedCharacterId === character.id ? "Ẩn" : "Mở"}</Button>}>{character.name}</Title>
           <Subtle>{character.description}</Subtle>
-          {character.avatar_url ? <Image source={{ uri: character.avatar_url }} style={{ width: "100%", height: 220, borderRadius: 20 }} resizeMode="contain" /> : null}
+          {character.avatar_url ? <Image alt={`Ảnh đại diện ${character.name}`} source={{ uri: character.avatar_url }} style={{ width: "100%", height: 220, borderRadius: 20 }} resizeMode="contain" /> : null}
           <Text selectable style={{ color: "#71717a" }}>{character.poses.length} poses</Text>
           <Button onPress={() => void addPose(character.id)}>Thêm pose từ điện thoại</Button>
           {selectedCharacterId === character.id ? (
@@ -136,7 +138,7 @@ export default function CharactersScreen() {
               {character.poses.map((pose) => (
                 <View key={pose.id} style={{ gap: 8, borderTopWidth: 1, borderTopColor: "#f4f4f5", paddingTop: 10 }}>
                   <Text selectable style={{ fontWeight: "700", color: "#18181b" }}>{pose.name}</Text>
-                  {pose.image_url ? <Image source={{ uri: pose.image_url }} style={{ width: "100%", height: 180, borderRadius: 18 }} resizeMode="contain" /> : null}
+                  {pose.image_url ? <Image alt={`Tư thế ${pose.name}`} source={{ uri: pose.image_url }} style={{ width: "100%", height: 180, borderRadius: 18 }} resizeMode="contain" /> : null}
                   <Subtle>{pose.description || "Không có mô tả"}</Subtle>
                 </View>
               ))}

@@ -19,7 +19,6 @@ import {
   Square,
   X,
   Package,
-  Loader2,
   CheckCircle,
   Wand2,
   Sparkles,

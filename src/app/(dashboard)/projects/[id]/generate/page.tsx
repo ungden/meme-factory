@@ -16,6 +16,7 @@ import { FORMAT_DIMENSIONS } from "@/types/database";
 import { POINT_COSTS } from "@/lib/point-pricing";
 import { trackEvent } from "@/lib/analytics";
 import { compressImageToBase64 } from "@/lib/image-utils";
+import { useDeferredTask } from "@/lib/use-deferred-task";
 
 interface ContentVariation {
   content: MemeContent;
@@ -81,7 +82,7 @@ export default function GeneratePage() {
   const aiRefInputRef = useRef<HTMLInputElement>(null);
   const [aiCustomPrompt, setAiCustomPrompt] = useState("");
   const [enableWatermark, setEnableWatermark] = useState(true);
-  const [watermarkText, setWatermarkText] = useState("");
+  const [watermarkText, setWatermarkText] = useState<string | null>(null);
   const [watermarkLogo, setWatermarkLogo] = useState<{ preview: string; base64: string; mimeType: string } | null>(null);
   const watermarkLogoInputRef = useRef<HTMLInputElement>(null);
   const [taggedCharacterIds, setTaggedCharacterIds] = useState<Set<string>>(new Set());
@@ -103,6 +104,7 @@ export default function GeneratePage() {
   const fromMode = searchParams.get("mode");
   const lineageSourceMemeId = fromMode === "regenerate" ? fromMemeId : null;
   const [prefillAppliedKey, setPrefillAppliedKey] = useState<string | null>(null);
+  const resolvedWatermarkText = watermarkText ?? project?.name ?? "";
 
   const fetchProjectPoints = useCallback(async () => {
     try {
@@ -116,10 +118,7 @@ export default function GeneratePage() {
     }
   }, [projectId]);
 
-  useEffect(() => {
-    if (!projectId) return;
-    fetchProjectPoints();
-  }, [projectId, fetchProjectPoints]);
+  useDeferredTask(fetchProjectPoints);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -318,14 +317,11 @@ export default function GeneratePage() {
   useEffect(() => {
     const selected = variations[selectedVariation];
     if (!selected) return;
-    setTaggedCharacterIds(new Set(selected.suggested_characters.map((c) => c.character_id)));
+    const timeoutId = window.setTimeout(() => {
+      setTaggedCharacterIds(new Set(selected.suggested_characters.map((c) => c.character_id)));
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [selectedVariation, variations]);
-
-  useEffect(() => {
-    if (!watermarkText && project?.name) {
-      setWatermarkText(project.name);
-    }
-  }, [project?.name, watermarkText]);
 
   const mapMemeToVariation = useCallback((meme: { generated_content: MemeContent; selected_characters: SelectedCharacter[] }): ContentVariation => {
     const content = meme.generated_content || {
@@ -363,32 +359,36 @@ export default function GeneratePage() {
     const sourceMeme = memes.find((m) => m.id === fromMemeId);
     if (!sourceMeme) return;
 
-    setIdea(sourceMeme.original_idea || "");
-    setFormat(sourceMeme.format);
-    setEnableWatermark(Boolean(sourceMeme.has_watermark));
+    const timeoutId = window.setTimeout(() => {
+      setIdea(sourceMeme.original_idea || "");
+      setFormat(sourceMeme.format);
+      setEnableWatermark(Boolean(sourceMeme.has_watermark));
 
-    if (fromMode === "reuse") {
-      setStep(1);
-      setPrefillAppliedKey(key);
-      return;
-    }
+      if (fromMode === "reuse") {
+        setStep(1);
+        setPrefillAppliedKey(key);
+        return;
+      }
 
-    if (fromMode === "regenerate") {
-      const variation = mapMemeToVariation(sourceMeme);
-      setVariations([variation]);
-      setSelectedVariation(0);
-      setHasPickedVariation(true);
-      const selectedChars = Array.isArray(sourceMeme.selected_characters)
-        ? sourceMeme.selected_characters
-        : [];
-      setTaggedCharacterIds(new Set(selectedChars.map((c) => c.character_id)));
-      setAiCustomPrompt("");
-      setAiImageBase64(null);
-      setAiGenerationRequestId(null);
-      setAiError(null);
-      setStep(3);
-      setPrefillAppliedKey(key);
-    }
+      if (fromMode === "regenerate") {
+        const variation = mapMemeToVariation(sourceMeme);
+        setVariations([variation]);
+        setSelectedVariation(0);
+        setHasPickedVariation(true);
+        const selectedChars = Array.isArray(sourceMeme.selected_characters)
+          ? sourceMeme.selected_characters
+          : [];
+        setTaggedCharacterIds(new Set(selectedChars.map((c) => c.character_id)));
+        setAiCustomPrompt("");
+        setAiImageBase64(null);
+        setAiGenerationRequestId(null);
+        setAiError(null);
+        setStep(3);
+        setPrefillAppliedKey(key);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [fromMemeId, fromMode, memes, prefillAppliedKey, mapMemeToVariation]);
 
   const handleGenerate = async () => {
@@ -649,7 +649,7 @@ export default function GeneratePage() {
         customPrompt: finalCustomPrompt || undefined,
         watermark: {
           enabled: enableWatermark,
-          text: enableWatermark ? (watermarkText.trim() || project?.name || undefined) : undefined,
+          text: enableWatermark ? (resolvedWatermarkText.trim() || undefined) : undefined,
           logoBase64: watermarkLogoData.base64,
           logoMimeType: watermarkLogoData.mimeType,
         },
@@ -1282,7 +1282,7 @@ export default function GeneratePage() {
                         id="watermark-text"
                         label="Text watermark"
                         placeholder="VD: Cậu Vàng Finance"
-                        value={watermarkText}
+                        value={resolvedWatermarkText}
                         onChange={(e) => setWatermarkText(e.target.value)}
                         className="text-sm"
                       />

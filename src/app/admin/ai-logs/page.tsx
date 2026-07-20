@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import AdminSidebar from "@/components/admin/admin-sidebar";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useDeferredTask } from "@/lib/use-deferred-task";
 
 interface AILog {
   id: string;
@@ -61,9 +62,7 @@ export default function AdminAILogsPage() {
     setLoading(false);
   }, [page, typeFilter]);
 
-  useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
+  useDeferredTask(fetchLogs);
 
   return (
     <div className="flex">

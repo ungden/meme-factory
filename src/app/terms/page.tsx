@@ -17,7 +17,7 @@ export default function TermsOfService() {
         <section className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">1. Chấp nhận điều khoản</h2>
           <p className="text-gray-600 mb-4">
-            Bằng việc truy cập, tải xuống, cài đặt hoặc sử dụng ứng dụng/website AIDA ("Dịch vụ"), bạn đồng ý tuân thủ các Điều khoản sử dụng này. Nếu bạn không đồng ý với bất kỳ điều khoản nào, vui lòng không sử dụng Dịch vụ.
+            Bằng việc truy cập, tải xuống, cài đặt hoặc sử dụng ứng dụng/website AIDA (“Dịch vụ”), bạn đồng ý tuân thủ các Điều khoản sử dụng này. Nếu bạn không đồng ý với bất kỳ điều khoản nào, vui lòng không sử dụng Dịch vụ.
           </p>
         </section>
 
@@ -27,7 +27,7 @@ export default function TermsOfService() {
             AIDA là nền tảng giúp người dùng tạo, quản lý và lưu trữ các nội dung truyện tranh, meme, hình ảnh được tạo ra bởi trí tuệ nhân tạo (AI).
           </p>
           <p className="text-gray-600 mb-4">
-            Mọi nội dung do AI tạo ra đều có tính chất tham khảo. Chúng tôi không cam kết tính hoàn hảo tuyệt đối của kết quả đầu ra. Việc tạo nội dung yêu cầu tiêu hao "points" (điểm) theo tỷ lệ được quy định trên hệ thống.
+            Mọi nội dung do AI tạo ra đều có tính chất tham khảo. Chúng tôi không cam kết tính hoàn hảo tuyệt đối của kết quả đầu ra. Việc tạo nội dung yêu cầu tiêu hao “points” (điểm) theo tỷ lệ được quy định trên hệ thống.
           </p>
         </section>
 

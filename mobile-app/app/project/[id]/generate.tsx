@@ -235,7 +235,7 @@ export default function GenerateScreen() {
       {imageBase64 ? (
         <Card>
           <Title>Ảnh kết quả</Title>
-          <Image source={{ uri: `data:image/png;base64,${imageBase64}` }} style={{ width: "100%", height: 440, borderRadius: 24 }} resizeMode="contain" />
+          <Image alt="Ảnh AI vừa tạo" source={{ uri: `data:image/png;base64,${imageBase64}` }} style={{ width: "100%", height: 440, borderRadius: 24 }} resizeMode="contain" />
           <View style={{ flexDirection: "row", gap: 12 }}>
             <View style={{ flex: 1 }}><Button onPress={() => void saveMeme()}>Lưu vào gallery</Button></View>
             <View style={{ flex: 1 }}><Button variant="ghost" onPress={() => setImageBase64(null)}>Xoá preview</Button></View>

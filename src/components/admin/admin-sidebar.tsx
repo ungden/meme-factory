@@ -31,15 +31,12 @@ const adminNav = [
 export default function AdminSidebar() {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+  const [mobileOpenPath, setMobileOpenPath] = useState<string | null>(null);
+  const mobileOpen = mobileOpenPath === pathname;
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMobileOpen(false);
+      if (e.key === "Escape") setMobileOpenPath(null);
     };
     document.addEventListener("keydown", handleEsc);
     return () => document.removeEventListener("keydown", handleEsc);
@@ -78,6 +75,7 @@ export default function AdminSidebar() {
           <Link
             key={item.href}
             href={item.href}
+            onClick={() => setMobileOpenPath(null)}
             aria-current={isActive(item.href) ? "page" : undefined}
             className={`flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl transition-all ${
               isActive(item.href)
@@ -95,6 +93,7 @@ export default function AdminSidebar() {
       <div className="p-3 border-t space-y-1" style={{ borderColor: "var(--border-primary)" }}>
         <Link
           href="/projects"
+          onClick={() => setMobileOpenPath(null)}
           className="w-full flex items-center gap-3 px-3 py-2.5 text-sm th-text-secondary rounded-xl transition-all th-bg-hover"
         >
           <ArrowLeft size={18} />
@@ -116,7 +115,7 @@ export default function AdminSidebar() {
     <>
       {/* Mobile hamburger */}
       <button
-        onClick={() => setMobileOpen(true)}
+        onClick={() => setMobileOpenPath(pathname)}
         aria-label="Mở menu admin"
         className="fixed top-4 left-4 z-50 p-2.5 rounded-xl md:hidden transition-all"
         style={{ background: "var(--bg-card)", border: "1px solid var(--border-primary)" }}
@@ -126,7 +125,7 @@ export default function AdminSidebar() {
 
       {/* Mobile overlay */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 md:hidden" onClick={() => setMobileOpen(false)} aria-hidden="true" />
+        <div className="fixed inset-0 z-50 bg-black/50 md:hidden" onClick={() => setMobileOpenPath(null)} aria-hidden="true" />
       )}
 
       {/* Mobile sidebar */}
@@ -138,7 +137,7 @@ export default function AdminSidebar() {
         aria-label="Admin menu"
       >
         <button
-          onClick={() => setMobileOpen(false)}
+          onClick={() => setMobileOpenPath(null)}
           aria-label="Đóng menu"
           className="absolute top-4 right-4 p-1.5 rounded-lg th-bg-hover th-text-muted"
         >

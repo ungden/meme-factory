@@ -17,7 +17,7 @@ export default function PrivacyPolicy() {
         <section className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">1. Thu thập thông tin</h2>
           <p className="text-gray-600 mb-4">
-            AIDA Meme Factory ("chúng tôi", "ứng dụng", "website") thu thập các thông tin sau khi bạn sử dụng dịch vụ:
+            AIDA Meme Factory (“chúng tôi”, “ứng dụng”, “website”) thu thập các thông tin sau khi bạn sử dụng dịch vụ:
           </p>
           <ul className="list-disc pl-6 text-gray-600 space-y-2 mb-4">
             <li><strong>Thông tin tài khoản:</strong> Địa chỉ email khi bạn đăng ký và tạo tài khoản (thông qua Supabase hoặc đăng nhập Google).</li>

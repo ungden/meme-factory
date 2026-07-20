@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { apiFetch } from "@/lib/api";
 import type { ProjectMember } from "@/types/models";
 import { Button, Card, InputField, Screen, Subtle, Title } from "@/components/ui";
+import { useDeferredTask } from "@/hooks/use-deferred-task";
 
 type MembersResponse = {
   isOwner: boolean;
@@ -25,7 +26,7 @@ export default function MembersScreen() {
     }
   }, [id]);
 
-  useEffect(() => { void load(); }, [load]);
+  useDeferredTask(load);
 
   const invite = async () => {
     try {

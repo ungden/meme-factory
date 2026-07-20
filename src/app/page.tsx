@@ -282,10 +282,7 @@ function SparkleParticle({ delay, x, y, size = 8 }: { delay: number; x: string; 
    ============================================ */
 export default function Home() {
   const { theme, toggleTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<{ email?: string } | null>(null);
-
-  useEffect(() => { setMounted(true); }, []);
 
   // Check auth state for navbar
   useEffect(() => {
@@ -343,16 +340,12 @@ export default function Home() {
         <div className="absolute top-40 right-20 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl" />
 
         {/* Sparkle particles */}
-        {mounted && (
-          <>
-            <SparkleParticle delay={0} x="15%" y="20%" size={10} />
-            <SparkleParticle delay={1.5} x="80%" y="15%" size={8} />
-            <SparkleParticle delay={0.8} x="70%" y="70%" size={12} />
-            <SparkleParticle delay={2.2} x="25%" y="75%" size={7} />
-            <SparkleParticle delay={3} x="50%" y="10%" size={9} />
-            <SparkleParticle delay={1} x="90%" y="50%" size={6} />
-          </>
-        )}
+        <SparkleParticle delay={0} x="15%" y="20%" size={10} />
+        <SparkleParticle delay={1.5} x="80%" y="15%" size={8} />
+        <SparkleParticle delay={0.8} x="70%" y="70%" size={12} />
+        <SparkleParticle delay={2.2} x="25%" y="75%" size={7} />
+        <SparkleParticle delay={3} x="50%" y="10%" size={9} />
+        <SparkleParticle delay={1} x="90%" y="50%" size={6} />
 
         <div className="relative max-w-6xl mx-auto px-6 py-20 md:py-28">
           <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-16">

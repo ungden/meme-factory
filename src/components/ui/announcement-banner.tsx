@@ -39,13 +39,15 @@ export default function AnnouncementBanner() {
       }
     };
 
-    // Load dismissed from sessionStorage
-    try {
-      const stored = sessionStorage.getItem("dismissed-announcements");
-      if (stored) setDismissed(new Set(JSON.parse(stored)));
-    } catch { /* ignore */ }
+    const timeoutId = window.setTimeout(() => {
+      try {
+        const stored = sessionStorage.getItem("dismissed-announcements");
+        if (stored) setDismissed(new Set(JSON.parse(stored)));
+      } catch { /* ignore */ }
+    }, 0);
 
-    fetchAnnouncements();
+    void fetchAnnouncements();
+    return () => window.clearTimeout(timeoutId);
   }, []);
 
   const dismiss = (id: string) => {

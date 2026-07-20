@@ -6,7 +6,7 @@ import { useProject, useCharacters, useMemes } from "@/lib/use-store";
 import Sidebar from "@/components/layout/sidebar";
 import Card, { CardContent } from "@/components/ui/card";
 import Button from "@/components/ui/button";
-import { Users, Image, Zap, TrendingUp, Plus, ArrowRight, Clapperboard } from "lucide-react";
+import { Users, Image as ImageIcon, Zap, TrendingUp, Plus, ArrowRight, Clapperboard } from "lucide-react";
 
 export default function ProjectOverviewPage() {
   const params = useParams();
@@ -51,7 +51,7 @@ export default function ProjectOverviewPage() {
 
   const stats = [
     { label: "Nhân vật", value: characters.length, icon: Users, color: "violet" },
-    { label: "Meme đã tạo", value: memes.length, icon: Image, color: "blue" },
+    { label: "Meme đã tạo", value: memes.length, icon: ImageIcon, color: "blue" },
     { label: "Tuần này", value: weekMemes.length, icon: TrendingUp, color: "green" },
   ];
 
@@ -183,7 +183,7 @@ export default function ProjectOverviewPage() {
                   <div className="w-20 h-20 mx-auto th-bg-tertiary rounded-2xl overflow-hidden mb-2 flex items-center justify-center text-2xl font-bold th-text-muted transition-transform group-hover:scale-105 group-hover:ring-2 th-ring-accent">
                     {(char.avatar_url || char.poses[0]?.image_url) ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={(char.avatar_url || char.poses[0]?.image_url)!} alt={char.name} className="w-full h-full object-cover" />
+                      <img src={char.avatar_url || char.poses[0]?.image_url || ""} alt={char.name} className="w-full h-full object-cover" />
                     ) : (
                       char.name[0]?.toUpperCase()
                     )}
@@ -214,7 +214,7 @@ export default function ProjectOverviewPage() {
                       <img src={meme.image_url} alt={(meme.generated_content as { headline?: string })?.headline || meme.original_idea} loading="lazy" className="w-full h-full object-cover" />
                     ) : (
                       <div className="text-center p-4">
-                        <Image size={24} className="mx-auto th-text-muted mb-2" />
+                        <ImageIcon size={24} className="mx-auto th-text-muted mb-2" />
                         <p className="text-xs th-text-tertiary line-clamp-2">
                           {(meme.generated_content as { headline?: string })?.headline || meme.original_idea}
                         </p>

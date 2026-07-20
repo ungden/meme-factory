@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useParams } from "next/navigation";
 import { useProject } from "@/lib/use-store";
+import { useDeferredTask } from "@/lib/use-deferred-task";
 import { useWallet } from "@/contexts/WalletContext";
 import { trackEvent } from "@/lib/analytics";
 import Sidebar from "@/components/layout/sidebar";
@@ -29,7 +30,8 @@ export default function ProjectWalletPage() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const fetchWallet = async () => {
+  const fetchWallet = useCallback(async () => {
+    if (!projectId) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/projects/${projectId}/wallet`);
@@ -40,12 +42,9 @@ export default function ProjectWalletPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    if (!projectId) return;
-    fetchWallet();
   }, [projectId]);
+
+  useDeferredTask(fetchWallet);
 
   const deposit = async () => {
     const points = Number(depositPoints);
@@ -65,8 +64,8 @@ export default function ProjectWalletPage() {
           project_id: project?.id || projectId,
           points,
         });
-        fetchWallet();
-        refreshBalance();
+        void fetchWallet();
+        void refreshBalance();
       }
     } finally {
       setBusy(false);

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { Link } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { buildProjectSlug, formatDate } from "@/lib/utils";
 import type { Project } from "@/types/models";
 import { Button, Card, InputField, Screen, Subtle, Title } from "@/components/ui";
+import { useDeferredTask } from "@/hooks/use-deferred-task";
 
 export default function ProjectsScreen() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -23,9 +24,7 @@ export default function ProjectsScreen() {
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    void loadProjects();
-  }, [loadProjects]);
+  useDeferredTask(loadProjects);
 
   const createProject = async () => {
     const projectName = name.trim();

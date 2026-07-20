@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   MOCK_USER,
@@ -19,6 +19,7 @@ import type {
   EmotionTag,
 } from "@/types/database";
 import { v4 as uuidv4 } from "uuid";
+import { useDeferredTask } from "@/lib/use-deferred-task";
 
 // ============================================
 // Check if Supabase is configured
@@ -83,7 +84,7 @@ export function useProjects() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useDeferredTask(load);
 
   const create = useCallback(async (input: { name: string; description?: string; style_prompt?: string }): Promise<Project | null> => {
     if (IS_MOCK_MODE) {
@@ -144,7 +145,7 @@ export function useProject(projectId: string) {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (IS_MOCK_MODE) {
       setProject(mockProjects.find((p) => p.id === projectId || p.slug === projectId) || null);
       setLoading(false);
@@ -155,11 +156,12 @@ export function useProject(projectId: string) {
     const request = isUuid(projectId)
       ? query.eq("id", projectId).maybeSingle()
       : query.eq("slug", projectId).maybeSingle();
-    request.then(({ data }: { data: Project | null }) => {
-      setProject(data);
-      setLoading(false);
-    });
+    const { data } = await request;
+    setProject(data as Project | null);
+    setLoading(false);
   }, [projectId]);
+
+  useDeferredTask(load);
 
   return { project, loading };
 }
@@ -207,7 +209,7 @@ export function useCharacters(projectRef: string) {
     setLoading(false);
   }, [projectRef]);
 
-  useEffect(() => { load(); }, [load]);
+  useDeferredTask(load);
 
   const createCharacter = useCallback(async (input: { name: string; description: string; personality: string }): Promise<CharWithPoses | null> => {
     if (IS_MOCK_MODE) {
@@ -386,7 +388,7 @@ export function useMemes(projectRef: string) {
     setLoading(false);
   }, [projectRef]);
 
-  useEffect(() => { load(); }, [load]);
+  useDeferredTask(load);
 
   const saveMeme = useCallback(async (input: {
     original_idea: string;

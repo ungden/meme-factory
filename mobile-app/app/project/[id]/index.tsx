@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Link, useLocalSearchParams } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import type { Project } from "@/types/models";
 import { Card, Screen, Subtle, Title } from "@/components/ui";
+import { useDeferredTask } from "@/hooks/use-deferred-task";
 
 const actions = [
   { href: "generate", title: "Tạo Meme", description: "Brief, generate content, render ảnh, lưu gallery" },
@@ -22,7 +23,7 @@ export default function ProjectHomeScreen() {
     setProject((data as Project | null) || null);
   }, [id]);
 
-  useEffect(() => { void load(); }, [load]);
+  useDeferredTask(load);
 
   return (
     <Screen>
