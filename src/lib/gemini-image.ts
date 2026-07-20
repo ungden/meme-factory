@@ -3,11 +3,26 @@ import { getGeminiApiKey } from "@/lib/server-secrets";
 
 // ============================================
 // Gemini Nano Banana 2 - Image Generation
-// Uses gemini-3.1-flash-image-preview model
+// Uses the stable gemini-3.1-flash-image model
 // Server-side only (called from API routes)
 // ============================================
 
-export const IMAGE_MODEL = "gemini-3.1-flash-image-preview";
+export const IMAGE_MODEL = "gemini-3.1-flash-image";
+
+export interface ImageGenerationUsage {
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  thoughtsTokenCount?: number;
+  totalTokenCount?: number;
+  promptTokensDetails?: Array<{ modality?: string; tokenCount?: number }>;
+  candidatesTokensDetails?: Array<{ modality?: string; tokenCount?: number }>;
+}
+
+export interface GeneratedImageResult {
+  image: string;
+  text?: string;
+  usage?: ImageGenerationUsage;
+}
 
 async function getClient(): Promise<GoogleGenAI> {
   const apiKey = await getGeminiApiKey();
@@ -112,7 +127,7 @@ ${watermark?.enabled ? `\nWatermark: Góc dưới cùng bên phải. ${watermark
 // ============================================
 export async function generateMemeImage(
   params: GenerateMemeImageParams
-): Promise<{ image: string; text?: string }> {
+): Promise<GeneratedImageResult> {
   const ai = await getClient();
   const { characters, format, watermark, referenceImages } = params;
   const prompt = compileMemeImagePrompt(params);
@@ -203,7 +218,7 @@ export async function generateCharacterPose(params: {
   emotion: string;
   style?: string;
   existingPoseImages?: { base64: string; mimeType: string }[];
-}): Promise<{ image: string; text?: string }> {
+}): Promise<GeneratedImageResult> {
   const ai = await getClient();
 
   const { characterName, characterDescription, emotion, style, existingPoseImages } =
@@ -279,7 +294,7 @@ export async function generateBackground(params: {
   description: string;
   mood?: string;
   format: string;
-}): Promise<{ image: string; text?: string }> {
+}): Promise<GeneratedImageResult> {
   const ai = await getClient();
 
   const { description, mood, format } = params;
@@ -317,7 +332,7 @@ YÊU CẦU:
 // Helper: Extract image from Gemini response
 // ============================================
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function extractImageFromResponse(response: any): { image: string; text?: string } {
+function extractImageFromResponse(response: any): GeneratedImageResult {
   let imageData: string | null = null;
   let textContent: string | undefined;
 
@@ -343,5 +358,15 @@ function extractImageFromResponse(response: any): { image: string; text?: string
     throw new Error("AI không tạo được ảnh. Vui lòng thử lại với mô tả khác.");
   }
 
-  return { image: imageData, text: textContent };
+  const metadata = response?.usageMetadata;
+  const usage: ImageGenerationUsage | undefined = metadata ? {
+    promptTokenCount: metadata.promptTokenCount,
+    candidatesTokenCount: metadata.candidatesTokenCount,
+    thoughtsTokenCount: metadata.thoughtsTokenCount,
+    totalTokenCount: metadata.totalTokenCount,
+    promptTokensDetails: metadata.promptTokensDetails,
+    candidatesTokensDetails: metadata.candidatesTokensDetails,
+  } : undefined;
+
+  return { image: imageData, text: textContent, usage };
 }

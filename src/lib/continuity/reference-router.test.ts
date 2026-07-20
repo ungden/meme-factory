@@ -45,6 +45,18 @@ describe("reference router", () => {
     expect(result.dropped[0].reason).toContain("object reference limit");
   });
 
+  it("enforces Nano Banana 2's four-character continuity limit", () => {
+    const references = Array.from({ length: 5 }, (_, index) => makeRef(index, "identity_face"));
+    const result = routeReferences({
+      provider: "google",
+      model: "gemini-3.1-flash-image",
+      policy: "strict",
+      references,
+    });
+    expect(result.selected).toHaveLength(4);
+    expect(result.dropped[0].reason).toContain("character reference limit");
+  });
+
   it("is deterministic regardless of reference input order", () => {
     const references = [
       makeRef(1, "style"),
@@ -119,4 +131,3 @@ describe("meme generation manifest", () => {
     );
   });
 });
-

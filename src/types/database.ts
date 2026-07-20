@@ -229,6 +229,12 @@ export interface ImageGenResponse {
     manifestHash: string;
   };
   pointsUsed?: number;
+  pricing?: {
+    providerCostUsd: number;
+    customerPoints: number;
+    markupMultiplier: number;
+    effectiveDate: string;
+  };
   error?: string;
   code?: string;
 }

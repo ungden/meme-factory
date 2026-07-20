@@ -7,9 +7,15 @@ import {
   generateCharacterPose,
   generateBackground,
   IMAGE_MODEL,
+  type GeneratedImageResult,
   type GenerateMemeImageParams,
 } from "@/lib/gemini-image";
 import { POINT_COSTS, POINT_LABELS, type PointAction } from "@/lib/point-pricing";
+import {
+  calculateGoogleImageActualCost,
+  estimateImageGenerationPrice,
+  type ImagePriceEstimate,
+} from "@/lib/ai-pricing";
 import { buildMemeManifest } from "@/lib/continuity/meme-manifest";
 import type { GenerationRecipe } from "@/lib/continuity/types";
 
@@ -42,6 +48,7 @@ export async function POST(request: NextRequest) {
   let generationRequestId: string | null = null;
   let generationJobPersisted = false;
   let generationRecipe: GenerationRecipe | null = null;
+  let priceEstimate: ImagePriceEstimate | null = null;
   let deductedCost = 0;
   let deductedAction: PointAction | null = null;
 
@@ -125,7 +132,7 @@ export async function POST(request: NextRequest) {
       deductedAction = action;
     }
 
-    let result: { image: string; text?: string };
+    let result: GeneratedImageResult;
 
     switch (type) {
       case "meme": {
@@ -189,6 +196,12 @@ export async function POST(request: NextRequest) {
           sourceMemeId: body.source_meme_id,
         });
         generationRecipe = manifestPlan.recipe;
+        priceEstimate = estimateImageGenerationPrice({
+          model: IMAGE_MODEL,
+          resolution: "1K",
+          inputImageCount: manifestPlan.recipe.references.length,
+          prompt: compiledPrompt,
+        });
 
         const { error: jobInsertError } = await getSupabaseAdmin()
           .from("generation_jobs")
@@ -209,6 +222,7 @@ export async function POST(request: NextRequest) {
             manifest_hash: manifestPlan.recipe.manifestHash,
             requested_output: manifestPlan.recipe.output,
             estimated_points: cost,
+            estimated_cost_usd: priceEstimate.providerCostUsd,
             created_by: user.id,
             started_at: new Date().toISOString(),
           });
@@ -254,15 +268,32 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Unknown type" }, { status: 400 });
     }
 
+    const actualCostUsd = priceEstimate
+      ? calculateGoogleImageActualCost({
+          model: IMAGE_MODEL,
+          usage: result.usage,
+          fallback: priceEstimate,
+        })
+      : undefined;
+
     if (generationJobPersisted && generationRequestId) {
       const { error: completeJobError } = await getSupabaseAdmin()
         .from("generation_jobs")
         .update({
           status: "completed",
           actual_points: deductedCost,
+          actual_cost_usd: actualCostUsd,
+          usage: result.usage ?? null,
           provider_response: {
             image_count: 1,
             has_text_response: Boolean(result.text),
+            pricing: priceEstimate ? {
+              effective_date: priceEstimate.effectiveDate,
+              provider_cost_usd: actualCostUsd ?? priceEstimate.providerCostUsd,
+              customer_points: deductedCost,
+              markup_multiplier: priceEstimate.markupMultiplier,
+              source_url: priceEstimate.sourceUrl,
+            } : undefined,
           },
           completed_at: new Date().toISOString(),
         })
@@ -291,6 +322,12 @@ export async function POST(request: NextRequest) {
           }
         : undefined,
       pointsUsed: cost,
+      pricing: priceEstimate ? {
+        providerCostUsd: actualCostUsd ?? priceEstimate.providerCostUsd,
+        customerPoints: cost,
+        markupMultiplier: priceEstimate.markupMultiplier,
+        effectiveDate: priceEstimate.effectiveDate,
+      } : undefined,
     });
   } catch (error) {
     console.error("Image generation error:", error);

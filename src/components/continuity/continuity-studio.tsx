@@ -36,6 +36,7 @@ import type { Asset, AssetKind, ContinuityPolicy, GenerationJob } from "@/lib/co
 import { WorkflowGraph } from "./workflow-graph";
 import { generateImage, useCharacters, useMemes } from "@/lib/use-store";
 import { compressImageToBase64 } from "@/lib/image-utils";
+import { POINT_COSTS, POINT_ACTION_QUOTES } from "@/lib/point-pricing";
 
 type View = "studio" | "assets" | "character" | "review" | "workflow";
 type Toast = { title: string; detail: string } | null;
@@ -164,7 +165,7 @@ export function ContinuityStudio({ projectId, projectName }: { projectId: string
         policy,
         output: { width: 1536, height: 1024, quality: "standard", count: 1 },
       },
-      estimatedCostUsd: 0,
+      estimatedCostUsd: POINT_ACTION_QUOTES.meme.providerCostUsd,
       createdAt: startedAt,
     });
 
@@ -462,7 +463,7 @@ function StudioView(props: {
                 <button onClick={() => setDrawer(drawer === "settings" ? null : "settings")}><SlidersHorizontalIcon size={17} />Cài đặt</button>
                 <button onClick={() => setDrawer(drawer === "manifest" ? null : "manifest")}><GitBranchIcon size={17} />{props.routedCount} ảnh tham chiếu</button>
               </div>
-              <span>{props.model === "gemini-3.1-flash-image" ? "5 điểm dự án" : "Chỉ thử nghiệm"}</span>
+              <span>{props.model === "gemini-3.1-flash-image" ? `${POINT_COSTS.meme} điểm dự án` : "Chỉ thử nghiệm"}</span>
               <button className="composer-run" onClick={props.onRun}><SparkleIcon size={18} weight="fill" />Tạo ảnh</button>
             </div>
           </div>

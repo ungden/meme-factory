@@ -2,19 +2,38 @@
 // Point Pricing System — AIDA
 // ============================================
 
-// Bảng giá point cho từng tính năng
-// Cost tham chiếu: gemini-3.1-flash-image-preview (Paid Tier)
-// - Character pose (1K): 1120 tokens × $60/1M = $0.067/ảnh ≈ 1.709đ
-// - Meme/Background (2K): 1680 tokens × $60/1M = $0.101/ảnh ≈ 2.576đ
-// - Content gen (text only, gemini-2.0-flash): ~5-10đ (gần 0)
+import { estimateImageGenerationPrice } from "./ai-pricing";
+
+// Giá được tính từ Standard API cost × 1.5 và quy đổi theo gói point rẻ
+// nhất (499đ/point), để cả gói doanh nghiệp vẫn đạt mức cộng 50%.
+export const POINT_ACTION_QUOTES = {
+  character: estimateImageGenerationPrice({
+    model: "gemini-3.1-flash-image",
+    resolution: "1K",
+    inputImageCount: 4,
+    inputTextTokens: 2_000,
+  }),
+  meme: estimateImageGenerationPrice({
+    model: "gemini-3.1-flash-image",
+    resolution: "1K",
+    inputImageCount: 14,
+    inputTextTokens: 2_500,
+  }),
+  background: estimateImageGenerationPrice({
+    model: "gemini-3.1-flash-image",
+    resolution: "2K",
+    inputImageCount: 0,
+    inputTextTokens: 1_500,
+  }),
+} as const;
 
 export type PointAction = "character" | "meme" | "background" | "content";
 
 export const POINT_COSTS: Record<PointAction, number> = {
   content: 0,     // Miễn phí
-  character: 3,   // 3 points — tạo ảnh nhân vật (1K)
-  background: 4,  // 4 points — tạo background (2K)
-  meme: 5,        // 5 points — tạo meme hoàn chỉnh (2K)
+  character: POINT_ACTION_QUOTES.character.customerPoints,
+  background: POINT_ACTION_QUOTES.background.customerPoints,
+  meme: POINT_ACTION_QUOTES.meme.customerPoints,
 };
 
 export const POINT_LABELS: Record<PointAction, string> = {
@@ -24,8 +43,8 @@ export const POINT_LABELS: Record<PointAction, string> = {
   meme: "Tạo ảnh meme AI",
 };
 
-// Free trial — tặng khi đăng ký mới
-export const FREE_TRIAL_POINTS = 5;
+// Free trial — đủ tạo ít nhất một ảnh 1K theo bảng giá hiện tại.
+export const FREE_TRIAL_POINTS = POINT_COSTS.meme;
 
 // Gói nạp points
 export interface PointPackage {

@@ -7,6 +7,13 @@ import Button from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { Save, Plus, Trash2, Eye, EyeOff, Bell, Coins } from "lucide-react";
 import { POINT_COSTS, POINT_PACKAGES } from "@/lib/point-pricing";
+import {
+  AI_PRICE_MARKUP_PERCENT,
+  AI_PRICING_CATALOG,
+  AI_PRICING_EFFECTIVE_DATE,
+  AI_PRICING_SOURCES,
+  estimateImageGenerationPrice,
+} from "@/lib/ai-pricing";
 
 interface Announcement {
   id: string;
@@ -23,6 +30,15 @@ const ANNOUNCEMENT_TYPES = [
   { value: "success", label: "Thành công", color: "#22c55e" },
   { value: "promo", label: "Khuyến mãi", color: "#ec4899" },
 ];
+
+const PROVIDER_PRICE_ROWS = AI_PRICING_CATALOG.map((item) => ({
+  ...item,
+  quote: estimateImageGenerationPrice({
+    model: item.model,
+    resolution: item.resolution,
+    quality: item.quality,
+  }),
+}));
 
 export default function AdminSettingsPage() {
   const toast = useToast();
@@ -161,7 +177,7 @@ export default function AdminSettingsPage() {
                 { key: "content" as const, label: "Tạo nội dung AI (text)", current: POINT_COSTS.content },
                 { key: "character" as const, label: "Tạo ảnh nhân vật (1K)", current: POINT_COSTS.character },
                 { key: "background" as const, label: "Tạo background AI (2K)", current: POINT_COSTS.background },
-                { key: "meme" as const, label: "Tạo ảnh meme AI (2K)", current: POINT_COSTS.meme },
+                { key: "meme" as const, label: "Tạo ảnh meme / cú máy AI (1K)", current: POINT_COSTS.meme },
               ].map((item) => (
                 <div key={item.key} className="flex items-center justify-between">
                   <div className="flex-1">
@@ -208,6 +224,34 @@ export default function AdminSettingsPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t" style={{ borderColor: "var(--border-primary)" }}>
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div>
+                  <h3 className="text-xs font-semibold th-text-muted uppercase tracking-wider">Giá provider chuẩn</h3>
+                  <p className="text-[10px] th-text-muted mt-1">
+                    Standard API · cập nhật {AI_PRICING_EFFECTIVE_DATE} · thu giá vốn +{AI_PRICE_MARKUP_PERCENT}%
+                  </p>
+                </div>
+                <div className="flex gap-2 text-[10px]">
+                  <a className="th-text-accent" href={AI_PRICING_SOURCES.google} target="_blank" rel="noreferrer">Google</a>
+                  <a className="th-text-accent" href={AI_PRICING_SOURCES.openai} target="_blank" rel="noreferrer">OpenAI</a>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {PROVIDER_PRICE_ROWS.map((item) => (
+                  <div key={item.label} className="flex items-center justify-between gap-4 text-xs">
+                    <span className="th-text-secondary">{item.label}</span>
+                    <span className="th-text-primary font-medium whitespace-nowrap">
+                      ${item.quote.outputCostUsd.toFixed(4)} → từ {item.quote.customerPoints} pts
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] th-text-muted mt-3">
+                Giá “từ” chưa gồm ảnh tham chiếu và prompt. Mức phí hành động phía trên đã dự phòng input tối đa của workflow hiện tại.
+              </p>
             </div>
           </div>
 

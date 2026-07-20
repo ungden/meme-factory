@@ -56,8 +56,12 @@ export function routeReferences(input: RouteReferencesInput): RouteReferencesRes
   const totalLimit = input.provider === "openai" ? 16 : 14;
   const isNanoBananaPro =
     input.provider === "google" && input.model.startsWith("gemini-3-pro-image");
+  const isNanoBanana2 =
+    input.provider === "google" && input.model.startsWith("gemini-3.1-flash-image");
   const categoryCaps = isNanoBananaPro
     ? { character: 5, object: 6, style: 3 }
+    : isNanoBanana2
+      ? { character: 4, object: 10, style: 14 }
     : null;
   const counts = { character: 0, object: 0, style: 0 };
 
@@ -98,4 +102,3 @@ export function routeReferences(input: RouteReferencesInput): RouteReferencesRes
 
   return { selected, dropped };
 }
-
