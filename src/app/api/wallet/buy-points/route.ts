@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { POINT_PACKAGES, FREE_TRIAL_POINTS } from "@/lib/point-pricing";
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { supabaseAdmin } from "@/lib/admin";
 
 // POST: Buy a point package (atomic via RPC)
 export async function POST(req: Request) {

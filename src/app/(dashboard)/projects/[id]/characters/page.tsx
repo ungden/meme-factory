@@ -457,8 +457,8 @@ export default function CharactersPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold th-text-primary">Nhân vật</h1>
-            <p className="th-text-tertiary mt-1">Quản lý character identity cho fanpage</p>
+            <h1 className="text-2xl font-bold th-text-primary">Tài nguyên nhân vật</h1>
+            <p className="th-text-tertiary mt-1">Quản lý identity master dùng chung cho mọi chế độ Studio</p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => setShowSuggestModal(true)} size="lg">
@@ -485,7 +485,7 @@ export default function CharactersPage() {
               <SmilePlus size={32} className="th-text-muted" />
             </div>
             <h3 className="text-lg font-medium th-text-secondary">Chưa có nhân vật nào</h3>
-            <p className="th-text-muted mt-1 mb-5">Mô tả fanpage để AI gợi ý dàn nhân vật ngay lập tức</p>
+            <p className="th-text-muted mt-1 mb-5">Mô tả thế giới hoặc campaign để AI gợi ý dàn nhân vật ban đầu</p>
             <div className="flex items-center gap-2">
               <Button variant="outline" onClick={() => setShowSuggestModal(true)}>
                 <Brain size={18} />
@@ -885,7 +885,7 @@ export default function CharactersPage() {
             )}
 
             <div className="p-2 rounded-lg th-bg-tertiary text-xs th-text-secondary">
-              AI sẽ tạo 1 ảnh <strong>base character</strong> (không khóa emotion). Emotion sẽ được xử lý theo từng meme sau này.
+              AI sẽ tạo 1 ảnh <strong>base character</strong> (không khoá biểu cảm). Biểu cảm được điều khiển theo từng đầu ra sau này.
             </div>
 
             {/* Custom style override */}

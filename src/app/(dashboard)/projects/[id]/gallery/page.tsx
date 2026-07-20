@@ -75,7 +75,7 @@ export default function GalleryPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     await remove(deleteTarget);
-    toast.success("Đã xoá meme");
+    toast.success("Đã xoá đầu ra");
     if (selectedMeme === deleteTarget) setSelectedMeme(null);
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -127,7 +127,7 @@ export default function GalleryPage() {
 
   const handleBulkDownload = useCallback(async () => {
     if (selectedDownloadable.length === 0) {
-      toast.error("Chưa chọn meme nào có ảnh để tải");
+      toast.error("Chưa chọn đầu ra nào có ảnh để tải");
       return;
     }
 
@@ -193,7 +193,7 @@ export default function GalleryPage() {
       link.click();
       URL.revokeObjectURL(url);
 
-      toast.success(`Đã tải ${selectedDownloadable.length} meme thành file ZIP`);
+      toast.success(`Đã tải ${selectedDownloadable.length} đầu ra thành file ZIP`);
       exitSelectionMode();
     } catch (err) {
       console.error("ZIP download failed:", err);
@@ -211,7 +211,7 @@ export default function GalleryPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold th-text-primary">Thư viện</h1>
-            <p className="th-text-tertiary mt-1">{memes.length} meme đã tạo</p>
+            <p className="th-text-tertiary mt-1">{memes.length} đầu ra đã lưu từ tất cả chế độ Studio</p>
           </div>
           {!loading && memes.length > 0 && !selectionMode && (
             <Button variant="outline" onClick={() => setSelectionMode(true)}>
@@ -290,8 +290,8 @@ export default function GalleryPage() {
             <div className="w-20 h-20 th-bg-card rounded-2xl flex items-center justify-center mb-4">
               <ImageIcon size={32} className="th-text-muted" />
             </div>
-            <h3 className="text-lg font-medium th-text-secondary">Chưa có meme nào</h3>
-            <p className="th-text-muted mt-1">Meme đã tạo sẽ xuất hiện ở đây</p>
+            <h3 className="text-lg font-medium th-text-secondary">Chưa có đầu ra nào</h3>
+            <p className="th-text-muted mt-1">Ảnh từ Nội dung nhanh và Dựng cảnh sẽ xuất hiện ở đây</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -435,7 +435,7 @@ export default function GalleryPage() {
         )}
 
         {/* Detail Modal */}
-        <Modal isOpen={!!selected} onClose={() => setSelectedMeme(null)} title="Chi tiết meme" size="xl">
+        <Modal isOpen={!!selected} onClose={() => setSelectedMeme(null)} title="Chi tiết đầu ra" size="xl">
           {selected &&
             (() => {
               const content = selected.generated_content as MemeContent;
@@ -482,7 +482,7 @@ export default function GalleryPage() {
                       {new Date(selected.created_at).toLocaleString("vi-VN")}
                       <span className="px-1.5 py-0.5 th-bg-tertiary rounded">{selected.format}</span>
                       {selected.source_meme_id && (
-                        <span className="px-1.5 py-0.5 rounded th-bg-accent-light th-text-accent">Biến thể từ meme cũ</span>
+                        <span className="px-1.5 py-0.5 rounded th-bg-accent-light th-text-accent">Biến thể từ đầu ra cũ</span>
                       )}
                     </div>
                     <div className="flex gap-2 pt-2">
@@ -510,9 +510,9 @@ export default function GalleryPage() {
           isOpen={!!deleteTarget}
           onClose={() => setDeleteTarget(null)}
           onConfirm={handleDelete}
-          title="Xoá meme?"
-          message="Meme này sẽ bị xoá vĩnh viễn. Hành động này không thể hoàn tác."
-          confirmText="Xoá meme"
+          title="Xoá đầu ra?"
+          message="Đầu ra này sẽ bị xoá vĩnh viễn. Hành động này không thể hoàn tác."
+          confirmText="Xoá đầu ra"
           variant="danger"
         />
       </main>

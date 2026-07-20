@@ -754,9 +754,9 @@ export default function GeneratePage() {
         source_meme_id: lineageSourceMemeId,
         generation_request_id: aiGenerationRequestId,
       });
-      toast.success("Đã lưu meme vào thư viện!");
+      toast.success("Đã lưu đầu ra vào thư viện!");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể lưu meme. Vui lòng thử lại.");
+      toast.error(err instanceof Error ? err.message : "Không thể lưu đầu ra. Vui lòng thử lại.");
     }
     setSaving(false);
   };
@@ -800,8 +800,11 @@ export default function GeneratePage() {
       <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold th-text-primary">Tạo Meme</h1>
-            <p className="th-text-tertiary mt-1">Nhập ý tưởng và để AI tạo meme hoàn hảo</p>
+            <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-violet-500">
+              <Sparkles size={13} /> AIDA Studio · Nội dung nhanh
+            </div>
+            <h1 className="text-2xl font-bold th-text-primary">Tạo nội dung nhanh</h1>
+            <p className="th-text-tertiary mt-1">Biến một ý tưởng thành social post, meme và caption sẵn đăng</p>
           </div>
           {step > 1 && (
             <Button variant="outline" onClick={handleReset}>
@@ -812,13 +815,13 @@ export default function GeneratePage() {
 
         {fromMemeId && fromMode === "regenerate" && (
           <div className="mb-4 p-3 rounded-xl border th-border-accent th-bg-accent-light">
-            <p className="text-sm th-text-accent">Đang ở chế độ tạo biến thể từ meme đã lưu. Bạn có thể chỉnh prompt rồi bấm &ldquo;Tạo ảnh bằng AI&rdquo;.</p>
+            <p className="text-sm th-text-accent">Đang tạo biến thể từ đầu ra đã lưu. Bạn có thể chỉnh prompt rồi bấm &ldquo;Tạo ảnh bằng AI&rdquo;.</p>
           </div>
         )}
 
         {fromMemeId && fromMode === "reuse" && (
           <div className="mb-4 p-3 rounded-xl border" style={{ borderColor: "var(--border-primary)", background: "var(--bg-card)" }}>
-            <p className="text-sm th-text-secondary">Đã điền lại ý tưởng từ meme cũ. Bạn có thể sửa ý tưởng rồi tạo lại nội dung AI.</p>
+            <p className="text-sm th-text-secondary">Đã điền lại ý tưởng từ đầu ra cũ. Bạn có thể sửa rồi tạo lại nội dung AI.</p>
           </div>
         )}
 
@@ -827,7 +830,7 @@ export default function GeneratePage() {
           {[
             { num: 1, label: "Nhập ý tưởng" },
             { num: 2, label: "Chọn nội dung" },
-            { num: 3, label: "Xem trước & Xuất" },
+            { num: 3, label: "Duyệt & xuất" },
           ].map((s, i) => (
             <div key={s.num} className="flex items-center gap-3">
               <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
@@ -850,7 +853,7 @@ export default function GeneratePage() {
               <CardHeader>
                 <h2 className="text-lg font-semibold th-text-primary flex items-center gap-2">
                   <Sparkles size={20} style={{ color: "var(--accent)" }} />
-                  Ý tưởng meme của bạn?
+                  Bạn muốn kể điều gì?
                 </h2>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -929,7 +932,7 @@ export default function GeneratePage() {
                           )}
                         </div>
                         <p className="text-xs th-text-muted">
-                          AI sẽ phân tích ảnh để hiểu context tốt hơn
+                          AI sẽ dùng ảnh để hiểu bối cảnh và giữ đúng chủ thể
                         </p>
                       </div>
                     )}
@@ -952,7 +955,7 @@ export default function GeneratePage() {
                       className="w-4 h-4 accent-[var(--accent)]"
                     />
                     <span className="text-sm th-text-secondary">Không dùng nhân vật thư viện</span>
-                    <span className="text-xs th-text-muted ml-auto">VD: dùng người nổi tiếng, meme template...</span>
+                    <span className="text-xs th-text-muted ml-auto">VD: ảnh sự kiện, template có sẵn...</span>
                   </label>
 
                   {!noCharacters && (
@@ -1006,7 +1009,7 @@ export default function GeneratePage() {
                           })}
                         </div>
                       ) : (
-                        <p className="text-xs th-text-muted">Chưa có nhân vật thư viện. Bạn vẫn có thể tạo meme ngay, hoặc tạo nhanh ở nút bên trên.</p>
+                        <p className="text-xs th-text-muted">Chưa có nhân vật thư viện. Bạn vẫn có thể tạo nội dung ngay, hoặc tạo nhanh ở nút bên trên.</p>
                       )}
 
                       <div>
@@ -1066,11 +1069,11 @@ export default function GeneratePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Button size="lg" className="w-full" onClick={handleGenerate} loading={generating} disabled={!idea.trim()}>
                     <Zap size={18} />
-                    {generating ? "AI đang xử lý..." : "Tạo nội dung meme"}
+                    {generating ? "AI đang xử lý..." : "Tạo các phương án nội dung"}
                   </Button>
                   <Button size="lg" variant="outline" className="w-full" onClick={handleDirectFlow} disabled={!idea.trim()}>
                     <Wand2 size={18} />
-                    Bỏ qua AI idea, tạo ảnh luôn
+                    Dùng prompt hiện tại, tạo ảnh luôn
                   </Button>
                 </div>
               </CardContent>
@@ -1151,9 +1154,9 @@ export default function GeneratePage() {
                           <Wand2 size={36} style={{ color: "var(--accent)" }} />
                         </div>
                         <div className="text-center">
-                          <p className="th-text-primary font-semibold text-lg">Tạo ảnh meme bằng AI</p>
+                          <p className="th-text-primary font-semibold text-lg">Tạo visual bằng AI</p>
                           <p className="th-text-tertiary text-sm mt-1 max-w-sm">
-                            AIDA AI sẽ tạo ảnh meme 1K hoàn chỉnh dựa trên nội dung, nhân vật và phong cách đã chọn
+                            AIDA sẽ dựng visual 1K hoàn chỉnh từ nội dung, nhân vật và phong cách đã chọn
                           </p>
                         </div>
                         <Button size="lg" onClick={handleAiGenerate}>
@@ -1363,7 +1366,7 @@ export default function GeneratePage() {
                         {aiRefImages.length === 0 ? (
                           <div className="py-1">
                             <Upload size={18} className="mx-auto mb-1 th-text-muted" />
-                            <p className="text-xs th-text-tertiary">Thả ảnh meme mẫu để AI học bố cục/style</p>
+                            <p className="text-xs th-text-tertiary">Thả ảnh mẫu để AI hiểu bố cục và phong cách</p>
                           </div>
                         ) : (
                           <div className="flex gap-2 flex-wrap justify-center">

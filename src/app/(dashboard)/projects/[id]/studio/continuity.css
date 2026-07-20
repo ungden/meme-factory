@@ -36,9 +36,10 @@ button { border: 0; }
 .brand { width: 40px; height: 40px; border-radius: 11px; background: #111c2f; display: grid; place-items: center; margin-bottom: 16px; }
 .brand span { font-weight: 800; font-size: 19px; color: #7da9ff; }
 .sidebar nav { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; }
-.sidebar nav button, .sidebar-bottom > button { width: 62px; min-height: 54px; border-radius: 8px; background: transparent; color: #7d8798; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-size: 10px; transition: .18s ease; }
-.sidebar nav button:hover, .sidebar-bottom > button:hover { color: #cbd3df; background: #131821; }
+.sidebar nav button, .sidebar nav a, .sidebar-bottom > button { width: 62px; min-height: 54px; border-radius: 8px; background: transparent; color: #7d8798; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-size: 10px; text-decoration: none; transition: .18s ease; }
+.sidebar nav button:hover, .sidebar nav a:hover, .sidebar-bottom > button:hover { color: #cbd3df; background: #131821; }
 .sidebar nav button.active { color: #8cb6ff; background: #14213a; }
+.sidebar nav a.quick-create { color: #b597f4; }
 .sidebar-bottom { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #263044; color: #d6e2f9; font-size: 11px; position: relative; }
 .avatar span { position: absolute; width: 8px; height: 8px; background: #54d27c; border: 2px solid #0c0f14; border-radius: 50%; right: -1px; bottom: 1px; }

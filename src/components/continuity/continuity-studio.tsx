@@ -39,7 +39,29 @@ import { compressImageToBase64 } from "@/lib/image-utils";
 import { POINT_COSTS, POINT_ACTION_QUOTES } from "@/lib/point-pricing";
 
 type View = "studio" | "assets" | "character" | "review" | "workflow";
+type CreativeMode = "fashion" | "storyboard" | "product";
 type Toast = { title: string; detail: string } | null;
+
+const creativeModes: Record<CreativeMode, { label: string; workspaceTitle: string; workspaceDetail: string; prompt: string }> = {
+  fashion: {
+    label: "Chiến dịch thời trang",
+    workspaceTitle: "Look 02 · Quiet Luxury",
+    workspaceDetail: "Key visual chiến dịch",
+    prompt: "Editorial thời trang quiet luxury trong con hẻm Sài Gòn sau mưa. Linh mặc áo khoác phản quang đen, đứng gần cổng xanh ngọc; giữ đúng khuôn mặt, tỷ lệ cơ thể và chất liệu trang phục. Ánh sáng ngọc trai, da thật đẹp, bảng màu than chì và xanh patina, hạt phim tinh tế.",
+  },
+  storyboard: {
+    label: "Storyboard & movie",
+    workspaceTitle: "Cú máy 02D",
+    workspaceDetail: "Chiếc điện thoại đỏ",
+    prompt: "Buổi sáng dịu sau mưa trong một con hẻm Sài Gòn thanh lịch. Linh đứng gần cổng xanh ngọc và quay nhẹ về phía Minh; Minh giữ chiếc điện thoại đỏ bằng tay phải. Phong cách quiet luxury editorial, ánh sáng ngọc trai, da thật, bảng màu than chì và xanh patina, hạt phim tinh tế.",
+  },
+  product: {
+    label: "Sản phẩm & thương hiệu",
+    workspaceTitle: "Hero visual · Điện thoại đỏ",
+    workspaceDetail: "Campaign sản phẩm",
+    prompt: "Hero visual cao cấp cho chiếc điện thoại đỏ trong con hẻm Sài Gòn sau mưa. Minh giữ sản phẩm bằng tay phải ở vị trí rõ ràng, Linh tạo chiều sâu phía trước. Giữ chính xác màu đỏ, hình dáng và chi tiết sản phẩm; ánh sáng ngọc trai, tương phản sạch, bảng màu than chì và xanh patina.",
+  },
+};
 
 const navItems = [
   { id: "studio" as View, label: "Dựng cảnh", icon: FilmSlateIcon },
@@ -78,12 +100,13 @@ const variants = [
   "/continuity/scene-02d-variant-4.webp?v=quiet-luxury-20260720",
 ];
 
-export function ContinuityStudio({ projectId, projectName }: { projectId: string; projectName: string }) {
+export function ContinuityStudio({ projectId, projectName, initialMode = "storyboard" }: { projectId: string; projectName: string; initialMode?: CreativeMode }) {
   const [view, setView] = useState<View>("studio");
+  const [creativeMode, setCreativeMode] = useState<CreativeMode>(initialMode);
   const [selectedVariant, setSelectedVariant] = useState(0);
   const [policy, setPolicy] = useState<ContinuityPolicy>("balanced");
   const [model, setModel] = useState("gemini-3.1-flash-image");
-  const [prompt, setPrompt] = useState("Buổi sáng dịu sau mưa trong một con hẻm Sài Gòn thanh lịch. Linh đứng gần cổng xanh ngọc và quay nhẹ về phía Minh; Minh giữ chiếc điện thoại đỏ bằng tay phải. Phong cách quiet luxury editorial, ánh sáng ngọc trai, da thật, bảng màu than chì và xanh patina, hạt phim tinh tế.");
+  const [prompt, setPrompt] = useState(creativeModes[initialMode].prompt);
   const [job, setJob] = useState<GenerationJob | null>(null);
   const [toast, setToast] = useState<Toast>(null);
   const [expert, setExpert] = useState(false);
@@ -267,6 +290,7 @@ export function ContinuityStudio({ projectId, projectName }: { projectId: string
         <Topbar
           view={view}
           projectName={projectName}
+          creativeMode={creativeMode}
           expert={expert}
           setExpert={(value) => { setExpert(value); if (!value && view === "workflow") setView("studio"); }}
           job={job}
@@ -275,6 +299,8 @@ export function ContinuityStudio({ projectId, projectName }: { projectId: string
         {view === "studio" && (
           <StudioView
             projectId={projectId}
+            creativeMode={creativeMode}
+            onCreativeModeChange={(mode) => { setCreativeMode(mode); setPrompt(creativeModes[mode].prompt); }}
             prompt={prompt}
             setPrompt={setPrompt}
             policy={policy}
@@ -321,9 +347,14 @@ export function ContinuityStudio({ projectId, projectName }: { projectId: string
 function Sidebar({ active, onNavigate, projectId, onToast }: { active: View; onNavigate: (view: View) => void; projectId: string; onToast: (toast: Toast) => void }) {
   return (
     <aside className="sidebar">
-      <Link className="brand" href={`/projects/${projectId}`} aria-label="Quay lại tổng quan dự án"><span>C</span></Link>
+      <Link className="brand" href={`/projects/${projectId}`} aria-label="Quay lại tổng quan dự án"><span>A</span></Link>
       <nav>
-        {navItems.map((item) => {
+        {navItems.slice(0, 1).map((item) => {
+          const Icon = item.icon;
+          return <button key={item.id} className={active === item.id ? "active" : ""} onClick={() => onNavigate(item.id)}><Icon size={21} weight={active === item.id ? "fill" : "regular"} /><span>{item.label}</span></button>;
+        })}
+        <Link className="quick-create" href={`/projects/${projectId}/generate`} aria-label="Mở chế độ nội dung nhanh"><SparkleIcon size={21} /><span>Nội dung nhanh</span></Link>
+        {navItems.slice(1).map((item) => {
           const Icon = item.icon;
           return <button key={item.id} className={active === item.id ? "active" : ""} onClick={() => onNavigate(item.id)}><Icon size={21} weight={active === item.id ? "fill" : "regular"} /><span>{item.label}</span></button>;
         })}
@@ -336,8 +367,8 @@ function Sidebar({ active, onNavigate, projectId, onToast }: { active: View; onN
   );
 }
 
-function Topbar({ view, projectName, expert, setExpert, job }: { view: View; projectName: string; expert: boolean; setExpert: (value: boolean) => void; job: GenerationJob | null }) {
-  const titles: Record<View, string> = { studio: "Cảnh 02 / Cú máy 02D", assets: "Tài nguyên dự án", character: "Tạo bộ tham chiếu nhân vật", review: "Duyệt & sửa ảnh đầu ra", workflow: "Quy trình cú máy điện ảnh" };
+function Topbar({ view, projectName, creativeMode, expert, setExpert, job }: { view: View; projectName: string; creativeMode: CreativeMode; expert: boolean; setExpert: (value: boolean) => void; job: GenerationJob | null }) {
+  const titles: Record<View, string> = { studio: creativeModes[creativeMode].label, assets: "Tài nguyên dự án", character: "Tạo bộ tham chiếu nhân vật", review: "Duyệt & sửa ảnh đầu ra", workflow: "Quy trình cú máy điện ảnh" };
   return (
     <header className="topbar">
       <div className="crumb"><span>{projectName}</span><b>/</b><strong>{titles[view]}</strong><CaretDownIcon size={14} /></div>
@@ -351,6 +382,7 @@ function Topbar({ view, projectName, expert, setExpert, job }: { view: View; pro
 
 function StudioView(props: {
   projectId: string;
+  creativeMode: CreativeMode; onCreativeModeChange: (mode: CreativeMode) => void;
   prompt: string; setPrompt: (value: string) => void; policy: ContinuityPolicy; setPolicy: (value: ContinuityPolicy) => void;
   model: string; setModel: (value: string) => void; selectedVariant: number; setSelectedVariant: (value: number) => void;
   routedCount: number; droppedCount: number; job: GenerationJob | null; variants: string[]; projectAssets: Asset[]; onRun: () => void; onSave: () => void; saving: boolean; onReview: () => void;
@@ -413,7 +445,7 @@ function StudioView(props: {
     <div className="flow-studio">
       <section className="flow-workspace">
         <div className="flow-canvas-toolbar">
-          <div><span className="status-dot" /><strong>Cú máy 02D</strong><span>{props.job?.status === "completed" ? "Vừa tạo xong" : "Chiếc điện thoại đỏ"}</span></div>
+          <div><span className="status-dot" /><strong>{creativeModes[props.creativeMode].workspaceTitle}</strong><span>{props.job?.status === "completed" ? "Vừa tạo xong" : creativeModes[props.creativeMode].workspaceDetail}</span></div>
           <div>
             <button className="flow-toolbar-button" onClick={props.onSave} disabled={props.saving}><DownloadSimpleIcon size={17} />{props.saving ? "Đang lưu…" : "Lưu"}</button>
             <button className="flow-toolbar-button" onClick={props.onReview}><MagicWandIcon size={17} />Kiểm tra</button>
@@ -443,8 +475,8 @@ function StudioView(props: {
         <div className="flow-composer-wrap">
           <div className="flow-composer">
             <div className="composer-heading">
-              <button className="composer-mode" onClick={() => setModeOpen(!modeOpen)} aria-expanded={modeOpen}><SparkleIcon size={16} weight="fill" />Ghép tài nguyên thành ảnh<CaretDownIcon size={13} /></button>
-              {modeOpen && <div className="composer-mode-menu"><button className="selected" onClick={() => setModeOpen(false)}><SparkleIcon size={15} />Ghép tài nguyên thành ảnh<span>Tạo một cú máy mới</span></button><button onClick={() => { setModeOpen(false); props.onReview(); }}><MagicWandIcon size={15} />Chỉnh ảnh hiện tại<span>Mở Duyệt & Sửa</span></button></div>}
+              <button className="composer-mode" onClick={() => setModeOpen(!modeOpen)} aria-expanded={modeOpen}><SparkleIcon size={16} weight="fill" />{creativeModes[props.creativeMode].label}<CaretDownIcon size={13} /></button>
+              {modeOpen && <div className="composer-mode-menu">{(Object.entries(creativeModes) as [CreativeMode, (typeof creativeModes)[CreativeMode]][]).map(([id, mode]) => <button key={id} className={props.creativeMode === id ? "selected" : ""} onClick={() => { props.onCreativeModeChange(id); setModeOpen(false); }}><SparkleIcon size={15} />{mode.label}<span>{mode.workspaceDetail}</span></button>)}<button onClick={() => { setModeOpen(false); props.onReview(); }}><MagicWandIcon size={15} />Chỉnh ảnh hiện tại<span>Mở Duyệt & Sửa</span></button></div>}
               <span>{props.model === "gemini-3.1-flash-image" ? "Nano Banana 2" : props.model === "gemini-3-pro-image" ? "Nano Banana Pro" : "GPT Image 2"}</span>
             </div>
             <div className="ingredient-strip">

@@ -9,7 +9,6 @@ import {
   Users,
   Image,
   LogOut,
-  Zap,
   ChevronLeft,
   Sun,
   Moon,
@@ -121,15 +120,19 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
     { href: "/wallet", label: "Ví tiền", icon: Wallet },
   ];
 
-  const projectNav = projectId
+  const projectPrimaryNav = projectId
     ? [
         { href: `/projects/${projectId}`, label: "Tổng quan", icon: Sparkles },
-        { href: `/projects/${projectId}/studio`, label: "Continuity Studio", icon: Clapperboard },
+        { href: `/projects/${projectId}/studio`, label: "Studio", icon: Clapperboard, aliases: [`/projects/${projectId}/generate`] },
+        { href: `/projects/${projectId}/characters`, label: "Tài nguyên", icon: Users },
+        { href: `/projects/${projectId}/gallery`, label: "Thư viện", icon: Image },
+      ]
+    : [];
+
+  const projectManagementNav = projectId
+    ? [
         { href: `/projects/${projectId}/members`, label: "Thành viên", icon: UserPlus },
-        { href: `/projects/${projectId}/wallet`, label: "Ví dự án", icon: Coins },
-        { href: `/projects/${projectId}/characters`, label: "Nhân vật", icon: Users },
-        { href: `/projects/${projectId}/generate`, label: "Tạo Meme", icon: Zap },
-        { href: `/projects/${projectId}/gallery`, label: "Bộ sưu tập", icon: Image },
+        { href: `/projects/${projectId}/wallet`, label: "Điểm dự án", icon: Coins },
       ]
     : [];
 
@@ -138,7 +141,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
       {/* Logo */}
       <div className="p-5 border-b" style={{ borderColor: "var(--border-primary)" }}>
         <Link href="/projects" className="flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl flex items-center justify-center">
+          <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-violet-600 rounded-xl flex items-center justify-center">
             <Sparkles size={18} className="text-white" />
           </div>
           <span className="text-lg font-bold th-text-primary">AIDA</span>
@@ -155,7 +158,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}>
             <Coins size={14} className="text-white" />
           </div>
-          <span className="text-sm font-medium th-text-secondary">{projectId ? "Project pts" : "Points"}</span>
+          <span className="text-sm font-medium th-text-secondary">{projectId ? "Điểm dự án" : "Điểm"}</span>
         </div>
         <span className="text-sm font-bold th-text-primary">
           {projectId ? (projectPoints === null ? "..." : projectPoints.toLocaleString("vi-VN")) : (walletLoading ? "..." : points.toLocaleString("vi-VN"))}
@@ -186,9 +189,22 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
             <NavItem key={item.href} {...item} active={pathname === item.href} />
           ))}
 
-        {projectNav.map((item) => (
-          <NavItem key={item.href} {...item} active={pathname === item.href || pathname.startsWith(`${item.href}/`)} />
-        ))}
+        {projectPrimaryNav.map((item) => {
+          const isOverview = item.href === `/projects/${projectId}`;
+          const active = isOverview
+            ? pathname === item.href
+            : pathname === item.href || pathname.startsWith(`${item.href}/`) || item.aliases?.some((alias) => pathname === alias || pathname.startsWith(`${alias}/`)) || false;
+          return <NavItem key={item.href} href={item.href} label={item.label} icon={item.icon} active={active} />;
+        })}
+
+        {projectId && (
+          <>
+            <div className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] th-text-muted">Quản lý</div>
+            {projectManagementNav.map((item) => (
+              <NavItem key={item.href} {...item} active={pathname === item.href || pathname.startsWith(`${item.href}/`)} />
+            ))}
+          </>
+        )}
 
         {/* Ví tiền — luôn hiển thị */}
         {projectId && (

@@ -117,11 +117,11 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-violet-600 rounded-2xl mb-4 shadow-lg shadow-blue-500/20">
             <Sparkles size={28} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold th-text-primary">AIDA</h1>
-          <p className="th-text-tertiary mt-1">Giải pháp xây dựng fanpage bằng AI</p>
+          <p className="th-text-tertiary mt-1">Creative Studio cho nội dung có nhân vật nhất quán</p>
         </div>
 
         {/* Dev mode - skip login */}
@@ -129,7 +129,7 @@ export default function LoginPage() {
           <div className="mb-6">
             <button
               onClick={() => router.push("/projects")}
-              className="w-full p-4 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl text-white font-semibold text-base hover:from-violet-700 hover:to-indigo-700 transition-all shadow-lg shadow-violet-500/25 flex items-center justify-center gap-3"
+              className="w-full p-4 bg-gradient-to-r from-blue-600 to-violet-600 rounded-2xl text-white font-semibold text-base hover:from-blue-500 hover:to-violet-500 transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-3"
             >
               <Zap size={20} />
               Vào chế độ Developer (Bỏ qua đăng nhập)
