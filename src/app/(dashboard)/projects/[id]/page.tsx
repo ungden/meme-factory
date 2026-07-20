@@ -6,7 +6,7 @@ import { useProject, useCharacters, useMemes } from "@/lib/use-store";
 import Sidebar from "@/components/layout/sidebar";
 import Card, { CardContent } from "@/components/ui/card";
 import Button from "@/components/ui/button";
-import { Users, Image, Zap, TrendingUp, Plus, ArrowRight } from "lucide-react";
+import { Users, Image, Zap, TrendingUp, Plus, ArrowRight, Clapperboard } from "lucide-react";
 
 export default function ProjectOverviewPage() {
   const params = useParams();
@@ -84,6 +84,26 @@ export default function ProjectOverviewPage() {
             </Card>
           ))}
         </div>
+
+        <Card hover onClick={() => router.push(`/projects/${projectId}/studio`)} className="mb-8 overflow-hidden">
+          <CardContent className="relative flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between" style={{ background: "linear-gradient(115deg, #101827 0%, #111827 55%, #172554 100%)" }}>
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-950/40">
+                <Clapperboard size={26} />
+              </div>
+              <div>
+                <div className="mb-1 flex items-center gap-2">
+                  <h2 className="text-lg font-semibold text-white">Continuity Studio</h2>
+                  <span className="rounded-full border border-blue-400/30 bg-blue-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-200">Mới</span>
+                </div>
+                <p className="max-w-2xl text-sm text-slate-300">Chọn nhân vật, look, item và bối cảnh để dựng shot nhất quán — có timeline, review và repair trong cùng một workspace.</p>
+              </div>
+            </div>
+            <button className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-500">
+              Mở Studio <ArrowRight size={16} />
+            </button>
+          </CardContent>
+        </Card>
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
