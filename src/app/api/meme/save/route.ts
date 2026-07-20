@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getRequestUser } from "@/lib/supabase/request-auth";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+let supabaseAdminClient: SupabaseClient | null = null;
+
+function getSupabaseAdmin() {
+  if (!supabaseAdminClient) {
+    supabaseAdminClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return supabaseAdminClient;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -90,6 +97,7 @@ export async function POST(request: NextRequest) {
       image_url,
       status: image_url ? "completed" : "draft",
       source_meme_id: source_meme_id || null,
+      generation_job_id: generation_request_id || null,
     };
 
     let { data: meme, error } = await supabase
@@ -98,8 +106,14 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    // Backward compatibility: if DB migration chưa chạy, thử lưu lại không có source_meme_id
-    if (error && String(error.message || "").includes("source_meme_id")) {
+    // Backward compatibility for deployments where additive migrations are still rolling out.
+    const insertErrorMessage = error?.message || "";
+    if (
+      error &&
+      ["source_meme_id", "generation_job_id"].some((column) =>
+        insertErrorMessage.includes(column)
+      )
+    ) {
       const fallback = await supabase
         .from("memes")
         .insert({
@@ -123,8 +137,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (generation_request_id && meme?.id) {
-      await supabaseAdmin
+    if (generation_request_id && meme?.id && meme.image_url) {
+      const admin = getSupabaseAdmin();
+      await admin
+        .from("generation_outputs")
+        .upsert(
+          {
+            generation_job_id: generation_request_id,
+            variant_index: 0,
+            object_url: meme.image_url,
+            metadata: {
+              meme_id: meme.id,
+              format: meme.format,
+              has_watermark: meme.has_watermark,
+            },
+            review_status: "unreviewed",
+          },
+          { onConflict: "generation_job_id,variant_index" }
+        );
+
+      await admin
         .from("project_transactions")
         .update({
           output_kind: "meme",

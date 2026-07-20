@@ -11,7 +11,7 @@ import Textarea from "@/components/ui/textarea";
 import Modal from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { Zap, Sparkles, Download, Save, RotateCcw, ChevronRight, Check, Wand2, ImageIcon, Loader2, Upload, X, Tags, Plus } from "lucide-react";
-import type { MemeContent, MemeFormat, SelectedCharacter, EmotionTag } from "@/types/database";
+import type { MemeContent, MemeFormat, SelectedCharacter, EmotionTag, ImageGenResponse } from "@/types/database";
 import { FORMAT_DIMENSIONS } from "@/types/database";
 import { POINT_COSTS } from "@/lib/point-pricing";
 import { trackEvent } from "@/lib/analytics";
@@ -71,6 +71,7 @@ export default function GeneratePage() {
   const [aiImageBase64, setAiImageBase64] = useState<string | null>(null);
   const [aiGenerationRequestId, setAiGenerationRequestId] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [aiReferenceManifest, setAiReferenceManifest] = useState<ImageGenResponse["reference_manifest"] | null>(null);
 
   // Reference images for meme ideas
   const [refImages, setRefImages] = useState<{ file: File; preview: string; base64: string; mimeType: string }[]>([]);
@@ -547,7 +548,7 @@ export default function GeneratePage() {
     setAiError(null);
     setAiImageBase64(null);
     setAiGenerationRequestId(null);
-    setAiGenerationRequestId(null);
+    setAiReferenceManifest(null);
 
     try {
       const buildFullDescription = (desc?: string, personality?: string) =>
@@ -557,6 +558,8 @@ export default function GeneratePage() {
         name: string;
         emotion: string;
         description: string;
+        characterId?: string;
+        poseId?: string;
         poseImageBase64?: string;
         poseMimeType?: string;
       }[] = [];
@@ -604,6 +607,8 @@ export default function GeneratePage() {
               name: item.name,
               emotion: item.emotion,
               description: item.description,
+              characterId: item.id,
+              poseId: selectedPose?.id,
               poseImageBase64: inline.base64,
               poseMimeType: inline.mimeType,
             };
@@ -632,6 +637,7 @@ export default function GeneratePage() {
 
       const result = await generateImage({
         project_id: project?.id || projectId,
+        source_meme_id: lineageSourceMemeId,
         type: "meme",
         headline: v.headline,
         subtext: v.subtext,
@@ -663,6 +669,12 @@ export default function GeneratePage() {
       } else if (result.image) {
         setAiImageBase64(result.image);
         setAiGenerationRequestId(result.generation_request_id || null);
+        setAiReferenceManifest(result.reference_manifest || null);
+        if (result.reference_manifest?.dropped.length) {
+          toast.warning(
+            `${result.reference_manifest.dropped.length} ảnh ref không được gửi vì vượt giới hạn provider. Xem Reference manifest để biết chi tiết.`
+          );
+        }
         trackEvent("generate_image_success", {
           action: "meme",
           project_id: project?.id || projectId,
@@ -800,7 +812,7 @@ export default function GeneratePage() {
 
         {fromMemeId && fromMode === "regenerate" && (
           <div className="mb-4 p-3 rounded-xl border th-border-accent th-bg-accent-light">
-            <p className="text-sm th-text-accent">Đang ở chế độ tạo biến thể từ meme đã lưu. Bạn có thể chỉnh prompt rồi bấm "Tạo ảnh bằng AI".</p>
+            <p className="text-sm th-text-accent">Đang ở chế độ tạo biến thể từ meme đã lưu. Bạn có thể chỉnh prompt rồi bấm &ldquo;Tạo ảnh bằng AI&rdquo;.</p>
           </div>
         )}
 
@@ -1204,6 +1216,29 @@ export default function GeneratePage() {
                           </Button>
                           <span className="text-xs th-text-muted">Ví dự án: {projectPoints} pts</span>
                         </div>
+                      </div>
+                    )}
+
+                    {aiReferenceManifest && !aiGenerating && (
+                      <div className="mt-4 rounded-xl border th-border th-bg-tertiary p-3 text-xs">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-medium th-text-primary">Reference manifest</span>
+                          <span className="th-text-muted font-mono">
+                            {aiReferenceManifest.selected} gửi · {aiReferenceManifest.dropped.length} loại
+                          </span>
+                        </div>
+                        {aiReferenceManifest.dropped.length > 0 && (
+                          <ul className="mt-2 space-y-1 th-text-warning">
+                            {aiReferenceManifest.dropped.map((reference) => (
+                              <li key={`${reference.imageId}:${reference.role}`}>
+                                {reference.role}: {reference.reason}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        <p className="mt-2 font-mono th-text-muted truncate" title={aiReferenceManifest.manifestHash}>
+                          {aiReferenceManifest.manifestHash}
+                        </p>
                       </div>
                     )}
                   </CardContent>

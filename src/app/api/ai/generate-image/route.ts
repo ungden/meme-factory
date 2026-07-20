@@ -1,17 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getRequestUser } from "@/lib/supabase/request-auth";
 import {
+  compileMemeImagePrompt,
   generateMemeImage,
   generateCharacterPose,
   generateBackground,
+  IMAGE_MODEL,
+  type GenerateMemeImageParams,
 } from "@/lib/gemini-image";
 import { POINT_COSTS, POINT_LABELS, type PointAction } from "@/lib/point-pricing";
+import { buildMemeManifest } from "@/lib/continuity/meme-manifest";
+import type { GenerationRecipe } from "@/lib/continuity/types";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+let supabaseAdminClient: SupabaseClient | null = null;
+
+function getSupabaseAdmin() {
+  if (!supabaseAdminClient) {
+    supabaseAdminClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return supabaseAdminClient;
+}
 
 export const maxDuration = 60;
 
@@ -28,6 +40,8 @@ export async function POST(request: NextRequest) {
   let actorUserId: string | null = null;
   let projectId: string | null = null;
   let generationRequestId: string | null = null;
+  let generationJobPersisted = false;
+  let generationRecipe: GenerationRecipe | null = null;
   let deductedCost = 0;
   let deductedAction: PointAction | null = null;
 
@@ -77,7 +91,7 @@ export async function POST(request: NextRequest) {
     const cost = POINT_COSTS[action];
 
     if (cost > 0) {
-      const { data: deductResult, error: deductRpcErr } = await supabaseAdmin.rpc("atomic_deduct_project_points", {
+      const { data: deductResult, error: deductRpcErr } = await getSupabaseAdmin().rpc("atomic_deduct_project_points", {
         _project_id: projectId,
         _actor_user_id: user.id,
         _cost: cost,
@@ -124,11 +138,85 @@ export async function POST(request: NextRequest) {
           throw new Error("VALIDATION_HEADLINE_REQUIRED");
         }
 
-        result = await generateMemeImage({
+        const unfilteredParams: GenerateMemeImageParams = {
           headline, subtext, tone: tone || "hài hước",
           textPosition: textPosition || "top", characters: chars || [],
           format: format || "1:1", style, backgroundDescription, referenceImages, customPrompt, watermark,
+        };
+        const initialPlan = buildMemeManifest({
+          prompt: "",
+          model: IMAGE_MODEL,
+          policy: "balanced",
+          aspectRatio: unfilteredParams.format,
+          characters: unfilteredParams.characters,
+          referenceImages: unfilteredParams.referenceImages,
+          watermark: unfilteredParams.watermark,
+          sourceMemeId: body.source_meme_id,
         });
+        const selectedCharacterIndexes = new Set(initialPlan.selectedCharacterIndexes);
+        const selectedContextIndexes = new Set(initialPlan.selectedContextIndexes);
+        const providerParams: GenerateMemeImageParams = {
+          ...unfilteredParams,
+          characters: unfilteredParams.characters.map((character, index) =>
+            character.poseImageBase64 && !selectedCharacterIndexes.has(index)
+              ? { ...character, poseImageBase64: undefined, poseMimeType: undefined }
+              : character
+          ),
+          referenceImages: unfilteredParams.referenceImages?.filter((_, index) =>
+            selectedContextIndexes.has(index)
+          ),
+          watermark: unfilteredParams.watermark
+            ? {
+                ...unfilteredParams.watermark,
+                logoBase64: initialPlan.includeWatermarkLogo
+                  ? unfilteredParams.watermark.logoBase64
+                  : undefined,
+                logoMimeType: initialPlan.includeWatermarkLogo
+                  ? unfilteredParams.watermark.logoMimeType
+                  : undefined,
+              }
+            : undefined,
+        };
+        const compiledPrompt = compileMemeImagePrompt(providerParams);
+        const manifestPlan = buildMemeManifest({
+          prompt: compiledPrompt,
+          model: IMAGE_MODEL,
+          policy: "balanced",
+          aspectRatio: unfilteredParams.format,
+          characters: unfilteredParams.characters,
+          referenceImages: unfilteredParams.referenceImages,
+          watermark: unfilteredParams.watermark,
+          sourceMemeId: body.source_meme_id,
+        });
+        generationRecipe = manifestPlan.recipe;
+
+        const { error: jobInsertError } = await getSupabaseAdmin()
+          .from("generation_jobs")
+          .insert({
+            id: generationRequestId,
+            project_id: projectId,
+            creation_kind: "meme",
+            source_entity_type: body.source_meme_id ? "meme" : null,
+            source_entity_id: body.source_meme_id || null,
+            workflow_version: manifestPlan.recipe.workflowVersion,
+            provider: manifestPlan.recipe.provider,
+            model: manifestPlan.recipe.model,
+            continuity_policy: manifestPlan.recipe.policy,
+            status: "running",
+            compiled_prompt: manifestPlan.recipe.prompt,
+            reference_manifest: manifestPlan.recipe.references,
+            dropped_references: manifestPlan.recipe.droppedReferences,
+            manifest_hash: manifestPlan.recipe.manifestHash,
+            requested_output: manifestPlan.recipe.output,
+            estimated_points: cost,
+            created_by: user.id,
+            started_at: new Date().toISOString(),
+          });
+        if (jobInsertError) {
+          throw new Error(`GENERATION_JOB_PERSIST_FAILED:${jobInsertError.message}`);
+        }
+        generationJobPersisted = true;
+        result = await generateMemeImage(providerParams);
         break;
       }
 
@@ -166,10 +254,42 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Unknown type" }, { status: 400 });
     }
 
+    if (generationJobPersisted && generationRequestId) {
+      const { error: completeJobError } = await getSupabaseAdmin()
+        .from("generation_jobs")
+        .update({
+          status: "completed",
+          actual_points: deductedCost,
+          provider_response: {
+            image_count: 1,
+            has_text_response: Boolean(result.text),
+          },
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", generationRequestId);
+      if (completeJobError) {
+        // The provider output already exists and was billed. Do not turn a
+        // bookkeeping failure into a user-visible generation failure/refund.
+        console.error("Generation job completion persistence failed:", completeJobError);
+      }
+    }
+
     return NextResponse.json({
       image: result.image,
       text: result.text,
       generation_request_id: generationRequestId,
+      generation_job_id: generationJobPersisted ? generationRequestId : undefined,
+      reference_manifest: generationRecipe
+        ? {
+            selected: generationRecipe.references.length,
+            dropped: generationRecipe.droppedReferences.map((reference) => ({
+              imageId: reference.imageId,
+              role: reference.role,
+              reason: reference.reason,
+            })),
+            manifestHash: generationRecipe.manifestHash,
+          }
+        : undefined,
       pointsUsed: cost,
     });
   } catch (error) {
@@ -178,9 +298,20 @@ export async function POST(request: NextRequest) {
     const rawMessage =
       error instanceof Error ? error.message : "";
 
+    if (generationJobPersisted && generationRequestId) {
+      await getSupabaseAdmin()
+        .from("generation_jobs")
+        .update({
+          status: "failed",
+          error: { code: "GENERATION_FAILED", message: rawMessage.slice(0, 500) },
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", generationRequestId);
+    }
+
     // Guarantee: if points were deducted and request fails, refund immediately
     if (actorUserId && projectId && deductedCost > 0 && deductedAction) {
-      const { error: refundError } = await supabaseAdmin.rpc("atomic_refund_project_points", {
+      const { error: refundError } = await getSupabaseAdmin().rpc("atomic_refund_project_points", {
         _project_id: projectId,
         _actor_user_id: actorUserId,
         _cost: deductedCost,

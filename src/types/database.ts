@@ -20,6 +20,7 @@ export interface Project {
 export interface Character {
   id: string;
   project_id: string;
+  continuity_asset_id?: string | null;
   name: string;
   description: string; // personality, traits for AI to understand
   personality: string; // e.g. "vui vẻ, lạc quan, hay nói đùa"
@@ -43,6 +44,7 @@ export interface Meme {
   id: string;
   project_id: string;
   source_meme_id?: string | null;
+  generation_job_id?: string | null;
   title: string | null;
   original_idea: string; // user's raw input
   generated_content: MemeContent; // AI-generated content
@@ -165,6 +167,7 @@ export type ImageGenType = "meme" | "character" | "background";
 
 export interface ImageGenMemeParams {
   project_id?: string;
+  source_meme_id?: string | null;
   type: "meme";
   headline: string;
   subtext?: string;
@@ -175,6 +178,8 @@ export interface ImageGenMemeParams {
     name: string;
     emotion: string;
     description?: string;
+    characterId?: string;
+    poseId?: string;
     poseImageBase64?: string;
     poseMimeType?: string;
   }[];
@@ -217,9 +222,64 @@ export interface ImageGenResponse {
   image: string; // base64 encoded image data
   text?: string; // optional text response from model
   generation_request_id?: string;
+  generation_job_id?: string;
+  reference_manifest?: {
+    selected: number;
+    dropped: Array<{ imageId: string; role: string; reason: string }>;
+    manifestHash: string;
+  };
   pointsUsed?: number;
   error?: string;
   code?: string;
+}
+
+export type ContinuityAssetKind = "character" | "look" | "item" | "environment" | "style";
+export type ContinuityAssetStatus = "draft" | "locked" | "archived";
+
+export interface ContinuityAsset {
+  id: string;
+  project_id: string;
+  legacy_character_id: string | null;
+  kind: ContinuityAssetKind;
+  name: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContinuityAssetVersion {
+  id: string;
+  asset_id: string;
+  version: number;
+  status: ContinuityAssetStatus;
+  identity_profile_type: "none" | "human" | "mascot" | "product";
+  notes: string | null;
+  invariants: Record<string, unknown> | unknown[];
+  usage_rights: Record<string, unknown>;
+  content_hash: string;
+  created_by: string;
+  created_at: string;
+  locked_at: string | null;
+}
+
+export interface GenerationJobRecord {
+  id: string;
+  project_id: string;
+  creation_kind: "meme" | "fashion_shot" | "storyboard_shot";
+  workflow_version: string;
+  provider: "google" | "openai";
+  model: string;
+  continuity_policy: "strict" | "balanced" | "creative";
+  status: "queued" | "running" | "completed" | "failed" | "cancelled";
+  compiled_prompt: string;
+  reference_manifest: unknown[];
+  dropped_references: unknown[];
+  manifest_hash: string;
+  requested_output: Record<string, unknown>;
+  estimated_points: number;
+  actual_points: number | null;
+  created_at: string;
+  completed_at: string | null;
 }
 
 export interface ProjectWallet {
