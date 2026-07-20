@@ -2,6 +2,16 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
+    localPatterns: [
+      {
+        pathname: "/**",
+        search: "",
+      },
+      {
+        pathname: "/continuity/**",
+        search: "?v=quiet-luxury-20260720",
+      },
+    ],
     remotePatterns: [
       {
         protocol: "https",

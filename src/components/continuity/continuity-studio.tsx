@@ -71,10 +71,10 @@ const assetColors: Record<AssetKind, string> = {
 };
 
 const variants = [
-  "/continuity/scene-02d-variant-1.webp",
-  "/continuity/scene-02d-variant-2.webp",
-  "/continuity/scene-02d-variant-3.webp",
-  "/continuity/scene-02d-variant-4.webp",
+  "/continuity/scene-02d-variant-1.webp?v=quiet-luxury-20260720",
+  "/continuity/scene-02d-variant-2.webp?v=quiet-luxury-20260720",
+  "/continuity/scene-02d-variant-3.webp?v=quiet-luxury-20260720",
+  "/continuity/scene-02d-variant-4.webp?v=quiet-luxury-20260720",
 ];
 
 export function ContinuityStudio({ projectId, projectName }: { projectId: string; projectName: string }) {
@@ -261,7 +261,7 @@ export function ContinuityStudio({ projectId, projectName }: { projectId: string
 
   return (
     <main className="app-shell continuity-studio-root">
-      <Sidebar active={view} onNavigate={navigate} projectId={projectId} />
+      <Sidebar active={view} onNavigate={navigate} projectId={projectId} onToast={setToast} />
       <section className="app-main">
         <Topbar
           view={view}
@@ -310,14 +310,14 @@ export function ContinuityStudio({ projectId, projectName }: { projectId: string
         )}
         {view === "character" && <CharacterBuilder projectId={projectId} onBack={() => setView("assets")} onToast={setToast} />}
         {view === "review" && <ReviewRepair selectedVariant={selectedVariant} reviewVariants={generatedVariants} reviewAssets={projectAssets} onBack={() => setView("studio")} onToast={setToast} />}
-        {view === "workflow" && <ExpertWorkflow />}
+        {view === "workflow" && <ExpertWorkflow onToast={setToast} />}
       </section>
-      {toast && <div className="toast"><CheckCircleIcon size={20} weight="fill" /><div><strong>{toast.title}</strong><span>{toast.detail}</span></div></div>}
+      {toast && <div className="toast" role="status" aria-live="polite"><CheckCircleIcon size={20} weight="fill" /><div><strong>{toast.title}</strong><span>{toast.detail}</span></div></div>}
     </main>
   );
 }
 
-function Sidebar({ active, onNavigate, projectId }: { active: View; onNavigate: (view: View) => void; projectId: string }) {
+function Sidebar({ active, onNavigate, projectId, onToast }: { active: View; onNavigate: (view: View) => void; projectId: string; onToast: (toast: Toast) => void }) {
   return (
     <aside className="sidebar">
       <Link className="brand" href={`/projects/${projectId}`} aria-label="Quay lại tổng quan dự án"><span>C</span></Link>
@@ -328,7 +328,7 @@ function Sidebar({ active, onNavigate, projectId }: { active: View; onNavigate: 
         })}
       </nav>
       <div className="sidebar-bottom">
-        <button><GearSixIcon size={21} /><span>Cài đặt</span></button>
+        <button onClick={() => onToast({ title: "Cài đặt dự án", detail: "Cài đặt riêng của cú máy nằm trong Dựng cảnh; cài đặt workspace sẽ được mở ở giai đoạn tiếp theo." })}><GearSixIcon size={21} /><span>Cài đặt</span></button>
         <div className="avatar">AL<span /></div>
       </div>
     </aside>
@@ -341,7 +341,7 @@ function Topbar({ view, projectName, expert, setExpert, job }: { view: View; pro
     <header className="topbar">
       <div className="crumb"><span>{projectName}</span><b>/</b><strong>{titles[view]}</strong><CaretDownIcon size={14} /></div>
       <div className="top-actions">
-        <label className="mode-switch"><span>Cơ bản</span><button className={expert ? "on" : ""} onClick={() => setExpert(!expert)} aria-label="Bật chế độ chuyên gia"><i /></button><span className={expert ? "selected" : ""}>Chuyên gia</span></label>
+        <div className="mode-switch" role="group" aria-label="Chế độ sử dụng"><span>Cơ bản</span><button className={expert ? "on" : ""} onClick={() => setExpert(!expert)} aria-label={expert ? "Tắt chế độ chuyên gia" : "Bật chế độ chuyên gia"} aria-pressed={expert}><i /></button><span className={expert ? "selected" : ""}>Chuyên gia</span></div>
         <div className="queue-status"><span className={job?.status === "running" ? "pulse" : ""} /><QueueIcon size={17} /> Hàng đợi <b>{job && !["completed", "cancelled"].includes(job.status) ? 1 : 0}</b></div>
       </div>
     </header>
@@ -426,7 +426,7 @@ function StudioView(props: {
             <div className="safe-guides"><i /><i /></div>
             <div className="canvas-badge"><span className="status-dot" />Sẵn sàng tinh chỉnh</div>
             {props.job && props.job.status !== "completed" && props.job.status !== "cancelled" && (
-              <div className="generation-overlay"><CircleNotchIcon className="spin" size={28} /><strong>{props.job.status === "queued" ? "Đang chuẩn bị ảnh tham chiếu" : "Đang tạo các phương án"}</strong><span>{props.job.progress}% · đã khóa danh sách tham chiếu</span><div><i style={{ width: `${Math.max(props.job.progress, 8)}%` }} /></div></div>
+              <div className="generation-overlay" role="status" aria-live="polite"><CircleNotchIcon className="spin" size={28} /><strong>{props.job.status === "queued" ? "Đang chuẩn bị ảnh tham chiếu" : "Đang tạo các phương án"}</strong><span>{props.job.progress}% · đã khóa danh sách tham chiếu</span><div role="progressbar" aria-label="Tiến độ tạo ảnh" aria-valuemin={0} aria-valuemax={100} aria-valuenow={props.job.progress}><i style={{ width: `${Math.max(props.job.progress, 8)}%` }} /></div></div>
             )}
           </div>
           <div className="flow-variant-strip">
@@ -515,15 +515,15 @@ function ShotTimeline({ open, onToggle, onToast }: { open: boolean; onToggle: ()
     <div className={`flow-timeline ${open ? "open" : ""}`}>
       <div className="flow-timeline-heading"><button onClick={onToggle}><CaretDownIcon size={15} /><FilmSlateIcon size={17} /><strong>Cảnh 02 — Cuộc bàn giao</strong><span>5 cú máy</span></button><div><button aria-label="Đổi kiểu hiển thị dòng thời gian" onClick={() => onToast({ title: "Dạng dải phim", detail: "Cảnh 02 đang dùng chế độ sáng tạo gọn." })}><GridFourIcon size={16} /></button><button onClick={() => onToast({ title: "Đã tạo bản nháp cú máy", detail: "Cú máy mới sẽ kế thừa ảnh đã duyệt và các ảnh chuẩn đã khóa." })}><PlusIcon size={16} />Thêm cú máy</button></div></div>
       {open && <div className="flow-shot-track">
-        {shots.map((shot) => <button key={shot.id} className={`flow-shot-card ${shot.code === selectedShot ? "active" : ""}`} onClick={() => setSelectedShot(shot.code)}><span><Image src={shot.thumbnail} fill alt={shot.title} sizes="132px" /><b>{shot.code}</b></span><div><strong>{shot.title}</strong><small>{shot.camera} · {shot.lens}</small></div><i className={`shot-status ${shot.status}`} /></button>)}
+        {shots.map((shot) => <button key={shot.id} className={`flow-shot-card ${shot.code === selectedShot ? "active" : ""}`} aria-label={`${shot.code} · ${shot.title} · ${shot.status === "approved" ? "Đã duyệt" : shot.status === "needs_review" ? "Cần duyệt" : "Bản nháp"}`} onClick={() => setSelectedShot(shot.code)}><span><Image src={shot.thumbnail} fill alt={shot.title} sizes="132px" /><b>{shot.code}</b></span><div><strong>{shot.title}</strong><small>{shot.camera} · {shot.lens}</small></div><i className={`shot-status ${shot.status}`} /></button>)}
         <button className="flow-add-shot" onClick={() => onToast({ title: "Đã tạo bản nháp cú máy", detail: "Cú máy mới sẽ kế thừa ảnh đã duyệt và các ảnh chuẩn đã khóa." })}><PlusIcon size={18} /><span>Thêm cú máy</span></button>
       </div>}
     </div>
   );
 }
 
-function SelectRow({ label, value }: { label: string; value: string }) {
-  return <button className="drawer-row"><span>{label}</span><strong>{value}</strong><CaretDownIcon size={13} /></button>;
+function SelectRow({ label, value, onClick }: { label: string; value: string; onClick?: () => void }) {
+  return <button className="drawer-row" onClick={onClick}><span>{label}</span><strong>{value}</strong><CaretDownIcon size={13} /></button>;
 }
 
 function AssetLibrary(props: { visibleAssets: Asset[]; selectedAsset: Asset; setSelectedAsset: (asset: Asset) => void; filter: AssetKind | "all"; setFilter: (filter: AssetKind | "all") => void; search: string; setSearch: (value: string) => void; onCreateCharacter: () => void; onToast: (toast: Toast) => void }) {
@@ -531,11 +531,11 @@ function AssetLibrary(props: { visibleAssets: Asset[]; selectedAsset: Asset; set
   return (
     <div className="library-layout">
       <section className="library-main">
-        <div className="page-title"><div><span className="eyebrow">MIDNIGHT COURIER</span><h1>Thư viện tài nguyên</h1><p>Ảnh chuẩn đã khóa giúp mọi cú máy giữ đúng nhân vật và vật phẩm.</p></div><div><button className="secondary"><DownloadSimpleIcon size={17} /> Nhập</button><button className="primary" onClick={props.onCreateCharacter}><PlusIcon size={17} /> Thêm nhân vật</button></div></div>
-        <div className="library-toolbar"><label><MagnifyingGlassIcon size={17} /><input value={props.search} onChange={(event) => props.setSearch(event.target.value)} placeholder="Tìm tài nguyên" /></label><div className="filter-tabs">{filters.map((filter) => <button key={filter} className={props.filter === filter ? "selected" : ""} onClick={() => props.setFilter(filter)}>{filter === "all" ? "Tất cả" : assetKindLabels[filter]}</button>)}</div><button className="icon-button" aria-label="Bộ lọc nâng cao"><SlidersHorizontalIcon size={18} /></button></div>
+        <div className="page-title"><div><span className="eyebrow">MIDNIGHT COURIER</span><h1>Thư viện tài nguyên</h1><p>Ảnh chuẩn đã khóa giúp mọi cú máy giữ đúng nhân vật và vật phẩm.</p></div><div><button className="secondary" onClick={props.onCreateCharacter}><DownloadSimpleIcon size={17} /> Nhập ảnh tham chiếu</button><button className="primary" onClick={props.onCreateCharacter}><PlusIcon size={17} /> Thêm nhân vật</button></div></div>
+        <div className="library-toolbar"><label><MagnifyingGlassIcon size={17} /><input value={props.search} onChange={(event) => props.setSearch(event.target.value)} placeholder="Tìm tài nguyên" aria-label="Tìm tài nguyên" /></label><div className="filter-tabs">{filters.map((filter) => <button key={filter} className={props.filter === filter ? "selected" : ""} onClick={() => props.setFilter(filter)}>{filter === "all" ? "Tất cả" : assetKindLabels[filter]}</button>)}</div></div>
         <div className="asset-grid">{props.visibleAssets.map((asset) => <button key={asset.id} className={`asset-card ${props.selectedAsset.id === asset.id ? "selected" : ""}`} onClick={() => props.setSelectedAsset(asset)}><div className="asset-card-image"><Image src={asset.thumbnail} fill alt={asset.name} sizes="260px" /><span className={`type-dot ${assetColors[asset.kind]}`} />{asset.isSample ? <i>Mẫu</i> : asset.status === "locked" && <i><LockSimpleIcon size={13} weight="fill" /> Đã khóa</i>}</div><div className="asset-card-copy"><strong>{asset.name}</strong><span>{assetKindLabels[asset.kind]} · {asset.referenceCount} ảnh</span><div><em style={{ width: `${asset.coverage}%` }} /><small>{asset.coverage}% bao phủ</small></div></div></button>)}</div>
       </section>
-      <aside className="asset-detail panel-scroll"><div className="detail-hero"><Image src={props.selectedAsset.thumbnail} fill alt={props.selectedAsset.name} sizes="340px" /></div><div className="detail-title"><span className={`type-dot ${assetColors[props.selectedAsset.kind]}`} /><div><small>{assetKindLabels[props.selectedAsset.kind]}</small><h2>{props.selectedAsset.name}</h2></div><button aria-label="Sao chép mã tài nguyên"><CopyIcon size={17} /></button></div><div className="locked-banner"><LockSimpleIcon size={17} weight="fill" /><div><strong>Ảnh chuẩn nhận diện đã khóa</strong><span>Đang dùng trong 6 phiên bản cú máy</span></div></div><dl><div><dt>Mã tài nguyên</dt><dd>{props.selectedAsset.id}</dd></div><div><dt>Phiên bản</dt><dd>{props.selectedAsset.versionId}</dd></div><div><dt>Ảnh tham chiếu</dt><dd>{props.selectedAsset.referenceCount} ảnh</dd></div><div><dt>Bao phủ</dt><dd>{props.selectedAsset.coverage}%</dd></div></dl><div className="notes-card"><span>Ghi chú nhất quán</span><p>{props.selectedAsset.notes}</p></div><div className="detail-actions"><button className="secondary" onClick={() => props.onToast({ title: "Đã thêm vào Cú máy 02D", detail: `${props.selectedAsset.name} đã được thêm vào danh sách nháp.` })}>Thêm vào cú máy</button><button className="primary" onClick={() => props.onToast({ title: "Đã tạo phiên bản mới", detail: "Ảnh chuẩn đã khóa vẫn giữ nguyên trong các cú máy đã duyệt." })}>Tạo phiên bản mới</button></div></aside>
+      <aside className="asset-detail panel-scroll"><div className="detail-hero"><Image src={props.selectedAsset.thumbnail} fill alt={props.selectedAsset.name} sizes="340px" /></div><div className="detail-title"><span className={`type-dot ${assetColors[props.selectedAsset.kind]}`} /><div><small>{assetKindLabels[props.selectedAsset.kind]}</small><h2>{props.selectedAsset.name}</h2></div><button aria-label="Sao chép mã tài nguyên" onClick={() => { void navigator.clipboard.writeText(props.selectedAsset.id); props.onToast({ title: "Đã sao chép mã tài nguyên", detail: props.selectedAsset.id }); }}><CopyIcon size={17} /></button></div><div className="locked-banner"><LockSimpleIcon size={17} weight="fill" /><div><strong>Ảnh chuẩn nhận diện đã khóa</strong><span>Đang dùng trong 6 phiên bản cú máy</span></div></div><dl><div><dt>Mã tài nguyên</dt><dd>{props.selectedAsset.id}</dd></div><div><dt>Phiên bản</dt><dd>{props.selectedAsset.versionId}</dd></div><div><dt>Ảnh tham chiếu</dt><dd>{props.selectedAsset.referenceCount} ảnh</dd></div><div><dt>Bao phủ</dt><dd>{props.selectedAsset.coverage}%</dd></div></dl><div className="notes-card"><span>Ghi chú nhất quán</span><p>{props.selectedAsset.notes}</p></div><div className="detail-actions"><button className="secondary" onClick={() => props.onToast({ title: "Đã thêm vào Cú máy 02D", detail: `${props.selectedAsset.name} đã được thêm vào danh sách nháp.` })}>Thêm vào cú máy</button><button className="primary" onClick={() => props.onToast({ title: "Đã tạo phiên bản mới", detail: "Ảnh chuẩn đã khóa vẫn giữ nguyên trong các cú máy đã duyệt." })}>Tạo phiên bản mới</button></div></aside>
     </div>
   );
 }
@@ -553,7 +553,7 @@ function CharacterBuilder({ projectId, onBack, onToast }: { projectId: string; o
       <div className="stepper">{steps.map((label, index) => <button key={label} className={step === index + 1 ? "active" : step > index + 1 ? "done" : ""} onClick={() => setStep(index + 1)}><span>{step > index + 1 ? <CheckCircleIcon size={16} weight="fill" /> : index + 1}</span><strong>{label}</strong></button>)}</div>
       <div className="builder-content">
         <section className="builder-main">
-          {step === 1 && <ReferencePack />}
+          {step === 1 && <ReferencePack onToast={onToast} />}
           {step === 2 && <QualityCheck />}
           {step === 3 && <IdentityCard />}
           {step === 4 && <LockCharacter />}
@@ -565,30 +565,32 @@ function CharacterBuilder({ projectId, onBack, onToast }: { projectId: string; o
   );
 }
 
-function ReferencePack() {
-  const refs = [{ name: "Chân dung chính diện", image: "/continuity/linh-master.webp" }, { name: "Góc ba phần tư", image: "/continuity/linh-three-quarter.webp" }, { name: "Góc nghiêng", image: "/continuity/linh-profile.webp" }, { name: "Toàn thân", image: "/continuity/linh-full-body.webp" }];
-  return <><div className="section-intro"><h2>Tải bộ ảnh tham chiếu</h2><p>Bốn góc khác nhau cung cấp đủ bằng chứng nhận diện mà không làm quá tải một cú máy.</p></div><div className="reference-grid">{refs.map((ref) => <button key={ref.name}><span><Image src={ref.image} fill alt={ref.name} sizes="250px" /></span><strong>{ref.name}</strong><small><CheckCircleIcon size={14} weight="fill" /> Sẵn sàng · 2048px</small></button>)}</div><button className="upload-more"><PlusIcon size={19} /><span>Thêm ảnh tham chiếu phụ</span></button></>;
+function ReferencePack({ onToast }: { onToast: (toast: Toast) => void }) {
+  const refs = [{ name: "Chân dung chính diện", image: "/continuity/linh-master.webp?v=quiet-luxury-20260720" }, { name: "Góc ba phần tư", image: "/continuity/linh-three-quarter.webp?v=quiet-luxury-20260720" }, { name: "Góc nghiêng", image: "/continuity/linh-profile.webp?v=quiet-luxury-20260720" }, { name: "Toàn thân", image: "/continuity/linh-full-body.webp?v=quiet-luxury-20260720" }];
+  return <><div className="section-intro"><h2>Tải bộ ảnh tham chiếu</h2><p>Bốn góc khác nhau cung cấp đủ bằng chứng nhận diện mà không làm quá tải một cú máy.</p></div><div className="reference-grid">{refs.map((ref) => <button key={ref.name} onClick={() => onToast({ title: ref.name, detail: "Đây là ảnh mẫu trong bản hướng dẫn. Mở Thư viện nhân vật thật ở bước 4 để thay ảnh." })}><span><Image src={ref.image} fill alt={ref.name} sizes="250px" /></span><strong>{ref.name}</strong><small><CheckCircleIcon size={14} weight="fill" /> Sẵn sàng · 2048px</small></button>)}</div><button className="upload-more" onClick={() => onToast({ title: "Ảnh tham chiếu phụ", detail: "Mở Thư viện nhân vật thật ở bước 4 để tải ảnh của dự án." })}><PlusIcon size={19} /><span>Thêm ảnh tham chiếu phụ</span></button></>;
 }
 
 function QualityCheck() {
-  const checks = [{ label: "Khuôn mặt rõ", value: "Đạt" }, { label: "Đủ góc chụp", value: "Đạt" }, { label: "Khớp nhận diện", value: "Đạt" }, { label: "Tóc nhất quán", value: "Cần xem" }];
-  return <><div className="section-intro"><h2>Kiểm tra chất lượng ảnh</h2><p>Hệ thống đánh dấu nguy cơ sai lệch trước khi nhân vật được dùng để tạo ảnh.</p></div><div className="quality-preview"><div><Image src="/continuity/linh-contact-sheet.webp" fill alt="Bảng ảnh tham chiếu của Linh" sizes="520px" /></div><ul>{checks.map((check) => <li key={check.label}><span>{check.value === "Đạt" ? <CheckCircleIcon weight="fill" /> : <WarningCircleIcon weight="fill" />}{check.label}</span><strong className={check.value === "Đạt" ? "pass" : "review"}>{check.value}</strong></li>)}</ul></div><div className="review-callout"><WarningCircleIcon size={20} weight="fill" /><div><strong>Kiểm tra khác biệt kiểu tóc</strong><span>Ảnh góc nghiêng có tóc vén sau tai. Đánh dấu đây là thay đổi được phép hoặc thay ảnh khác.</span></div><button>Cho phép</button></div></>;
+  const [hairAllowed, setHairAllowed] = useState(false);
+  const checks = [{ label: "Khuôn mặt rõ", value: "Đạt" }, { label: "Đủ góc chụp", value: "Đạt" }, { label: "Khớp nhận diện", value: "Đạt" }, { label: "Tóc nhất quán", value: hairAllowed ? "Đạt" : "Cần xem" }];
+  return <><div className="section-intro"><h2>Kiểm tra chất lượng ảnh</h2><p>Hệ thống đánh dấu nguy cơ sai lệch trước khi nhân vật được dùng để tạo ảnh.</p></div><div className="quality-preview"><div><Image src="/continuity/linh-contact-sheet.webp?v=quiet-luxury-20260720" fill alt="Bảng ảnh tham chiếu của Linh" sizes="520px" /></div><ul>{checks.map((check) => <li key={check.label}><span>{check.value === "Đạt" ? <CheckCircleIcon weight="fill" /> : <WarningCircleIcon weight="fill" />}{check.label}</span><strong className={check.value === "Đạt" ? "pass" : "review"}>{check.value}</strong></li>)}</ul></div><div className="review-callout"><WarningCircleIcon size={20} weight="fill" /><div><strong>Kiểm tra khác biệt kiểu tóc</strong><span>{hairAllowed ? "Tóc vén sau tai đã được ghi nhận là thay đổi được phép." : "Ảnh góc nghiêng có tóc vén sau tai. Đánh dấu đây là thay đổi được phép hoặc thay ảnh khác."}</span></div><button disabled={hairAllowed} onClick={() => setHairAllowed(true)}>{hairAllowed ? "Đã cho phép" : "Cho phép"}</button></div></>;
 }
 
 function IdentityCard() {
-  return <><div className="section-intro"><h2>Duyệt hồ sơ nhận diện</h2><p>Các ràng buộc này sẽ được đưa vào mọi cú máy ở chế độ Nghiêm ngặt và Cân bằng.</p></div><div className="identity-layout"><div className="identity-preview"><Image src="/continuity/linh-master.webp" fill alt="Ảnh chuẩn nhận diện của Linh" sizes="320px" /></div><div className="identity-fields"><label>Tên nhân vật<input defaultValue="Linh" /></label><label>Tóm tắt nhận diện<textarea defaultValue="Phụ nữ Việt Nam khoảng 25 tuổi, khuôn mặt trái xoan, da trung bình tông ấm, mắt đen hình hạnh nhân và tóc bob ngắn màu đen." /></label><div className="invariant-columns"><label>Phải giữ nguyên<textarea defaultValue={"Tỷ lệ khuôn mặt\nKhoảng cách hai mắt\nĐường hàm\nMàu da\nTỷ lệ cơ thể"} /></label><label>Được thay đổi<textarea defaultValue={"Biểu cảm\nTrang điểm\nTrang phục\nTư thế\nKiểu tóc"} /></label></div></div></div></>;
+  return <><div className="section-intro"><h2>Duyệt hồ sơ nhận diện</h2><p>Các ràng buộc này sẽ được đưa vào mọi cú máy ở chế độ Nghiêm ngặt và Cân bằng.</p></div><div className="identity-layout"><div className="identity-preview"><Image src="/continuity/linh-master.webp?v=quiet-luxury-20260720" fill alt="Ảnh chuẩn nhận diện của Linh" sizes="320px" /></div><div className="identity-fields"><label>Tên nhân vật<input defaultValue="Linh" /></label><label>Tóm tắt nhận diện<textarea defaultValue="Phụ nữ Việt Nam khoảng 25 tuổi, khuôn mặt trái xoan, da trung bình tông ấm, mắt đen hình hạnh nhân và tóc bob ngắn màu đen." /></label><div className="invariant-columns"><label>Phải giữ nguyên<textarea defaultValue={"Tỷ lệ khuôn mặt\nKhoảng cách hai mắt\nĐường hàm\nMàu da\nTỷ lệ cơ thể"} /></label><label>Được thay đổi<textarea defaultValue={"Biểu cảm\nTrang điểm\nTrang phục\nTư thế\nKiểu tóc"} /></label></div></div></div></>;
 }
 
 function LockCharacter() {
-  return <><div className="section-intro"><h2>Khóa Linh làm ảnh chuẩn nhận diện</h2><p>Mọi cập nhật sau này sẽ tạo phiên bản mới. Các cú máy đã duyệt luôn trỏ về đúng ảnh chuẩn từng dùng.</p></div><div className="lock-summary"><div className="lock-image"><Image src="/continuity/linh-contact-sheet.webp" fill alt="Bảng ảnh của Linh" sizes="520px" /></div><div><span className="success-icon"><LockSimpleIcon size={26} weight="fill" /></span><h3>Sẵn sàng khóa</h3><p>Đã có 4 ảnh gốc, 1 Hồ sơ nhận diện có cấu trúc và đủ xác nhận quyền sử dụng.</p><label className="consent"><input type="checkbox" defaultChecked /> Tôi xác nhận dự án có quyền sử dụng các hình ảnh này.</label><dl><div><dt>Phiên bản chuẩn</dt><dd>char_linh_v1</dd></div><div><dt>Bao phủ</dt><dd>92%</dd></div><div><dt>Trạng thái sau khi khóa</dt><dd>Sẵn sàng</dd></div></dl></div></div></>;
+  return <><div className="section-intro"><h2>Khóa Linh làm ảnh chuẩn nhận diện</h2><p>Mọi cập nhật sau này sẽ tạo phiên bản mới. Các cú máy đã duyệt luôn trỏ về đúng ảnh chuẩn từng dùng.</p></div><div className="lock-summary"><div className="lock-image"><Image src="/continuity/linh-contact-sheet.webp?v=quiet-luxury-20260720" fill alt="Bảng ảnh của Linh" sizes="520px" /></div><div><span className="success-icon"><LockSimpleIcon size={26} weight="fill" /></span><h3>Sẵn sàng khóa</h3><p>Đã có 4 ảnh gốc, 1 Hồ sơ nhận diện có cấu trúc và đủ xác nhận quyền sử dụng.</p><label className="consent"><input type="checkbox" defaultChecked /> Tôi xác nhận dự án có quyền sử dụng các hình ảnh này.</label><dl><div><dt>Phiên bản chuẩn</dt><dd>char_linh_v1</dd></div><div><dt>Bao phủ</dt><dd>92%</dd></div><div><dt>Trạng thái sau khi khóa</dt><dd>Sẵn sàng</dd></div></dl></div></div></>;
 }
 
 function ReviewRepair({ selectedVariant, reviewVariants, reviewAssets, onBack, onToast }: { selectedVariant: number; reviewVariants: string[]; reviewAssets: Asset[]; onBack: () => void; onToast: (toast: Toast) => void }) {
-  const [selectedFinding, setSelectedFinding] = useState("f3");
+  const [selectedFinding, setSelectedFinding] = useState("f2");
   const [repaired, setRepaired] = useState(false);
+  const [hasRepair, setHasRepair] = useState(false);
   const [repairing, setRepairing] = useState(false);
   const [approved, setApproved] = useState(false);
-  const [repairAction, setRepairAction] = useState("restore_item");
+  const [repairAction, setRepairAction] = useState("restore_look");
   const [brush, setBrush] = useState(48);
   const [preserveIdentity, setPreserveIdentity] = useState(true);
   const [preserveComposition, setPreserveComposition] = useState(true);
@@ -598,6 +600,7 @@ function ReviewRepair({ selectedVariant, reviewVariants, reviewAssets, onBack, o
     await new Promise((resolve) => window.setTimeout(resolve, 550));
     setRepairing(false);
     setRepaired(true);
+    setHasRepair(true);
     setApproved(false);
     onToast({ title: "Bản thử thao tác sửa ảnh", detail: "Giao diện đã sẵn sàng; bộ kết nối GPT Image 2 chưa được bật chính thức." });
   }
@@ -609,15 +612,15 @@ function ReviewRepair({ selectedVariant, reviewVariants, reviewAssets, onBack, o
   return (
     <div className="review-layout">
       <section className="review-main">
-        <div className="review-toolbar"><button className="secondary" onClick={onBack}><ArrowLeftIcon size={17} /> Quay lại cú máy</button><div><button className="icon-button" aria-label="Hoàn tác"><ArrowCounterClockwiseIcon size={17} /></button><button className="icon-button" aria-label="Làm lại"><ArrowsClockwiseIcon size={17} /></button><span>Phương án {selectedVariant + 1} · v3</span></div></div>
-        <div className="compare-stage"><div className="compare-image"><Image src={repaired ? "/continuity/scene-02d-repaired.webp" : reviewVariants[selectedVariant]} unoptimized={reviewVariants[selectedVariant]?.startsWith("data:")} fill loading="eager" alt="Ảnh đầu ra hiện tại" sizes="900px" /><div className="mask-mark" style={{ width: brush * 1.45, height: brush * 1.15 }} /></div><div className="master-rail"><span>SO VỚI ẢNH CHUẨN</span>{reviewAssets.slice(0, 4).map((asset) => <button key={asset.id}><Image src={asset.thumbnail} fill alt={asset.name} sizes="90px" /><b>{asset.name}</b></button>)}</div></div>
-        <div className="before-after"><div><span>Trước khi sửa</span><Image src={reviewVariants[selectedVariant]} unoptimized={reviewVariants[selectedVariant]?.startsWith("data:")} fill alt="Trước khi sửa" sizes="360px" /></div><i><ArrowsClockwiseIcon size={20} /></i><div><span>Sau khi sửa</span><Image src={repaired ? "/continuity/scene-02d-repaired.webp" : reviewVariants[selectedVariant]} unoptimized={!repaired && reviewVariants[selectedVariant]?.startsWith("data:")} fill alt="Bản xem trước sau khi sửa" sizes="360px" /></div></div>
+        <div className="review-toolbar"><button className="secondary" onClick={onBack}><ArrowLeftIcon size={17} /> Quay lại cú máy</button><div><button className="icon-button" aria-label="Hoàn tác bản sửa" disabled={!repaired} onClick={() => setRepaired(false)}><ArrowCounterClockwiseIcon size={17} /></button><button className="icon-button" aria-label="Làm lại bản sửa" disabled={!hasRepair || repaired} onClick={() => setRepaired(true)}><ArrowsClockwiseIcon size={17} /></button><span>Phương án {selectedVariant + 1} · v3</span></div></div>
+        <div className="compare-stage"><div className="compare-image"><Image src={repaired ? "/continuity/scene-02d-repaired.webp?v=quiet-luxury-20260720" : reviewVariants[selectedVariant]} unoptimized={reviewVariants[selectedVariant]?.startsWith("data:")} fill loading="eager" alt="Ảnh đầu ra hiện tại" sizes="900px" /><div className="mask-mark" style={{ width: brush * 1.45, height: brush * 1.15 }} /></div><div className="master-rail"><span>SO VỚI ẢNH CHUẨN</span>{reviewAssets.slice(0, 4).map((asset) => <button key={asset.id}><Image src={asset.thumbnail} fill alt={asset.name} sizes="90px" /><b>{asset.name}</b></button>)}</div></div>
+        <div className="before-after"><div><span>Trước khi sửa</span><Image src={reviewVariants[selectedVariant]} unoptimized={reviewVariants[selectedVariant]?.startsWith("data:")} fill alt="Trước khi sửa" sizes="360px" /></div><i><ArrowsClockwiseIcon size={20} /></i><div><span>Sau khi sửa</span><Image src={repaired ? "/continuity/scene-02d-repaired.webp?v=quiet-luxury-20260720" : reviewVariants[selectedVariant]} unoptimized={!repaired && reviewVariants[selectedVariant]?.startsWith("data:")} fill alt="Bản xem trước sau khi sửa" sizes="360px" /></div></div>
       </section>
-      <aside className="findings-panel panel-scroll"><div className="panel-heading"><div><span className="eyebrow">AI HỖ TRỢ KIỂM TRA · BẢN THỬ</span><h2>Phát hiện về tính nhất quán</h2></div><span className="finding-count">2 vấn đề</span></div><div className="finding-list">{continuityFindings.map((finding) => <button key={finding.id} className={`${finding.status} ${selectedFinding === finding.id ? "selected" : ""}`} onClick={() => setSelectedFinding(finding.id)}><span>{finding.status === "pass" ? <CheckCircleIcon weight="fill" /> : <WarningCircleIcon weight="fill" />}</span><div><strong>{finding.title}</strong><p>{finding.detail}</p><small>{finding.status === "pass" ? "Đạt" : finding.status === "review" ? "Cần xem" : "Lỗi"}</small></div></button>)}</div><div className="repair-tools"><h3>Sửa vấn đề đã chọn</h3><label>Thao tác<select value={repairAction} onChange={(event) => setRepairAction(event.target.value)}><option value="restore_item">Khôi phục điện thoại đỏ</option><option value="restore_look">Khôi phục trang phục</option><option value="repair_face">Sửa khuôn mặt</option><option value="fix_environment">Sửa bối cảnh</option></select></label><label>Cỡ cọ<div className="range-row"><input type="range" min="24" max="84" value={brush} onChange={(event) => setBrush(Number(event.target.value))} /><b>{brush}</b></div></label><div className="toggle-row"><span><strong>Giữ nhận diện</strong><small>Giữ các đặc điểm khuôn mặt đã khóa</small></span><button className={preserveIdentity ? "on" : ""} onClick={() => setPreserveIdentity(!preserveIdentity)}><i /></button></div><div className="toggle-row"><span><strong>Giữ bố cục</strong><small>Giữ cỡ cảnh và tư thế</small></span><button className={preserveComposition ? "on" : ""} onClick={() => setPreserveComposition(!preserveComposition)}><i /></button></div><button className="primary full" disabled={repairing} onClick={() => void runRepair()}>{repairing ? <CircleNotchIcon size={18} className="spin" /> : <MagicWandIcon size={18} />} {repairing ? "Đang sửa…" : repaired ? "Sửa lại lần nữa" : "Sửa vùng đã chọn"}</button></div><button className={`approve-button ${approved ? "approved" : ""}`} disabled={approved} onClick={() => void approveOutput()}><CheckCircleIcon size={18} weight="fill" /> {approved ? "Đã duyệt · ảnh cha continuity" : "Duyệt ảnh đầu ra"}</button></aside>
+      <aside className="findings-panel panel-scroll"><div className="panel-heading"><div><span className="eyebrow">AI HỖ TRỢ KIỂM TRA · BẢN THỬ</span><h2>Phát hiện về tính nhất quán</h2></div><span className="finding-count">{continuityFindings.filter((finding) => finding.status !== "pass").length} vấn đề</span></div><div className="finding-list">{continuityFindings.map((finding) => <button key={finding.id} className={`${finding.status} ${selectedFinding === finding.id ? "selected" : ""}`} onClick={() => setSelectedFinding(finding.id)}><span>{finding.status === "pass" ? <CheckCircleIcon weight="fill" /> : <WarningCircleIcon weight="fill" />}</span><div><strong>{finding.title}</strong><p>{finding.detail}</p><small>{finding.status === "pass" ? "Đạt" : finding.status === "review" ? "Cần xem" : "Lỗi"}</small></div></button>)}</div><div className="repair-tools"><h3>Sửa vấn đề đã chọn</h3><label>Thao tác<select value={repairAction} onChange={(event) => setRepairAction(event.target.value)}><option value="restore_look">Khôi phục trang phục</option><option value="restore_item">Khôi phục điện thoại đỏ</option><option value="repair_face">Sửa khuôn mặt</option><option value="fix_environment">Sửa bối cảnh</option></select></label><label>Cỡ cọ<div className="range-row"><input type="range" min="24" max="84" value={brush} onChange={(event) => setBrush(Number(event.target.value))} aria-label={`Cỡ cọ ${brush}`} /><b>{brush}</b></div></label><div className="toggle-row"><span><strong>Giữ nhận diện</strong><small>Giữ các đặc điểm khuôn mặt đã khóa</small></span><button className={preserveIdentity ? "on" : ""} onClick={() => setPreserveIdentity(!preserveIdentity)} aria-label="Giữ nhận diện" aria-pressed={preserveIdentity}><i /></button></div><div className="toggle-row"><span><strong>Giữ bố cục</strong><small>Giữ cỡ cảnh và tư thế</small></span><button className={preserveComposition ? "on" : ""} onClick={() => setPreserveComposition(!preserveComposition)} aria-label="Giữ bố cục" aria-pressed={preserveComposition}><i /></button></div><button className="primary full" disabled={repairing} onClick={() => void runRepair()}>{repairing ? <CircleNotchIcon size={18} className="spin" /> : <MagicWandIcon size={18} />} {repairing ? "Đang sửa…" : repaired ? "Sửa lại lần nữa" : "Sửa vùng đã chọn"}</button></div><button className={`approve-button ${approved ? "approved" : ""}`} disabled={approved} onClick={() => void approveOutput()}><CheckCircleIcon size={18} weight="fill" /> {approved ? "Đã duyệt · ảnh cha continuity" : "Duyệt ảnh đầu ra"}</button></aside>
     </div>
   );
 }
 
-function ExpertWorkflow() {
-  return <div className="expert-page"><div className="page-title"><div><span className="eyebrow">CHỈ DÀNH CHO CHUYÊN GIA</span><h1>Quy trình cú máy điện ảnh</h1><p>Các nút xử lý có kiểu dữ liệu và được cho phép sẵn. Chế độ Cơ bản chỉ hiển thị những trường đầu vào, đầu ra đã chọn.</p></div><div><button className="secondary"><SquaresFourIcon size={17} /> Cấu hình chế độ Cơ bản</button><button className="primary"><GitBranchIcon size={17} /> Lưu quy trình v1.0.0</button></div></div><div className="workflow-shell"><aside><div className="workflow-note"><LockSimpleIcon size={18} weight="fill" /><div><strong>Sơ đồ an toàn</strong><span>Đã tắt mã tùy ý và các nút chưa đăng ký.</span></div></div><h3>Đầu vào hiển thị</h3>{["Dàn nhân vật", "Trang phục", "Vật phẩm", "Bối cảnh", "Chỉ đạo", "Máy quay", "Đầu ra"].map((label) => <label key={label}><input type="checkbox" defaultChecked /> {label}</label>)}<h3>Chính sách chạy</h3><SelectRow label="Khi có lỗi" value="Duyệt thủ công" /><SelectRow label="Số lần thử lại" value="1 lần" /></aside><WorkflowGraph /></div></div>;
+function ExpertWorkflow({ onToast }: { onToast: (toast: Toast) => void }) {
+  return <div className="expert-page"><div className="page-title"><div><span className="eyebrow">CHỈ DÀNH CHO CHUYÊN GIA</span><h1>Quy trình cú máy điện ảnh</h1><p>Các nút xử lý có kiểu dữ liệu và được cho phép sẵn. Chế độ Cơ bản chỉ hiển thị những trường đầu vào, đầu ra đã chọn.</p></div><div><button className="secondary" onClick={() => onToast({ title: "Đã mở cấu hình Cơ bản", detail: "Các checkbox bên trái quyết định trường nào xuất hiện trong Dựng cảnh." })}><SquaresFourIcon size={17} /> Cấu hình chế độ Cơ bản</button><button className="primary" onClick={() => onToast({ title: "Đã lưu quy trình v1.0.0", detail: "Bản thử giữ nguyên sơ đồ an toàn và các đầu vào đang hiển thị." })}><GitBranchIcon size={17} /> Lưu quy trình v1.0.0</button></div></div><div className="workflow-shell"><aside><div className="workflow-note"><LockSimpleIcon size={18} weight="fill" /><div><strong>Sơ đồ an toàn</strong><span>Đã tắt mã tùy ý và các nút chưa đăng ký.</span></div></div><h3>Đầu vào hiển thị</h3>{["Dàn nhân vật", "Trang phục", "Vật phẩm", "Bối cảnh", "Chỉ đạo", "Máy quay", "Đầu ra"].map((label) => <label key={label}><input type="checkbox" defaultChecked /> {label}</label>)}<h3>Chính sách chạy</h3><SelectRow label="Khi có lỗi" value="Duyệt thủ công" onClick={() => onToast({ title: "Chính sách khi có lỗi", detail: "Bản MVP luôn yêu cầu duyệt thủ công trước khi tiếp tục." })} /><SelectRow label="Số lần thử lại" value="1 lần" onClick={() => onToast({ title: "Số lần thử lại", detail: "Worker thử lại tối đa một lần để tránh phát sinh chi phí ngoài dự kiến." })} /></aside><WorkflowGraph /></div></div>;
 }

@@ -7,7 +7,7 @@ export const assets: Asset[] = [
     name: "Linh",
     kind: "character",
     status: "locked",
-    thumbnail: "/continuity/linh-master.webp",
+    thumbnail: "/continuity/linh-master.webp?v=quiet-luxury-20260720",
     coverage: 92,
     referenceCount: 4,
     notes: "Tóc bob đen ngắn, da tông ấm, khuôn mặt trái xoan và nốt ruồi nhỏ dưới mắt trái. Giữ nguyên tỷ lệ khuôn mặt và cơ thể.",
@@ -19,7 +19,7 @@ export const assets: Asset[] = [
     name: "Minh",
     kind: "character",
     status: "locked",
-    thumbnail: "/continuity/minh-master.webp",
+    thumbnail: "/continuity/minh-master.webp?v=quiet-luxury-20260720",
     coverage: 88,
     referenceCount: 4,
     notes: "Tóc đen hơi rối, khuôn mặt góc cạnh, dáng người gọn. Giữ khoảng cách hai mắt và đường hàm.",
@@ -31,7 +31,7 @@ export const assets: Asset[] = [
     name: "Áo khoác phản quang đen",
     kind: "look",
     status: "locked",
-    thumbnail: "/continuity/reflective-jacket.webp",
+    thumbnail: "/continuity/reflective-jacket.webp?v=quiet-luxury-20260720",
     coverage: 81,
     referenceCount: 3,
     notes: "Áo khoác kỹ thuật màu đen hiệu ứng ướt, cổ cao và các đường phản quang mảnh.",
@@ -43,7 +43,7 @@ export const assets: Asset[] = [
     name: "Điện thoại đỏ",
     kind: "item",
     status: "locked",
-    thumbnail: "/continuity/red-phone.webp",
+    thumbnail: "/continuity/red-phone.webp?v=quiet-luxury-20260720",
     coverage: 100,
     referenceCount: 2,
     notes: "Điện thoại đỏ mờ, camera kép, luôn nằm trong tay phải của Minh ở Cảnh 02.",
@@ -55,7 +55,7 @@ export const assets: Asset[] = [
     name: "Hẻm Sài Gòn — sau mưa",
     kind: "environment",
     status: "locked",
-    thumbnail: "/continuity/saigon-alley.webp",
+    thumbnail: "/continuity/saigon-alley.webp?v=quiet-luxury-20260720",
     coverage: 86,
     referenceCount: 3,
     notes: "Hẻm di sản Sài Gòn sau mưa, cổng xanh patina, tường vôi cũ, cây nhiệt đới và ánh sáng buổi sớm màu ngọc trai.",
@@ -67,7 +67,7 @@ export const assets: Asset[] = [
     name: "Quiet Luxury Sài Gòn",
     kind: "style",
     status: "locked",
-    thumbnail: "/continuity/cinematic-style.webp",
+    thumbnail: "/continuity/cinematic-style.webp?v=quiet-luxury-20260720",
     coverage: 78,
     referenceCount: 2,
     notes: "Quiet luxury editorial trên medium-format film, da thật có texture, tailoring tối giản, bảng màu than chì, ngà ấm và xanh patina.",
@@ -76,11 +76,11 @@ export const assets: Asset[] = [
 ];
 
 export const shots: Shot[] = [
-  { id: "02a", versionId: "02a_v1", code: "02A", title: "Linh bước vào hẻm", status: "approved", thumbnail: "/continuity/linh-master.webp", camera: "Cận cảnh", lens: "35mm" },
-  { id: "02b", versionId: "02b_v1", code: "02B", title: "Con hẻm vắng", status: "approved", thumbnail: "/continuity/saigon-alley.webp", camera: "Toàn cảnh", lens: "24mm" },
-  { id: "02c", versionId: "02c_v1", code: "02C", title: "Minh chờ đợi", status: "approved", thumbnail: "/continuity/minh-master.webp", camera: "Trung cảnh", lens: "50mm" },
-  { id: "02d", versionId: "02d_v3", code: "02D", title: "Chiếc điện thoại đỏ", status: "needs_review", thumbnail: "/continuity/scene-02d-main.webp", parentShotId: "02c", camera: "Trung cảnh toàn thân", lens: "50mm" },
-  { id: "02e", versionId: "02e_v1", code: "02E", title: "Linh phản ứng", status: "draft", thumbnail: "/continuity/scene-02d-variant-2.webp", parentShotId: "02d", camera: "Trung cận", lens: "35mm" },
+  { id: "02a", versionId: "02a_v1", code: "02A", title: "Linh bước vào hẻm", status: "approved", thumbnail: "/continuity/linh-master.webp?v=quiet-luxury-20260720", camera: "Cận cảnh", lens: "35mm" },
+  { id: "02b", versionId: "02b_v1", code: "02B", title: "Con hẻm vắng", status: "approved", thumbnail: "/continuity/saigon-alley.webp?v=quiet-luxury-20260720", camera: "Toàn cảnh", lens: "24mm" },
+  { id: "02c", versionId: "02c_v1", code: "02C", title: "Minh chờ đợi", status: "approved", thumbnail: "/continuity/minh-master.webp?v=quiet-luxury-20260720", camera: "Trung cảnh", lens: "50mm" },
+  { id: "02d", versionId: "02d_v3", code: "02D", title: "Chiếc điện thoại đỏ", status: "needs_review", thumbnail: "/continuity/scene-02d-main.webp?v=quiet-luxury-20260720", parentShotId: "02c", camera: "Trung cảnh toàn thân", lens: "50mm" },
+  { id: "02e", versionId: "02e_v1", code: "02E", title: "Linh phản ứng", status: "draft", thumbnail: "/continuity/scene-02d-variant-2.webp?v=quiet-luxury-20260720", parentShotId: "02d", camera: "Trung cận", lens: "35mm" },
 ];
 
 const ref = (assetId: string, role: ReferenceEntry["role"], priority: number, subjectId?: string): ReferenceEntry => {
@@ -118,6 +118,6 @@ export const shotReferences: ReferenceEntry[] = [
 export const continuityFindings: ContinuityFinding[] = [
   { id: "f1", category: "identity", status: "pass", title: "Nhận diện nhân vật", detail: "Linh và Minh vẫn khớp với ảnh chuẩn đã khóa.", evidence: "Hình dáng khuôn mặt, khoảng cách hai mắt và đường nét mái tóc đều khớp." },
   { id: "f2", category: "look", status: "review", title: "Cổ áo khoác", detail: "Cổ áo của Linh hơi rộng hơn ảnh chuẩn trang phục.", evidence: "So sánh phần thân trên, mép cổ áo bên trái." },
-  { id: "f3", category: "item", status: "fail", title: "Người cầm điện thoại", detail: "Chiếc điện thoại đỏ đang ở gần Linh hơn so với chỉ đạo cảnh.", evidence: "Continuity của Cảnh 02 yêu cầu Minh cầm điện thoại bằng tay phải." },
-  { id: "f4", category: "environment", status: "pass", title: "Hẻm Sài Gòn", detail: "Mưa, ánh đèn thực tế và thời điểm trong ngày đều được giữ đúng." },
+  { id: "f3", category: "item", status: "pass", title: "Người cầm điện thoại", detail: "Minh đang giữ chiếc điện thoại đỏ bằng tay phải, đúng chỉ đạo cảnh.", evidence: "Vật phẩm, chủ sở hữu và tay cầm đều khớp continuity của Cảnh 02." },
+  { id: "f4", category: "environment", status: "pass", title: "Hẻm Sài Gòn", detail: "Mặt đường sau mưa và ánh sáng buổi sáng được giữ đúng." },
 ];
