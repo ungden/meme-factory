@@ -39,6 +39,81 @@ export interface SuggestedCharacterResult {
   why_fit: string;
 }
 
+export interface ShotDirectionIngredient {
+  name: string;
+  kind: "character" | "look" | "item" | "environment" | "style";
+  notes?: string;
+}
+
+export async function generateShotDirection(params: {
+  currentPrompt: string;
+  policy: "strict" | "balanced" | "creative";
+  framing: string;
+  lens: string;
+  aspect: string;
+  ingredients: ShotDirectionIngredient[];
+}): Promise<{ prompt: string; summary: string }> {
+  const ai = await getClient();
+  const ingredientList = params.ingredients
+    .map((ingredient) => `- ${ingredient.kind}: ${ingredient.name}${ingredient.notes ? ` — ${ingredient.notes}` : ""}`)
+    .join("\n");
+
+  const continuityInstruction = {
+    strict: "Giữ nhận diện, trang phục, vật phẩm và bối cảnh đúng tuyệt đối theo ảnh chuẩn; chỉ thay đổi hành động và bố cục khi cần.",
+    balanced: "Giữ nhận diện và các vật phẩm chủ chốt, đồng thời cho phép điều chỉnh ánh sáng, góc máy và động tác để hình ảnh tự nhiên hơn.",
+    creative: "Giữ các dấu hiệu nhận diện cốt lõi nhưng cho phép diễn giải hình ảnh rộng hơn về ánh sáng, động tác và bố cục.",
+  }[params.policy];
+
+  const prompt = `Bạn là đạo diễn hình ảnh và chuyên gia viết prompt cho ảnh thời trang, điện ảnh có nhiều ảnh tham chiếu.
+
+Hãy viết lại phần "Chỉ đạo cảnh quay" bằng tiếng Việt tự nhiên, rõ ràng và có thể đưa trực tiếp vào mô hình tạo ảnh.
+
+Yêu cầu bắt buộc:
+- Giữ nguyên tên riêng và chỉ dùng những tài nguyên đã được chọn.
+- Nêu rõ ai đang làm gì, vị trí tương đối, ai sở hữu/cầm vật phẩm nào.
+- Bổ sung bố cục, cỡ cảnh, góc máy, ánh sáng, cảm xúc, chất liệu hình ảnh và độ chân thực khi còn thiếu.
+- Không thêm nhân vật, thương hiệu, chữ trên ảnh hoặc vật phẩm mới.
+- Không viết lời giải thích, tiêu đề, markdown hay danh sách trong trường "prompt".
+- Prompt hoàn chỉnh dài khoảng 80–160 từ; ưu tiên câu cụ thể, tránh từ quảng cáo rỗng.
+
+Chính sách continuity: ${continuityInstruction}
+Máy quay: ${params.framing}, ${params.lens}, tỷ lệ ${params.aspect}.
+
+Tài nguyên đã chọn:
+${ingredientList || "(không có)"}
+
+Chỉ đạo hiện tại:
+${params.currentPrompt || "(chưa có)"}
+
+Trả về JSON đúng schema:
+{
+  "prompt": "chỉ đạo cảnh quay hoàn chỉnh",
+  "summary": "một câu ngắn mô tả AI đã bổ sung gì"
+}`;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: [{ text: prompt }],
+    config: {
+      responseMimeType: "application/json",
+      temperature: 0.55,
+    },
+  });
+
+  const text = response.text ?? "{}";
+  const parsed = JSON.parse(text) as { prompt?: unknown; summary?: unknown };
+  if (typeof parsed.prompt !== "string" || !parsed.prompt.trim()) {
+    throw new Error("SHOT_DIRECTION_EMPTY");
+  }
+
+  return {
+    prompt: parsed.prompt.trim(),
+    summary: typeof parsed.summary === "string" && parsed.summary.trim()
+      ? parsed.summary.trim()
+      : "Đã bổ sung hành động, bố cục, máy quay và các ràng buộc continuity.",
+  };
+}
+
 export async function suggestCharactersForFanpage(params: {
   fanpageDescription: string;
   projectStyle?: string;

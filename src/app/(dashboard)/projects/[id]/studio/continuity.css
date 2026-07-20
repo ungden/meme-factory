@@ -129,7 +129,12 @@ button { border: 0; }
 .ingredient-chip.style { box-shadow: inset 0 -2px var(--violet); }
 .ingredient-add { width: 42px; height: 37px; flex: 0 0 42px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border: 1px dashed #39414e; border-radius: 8px; background: transparent; color: #768193; }
 .ingredient-add span { font-size: 7px; }
-.flow-composer textarea { display: block; width: 100%; height: 48px; resize: none; padding: 7px 12px; border: 0; border-top: 1px solid #1e232c; outline: 0; background: transparent; color: #e4e8ee; line-height: 1.45; font-size: 11px; }
+.prompt-assist-row { min-height: 30px; padding: 4px 9px 0 12px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #1e232c; }
+.prompt-assist-row strong { color: #9ca7b6; font-size: 9px; font-weight: 560; }
+.prompt-assist-row button { height: 24px; padding: 0 8px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid #31466f; border-radius: 7px; background: #18233a; color: #9fc0ff; font-size: 8px; font-weight: 600; }
+.prompt-assist-row button:hover:not(:disabled) { border-color: #4d70b0; background: #1d2c49; color: #c3d7ff; }
+.prompt-assist-row button:disabled { opacity: .7; cursor: wait; }
+.flow-composer textarea { display: block; width: 100%; height: 58px; resize: none; padding: 5px 12px 8px; border: 0; outline: 0; background: transparent; color: #e4e8ee; line-height: 1.45; font-size: 11px; }
 .flow-composer textarea::placeholder { color: #606a79; }
 .composer-footer { min-height: 40px; padding: 5px 7px 6px 9px; display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 12px; }
 .composer-footer > div { display: flex; align-items: center; gap: 3px; }

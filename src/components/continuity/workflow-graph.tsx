@@ -28,12 +28,12 @@ function WorkflowNode({ data }: NodeProps<Node<WorkflowNodeData>>) {
 
 const nodeTypes = { workflow: WorkflowNode };
 const nodes: Node<WorkflowNodeData>[] = [
-  { id: "assets", type: "workflow", position: { x: 40, y: 180 }, data: { label: "Asset Resolver", detail: "9 locked masters", tone: "cyan", icon: "database" } },
-  { id: "router", type: "workflow", position: { x: 285, y: 180 }, data: { label: "Reference Router", detail: "9 of 14 refs", tone: "violet", icon: "branch" } },
-  { id: "prompt", type: "workflow", position: { x: 530, y: 180 }, data: { label: "Prompt Compiler", detail: "Gemini profile", tone: "blue", icon: "code" } },
-  { id: "provider", type: "workflow", position: { x: 775, y: 180 }, data: { label: "Image Provider", detail: "Nano Banana 2", tone: "green", icon: "magic" } },
-  { id: "check", type: "workflow", position: { x: 1020, y: 100 }, data: { label: "Continuity Check", detail: "4 rule groups", tone: "amber", icon: "check" } },
-  { id: "persist", type: "workflow", position: { x: 1020, y: 260 }, data: { label: "Persist Version", detail: "Immutable output", tone: "green", icon: "image" } },
+  { id: "assets", type: "workflow", position: { x: 40, y: 180 }, data: { label: "Phân giải tài nguyên", detail: "9 ảnh chuẩn đã khóa", tone: "cyan", icon: "database" } },
+  { id: "router", type: "workflow", position: { x: 285, y: 180 }, data: { label: "Định tuyến tham chiếu", detail: "9/14 ảnh", tone: "violet", icon: "branch" } },
+  { id: "prompt", type: "workflow", position: { x: 530, y: 180 }, data: { label: "Biên dịch chỉ đạo", detail: "Hồ sơ Gemini", tone: "blue", icon: "code" } },
+  { id: "provider", type: "workflow", position: { x: 775, y: 180 }, data: { label: "Mô hình tạo ảnh", detail: "Nano Banana 2", tone: "green", icon: "magic" } },
+  { id: "check", type: "workflow", position: { x: 1020, y: 100 }, data: { label: "Kiểm tra nhất quán", detail: "4 nhóm quy tắc", tone: "amber", icon: "check" } },
+  { id: "persist", type: "workflow", position: { x: 1020, y: 260 }, data: { label: "Lưu phiên bản", detail: "Ảnh đầu ra bất biến", tone: "green", icon: "image" } },
 ];
 
 const edges: Edge[] = [
