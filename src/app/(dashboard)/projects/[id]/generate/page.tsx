@@ -804,7 +804,7 @@ export default function GeneratePage() {
       <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-violet-500">
+            <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-blue-500">
               <Sparkles size={13} /> AIDA Studio · Nội dung nhanh
             </div>
             <h1 className="text-2xl font-bold th-text-primary">Tạo nội dung nhanh</h1>

@@ -145,10 +145,13 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
       {/* Logo */}
       <div className="p-5 border-b" style={{ borderColor: "var(--border-primary)" }}>
         <Link href="/projects" className="flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-violet-600 rounded-xl flex items-center justify-center">
+          <div className="w-10 h-10 bg-blue-600 rounded-[13px] flex items-center justify-center shadow-lg shadow-blue-600/20">
             <Sparkles size={18} className="text-white" />
           </div>
-          <span className="text-lg font-bold th-text-primary">AIDA</span>
+          <div className="min-w-0">
+            <span className="block text-[19px] font-extrabold leading-none tracking-[-0.04em] th-text-primary">AIDA</span>
+            <span className="mt-1 block text-[8px] font-bold uppercase tracking-[0.2em] th-text-muted">Media Studio</span>
+          </div>
         </Link>
       </div>
 

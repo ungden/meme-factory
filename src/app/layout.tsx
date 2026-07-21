@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Caveat, Inter } from "next/font/google";
 import { Suspense } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/ui/toast";
@@ -9,15 +9,20 @@ import "./globals.css";
 
 const inter = Inter({
   variable: "--font-inter",
-  subsets: ["latin", "vietnamese"],
+  subsets: ["latin", "latin-ext"],
+});
+
+const caveat = Caveat({
+  variable: "--font-caveat",
+  subsets: ["latin", "latin-ext"],
 });
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0f" },
+    { media: "(prefers-color-scheme: light)", color: "#fbf6e9" },
+    { media: "(prefers-color-scheme: dark)", color: "#121310" },
   ],
 };
 
@@ -26,16 +31,16 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://aida.vn";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "AIDA — Creative Studio cho nhân vật nhất quán",
+    default: "AIDA — Media Studio cho fanpage có chất riêng",
     template: "%s | AIDA",
   },
-  description: "Tạo meme, chiến dịch thời trang, storyboard và visual sản phẩm với nhân vật nhất quán từ cùng một thư viện reference.",
-  keywords: ["AIDA", "AI creative studio", "character consistency", "image generation", "storyboard", "fashion campaign", "meme", "Việt Nam"],
+  description: "Từ một nhân vật và một ý tưởng, tạo trọn bộ meme, TikTok, quảng cáo và bài đăng fanpage nhất quán.",
+  keywords: ["AIDA", "AI media studio", "fanpage", "character consistency", "content creation", "TikTok", "quảng cáo", "meme", "Việt Nam"],
   authors: [{ name: "AIDA" }],
   creator: "AIDA",
   openGraph: {
-    title: "AIDA — Creative Studio cho nhân vật nhất quán",
-    description: "Một Studio cho meme, thời trang, storyboard và visual sản phẩm — với nhân vật nhất quán qua mọi khung hình.",
+    title: "AIDA — Một ý tưởng, đủ content để đăng",
+    description: "Giữ nguyên nhân vật, đổi format linh hoạt — từ meme đến TikTok, quảng cáo và bài viết mỗi ngày.",
     type: "website",
     locale: "vi_VN",
     siteName: "AIDA",
@@ -45,15 +50,15 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "AIDA Creative Studio",
+        alt: "AIDA Media Studio",
         type: "image/png",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "AIDA — Creative Studio cho nhân vật nhất quán",
-    description: "Một Studio cho meme, thời trang, storyboard và visual sản phẩm.",
+    title: "AIDA — Một ý tưởng, đủ content để đăng",
+    description: "Tạo meme, TikTok, quảng cáo và bài viết với nhân vật nhất quán.",
     images: ["/og-image.png"],
   },
   icons: {
@@ -93,7 +98,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${caveat.variable} font-sans antialiased`}>
         <ThemeProvider>
           <ToastProvider>
             <Suspense fallback={null}>

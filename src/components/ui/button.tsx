@@ -11,7 +11,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const base = "inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
 
     const variants = {
-      primary: "bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 th-ring-accent shadow-lg shadow-violet-500/25",
+      primary: "bg-blue-600 text-white hover:bg-blue-500 th-ring-accent shadow-lg shadow-blue-600/20",
       secondary: "th-bg-tertiary th-text-primary hover:opacity-80 th-ring-accent",
       outline: "border-2 th-border-secondary th-text-secondary th-bg-hover th-ring-accent",
       ghost: "th-text-tertiary hover:th-text-primary th-bg-hover th-ring-accent",

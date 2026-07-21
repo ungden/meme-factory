@@ -10,7 +10,7 @@ export default function ContinuityStudioPage() {
   const projectId = params.id;
   const { project, loading } = useProject(projectId);
   const requestedMode = searchParams.get("mode");
-  const initialMode = requestedMode === "fashion" || requestedMode === "product" ? requestedMode : "storyboard";
+  const initialMode = requestedMode === "fashion" || requestedMode === "product" || requestedMode === "storyboard" ? requestedMode : "social";
 
   return (
     <ContinuityStudio

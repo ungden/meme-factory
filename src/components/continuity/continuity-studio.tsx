@@ -39,10 +39,16 @@ import { compressImageToBase64 } from "@/lib/image-utils";
 import { POINT_COSTS, POINT_ACTION_QUOTES } from "@/lib/point-pricing";
 
 type View = "studio" | "assets" | "character" | "review" | "workflow";
-type CreativeMode = "fashion" | "storyboard" | "product";
+type CreativeMode = "social" | "fashion" | "storyboard" | "product";
 type Toast = { title: string; detail: string } | null;
 
 const creativeModes: Record<CreativeMode, { label: string; workspaceTitle: string; workspaceDetail: string; prompt: string }> = {
+  social: {
+    label: "Fanpage & social",
+    workspaceTitle: "Bộ content tuần này",
+    workspaceDetail: "Cùng character · nhiều format",
+    prompt: "Tạo một bộ visual social vui, hiện đại và có gu cho fanpage. Giữ chính xác khuôn mặt, tỷ lệ, trang phục và đặc điểm nhận diện của các nhân vật đã chọn. Chủ đề gần gũi với cộng đồng của fanpage; biểu cảm thân thiện, dí dỏm. Bố cục sạch, nền kem ấm, điểm nhấn xanh cobalt, vàng nắng và đỏ coral, chất liệu paper collage tinh tế. Chuẩn bị được cho bài đăng 4:5, meme và TikTok cover.",
+  },
   fashion: {
     label: "Chiến dịch thời trang",
     workspaceTitle: "Look 02 · Quiet Luxury",
@@ -64,7 +70,7 @@ const creativeModes: Record<CreativeMode, { label: string; workspaceTitle: strin
 };
 
 const navItems = [
-  { id: "studio" as View, label: "Dựng cảnh", icon: FilmSlateIcon },
+  { id: "studio" as View, label: "Studio", icon: FilmSlateIcon },
   { id: "assets" as View, label: "Tài nguyên", icon: ArchiveBoxIcon },
   { id: "character" as View, label: "Nhân vật", icon: UserFocusIcon },
   { id: "review" as View, label: "Duyệt ảnh", icon: MaskHappyIcon },
@@ -93,14 +99,21 @@ const assetColors: Record<AssetKind, string> = {
   style: "violet",
 };
 
-const variants = [
+const continuityVariants = [
   "/continuity/scene-02d-variant-1.webp?v=quiet-luxury-20260720",
   "/continuity/scene-02d-variant-2.webp?v=quiet-luxury-20260720",
   "/continuity/scene-02d-variant-3.webp?v=quiet-luxury-20260720",
   "/continuity/scene-02d-variant-4.webp?v=quiet-luxury-20260720",
 ];
 
-export function ContinuityStudio({ projectId, projectName, initialMode = "storyboard" }: { projectId: string; projectName: string; initialMode?: CreativeMode }) {
+const mediaVariants = [
+  "/media-studio/foxy-media-collage.png",
+  "/media-studio/project-bull-bear.png",
+  "/media-studio/project-dev-memes.png",
+  "/media-studio/foxy-master.png",
+];
+
+export function ContinuityStudio({ projectId, projectName, initialMode = "social" }: { projectId: string; projectName: string; initialMode?: CreativeMode }) {
   const [view, setView] = useState<View>("studio");
   const [creativeMode, setCreativeMode] = useState<CreativeMode>(initialMode);
   const [selectedVariant, setSelectedVariant] = useState(0);
@@ -113,7 +126,7 @@ export function ContinuityStudio({ projectId, projectName, initialMode = "storyb
   const [selectedAsset, setSelectedAsset] = useState<Asset>(assets[0]);
   const [assetFilter, setAssetFilter] = useState<AssetKind | "all">("all");
   const [search, setSearch] = useState("");
-  const [generatedVariants, setGeneratedVariants] = useState<string[]>(variants);
+  const [generatedVariants, setGeneratedVariants] = useState<string[]>(initialMode === "social" ? mediaVariants : continuityVariants);
   const [generationRequestId, setGenerationRequestId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [manifestSummary, setManifestSummary] = useState<{ selected: number; dropped: number } | null>(null);
@@ -300,7 +313,7 @@ export function ContinuityStudio({ projectId, projectName, initialMode = "storyb
           <StudioView
             projectId={projectId}
             creativeMode={creativeMode}
-            onCreativeModeChange={(mode) => { setCreativeMode(mode); setPrompt(creativeModes[mode].prompt); }}
+            onCreativeModeChange={(mode) => { setCreativeMode(mode); setPrompt(creativeModes[mode].prompt); setGeneratedVariants(mode === "social" ? mediaVariants : continuityVariants); setSelectedVariant(0); }}
             prompt={prompt}
             setPrompt={setPrompt}
             policy={policy}
@@ -347,13 +360,13 @@ export function ContinuityStudio({ projectId, projectName, initialMode = "storyb
 function Sidebar({ active, onNavigate, projectId, onToast }: { active: View; onNavigate: (view: View) => void; projectId: string; onToast: (toast: Toast) => void }) {
   return (
     <aside className="sidebar">
-      <Link className="brand" href={`/projects/${projectId}`} aria-label="Quay lại tổng quan dự án"><span>A</span></Link>
+      <Link className="brand" href={`/projects/${projectId}`} aria-label="Quay lại tổng quan dự án"><SparkleIcon size={21} weight="fill" /></Link>
       <nav>
         {navItems.slice(0, 1).map((item) => {
           const Icon = item.icon;
           return <button key={item.id} className={active === item.id ? "active" : ""} onClick={() => onNavigate(item.id)}><Icon size={21} weight={active === item.id ? "fill" : "regular"} /><span>{item.label}</span></button>;
         })}
-        <Link className="quick-create" href={`/projects/${projectId}/generate`} aria-label="Mở chế độ nội dung nhanh"><SparkleIcon size={21} /><span>Nội dung nhanh</span></Link>
+        <Link className="quick-create" href={`/projects/${projectId}/generate`} aria-label="Mở chế độ ý tưởng nhanh"><SparkleIcon size={21} /><span>Ý tưởng nhanh</span></Link>
         {navItems.slice(1).map((item) => {
           const Icon = item.icon;
           return <button key={item.id} className={active === item.id ? "active" : ""} onClick={() => onNavigate(item.id)}><Icon size={21} weight={active === item.id ? "fill" : "regular"} /><span>{item.label}</span></button>;
@@ -368,7 +381,7 @@ function Sidebar({ active, onNavigate, projectId, onToast }: { active: View; onN
 }
 
 function Topbar({ view, projectName, creativeMode, expert, setExpert, job }: { view: View; projectName: string; creativeMode: CreativeMode; expert: boolean; setExpert: (value: boolean) => void; job: GenerationJob | null }) {
-  const titles: Record<View, string> = { studio: creativeModes[creativeMode].label, assets: "Tài nguyên dự án", character: "Tạo bộ tham chiếu nhân vật", review: "Duyệt & sửa ảnh đầu ra", workflow: "Quy trình cú máy điện ảnh" };
+  const titles: Record<View, string> = { studio: creativeModes[creativeMode].label, assets: "Tài nguyên dự án", character: "Tạo bộ tham chiếu nhân vật", review: "Duyệt & sửa ảnh đầu ra", workflow: "Quy trình tạo content" };
   return (
     <header className="topbar">
       <div className="crumb"><span>{projectName}</span><b>/</b><strong>{titles[view]}</strong><CaretDownIcon size={14} /></div>
@@ -455,7 +468,7 @@ function StudioView(props: {
 
         <div className="flow-canvas">
           <div className="flow-hero-frame">
-            <Image src={imageSrc} fill unoptimized={imageSrc.startsWith("data:")} loading="eager" alt="Cú máy giữ nhân vật nhất quán" sizes="(max-width: 1400px) 60vw, 1000px" />
+            <Image src={imageSrc} fill unoptimized={imageSrc.startsWith("data:")} loading="eager" alt="Output media giữ nhân vật nhất quán" sizes="(max-width: 1400px) 60vw, 1000px" />
             <div className="safe-guides"><i /><i /></div>
             <div className="canvas-badge"><span className="status-dot" />Sẵn sàng tinh chỉnh</div>
             {props.job && props.job.status !== "completed" && props.job.status !== "cancelled" && (
@@ -487,8 +500,8 @@ function StudioView(props: {
               ))}
               <button className="ingredient-add" onClick={() => setDrawer("assets")}><PlusIcon size={16} /><span>Thêm</span></button>
             </div>
-            <div className="prompt-assist-row"><strong>Chỉ đạo cảnh quay</strong><button onClick={() => void assistPrompt()} disabled={promptAssisting}>{promptAssisting ? <CircleNotchIcon className="spin" size={14} /> : <RobotIcon size={14} weight="fill" />}{promptAssisting ? "Đang tối ưu…" : "AI hỗ trợ"}</button></div>
-            <textarea aria-label="Chỉ đạo cảnh quay" value={props.prompt} onChange={(event) => props.setPrompt(event.target.value)} placeholder="Mô tả hành động, bố cục, góc máy, ánh sáng và cảm xúc…" />
+            <div className="prompt-assist-row"><strong>Shot direction</strong><button onClick={() => void assistPrompt()} disabled={promptAssisting}>{promptAssisting ? <CircleNotchIcon className="spin" size={14} /> : <RobotIcon size={14} weight="fill" />}{promptAssisting ? "Đang tối ưu…" : "AI hỗ trợ prompt"}</button></div>
+            <textarea aria-label="Shot direction" value={props.prompt} onChange={(event) => props.setPrompt(event.target.value)} placeholder="Mô tả thông điệp, hành động, bố cục, ánh sáng và cảm xúc…" />
             <div className="composer-footer">
               <div>
                 <button onClick={() => setDrawer(drawer === "assets" ? null : "assets")}><PlusIcon size={17} />Tài nguyên</button>
@@ -501,13 +514,13 @@ function StudioView(props: {
           </div>
         </div>
 
-        <ShotTimeline open={timelineOpen} onToggle={() => setTimelineOpen(!timelineOpen)} onToast={props.onToast} />
+        <ShotTimeline creativeMode={props.creativeMode} open={timelineOpen} onToggle={() => setTimelineOpen(!timelineOpen)} onToast={props.onToast} />
       </section>
 
       {drawer && (
         <aside className="flow-context-drawer panel-scroll">
           <div className="drawer-heading">
-            <div><span className="eyebrow">CÚ MÁY 02D</span><h2>{drawer === "assets" ? "Tài nguyên" : drawer === "settings" ? "Cài đặt cú máy" : "Danh sách ảnh tham chiếu"}</h2></div>
+            <div><span className="eyebrow">OUTPUT ĐANG CHỌN</span><h2>{drawer === "assets" ? "Tài nguyên" : drawer === "settings" ? "Cài đặt output" : "Danh sách ảnh tham chiếu"}</h2></div>
             <button className="icon-button" onClick={() => setDrawer(null)} aria-label="Đóng bảng"><XIcon size={16} /></button>
           </div>
 
@@ -542,14 +555,22 @@ function StudioView(props: {
   );
 }
 
-function ShotTimeline({ open, onToggle, onToast }: { open: boolean; onToggle: () => void; onToast: (toast: Toast) => void }) {
-  const [selectedShot, setSelectedShot] = useState("02D");
+function ShotTimeline({ creativeMode, open, onToggle, onToast }: { creativeMode: CreativeMode; open: boolean; onToggle: () => void; onToast: (toast: Toast) => void }) {
+  const socialOutputs = [
+    { id: "social-1", code: "POST 01", title: "Meme mở tuần", status: "approved", thumbnail: "/media-studio/project-dev-memes.png", camera: "Meme", lens: "1:1" },
+    { id: "social-2", code: "POST 02", title: "Cà phê sáng", status: "approved", thumbnail: "/media-studio/foxy-media-collage.png", camera: "Fanpage", lens: "4:5" },
+    { id: "social-3", code: "REEL 01", title: "3 ý tưởng ngày hè", status: "needs_review", thumbnail: "/media-studio/foxy-media-collage.png", camera: "TikTok", lens: "9:16" },
+    { id: "social-4", code: "AD 01", title: "Foxy Coffee", status: "draft", thumbnail: "/media-studio/foxy-master.png", camera: "Quảng cáo", lens: "4:5" },
+  ];
+  const timelineItems = creativeMode === "social" ? socialOutputs : shots;
+  const [selectedShot, setSelectedShot] = useState(creativeMode === "social" ? "POST 02" : "02D");
+  const isSocial = creativeMode === "social";
   return (
     <div className={`flow-timeline ${open ? "open" : ""}`}>
-      <div className="flow-timeline-heading"><button onClick={onToggle}><CaretDownIcon size={15} /><FilmSlateIcon size={17} /><strong>Cảnh 02 — Cuộc bàn giao</strong><span>5 cú máy</span></button><div><button aria-label="Đổi kiểu hiển thị dòng thời gian" onClick={() => onToast({ title: "Dạng dải phim", detail: "Cảnh 02 đang dùng chế độ sáng tạo gọn." })}><GridFourIcon size={16} /></button><button onClick={() => onToast({ title: "Đã tạo bản nháp cú máy", detail: "Cú máy mới sẽ kế thừa ảnh đã duyệt và các ảnh chuẩn đã khóa." })}><PlusIcon size={16} />Thêm cú máy</button></div></div>
+      <div className="flow-timeline-heading"><button onClick={onToggle}><CaretDownIcon size={15} /><FilmSlateIcon size={17} /><strong>{isSocial ? "Tuần 29 — Lịch content" : "Cảnh 02 — Cuộc bàn giao"}</strong><span>{timelineItems.length} {isSocial ? "output" : "cú máy"}</span></button><div><button aria-label="Đổi kiểu hiển thị dòng thời gian" onClick={() => onToast({ title: isSocial ? "Dạng lịch content" : "Dạng dải phim", detail: isSocial ? "Các format đang được gom theo tuần đăng." : "Cảnh 02 đang dùng chế độ sáng tạo gọn." })}><GridFourIcon size={16} /></button><button onClick={() => onToast({ title: isSocial ? "Đã tạo output nháp" : "Đã tạo bản nháp cú máy", detail: isSocial ? "Output mới kế thừa character, giọng nói và ảnh chuẩn đã khóa." : "Cú máy mới sẽ kế thừa ảnh đã duyệt và các ảnh chuẩn đã khóa." })}><PlusIcon size={16} />{isSocial ? "Thêm output" : "Thêm cú máy"}</button></div></div>
       {open && <div className="flow-shot-track">
-        {shots.map((shot) => <button key={shot.id} className={`flow-shot-card ${shot.code === selectedShot ? "active" : ""}`} aria-label={`${shot.code} · ${shot.title} · ${shot.status === "approved" ? "Đã duyệt" : shot.status === "needs_review" ? "Cần duyệt" : "Bản nháp"}`} onClick={() => setSelectedShot(shot.code)}><span><Image src={shot.thumbnail} fill alt={shot.title} sizes="132px" /><b>{shot.code}</b></span><div><strong>{shot.title}</strong><small>{shot.camera} · {shot.lens}</small></div><i className={`shot-status ${shot.status}`} /></button>)}
-        <button className="flow-add-shot" onClick={() => onToast({ title: "Đã tạo bản nháp cú máy", detail: "Cú máy mới sẽ kế thừa ảnh đã duyệt và các ảnh chuẩn đã khóa." })}><PlusIcon size={18} /><span>Thêm cú máy</span></button>
+        {timelineItems.map((shot) => <button key={shot.id} className={`flow-shot-card ${shot.code === selectedShot ? "active" : ""}`} aria-label={`${shot.code} · ${shot.title} · ${shot.status === "approved" ? "Đã duyệt" : shot.status === "needs_review" ? "Cần duyệt" : "Bản nháp"}`} onClick={() => setSelectedShot(shot.code)}><span><Image src={shot.thumbnail} fill alt={shot.title} sizes="132px" /><b>{shot.code}</b></span><div><strong>{shot.title}</strong><small>{shot.camera} · {shot.lens}</small></div><i className={`shot-status ${shot.status}`} /></button>)}
+        <button className="flow-add-shot" onClick={() => onToast({ title: isSocial ? "Đã tạo output nháp" : "Đã tạo bản nháp cú máy", detail: isSocial ? "Output mới kế thừa character, giọng nói và ảnh chuẩn đã khóa." : "Cú máy mới sẽ kế thừa ảnh đã duyệt và các ảnh chuẩn đã khóa." })}><PlusIcon size={18} /><span>{isSocial ? "Thêm output" : "Thêm cú máy"}</span></button>
       </div>}
     </div>
   );
@@ -564,7 +585,7 @@ function AssetLibrary(props: { visibleAssets: Asset[]; selectedAsset: Asset; set
   return (
     <div className="library-layout">
       <section className="library-main">
-        <div className="page-title"><div><span className="eyebrow">MIDNIGHT COURIER</span><h1>Thư viện tài nguyên</h1><p>Ảnh chuẩn đã khóa giúp mọi cú máy giữ đúng nhân vật và vật phẩm.</p></div><div><button className="secondary" onClick={props.onCreateCharacter}><DownloadSimpleIcon size={17} /> Nhập ảnh tham chiếu</button><button className="primary" onClick={props.onCreateCharacter}><PlusIcon size={17} /> Thêm nhân vật</button></div></div>
+        <div className="page-title"><div><span className="eyebrow">MEDIA LIBRARY</span><h1>Thư viện tài nguyên</h1><p>Ảnh chuẩn đã khóa giúp mọi output giữ đúng nhân vật, item và phong cách.</p></div><div><button className="secondary" onClick={props.onCreateCharacter}><DownloadSimpleIcon size={17} /> Nhập ảnh tham chiếu</button><button className="primary" onClick={props.onCreateCharacter}><PlusIcon size={17} /> Thêm nhân vật</button></div></div>
         <div className="library-toolbar"><label><MagnifyingGlassIcon size={17} /><input value={props.search} onChange={(event) => props.setSearch(event.target.value)} placeholder="Tìm tài nguyên" aria-label="Tìm tài nguyên" /></label><div className="filter-tabs">{filters.map((filter) => <button key={filter} className={props.filter === filter ? "selected" : ""} onClick={() => props.setFilter(filter)}>{filter === "all" ? "Tất cả" : assetKindLabels[filter]}</button>)}</div></div>
         <div className="asset-grid">{props.visibleAssets.map((asset) => <button key={asset.id} className={`asset-card ${props.selectedAsset.id === asset.id ? "selected" : ""}`} onClick={() => props.setSelectedAsset(asset)}><div className="asset-card-image"><Image src={asset.thumbnail} fill alt={asset.name} sizes="260px" /><span className={`type-dot ${assetColors[asset.kind]}`} />{asset.isSample ? <i>Mẫu</i> : asset.status === "locked" && <i><LockSimpleIcon size={13} weight="fill" /> Đã khóa</i>}</div><div className="asset-card-copy"><strong>{asset.name}</strong><span>{assetKindLabels[asset.kind]} · {asset.referenceCount} ảnh</span><div><em style={{ width: `${asset.coverage}%` }} /><small>{asset.coverage}% bao phủ</small></div></div></button>)}</div>
       </section>
@@ -655,5 +676,5 @@ function ReviewRepair({ selectedVariant, reviewVariants, reviewAssets, onBack, o
 }
 
 function ExpertWorkflow({ onToast }: { onToast: (toast: Toast) => void }) {
-  return <div className="expert-page"><div className="page-title"><div><span className="eyebrow">CHỈ DÀNH CHO CHUYÊN GIA</span><h1>Quy trình cú máy điện ảnh</h1><p>Các nút xử lý có kiểu dữ liệu và được cho phép sẵn. Chế độ Cơ bản chỉ hiển thị những trường đầu vào, đầu ra đã chọn.</p></div><div><button className="secondary" onClick={() => onToast({ title: "Đã mở cấu hình Cơ bản", detail: "Các checkbox bên trái quyết định trường nào xuất hiện trong Dựng cảnh." })}><SquaresFourIcon size={17} /> Cấu hình chế độ Cơ bản</button><button className="primary" onClick={() => onToast({ title: "Đã lưu quy trình v1.0.0", detail: "Bản thử giữ nguyên sơ đồ an toàn và các đầu vào đang hiển thị." })}><GitBranchIcon size={17} /> Lưu quy trình v1.0.0</button></div></div><div className="workflow-shell"><aside><div className="workflow-note"><LockSimpleIcon size={18} weight="fill" /><div><strong>Sơ đồ an toàn</strong><span>Đã tắt mã tùy ý và các nút chưa đăng ký.</span></div></div><h3>Đầu vào hiển thị</h3>{["Dàn nhân vật", "Trang phục", "Vật phẩm", "Bối cảnh", "Chỉ đạo", "Máy quay", "Đầu ra"].map((label) => <label key={label}><input type="checkbox" defaultChecked /> {label}</label>)}<h3>Chính sách chạy</h3><SelectRow label="Khi có lỗi" value="Duyệt thủ công" onClick={() => onToast({ title: "Chính sách khi có lỗi", detail: "Bản MVP luôn yêu cầu duyệt thủ công trước khi tiếp tục." })} /><SelectRow label="Số lần thử lại" value="1 lần" onClick={() => onToast({ title: "Số lần thử lại", detail: "Worker thử lại tối đa một lần để tránh phát sinh chi phí ngoài dự kiến." })} /></aside><WorkflowGraph /></div></div>;
+  return <div className="expert-page"><div className="page-title"><div><span className="eyebrow">CHỈ DÀNH CHO CHUYÊN GIA</span><h1>Quy trình tạo content</h1><p>Các bước xử lý có kiểu dữ liệu và được cho phép sẵn. Chế độ Cơ bản chỉ hiển thị những trường đầu vào, đầu ra đã chọn.</p></div><div><button className="secondary" onClick={() => onToast({ title: "Đã mở cấu hình Cơ bản", detail: "Các checkbox bên trái quyết định trường nào xuất hiện trong Studio." })}><SquaresFourIcon size={17} /> Cấu hình chế độ Cơ bản</button><button className="primary" onClick={() => onToast({ title: "Đã lưu quy trình v1.0.0", detail: "Bản thử giữ nguyên sơ đồ an toàn và các đầu vào đang hiển thị." })}><GitBranchIcon size={17} /> Lưu quy trình v1.0.0</button></div></div><div className="workflow-shell"><aside><div className="workflow-note"><LockSimpleIcon size={18} weight="fill" /><div><strong>Sơ đồ an toàn</strong><span>Đã tắt mã tùy ý và các bước chưa đăng ký.</span></div></div><h3>Đầu vào hiển thị</h3>{["Dàn nhân vật", "Trang phục", "Vật phẩm", "Bối cảnh", "Shot direction", "Tỷ lệ", "Đầu ra"].map((label) => <label key={label}><input type="checkbox" defaultChecked /> {label}</label>)}<h3>Chính sách chạy</h3><SelectRow label="Khi có lỗi" value="Duyệt thủ công" onClick={() => onToast({ title: "Chính sách khi có lỗi", detail: "Bản MVP luôn yêu cầu duyệt thủ công trước khi tiếp tục." })} /><SelectRow label="Số lần thử lại" value="1 lần" onClick={() => onToast({ title: "Số lần thử lại", detail: "Worker thử lại tối đa một lần để tránh phát sinh chi phí ngoài dự kiến." })} /></aside><WorkflowGraph /></div></div>;
 }

@@ -1,27 +1,27 @@
 :root {
-  --bg: #090b0f;
-  --panel: #101319;
-  --panel-2: #141820;
-  --panel-3: #191e27;
-  --line: #252b36;
-  --line-soft: #1c212b;
-  --text: #f4f6fa;
-  --muted: #8e98a8;
-  --muted-2: #626c7c;
-  --blue: #3478f6;
-  --blue-2: #6aa0ff;
-  --cyan: #55d8ee;
-  --amber: #e9ad55;
-  --orange: #ef8754;
-  --green: #65ce86;
-  --violet: #a47af1;
+  --bg: #11120f;
+  --panel: #181914;
+  --panel-2: #1d1e19;
+  --panel-3: #23251f;
+  --line: #30322a;
+  --line-soft: #262820;
+  --text: #f7f2e6;
+  --muted: #9b988e;
+  --muted-2: #706e66;
+  --blue: #3f72ee;
+  --blue-2: #78a0ff;
+  --cyan: #6aa5ef;
+  --amber: #efbd3f;
+  --orange: #ef754a;
+  --green: #72c388;
+  --violet: #8c83d8;
   --danger: #f36c72;
   --radius: 10px;
 }
 
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; overflow: hidden; }
-body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-geist-sans), "Geist", ui-sans-serif, system-ui, sans-serif; font-size: 13px; -webkit-font-smoothing: antialiased; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif; font-size: 13px; -webkit-font-smoothing: antialiased; }
 button, input, textarea, select { font: inherit; }
 button { color: inherit; }
 button, select { cursor: pointer; }
@@ -32,19 +32,19 @@ button { border: 0; }
 .app-shell { display: grid; grid-template-columns: 72px minmax(0, 1fr); width: 100vw; height: 100vh; min-width: 1180px; background: var(--bg); }
 .app-main { min-width: 0; min-height: 0; display: grid; grid-template-rows: 58px minmax(0, 1fr); }
 
-.sidebar { border-right: 1px solid var(--line-soft); background: #0c0f14; display: flex; flex-direction: column; align-items: center; padding: 11px 0 13px; z-index: 4; }
-.brand { width: 40px; height: 40px; border-radius: 11px; background: #111c2f; display: grid; place-items: center; margin-bottom: 16px; }
-.brand span { font-weight: 800; font-size: 19px; color: #7da9ff; }
+.sidebar { border-right: 1px solid var(--line-soft); background: #0e0f0c; display: flex; flex-direction: column; align-items: center; padding: 11px 0 13px; z-index: 4; }
+.brand { width: 40px; height: 40px; border-radius: 12px; background: #265ee8; display: grid; place-items: center; margin-bottom: 16px; box-shadow: 0 9px 25px rgba(38,94,232,.28); }
+.brand svg { color: white; }
 .sidebar nav { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; }
 .sidebar nav button, .sidebar nav a, .sidebar-bottom > button { width: 62px; min-height: 54px; border-radius: 8px; background: transparent; color: #7d8798; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-size: 10px; text-decoration: none; transition: .18s ease; }
 .sidebar nav button:hover, .sidebar nav a:hover, .sidebar-bottom > button:hover { color: #cbd3df; background: #131821; }
 .sidebar nav button.active { color: #8cb6ff; background: #14213a; }
-.sidebar nav a.quick-create { color: #b597f4; }
+.sidebar nav a.quick-create { color: #efbd3f; }
 .sidebar-bottom { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #263044; color: #d6e2f9; font-size: 11px; position: relative; }
-.avatar span { position: absolute; width: 8px; height: 8px; background: #54d27c; border: 2px solid #0c0f14; border-radius: 50%; right: -1px; bottom: 1px; }
+.avatar span { position: absolute; width: 8px; height: 8px; background: #72c388; border: 2px solid #0e0f0c; border-radius: 50%; right: -1px; bottom: 1px; }
 
-.topbar { height: 58px; border-bottom: 1px solid var(--line-soft); display: flex; align-items: center; justify-content: space-between; padding: 0 16px 0 20px; background: #0d1015; }
+.topbar { height: 58px; border-bottom: 1px solid var(--line-soft); display: flex; align-items: center; justify-content: space-between; padding: 0 16px 0 20px; background: #121310; }
 .crumb { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .crumb span { color: var(--muted); }
 .crumb b { color: #3f4754; font-weight: 400; }
@@ -75,7 +75,7 @@ button { border: 0; }
 .panel-heading h2 { font-size: 16px; font-weight: 590; margin-top: 3px; }
 .eyebrow { font-size: 9px; letter-spacing: .12em; color: #687386; font-weight: 650; }
 
-.flow-studio { position: relative; min-height: 0; overflow: hidden; background: #080a0e; }
+.flow-studio { position: relative; min-height: 0; overflow: hidden; background: #0e0f0c; }
 .flow-workspace { height: 100%; min-height: 0; display: grid; grid-template-rows: 42px minmax(250px, 1fr) auto auto; gap: 10px; padding: 10px 14px 12px; }
 .flow-canvas-toolbar { display: flex; align-items: center; justify-content: space-between; max-width: 1120px; width: 100%; margin: 0 auto; }
 .flow-canvas-toolbar > div { display: flex; align-items: center; gap: 9px; }

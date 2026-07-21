@@ -150,7 +150,7 @@ export default function WalletPage() {
           <Card>
             <div className="p-6">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-gradient-to-br from-violet-500 to-indigo-600">
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-blue-600 shadow-lg shadow-blue-600/20">
                   <Wallet size={20} className="text-white" />
                 </div>
                 <div>

@@ -6,13 +6,15 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowRight,
   Clapperboard,
-  Film,
   Images,
-  Package,
+  Image as ImageIcon,
+  Megaphone,
+  MessageCircle,
   Shirt,
   Sparkles,
   TrendingUp,
   Users,
+  Video,
   Zap,
 } from "lucide-react";
 import { useProject, useCharacters, useMemes } from "@/lib/use-store";
@@ -20,32 +22,46 @@ import Sidebar from "@/components/layout/sidebar";
 
 const modes = [
   {
-    title: "Nội dung nhanh",
-    description: "Meme, social post và caption từ một ý tưởng.",
-    icon: Zap,
-    color: "#8b5cf6",
+    title: "Ý tưởng & caption",
+    description: "Từ brief ngắn thành hook, caption và lịch đăng.",
+    icon: MessageCircle,
+    color: "#f05a32",
     path: "generate",
   },
   {
-    title: "Chiến dịch thời trang",
-    description: "Giữ đúng nhân vật, look và mood qua nhiều ảnh.",
+    title: "Meme & bài đăng",
+    description: "Giữ đúng nhân vật qua meme, post vuông và carousel.",
+    icon: ImageIcon,
+    color: "#265ee8",
+    path: "studio?mode=social",
+  },
+  {
+    title: "TikTok & Reels",
+    description: "Lên hook, shot direction và visual dọc nhất quán.",
+    icon: Video,
+    color: "#12a594",
+    path: "studio?mode=social",
+  },
+  {
+    title: "Quảng cáo",
+    description: "Tạo key visual và biến thể theo từng nền tảng.",
+    icon: Megaphone,
+    color: "#f59e0b",
+    path: "studio?mode=product",
+  },
+  {
+    title: "Thời trang",
+    description: "Giữ đúng người mẫu, look và art direction của campaign.",
     icon: Shirt,
-    color: "#3b82f6",
+    color: "#df6b8b",
     path: "studio?mode=fashion",
   },
   {
-    title: "Storyboard & movie",
-    description: "Dựng cảnh, cú máy và continuity trên timeline.",
-    icon: Film,
-    color: "#14b8a6",
+    title: "Storyboard",
+    description: "Khi cần, dựng scene và shot theo mạch kể dài hơn.",
+    icon: Clapperboard,
+    color: "#7668d6",
     path: "studio?mode=storyboard",
-  },
-  {
-    title: "Sản phẩm & thương hiệu",
-    description: "Khoá sản phẩm, logo và ngôn ngữ visual thương mại.",
-    icon: Package,
-    color: "#f59e0b",
-    path: "studio?mode=product",
   },
 ];
 
@@ -82,6 +98,9 @@ export default function ProjectOverviewPage() {
     { label: "Đầu ra đã lưu", value: memes.length, icon: Images },
     { label: "Tạo trong 7 ngày", value: weeklyOutputs, icon: TrendingUp },
   ];
+  const projectCover = project.name.toLowerCase().includes("dev")
+    ? "/media-studio/project-dev-memes.png"
+    : "/media-studio/project-bull-bear.png";
 
   return (
     <div className="flex">
@@ -99,24 +118,24 @@ export default function ProjectOverviewPage() {
             </button>
           </header>
 
-          <section className="relative mb-7 overflow-hidden rounded-3xl border bg-[#0c111a] text-white" style={{ borderColor: "rgba(148,163,184,.18)" }}>
-            <div className="absolute inset-y-0 right-0 w-full md:w-[56%]">
-              <Image src="/continuity/scene-02d-main.webp" alt="Ảnh đầu ra campaign trong AIDA Studio" fill priority sizes="(max-width: 768px) 100vw, 55vw" className="object-cover opacity-50 md:opacity-80" />
-              <div className="absolute inset-0 bg-gradient-to-r from-[#0c111a] via-[#0c111a]/70 to-transparent" />
+          <section className="relative mb-8 overflow-hidden rounded-[28px] border bg-[#fbf6e9] text-[#171818] shadow-[0_18px_55px_rgba(73,53,15,.09)]" style={{ borderColor: "rgba(93,76,42,.16)" }}>
+            <div className="absolute inset-y-0 right-0 w-full md:w-[68%]">
+              <Image src={projectCover} alt={`Không gian media của ${project.name}`} fill priority sizes="(max-width: 768px) 100vw, 66vw" className="object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-r from-[#fbf6e9] via-[#fbf6e9]/90 to-[#fbf6e9]/5" />
             </div>
             <div className="relative max-w-xl px-6 py-10 md:px-9 md:py-12">
-              <span className="inline-flex items-center gap-2 rounded-full border border-blue-400/25 bg-blue-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-blue-200"><Clapperboard size={12} /> Studio hợp nhất</span>
-              <h2 className="mt-5 text-2xl font-semibold leading-tight md:text-3xl">Một thư viện, nhiều loại đầu ra, cùng một continuity.</h2>
-              <p className="mt-4 text-sm leading-6 text-slate-300">Dùng lại nhân vật và tài nguyên của hệ thống meme cũ trong campaign thời trang, storyboard hoặc visual sản phẩm — không upload lại từ đầu.</p>
-              <div className="mt-6 flex flex-wrap gap-2 text-[11px] text-slate-300">
-                {["Prompt AI tiếng Việt", "Reference Router", "Review & Repair", "Lịch sử version"].map((feature) => <span key={feature} className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5">{feature}</span>)}
+              <span className="inline-flex items-center gap-2 rounded-full border border-blue-600/20 bg-blue-600/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-blue-700"><Zap size={12} /> Media system của bạn</span>
+              <h2 className="mt-5 text-3xl font-bold leading-[1.05] tracking-[-0.04em] md:text-[40px]">Một nhân vật.<br />Cả tuần content.</h2>
+              <p className="mt-4 max-w-lg text-sm leading-6 text-[#5c5c54]">AIDA nhớ nhân vật, giọng điệu và tài nguyên thương hiệu. Bạn chỉ cần chọn format và nói ý tưởng hôm nay.</p>
+              <div className="mt-6 flex flex-wrap gap-2 text-[11px] text-[#5c5c54]">
+                {["Ý tưởng & caption", "Ảnh reference", "Shot direction AI", "Review output"].map((feature) => <span key={feature} className="rounded-lg border border-black/10 bg-white/55 px-2.5 py-1.5">{feature}</span>)}
               </div>
             </div>
           </section>
 
           <section className="mb-8">
-            <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-semibold th-text-primary">Bạn muốn tạo gì?</h2><p className="mt-1 text-sm th-text-tertiary">Chọn mục tiêu; AIDA sẽ mở đúng bộ điều khiển trong Studio.</p></div></div>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-semibold th-text-primary">Hôm nay bạn muốn làm gì?</h2><p className="mt-1 text-sm th-text-tertiary">Chọn đầu ra; AIDA giữ nguyên character và mở đúng bộ điều khiển.</p></div></div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {modes.map((mode) => (
                 <button key={mode.title} onClick={() => router.push(`/projects/${projectId}/${mode.path}`)} className="group rounded-2xl border p-5 text-left transition hover:-translate-y-1 hover:shadow-xl" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
                   <div className="flex items-start justify-between"><span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${mode.color}18`, color: mode.color }}><mode.icon size={19} /></span><ArrowRight size={16} className="th-text-muted transition group-hover:translate-x-1" /></div>

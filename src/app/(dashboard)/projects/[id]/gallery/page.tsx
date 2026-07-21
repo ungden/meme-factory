@@ -271,7 +271,7 @@ export default function GalleryPage() {
         {isZipping && (
           <div className="mb-4 w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-tertiary)" }}>
             <div
-              className="h-full rounded-full transition-all duration-300 bg-gradient-to-r from-violet-500 to-indigo-500"
+              className="h-full rounded-full transition-all duration-300 bg-blue-500"
               style={{
                 width: `${zipProgress.total > 0 ? (zipProgress.done / zipProgress.total) * 100 : 0}%`,
               }}
@@ -312,7 +312,7 @@ export default function GalleryPage() {
                     }
                   }}
                   className={`group overflow-hidden relative ${
-                    selectionMode && isSelected ? "ring-2 ring-violet-500" : ""
+                    selectionMode && isSelected ? "ring-2 ring-blue-500" : ""
                   }`}
                 >
                   {/* Selection checkbox */}
@@ -370,7 +370,7 @@ export default function GalleryPage() {
                             e.stopPropagation();
                             goRegenerate(meme.id);
                           }}
-                          className="p-2 bg-violet-500/40 rounded-xl hover:bg-violet-500/60 transition-colors"
+                          className="p-2 bg-blue-500/40 rounded-xl hover:bg-blue-500/60 transition-colors"
                           title="Tạo biến thể"
                         >
                           <Sparkles size={18} className="text-white" />

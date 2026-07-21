@@ -26,9 +26,9 @@ import { useToast } from "@/components/ui/toast";
 import AnnouncementBanner from "@/components/ui/announcement-banner";
 
 const projectCovers = [
-  "/continuity/scene-02d-main.webp",
-  "/continuity/reference-board.webp",
-  "/continuity/scene-02d-variant-3.webp",
+  "/media-studio/project-bull-bear.png",
+  "/media-studio/project-dev-memes.png",
+  "/media-studio/foxy-media-collage.png",
 ];
 
 export default function ProjectsPage() {
@@ -85,10 +85,10 @@ export default function ProjectsPage() {
           <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-500">
-                <Sparkles size={14} /> AIDA Creative Studio
+                <Sparkles size={14} /> AIDA Media Studio
               </div>
-              <h1 className="text-3xl font-semibold tracking-tight th-text-primary">Không gian sáng tạo</h1>
-              <p className="mt-2 max-w-xl th-text-tertiary">Mỗi dự án giữ chung nhân vật, phong cách và toàn bộ đầu ra — từ meme đến campaign và storyboard.</p>
+              <h1 className="text-3xl font-bold tracking-[-0.035em] th-text-primary">Fanpage & thương hiệu của bạn</h1>
+              <p className="mt-2 max-w-2xl th-text-tertiary">Mỗi dự án lưu nhân vật, giọng nói và toàn bộ content — để đăng đều mà vẫn đúng chất.</p>
             </div>
             <Button onClick={() => setShowCreate(true)} size="lg" className="shrink-0 !bg-blue-600 !shadow-blue-600/20 hover:!bg-blue-500">
               <Plus size={18} /> Tạo dự án
@@ -102,8 +102,8 @@ export default function ProjectsPage() {
           ) : projects.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-3xl border py-24 text-center" style={{ borderColor: "var(--border-primary)", background: "var(--bg-card)" }}>
               <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-500"><Clapperboard size={28} /></span>
-              <h2 className="text-xl font-semibold th-text-primary">Tạo thế giới đầu tiên của bạn</h2>
-              <p className="mt-2 max-w-md th-text-tertiary">Bắt đầu với tên dự án và định hướng hình ảnh. Bạn có thể thêm nhân vật, item và bối cảnh sau.</p>
+              <h2 className="text-xl font-semibold th-text-primary">Tạo fanpage đầu tiên của bạn</h2>
+              <p className="mt-2 max-w-md th-text-tertiary">Bắt đầu bằng mục tiêu, nhân vật và giọng điệu. AIDA sẽ giúp bạn phát triển cả hệ content sau đó.</p>
               <Button onClick={() => setShowCreate(true)} className="mt-6"><Plus size={17} /> Tạo dự án đầu tiên</Button>
             </div>
           ) : (
@@ -115,12 +115,12 @@ export default function ProjectsPage() {
                   style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
                 >
                   <button onClick={() => router.push(`/projects/${project.slug}`)} className="block w-full text-left" aria-label={`Mở dự án ${project.name}`}>
-                    <div className="relative aspect-[16/8.5] overflow-hidden bg-slate-900">
+                    <div className="relative aspect-[16/8.6] overflow-hidden" style={{ background: "var(--bg-tertiary)" }}>
                       <Image src={projectCovers[index % projectCovers.length]} alt="" fill priority={index === 0} sizes="(max-width: 1280px) 50vw, 33vw" className="object-cover transition duration-500 group-hover:scale-[1.03]" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
                       <div className="absolute bottom-3 left-3 flex gap-2">
-                        <span className="rounded-full border border-white/15 bg-black/40 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-md">ĐA ĐỊNH DẠNG</span>
-                        <span className="rounded-full border border-white/15 bg-black/40 px-2.5 py-1 text-[10px] text-white/75 backdrop-blur-md">CONTINUITY</span>
+                        <span className="rounded-full border border-white/25 bg-black/45 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-md">FANPAGE</span>
+                        <span className="rounded-full border border-white/25 bg-black/45 px-2.5 py-1 text-[10px] text-white/85 backdrop-blur-md">NHÂN VẬT NHẤT QUÁN</span>
                       </div>
                     </div>
                   </button>
@@ -159,11 +159,11 @@ export default function ProjectsPage() {
           )}
         </div>
 
-        <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Tạo dự án sáng tạo" size="md">
+        <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Tạo không gian media" size="md">
           <form onSubmit={handleCreate} className="space-y-4">
-            <Input id="project-name" label="Tên dự án" placeholder='VD: "Campaign Thu Đông", "Bò và Gấu Finance"' value={newProject.name} onChange={(event) => setNewProject((project) => ({ ...project, name: event.target.value }))} required />
-            <Textarea id="project-desc" label="Mục tiêu dự án" placeholder="Bạn muốn tạo loại nội dung gì và cho ai?" value={newProject.description} onChange={(event) => setNewProject((project) => ({ ...project, description: event.target.value }))} rows={2} />
-            <Textarea id="project-style" label="Định hướng hình ảnh & giọng điệu" placeholder='VD: "Quiet luxury, ánh sáng tự nhiên, bảng màu than chì; copy gọn, tinh tế."' value={newProject.style_prompt} onChange={(event) => setNewProject((project) => ({ ...project, style_prompt: event.target.value }))} rows={3} />
+            <Input id="project-name" label="Tên fanpage / thương hiệu" placeholder='VD: "Foxy Coffee", "Bò & Gấu Finance"' value={newProject.name} onChange={(event) => setNewProject((project) => ({ ...project, name: event.target.value }))} required />
+            <Textarea id="project-desc" label="Mục tiêu content" placeholder="Bạn muốn nói với ai, về điều gì và đăng trên kênh nào?" value={newProject.description} onChange={(event) => setNewProject((project) => ({ ...project, description: event.target.value }))} rows={2} />
+            <Textarea id="project-style" label="Giọng nói & phong cách hình ảnh" placeholder='VD: "Thân thiện, dí dỏm; màu kem, xanh cobalt; nhân vật cute nhưng sang."' value={newProject.style_prompt} onChange={(event) => setNewProject((project) => ({ ...project, style_prompt: event.target.value }))} rows={3} />
             <div className="flex justify-end gap-3 pt-2"><Button variant="ghost" type="button" onClick={() => setShowCreate(false)}>Huỷ</Button><Button type="submit" loading={creating}>Tạo dự án</Button></div>
           </form>
         </Modal>
