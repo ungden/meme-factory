@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useSyncExternalStore,
+} from "react";
 
 type Theme = "light" | "dark";
 
@@ -14,56 +20,42 @@ const ThemeContext = createContext<ThemeContextType>({
   toggleTheme: () => {},
 });
 
+const themeListeners = new Set<() => void>();
+
+function readTheme(): Theme {
+  if (typeof document === "undefined") return "light";
+  return document.documentElement.classList.contains("dark") ? "dark" : "light";
+}
+
+function readServerTheme(): Theme {
+  return "light";
+}
+
+function subscribeToTheme(listener: () => void) {
+  themeListeners.add(listener);
+  return () => themeListeners.delete(listener);
+}
+
+function applyTheme(theme: Theme) {
+  const root = document.documentElement;
+  root.classList.remove("light", "dark");
+  root.classList.add(theme);
+  root.style.colorScheme = theme;
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("light");
-  const [mounted, setMounted] = useState(false);
+  const theme = useSyncExternalStore(subscribeToTheme, readTheme, readServerTheme);
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      try {
-        const saved = localStorage.getItem("aida-theme") as Theme | null;
-        if (saved === "light" || saved === "dark") {
-          setTheme(saved);
-        } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-          setTheme("dark");
-        }
-      } catch {
-        // localStorage unavailable (private browsing, SSR)
-      }
-      setMounted(true);
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-    const root = document.documentElement;
-    root.classList.remove("light", "dark");
-    root.classList.add(theme);
+  const toggleTheme = useCallback(() => {
+    const nextTheme = readTheme() === "light" ? "dark" : "light";
+    applyTheme(nextTheme);
     try {
-      localStorage.setItem("aida-theme", theme);
+      localStorage.setItem("aida-theme", nextTheme);
     } catch {
       // localStorage unavailable
     }
-  }, [theme, mounted]);
-
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === "light" ? "dark" : "light"));
-  };
-
-  // Prevent flash — show nothing until theme is determined
-  if (!mounted) {
-    return (
-      <div className="min-h-screen" style={{ background: "#ffffff" }}>
-        <style>{`
-          @media (prefers-color-scheme: dark) {
-            .min-h-screen { background: #0a0a0f !important; }
-          }
-        `}</style>
-      </div>
-    );
-  }
+    themeListeners.forEach((listener) => listener());
+  }, []);
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
