@@ -37,6 +37,7 @@ import { WorkflowGraph } from "./workflow-graph";
 import { generateImage, useCharacters, useMemes } from "@/lib/use-store";
 import { compressImageToBase64 } from "@/lib/image-utils";
 import { POINT_COSTS, POINT_ACTION_QUOTES } from "@/lib/point-pricing";
+import { getProjectCover } from "@/lib/project-visuals";
 
 type View = "studio" | "assets" | "character" | "review" | "workflow";
 type CreativeMode = "social" | "fashion" | "storyboard" | "product";
@@ -44,28 +45,28 @@ type Toast = { title: string; detail: string } | null;
 
 const creativeModes: Record<CreativeMode, { label: string; workspaceTitle: string; workspaceDetail: string; prompt: string }> = {
   social: {
-    label: "Fanpage & social",
-    workspaceTitle: "Bộ content tuần này",
-    workspaceDetail: "Cùng character · nhiều format",
-    prompt: "Tạo một bộ visual social vui, hiện đại và có gu cho fanpage. Giữ chính xác khuôn mặt, tỷ lệ, trang phục và đặc điểm nhận diện của các nhân vật đã chọn. Chủ đề gần gũi với cộng đồng của fanpage; biểu cảm thân thiện, dí dỏm. Bố cục sạch, nền kem ấm, điểm nhấn xanh cobalt, vàng nắng và đỏ coral, chất liệu paper collage tinh tế. Chuẩn bị được cho bài đăng 4:5, meme và TikTok cover.",
+    label: "Mạng xã hội",
+    workspaceTitle: "Bộ nội dung tuần này",
+    workspaceDetail: "Cùng nhân vật · nhiều định dạng",
+    prompt: "Tạo một bộ hình mạng xã hội vui, hiện đại và có gu. Giữ chính xác khuôn mặt, tỷ lệ, trang phục và đặc điểm nhận diện của các nhân vật đã chọn. Chủ đề gần gũi với cộng đồng; biểu cảm thân thiện, dí dỏm. Bố cục sạch, nền kem ấm, điểm nhấn xanh cobalt, vàng nắng và đỏ coral, chất liệu cắt dán giấy tinh tế. Chuẩn bị được cho bài đăng 4:5, meme và ảnh bìa TikTok.",
   },
   fashion: {
     label: "Chiến dịch thời trang",
-    workspaceTitle: "Look 02 · Quiet Luxury",
-    workspaceDetail: "Key visual chiến dịch",
-    prompt: "Editorial thời trang quiet luxury trong con hẻm Sài Gòn sau mưa. Linh mặc áo khoác phản quang đen, đứng gần cổng xanh ngọc; giữ đúng khuôn mặt, tỷ lệ cơ thể và chất liệu trang phục. Ánh sáng ngọc trai, da thật đẹp, bảng màu than chì và xanh patina, hạt phim tinh tế.",
+    workspaceTitle: "Bộ ảnh 02 · Thanh lịch tinh giản",
+    workspaceDetail: "Hình chủ đạo chiến dịch",
+    prompt: "Bộ ảnh thời trang thanh lịch tinh giản trong con hẻm Sài Gòn sau mưa. Linh mặc áo khoác phản quang đen, đứng gần cổng xanh ngọc; giữ đúng khuôn mặt, tỷ lệ cơ thể và chất liệu trang phục. Ánh sáng ngọc trai, da đẹp tự nhiên, bảng màu than chì và xanh patina, hạt phim tinh tế.",
   },
   storyboard: {
-    label: "Storyboard & movie",
+    label: "Bảng phân cảnh",
     workspaceTitle: "Cú máy 02D",
     workspaceDetail: "Chiếc điện thoại đỏ",
-    prompt: "Buổi sáng dịu sau mưa trong một con hẻm Sài Gòn thanh lịch. Linh đứng gần cổng xanh ngọc và quay nhẹ về phía Minh; Minh giữ chiếc điện thoại đỏ bằng tay phải. Phong cách quiet luxury editorial, ánh sáng ngọc trai, da thật, bảng màu than chì và xanh patina, hạt phim tinh tế.",
+    prompt: "Buổi sáng dịu sau mưa trong một con hẻm Sài Gòn thanh lịch. Linh đứng gần cổng xanh ngọc và quay nhẹ về phía Minh; Minh giữ chiếc điện thoại đỏ bằng tay phải. Phong cách biên tập thanh lịch tinh giản, ánh sáng ngọc trai, da tự nhiên, bảng màu than chì và xanh patina, hạt phim tinh tế.",
   },
   product: {
     label: "Sản phẩm & thương hiệu",
-    workspaceTitle: "Hero visual · Điện thoại đỏ",
-    workspaceDetail: "Campaign sản phẩm",
-    prompt: "Hero visual cao cấp cho chiếc điện thoại đỏ trong con hẻm Sài Gòn sau mưa. Minh giữ sản phẩm bằng tay phải ở vị trí rõ ràng, Linh tạo chiều sâu phía trước. Giữ chính xác màu đỏ, hình dáng và chi tiết sản phẩm; ánh sáng ngọc trai, tương phản sạch, bảng màu than chì và xanh patina.",
+    workspaceTitle: "Hình chủ đạo · Điện thoại đỏ",
+    workspaceDetail: "Chiến dịch sản phẩm",
+    prompt: "Hình chủ đạo cao cấp cho chiếc điện thoại đỏ trong con hẻm Sài Gòn sau mưa. Minh giữ sản phẩm bằng tay phải ở vị trí rõ ràng, Linh tạo chiều sâu phía trước. Giữ chính xác màu đỏ, hình dáng và chi tiết sản phẩm; ánh sáng ngọc trai, tương phản sạch, bảng màu than chì và xanh patina.",
   },
 };
 
@@ -106,7 +107,7 @@ const continuityVariants = [
   "/continuity/scene-02d-variant-4.webp?v=quiet-luxury-20260720",
 ];
 
-const mediaVariants = [
+const baseMediaVariants = [
   "/media-studio/foxy-media-collage.png",
   "/media-studio/project-bull-bear.png",
   "/media-studio/project-dev-memes.png",
@@ -114,6 +115,8 @@ const mediaVariants = [
 ];
 
 export function ContinuityStudio({ projectId, projectName, initialMode = "social" }: { projectId: string; projectName: string; initialMode?: CreativeMode }) {
+  const projectCover = getProjectCover(projectName);
+  const mediaVariants = [projectCover, ...baseMediaVariants.filter((image) => image !== projectCover)].slice(0, 4);
   const [view, setView] = useState<View>("studio");
   const [creativeMode, setCreativeMode] = useState<CreativeMode>(initialMode);
   const [selectedVariant, setSelectedVariant] = useState(0);
@@ -143,7 +146,7 @@ export function ContinuityStudio({ projectId, projectName, initialMode = "social
       thumbnail: character.avatar_url || (character.poses[0]?.image_url?.startsWith("/mock/") ? assets[index % 2].thumbnail : character.poses[0]?.image_url) || assets[index % 2].thumbnail,
       coverage: Math.min(100, 35 + character.poses.length * 15 + (character.avatar_url ? 20 : 0)),
       referenceCount: character.poses.length + (character.avatar_url ? 1 : 0),
-      notes: [character.description, character.personality].filter(Boolean).join(" · ") || "Chưa có ghi chú continuity.",
+      notes: [character.description, character.personality].filter(Boolean).join(" · ") || "Chưa có ghi chú về tính nhất quán.",
     }));
     return characterAssets.length > 0 ? [...characterAssets, ...assets.slice(2)] : assets;
   }, [characters]);
@@ -312,6 +315,7 @@ export function ContinuityStudio({ projectId, projectName, initialMode = "social
         {view === "studio" && (
           <StudioView
             projectId={projectId}
+            projectCover={projectCover}
             creativeMode={creativeMode}
             onCreativeModeChange={(mode) => { setCreativeMode(mode); setPrompt(creativeModes[mode].prompt); setGeneratedVariants(mode === "social" ? mediaVariants : continuityVariants); setSelectedVariant(0); }}
             prompt={prompt}
@@ -381,7 +385,7 @@ function Sidebar({ active, onNavigate, projectId, onToast }: { active: View; onN
 }
 
 function Topbar({ view, projectName, creativeMode, expert, setExpert, job }: { view: View; projectName: string; creativeMode: CreativeMode; expert: boolean; setExpert: (value: boolean) => void; job: GenerationJob | null }) {
-  const titles: Record<View, string> = { studio: creativeModes[creativeMode].label, assets: "Tài nguyên dự án", character: "Tạo bộ tham chiếu nhân vật", review: "Duyệt & sửa ảnh đầu ra", workflow: "Quy trình tạo content" };
+  const titles: Record<View, string> = { studio: creativeModes[creativeMode].label, assets: "Tài nguyên dự án", character: "Tạo bộ tham chiếu nhân vật", review: "Duyệt & sửa ảnh đầu ra", workflow: "Quy trình tạo nội dung" };
   return (
     <header className="topbar">
       <div className="crumb"><span>{projectName}</span><b>/</b><strong>{titles[view]}</strong><CaretDownIcon size={14} /></div>
@@ -395,6 +399,7 @@ function Topbar({ view, projectName, creativeMode, expert, setExpert, job }: { v
 
 function StudioView(props: {
   projectId: string;
+  projectCover: string;
   creativeMode: CreativeMode; onCreativeModeChange: (mode: CreativeMode) => void;
   prompt: string; setPrompt: (value: string) => void; policy: ContinuityPolicy; setPolicy: (value: ContinuityPolicy) => void;
   model: string; setModel: (value: string) => void; selectedVariant: number; setSelectedVariant: (value: number) => void;
@@ -468,7 +473,7 @@ function StudioView(props: {
 
         <div className="flow-canvas">
           <div className="flow-hero-frame">
-            <Image src={imageSrc} fill unoptimized={imageSrc.startsWith("data:")} loading="eager" alt="Output media giữ nhân vật nhất quán" sizes="(max-width: 1400px) 60vw, 1000px" />
+            <Image src={imageSrc} fill unoptimized={imageSrc.startsWith("data:")} loading="eager" alt="Ảnh đầu ra giữ nhân vật nhất quán" sizes="(max-width: 1400px) 60vw, 1000px" />
             <div className="safe-guides"><i /><i /></div>
             <div className="canvas-badge"><span className="status-dot" />Sẵn sàng tinh chỉnh</div>
             {props.job && props.job.status !== "completed" && props.job.status !== "cancelled" && (
@@ -500,8 +505,8 @@ function StudioView(props: {
               ))}
               <button className="ingredient-add" onClick={() => setDrawer("assets")}><PlusIcon size={16} /><span>Thêm</span></button>
             </div>
-            <div className="prompt-assist-row"><strong>Shot direction</strong><button onClick={() => void assistPrompt()} disabled={promptAssisting}>{promptAssisting ? <CircleNotchIcon className="spin" size={14} /> : <RobotIcon size={14} weight="fill" />}{promptAssisting ? "Đang tối ưu…" : "AI hỗ trợ prompt"}</button></div>
-            <textarea aria-label="Shot direction" value={props.prompt} onChange={(event) => props.setPrompt(event.target.value)} placeholder="Mô tả thông điệp, hành động, bố cục, ánh sáng và cảm xúc…" />
+            <div className="prompt-assist-row"><strong>Hướng dẫn dựng cảnh</strong><button onClick={() => void assistPrompt()} disabled={promptAssisting}>{promptAssisting ? <CircleNotchIcon className="spin" size={14} /> : <RobotIcon size={14} weight="fill" />}{promptAssisting ? "Đang tối ưu…" : "AI tối ưu mô tả"}</button></div>
+            <textarea aria-label="Hướng dẫn dựng cảnh" value={props.prompt} onChange={(event) => props.setPrompt(event.target.value)} placeholder="Mô tả thông điệp, hành động, bố cục, ánh sáng và cảm xúc…" />
             <div className="composer-footer">
               <div>
                 <button onClick={() => setDrawer(drawer === "assets" ? null : "assets")}><PlusIcon size={17} />Tài nguyên</button>
@@ -514,13 +519,13 @@ function StudioView(props: {
           </div>
         </div>
 
-        <ShotTimeline creativeMode={props.creativeMode} open={timelineOpen} onToggle={() => setTimelineOpen(!timelineOpen)} onToast={props.onToast} />
+        <ShotTimeline creativeMode={props.creativeMode} projectCover={props.projectCover} open={timelineOpen} onToggle={() => setTimelineOpen(!timelineOpen)} onToast={props.onToast} />
       </section>
 
       {drawer && (
         <aside className="flow-context-drawer panel-scroll">
           <div className="drawer-heading">
-            <div><span className="eyebrow">OUTPUT ĐANG CHỌN</span><h2>{drawer === "assets" ? "Tài nguyên" : drawer === "settings" ? "Cài đặt output" : "Danh sách ảnh tham chiếu"}</h2></div>
+            <div><span className="eyebrow">ĐẦU RA ĐANG CHỌN</span><h2>{drawer === "assets" ? "Tài nguyên" : drawer === "settings" ? "Cài đặt đầu ra" : "Danh sách ảnh tham chiếu"}</h2></div>
             <button className="icon-button" onClick={() => setDrawer(null)} aria-label="Đóng bảng"><XIcon size={16} /></button>
           </div>
 
@@ -555,22 +560,22 @@ function StudioView(props: {
   );
 }
 
-function ShotTimeline({ creativeMode, open, onToggle, onToast }: { creativeMode: CreativeMode; open: boolean; onToggle: () => void; onToast: (toast: Toast) => void }) {
+function ShotTimeline({ creativeMode, projectCover, open, onToggle, onToast }: { creativeMode: CreativeMode; projectCover: string; open: boolean; onToggle: () => void; onToast: (toast: Toast) => void }) {
   const socialOutputs = [
-    { id: "social-1", code: "POST 01", title: "Meme mở tuần", status: "approved", thumbnail: "/media-studio/project-dev-memes.png", camera: "Meme", lens: "1:1" },
-    { id: "social-2", code: "POST 02", title: "Cà phê sáng", status: "approved", thumbnail: "/media-studio/foxy-media-collage.png", camera: "Fanpage", lens: "4:5" },
-    { id: "social-3", code: "REEL 01", title: "3 ý tưởng ngày hè", status: "needs_review", thumbnail: "/media-studio/foxy-media-collage.png", camera: "TikTok", lens: "9:16" },
-    { id: "social-4", code: "AD 01", title: "Foxy Coffee", status: "draft", thumbnail: "/media-studio/foxy-master.png", camera: "Quảng cáo", lens: "4:5" },
+    { id: "social-1", code: "BÀI 01", title: "Mở đầu tuần", status: "approved", thumbnail: projectCover, camera: "Bài đăng", lens: "1:1" },
+    { id: "social-2", code: "BÀI 02", title: "Câu chuyện thương hiệu", status: "approved", thumbnail: projectCover, camera: "Bài đăng", lens: "4:5" },
+    { id: "social-3", code: "VIDEO 01", title: "Ý tưởng video ngắn", status: "needs_review", thumbnail: projectCover, camera: "Video dọc", lens: "9:16" },
+    { id: "social-4", code: "QC 01", title: "Hình quảng cáo", status: "draft", thumbnail: projectCover, camera: "Quảng cáo", lens: "4:5" },
   ];
   const timelineItems = creativeMode === "social" ? socialOutputs : shots;
-  const [selectedShot, setSelectedShot] = useState(creativeMode === "social" ? "POST 02" : "02D");
+  const [selectedShot, setSelectedShot] = useState(creativeMode === "social" ? "BÀI 02" : "02D");
   const isSocial = creativeMode === "social";
   return (
     <div className={`flow-timeline ${open ? "open" : ""}`}>
-      <div className="flow-timeline-heading"><button onClick={onToggle}><CaretDownIcon size={15} /><FilmSlateIcon size={17} /><strong>{isSocial ? "Tuần 29 — Lịch content" : "Cảnh 02 — Cuộc bàn giao"}</strong><span>{timelineItems.length} {isSocial ? "output" : "cú máy"}</span></button><div><button aria-label="Đổi kiểu hiển thị dòng thời gian" onClick={() => onToast({ title: isSocial ? "Dạng lịch content" : "Dạng dải phim", detail: isSocial ? "Các format đang được gom theo tuần đăng." : "Cảnh 02 đang dùng chế độ sáng tạo gọn." })}><GridFourIcon size={16} /></button><button onClick={() => onToast({ title: isSocial ? "Đã tạo output nháp" : "Đã tạo bản nháp cú máy", detail: isSocial ? "Output mới kế thừa character, giọng nói và ảnh chuẩn đã khóa." : "Cú máy mới sẽ kế thừa ảnh đã duyệt và các ảnh chuẩn đã khóa." })}><PlusIcon size={16} />{isSocial ? "Thêm output" : "Thêm cú máy"}</button></div></div>
+      <div className="flow-timeline-heading"><button onClick={onToggle}><CaretDownIcon size={15} /><FilmSlateIcon size={17} /><strong>{isSocial ? "Tuần 29 — Lịch nội dung" : "Cảnh 02 — Cuộc bàn giao"}</strong><span>{timelineItems.length} {isSocial ? "đầu ra" : "cú máy"}</span></button><div><button aria-label="Đổi kiểu hiển thị dòng thời gian" onClick={() => onToast({ title: isSocial ? "Dạng lịch nội dung" : "Dạng dải phim", detail: isSocial ? "Các định dạng đang được gom theo tuần đăng." : "Cảnh 02 đang dùng chế độ sáng tạo gọn." })}><GridFourIcon size={16} /></button><button onClick={() => onToast({ title: isSocial ? "Đã tạo đầu ra nháp" : "Đã tạo bản nháp cú máy", detail: isSocial ? "Đầu ra mới kế thừa nhân vật, giọng nói và ảnh chuẩn đã khóa." : "Cú máy mới sẽ kế thừa ảnh đã duyệt và các ảnh chuẩn đã khóa." })}><PlusIcon size={16} />{isSocial ? "Thêm đầu ra" : "Thêm cú máy"}</button></div></div>
       {open && <div className="flow-shot-track">
         {timelineItems.map((shot) => <button key={shot.id} className={`flow-shot-card ${shot.code === selectedShot ? "active" : ""}`} aria-label={`${shot.code} · ${shot.title} · ${shot.status === "approved" ? "Đã duyệt" : shot.status === "needs_review" ? "Cần duyệt" : "Bản nháp"}`} onClick={() => setSelectedShot(shot.code)}><span><Image src={shot.thumbnail} fill alt={shot.title} sizes="132px" /><b>{shot.code}</b></span><div><strong>{shot.title}</strong><small>{shot.camera} · {shot.lens}</small></div><i className={`shot-status ${shot.status}`} /></button>)}
-        <button className="flow-add-shot" onClick={() => onToast({ title: isSocial ? "Đã tạo output nháp" : "Đã tạo bản nháp cú máy", detail: isSocial ? "Output mới kế thừa character, giọng nói và ảnh chuẩn đã khóa." : "Cú máy mới sẽ kế thừa ảnh đã duyệt và các ảnh chuẩn đã khóa." })}><PlusIcon size={18} /><span>{isSocial ? "Thêm output" : "Thêm cú máy"}</span></button>
+        <button className="flow-add-shot" onClick={() => onToast({ title: isSocial ? "Đã tạo đầu ra nháp" : "Đã tạo bản nháp cú máy", detail: isSocial ? "Đầu ra mới kế thừa nhân vật, giọng nói và ảnh chuẩn đã khóa." : "Cú máy mới sẽ kế thừa ảnh đã duyệt và các ảnh chuẩn đã khóa." })}><PlusIcon size={18} /><span>{isSocial ? "Thêm đầu ra" : "Thêm cú máy"}</span></button>
       </div>}
     </div>
   );
@@ -585,7 +590,7 @@ function AssetLibrary(props: { visibleAssets: Asset[]; selectedAsset: Asset; set
   return (
     <div className="library-layout">
       <section className="library-main">
-        <div className="page-title"><div><span className="eyebrow">MEDIA LIBRARY</span><h1>Thư viện tài nguyên</h1><p>Ảnh chuẩn đã khóa giúp mọi output giữ đúng nhân vật, item và phong cách.</p></div><div><button className="secondary" onClick={props.onCreateCharacter}><DownloadSimpleIcon size={17} /> Nhập ảnh tham chiếu</button><button className="primary" onClick={props.onCreateCharacter}><PlusIcon size={17} /> Thêm nhân vật</button></div></div>
+        <div className="page-title"><div><span className="eyebrow">THƯ VIỆN MEDIA</span><h1>Thư viện tài nguyên</h1><p>Ảnh chuẩn đã khóa giúp mọi đầu ra giữ đúng nhân vật, vật phẩm và phong cách.</p></div><div><button className="secondary" onClick={props.onCreateCharacter}><DownloadSimpleIcon size={17} /> Nhập ảnh tham chiếu</button><button className="primary" onClick={props.onCreateCharacter}><PlusIcon size={17} /> Thêm nhân vật</button></div></div>
         <div className="library-toolbar"><label><MagnifyingGlassIcon size={17} /><input value={props.search} onChange={(event) => props.setSearch(event.target.value)} placeholder="Tìm tài nguyên" aria-label="Tìm tài nguyên" /></label><div className="filter-tabs">{filters.map((filter) => <button key={filter} className={props.filter === filter ? "selected" : ""} onClick={() => props.setFilter(filter)}>{filter === "all" ? "Tất cả" : assetKindLabels[filter]}</button>)}</div></div>
         <div className="asset-grid">{props.visibleAssets.map((asset) => <button key={asset.id} className={`asset-card ${props.selectedAsset.id === asset.id ? "selected" : ""}`} onClick={() => props.setSelectedAsset(asset)}><div className="asset-card-image"><Image src={asset.thumbnail} fill alt={asset.name} sizes="260px" /><span className={`type-dot ${assetColors[asset.kind]}`} />{asset.isSample ? <i>Mẫu</i> : asset.status === "locked" && <i><LockSimpleIcon size={13} weight="fill" /> Đã khóa</i>}</div><div className="asset-card-copy"><strong>{asset.name}</strong><span>{assetKindLabels[asset.kind]} · {asset.referenceCount} ảnh</span><div><em style={{ width: `${asset.coverage}%` }} /><small>{asset.coverage}% bao phủ</small></div></div></button>)}</div>
       </section>
@@ -670,11 +675,11 @@ function ReviewRepair({ selectedVariant, reviewVariants, reviewAssets, onBack, o
         <div className="compare-stage"><div className="compare-image"><Image src={repaired ? "/continuity/scene-02d-repaired.webp?v=quiet-luxury-20260720" : reviewVariants[selectedVariant]} unoptimized={reviewVariants[selectedVariant]?.startsWith("data:")} fill loading="eager" alt="Ảnh đầu ra hiện tại" sizes="900px" /><div className="mask-mark" style={{ width: brush * 1.45, height: brush * 1.15 }} /></div><div className="master-rail"><span>SO VỚI ẢNH CHUẨN</span>{reviewAssets.slice(0, 4).map((asset) => <button key={asset.id}><Image src={asset.thumbnail} fill alt={asset.name} sizes="90px" /><b>{asset.name}</b></button>)}</div></div>
         <div className="before-after"><div><span>Trước khi sửa</span><Image src={reviewVariants[selectedVariant]} unoptimized={reviewVariants[selectedVariant]?.startsWith("data:")} fill alt="Trước khi sửa" sizes="360px" /></div><i><ArrowsClockwiseIcon size={20} /></i><div><span>Sau khi sửa</span><Image src={repaired ? "/continuity/scene-02d-repaired.webp?v=quiet-luxury-20260720" : reviewVariants[selectedVariant]} unoptimized={!repaired && reviewVariants[selectedVariant]?.startsWith("data:")} fill alt="Bản xem trước sau khi sửa" sizes="360px" /></div></div>
       </section>
-      <aside className="findings-panel panel-scroll"><div className="panel-heading"><div><span className="eyebrow">AI HỖ TRỢ KIỂM TRA · BẢN THỬ</span><h2>Phát hiện về tính nhất quán</h2></div><span className="finding-count">{continuityFindings.filter((finding) => finding.status !== "pass").length} vấn đề</span></div><div className="finding-list">{continuityFindings.map((finding) => <button key={finding.id} className={`${finding.status} ${selectedFinding === finding.id ? "selected" : ""}`} onClick={() => setSelectedFinding(finding.id)}><span>{finding.status === "pass" ? <CheckCircleIcon weight="fill" /> : <WarningCircleIcon weight="fill" />}</span><div><strong>{finding.title}</strong><p>{finding.detail}</p><small>{finding.status === "pass" ? "Đạt" : finding.status === "review" ? "Cần xem" : "Lỗi"}</small></div></button>)}</div><div className="repair-tools"><h3>Sửa vấn đề đã chọn</h3><label>Thao tác<select value={repairAction} onChange={(event) => setRepairAction(event.target.value)}><option value="restore_look">Khôi phục trang phục</option><option value="restore_item">Khôi phục điện thoại đỏ</option><option value="repair_face">Sửa khuôn mặt</option><option value="fix_environment">Sửa bối cảnh</option></select></label><label>Cỡ cọ<div className="range-row"><input type="range" min="24" max="84" value={brush} onChange={(event) => setBrush(Number(event.target.value))} aria-label={`Cỡ cọ ${brush}`} /><b>{brush}</b></div></label><div className="toggle-row"><span><strong>Giữ nhận diện</strong><small>Giữ các đặc điểm khuôn mặt đã khóa</small></span><button className={preserveIdentity ? "on" : ""} onClick={() => setPreserveIdentity(!preserveIdentity)} aria-label="Giữ nhận diện" aria-pressed={preserveIdentity}><i /></button></div><div className="toggle-row"><span><strong>Giữ bố cục</strong><small>Giữ cỡ cảnh và tư thế</small></span><button className={preserveComposition ? "on" : ""} onClick={() => setPreserveComposition(!preserveComposition)} aria-label="Giữ bố cục" aria-pressed={preserveComposition}><i /></button></div><button className="primary full" disabled={repairing} onClick={() => void runRepair()}>{repairing ? <CircleNotchIcon size={18} className="spin" /> : <MagicWandIcon size={18} />} {repairing ? "Đang sửa…" : repaired ? "Sửa lại lần nữa" : "Sửa vùng đã chọn"}</button></div><button className={`approve-button ${approved ? "approved" : ""}`} disabled={approved} onClick={() => void approveOutput()}><CheckCircleIcon size={18} weight="fill" /> {approved ? "Đã duyệt · ảnh cha continuity" : "Duyệt ảnh đầu ra"}</button></aside>
+      <aside className="findings-panel panel-scroll"><div className="panel-heading"><div><span className="eyebrow">AI HỖ TRỢ KIỂM TRA · BẢN THỬ</span><h2>Phát hiện về tính nhất quán</h2></div><span className="finding-count">{continuityFindings.filter((finding) => finding.status !== "pass").length} vấn đề</span></div><div className="finding-list">{continuityFindings.map((finding) => <button key={finding.id} className={`${finding.status} ${selectedFinding === finding.id ? "selected" : ""}`} onClick={() => setSelectedFinding(finding.id)}><span>{finding.status === "pass" ? <CheckCircleIcon weight="fill" /> : <WarningCircleIcon weight="fill" />}</span><div><strong>{finding.title}</strong><p>{finding.detail}</p><small>{finding.status === "pass" ? "Đạt" : finding.status === "review" ? "Cần xem" : "Lỗi"}</small></div></button>)}</div><div className="repair-tools"><h3>Sửa vấn đề đã chọn</h3><label>Thao tác<select value={repairAction} onChange={(event) => setRepairAction(event.target.value)}><option value="restore_look">Khôi phục trang phục</option><option value="restore_item">Khôi phục điện thoại đỏ</option><option value="repair_face">Sửa khuôn mặt</option><option value="fix_environment">Sửa bối cảnh</option></select></label><label>Cỡ cọ<div className="range-row"><input type="range" min="24" max="84" value={brush} onChange={(event) => setBrush(Number(event.target.value))} aria-label={`Cỡ cọ ${brush}`} /><b>{brush}</b></div></label><div className="toggle-row"><span><strong>Giữ nhận diện</strong><small>Giữ các đặc điểm khuôn mặt đã khóa</small></span><button className={preserveIdentity ? "on" : ""} onClick={() => setPreserveIdentity(!preserveIdentity)} aria-label="Giữ nhận diện" aria-pressed={preserveIdentity}><i /></button></div><div className="toggle-row"><span><strong>Giữ bố cục</strong><small>Giữ cỡ cảnh và tư thế</small></span><button className={preserveComposition ? "on" : ""} onClick={() => setPreserveComposition(!preserveComposition)} aria-label="Giữ bố cục" aria-pressed={preserveComposition}><i /></button></div><button className="primary full" disabled={repairing} onClick={() => void runRepair()}>{repairing ? <CircleNotchIcon size={18} className="spin" /> : <MagicWandIcon size={18} />} {repairing ? "Đang sửa…" : repaired ? "Sửa lại lần nữa" : "Sửa vùng đã chọn"}</button></div><button className={`approve-button ${approved ? "approved" : ""}`} disabled={approved} onClick={() => void approveOutput()}><CheckCircleIcon size={18} weight="fill" /> {approved ? "Đã duyệt · ảnh cha nhất quán" : "Duyệt ảnh đầu ra"}</button></aside>
     </div>
   );
 }
 
 function ExpertWorkflow({ onToast }: { onToast: (toast: Toast) => void }) {
-  return <div className="expert-page"><div className="page-title"><div><span className="eyebrow">CHỈ DÀNH CHO CHUYÊN GIA</span><h1>Quy trình tạo content</h1><p>Các bước xử lý có kiểu dữ liệu và được cho phép sẵn. Chế độ Cơ bản chỉ hiển thị những trường đầu vào, đầu ra đã chọn.</p></div><div><button className="secondary" onClick={() => onToast({ title: "Đã mở cấu hình Cơ bản", detail: "Các checkbox bên trái quyết định trường nào xuất hiện trong Studio." })}><SquaresFourIcon size={17} /> Cấu hình chế độ Cơ bản</button><button className="primary" onClick={() => onToast({ title: "Đã lưu quy trình v1.0.0", detail: "Bản thử giữ nguyên sơ đồ an toàn và các đầu vào đang hiển thị." })}><GitBranchIcon size={17} /> Lưu quy trình v1.0.0</button></div></div><div className="workflow-shell"><aside><div className="workflow-note"><LockSimpleIcon size={18} weight="fill" /><div><strong>Sơ đồ an toàn</strong><span>Đã tắt mã tùy ý và các bước chưa đăng ký.</span></div></div><h3>Đầu vào hiển thị</h3>{["Dàn nhân vật", "Trang phục", "Vật phẩm", "Bối cảnh", "Shot direction", "Tỷ lệ", "Đầu ra"].map((label) => <label key={label}><input type="checkbox" defaultChecked /> {label}</label>)}<h3>Chính sách chạy</h3><SelectRow label="Khi có lỗi" value="Duyệt thủ công" onClick={() => onToast({ title: "Chính sách khi có lỗi", detail: "Bản MVP luôn yêu cầu duyệt thủ công trước khi tiếp tục." })} /><SelectRow label="Số lần thử lại" value="1 lần" onClick={() => onToast({ title: "Số lần thử lại", detail: "Worker thử lại tối đa một lần để tránh phát sinh chi phí ngoài dự kiến." })} /></aside><WorkflowGraph /></div></div>;
+  return <div className="expert-page"><div className="page-title"><div><span className="eyebrow">CHỈ DÀNH CHO CHUYÊN GIA</span><h1>Quy trình tạo nội dung</h1><p>Các bước xử lý có kiểu dữ liệu và được cho phép sẵn. Chế độ Cơ bản chỉ hiển thị những trường đầu vào, đầu ra đã chọn.</p></div><div><button className="secondary" onClick={() => onToast({ title: "Đã mở cấu hình Cơ bản", detail: "Các ô chọn bên trái quyết định trường nào xuất hiện trong Studio." })}><SquaresFourIcon size={17} /> Cấu hình chế độ Cơ bản</button><button className="primary" onClick={() => onToast({ title: "Đã lưu quy trình v1.0.0", detail: "Bản thử giữ nguyên sơ đồ an toàn và các đầu vào đang hiển thị." })}><GitBranchIcon size={17} /> Lưu quy trình v1.0.0</button></div></div><div className="workflow-shell"><aside><div className="workflow-note"><LockSimpleIcon size={18} weight="fill" /><div><strong>Sơ đồ an toàn</strong><span>Đã tắt mã tùy ý và các bước chưa đăng ký.</span></div></div><h3>Đầu vào hiển thị</h3>{["Dàn nhân vật", "Trang phục", "Vật phẩm", "Bối cảnh", "Hướng dẫn dựng cảnh", "Tỷ lệ", "Đầu ra"].map((label) => <label key={label}><input type="checkbox" defaultChecked /> {label}</label>)}<h3>Chính sách chạy</h3><SelectRow label="Khi có lỗi" value="Duyệt thủ công" onClick={() => onToast({ title: "Chính sách khi có lỗi", detail: "Bản MVP luôn yêu cầu duyệt thủ công trước khi tiếp tục." })} /><SelectRow label="Số lần thử lại" value="1 lần" onClick={() => onToast({ title: "Số lần thử lại", detail: "Hệ thống thử lại tối đa một lần để tránh phát sinh chi phí ngoài dự kiến." })} /></aside><WorkflowGraph /></div></div>;
 }

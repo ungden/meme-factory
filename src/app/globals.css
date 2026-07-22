@@ -510,10 +510,17 @@ body {
   text-wrap: balance;
 }
 
+.media-home h1,
+.media-home h2,
+.media-home h3 {
+  font-kerning: normal;
+  text-rendering: optimizeLegibility;
+}
+
 .media-hand-note {
   font-family: var(--font-caveat), cursive;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
 .media-collage img {
@@ -684,5 +691,10 @@ body {
 
   .media-final-cta {
     border-radius: 22px;
+  }
+
+  .media-format-item .media-copy {
+    font-size: 12px;
+    line-height: 1.45;
   }
 }

@@ -1126,7 +1126,7 @@ export default function GeneratePage() {
                     )}
                     {v.visual_direction && (
                       <div className="p-2 rounded-lg" style={{ background: "var(--bg-tertiary)", opacity: 0.6 }}>
-                        <p className="text-xs th-text-tertiary mb-1">AI visual direction:</p>
+                        <p className="text-xs th-text-tertiary mb-1">Định hướng hình ảnh của AI:</p>
                         <p className="text-xs th-text-secondary line-clamp-3">
                           {v.visual_direction.scene || v.visual_direction.character_styling || v.visual_direction.composition || "Đã có chỉ dẫn hình ảnh chi tiết"}
                         </p>
@@ -1161,7 +1161,7 @@ export default function GeneratePage() {
                           <Wand2 size={36} style={{ color: "var(--accent)" }} />
                         </div>
                         <div className="text-center">
-                          <p className="th-text-primary font-semibold text-lg">Tạo visual bằng AI</p>
+                          <p className="th-text-primary font-semibold text-lg">Tạo hình ảnh bằng AI</p>
                           <p className="th-text-tertiary text-sm mt-1 max-w-sm">
                             AIDA sẽ dựng visual 1K hoàn chỉnh từ nội dung, nhân vật và phong cách đã chọn
                           </p>

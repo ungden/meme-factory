@@ -18,47 +18,48 @@ import {
   Zap,
 } from "lucide-react";
 import { useProject, useCharacters, useMemes } from "@/lib/use-store";
+import { getProjectCover } from "@/lib/project-visuals";
 import Sidebar from "@/components/layout/sidebar";
 
 const modes = [
   {
-    title: "Ý tưởng & caption",
-    description: "Từ brief ngắn thành hook, caption và lịch đăng.",
+    title: "Ý tưởng & chú thích",
+    description: "Từ yêu cầu ngắn thành câu mở đầu, chú thích và lịch đăng.",
     icon: MessageCircle,
     color: "#f05a32",
     path: "generate",
   },
   {
     title: "Meme & bài đăng",
-    description: "Giữ đúng nhân vật qua meme, post vuông và carousel.",
+    description: "Giữ đúng nhân vật qua meme, bài vuông và chuỗi ảnh.",
     icon: ImageIcon,
     color: "#265ee8",
     path: "studio?mode=social",
   },
   {
     title: "TikTok & Reels",
-    description: "Lên hook, shot direction và visual dọc nhất quán.",
+    description: "Lên câu mở đầu, hướng dẫn dựng cảnh và hình dọc nhất quán.",
     icon: Video,
     color: "#12a594",
     path: "studio?mode=social",
   },
   {
     title: "Quảng cáo",
-    description: "Tạo key visual và biến thể theo từng nền tảng.",
+    description: "Tạo hình chủ đạo và biến thể theo từng nền tảng.",
     icon: Megaphone,
     color: "#f59e0b",
     path: "studio?mode=product",
   },
   {
     title: "Thời trang",
-    description: "Giữ đúng người mẫu, look và art direction của campaign.",
+    description: "Giữ đúng người mẫu, trang phục và định hướng hình ảnh của chiến dịch.",
     icon: Shirt,
     color: "#df6b8b",
     path: "studio?mode=fashion",
   },
   {
     title: "Storyboard",
-    description: "Khi cần, dựng scene và shot theo mạch kể dài hơn.",
+    description: "Khi cần, dựng cảnh và cú máy theo mạch kể dài hơn.",
     icon: Clapperboard,
     color: "#7668d6",
     path: "studio?mode=storyboard",
@@ -98,9 +99,7 @@ export default function ProjectOverviewPage() {
     { label: "Đầu ra đã lưu", value: memes.length, icon: Images },
     { label: "Tạo trong 7 ngày", value: weeklyOutputs, icon: TrendingUp },
   ];
-  const projectCover = project.name.toLowerCase().includes("dev")
-    ? "/media-studio/project-dev-memes.png"
-    : "/media-studio/project-bull-bear.png";
+  const projectCover = getProjectCover(project.name, project.description || "");
 
   return (
     <div className="flex">
@@ -124,17 +123,17 @@ export default function ProjectOverviewPage() {
               <div className="absolute inset-0 bg-gradient-to-r from-[#fbf6e9] via-[#fbf6e9]/90 to-[#fbf6e9]/5" />
             </div>
             <div className="relative max-w-xl px-6 py-10 md:px-9 md:py-12">
-              <span className="inline-flex items-center gap-2 rounded-full border border-blue-600/20 bg-blue-600/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-blue-700"><Zap size={12} /> Media system của bạn</span>
-              <h2 className="mt-5 text-3xl font-bold leading-[1.05] tracking-[-0.04em] md:text-[40px]">Một nhân vật.<br />Cả tuần content.</h2>
-              <p className="mt-4 max-w-lg text-sm leading-6 text-[#5c5c54]">AIDA nhớ nhân vật, giọng điệu và tài nguyên thương hiệu. Bạn chỉ cần chọn format và nói ý tưởng hôm nay.</p>
+              <span className="inline-flex items-center gap-2 rounded-full border border-blue-600/20 bg-blue-600/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-700"><Zap size={12} /> Hệ thống nội dung của bạn</span>
+              <h2 className="mt-5 text-3xl font-bold leading-[1.08] tracking-[-0.025em] md:text-[40px]">Nhân vật nhất quán.<br />Nội dung đều đặn.</h2>
+              <p className="mt-4 max-w-lg text-sm leading-6 text-[#5c5c54]">AIDA nhớ nhân vật, giọng điệu và tài nguyên thương hiệu. Bạn chỉ cần chọn định dạng và nói ý tưởng hôm nay.</p>
               <div className="mt-6 flex flex-wrap gap-2 text-[11px] text-[#5c5c54]">
-                {["Ý tưởng & caption", "Ảnh reference", "Shot direction AI", "Review output"].map((feature) => <span key={feature} className="rounded-lg border border-black/10 bg-white/55 px-2.5 py-1.5">{feature}</span>)}
+                {["Ý tưởng & chú thích", "Ảnh tham chiếu", "AI dựng cảnh", "Duyệt đầu ra"].map((feature) => <span key={feature} className="rounded-lg border border-black/10 bg-white/55 px-2.5 py-1.5">{feature}</span>)}
               </div>
             </div>
           </section>
 
           <section className="mb-8">
-            <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-semibold th-text-primary">Hôm nay bạn muốn làm gì?</h2><p className="mt-1 text-sm th-text-tertiary">Chọn đầu ra; AIDA giữ nguyên character và mở đúng bộ điều khiển.</p></div></div>
+            <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-semibold th-text-primary">Hôm nay bạn muốn làm gì?</h2><p className="mt-1 text-sm th-text-tertiary">Chọn đầu ra. AIDA giữ nguyên nhân vật và mở đúng bộ điều khiển.</p></div></div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {modes.map((mode) => (
                 <button key={mode.title} onClick={() => router.push(`/projects/${projectId}/${mode.path}`)} className="group rounded-2xl border p-5 text-left transition hover:-translate-y-1 hover:shadow-xl" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>

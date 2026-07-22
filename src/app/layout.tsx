@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Caveat, Inter } from "next/font/google";
+import { Inter, Patrick_Hand } from "next/font/google";
 import { Suspense } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/ui/toast";
@@ -9,12 +9,13 @@ import "./globals.css";
 
 const inter = Inter({
   variable: "--font-inter",
-  subsets: ["latin", "latin-ext"],
+  subsets: ["latin", "vietnamese"],
 });
 
-const caveat = Caveat({
+const hand = Patrick_Hand({
   variable: "--font-caveat",
-  subsets: ["latin", "latin-ext"],
+  subsets: ["latin", "vietnamese"],
+  weight: "400",
 });
 
 export const viewport: Viewport = {
@@ -98,7 +99,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} ${caveat.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${hand.variable} font-sans antialiased`}>
         <ThemeProvider>
           <ToastProvider>
             <Suspense fallback={null}>

@@ -577,7 +577,7 @@ export default function CharacterDetailPage() {
         </Modal>
 
         {/* AI Generate Pose Modal */}
-        <Modal isOpen={showAiPoseModal} onClose={() => setShowAiPoseModal(false)} title="Tạo character bằng AI" size="xl">
+        <Modal isOpen={showAiPoseModal} onClose={() => setShowAiPoseModal(false)} title="Tạo nhân vật bằng AI" size="xl">
           <div className="space-y-5">
             {/* Character info */}
             <div className="flex items-center gap-3 p-3 rounded-xl th-bg-tertiary">
@@ -643,7 +643,7 @@ export default function CharacterDetailPage() {
             </div>
 
             <div className="p-2 rounded-lg th-bg-tertiary text-xs th-text-secondary">
-              AI sẽ tạo 1 ảnh <strong>base character</strong> (không khóa emotion). Emotion sẽ được xử lý theo từng meme sau này.
+              AI sẽ tạo 1 <strong>ảnh nhân vật gốc</strong> (không khóa biểu cảm). Biểu cảm sẽ được xử lý theo từng meme sau này.
             </div>
 
             {/* Custom style override */}
@@ -676,7 +676,7 @@ export default function CharacterDetailPage() {
                 <div className="w-16 h-16 rounded-2xl th-bg-accent-light flex items-center justify-center">
                   <Loader2 size={28} className="animate-spin" style={{ color: "var(--accent)" }} />
                 </div>
-                <p className="th-text-primary font-medium">AI đang tạo character...</p>
+                <p className="th-text-primary font-medium">AI đang tạo nhân vật...</p>
                 <p className="th-text-tertiary text-xs">Quá trình này có thể mất 10-30 giây</p>
               </div>
             )}
