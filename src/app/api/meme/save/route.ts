@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getRequestUser } from "@/lib/supabase/request-auth";
+import { stripImageMetadata } from "@/lib/image-metadata";
 
 let supabaseAdminClient: SupabaseClient | null = null;
 
@@ -65,7 +66,16 @@ export async function POST(request: NextRequest) {
     // Upload composed image if provided
     if (image_base64) {
       const base64Data = image_base64.replace(/^data:image\/\w+;base64,/, "");
-      const buffer = Buffer.from(base64Data, "base64");
+      // Ảnh có thể tới từ canvas trên web hoặc trực tiếp từ mobile app, nên gỡ
+      // metadata một lần nữa ngay trước khi ghi vào storage — file public này
+      // chính là thứ người dùng tải về rồi đăng lên mạng xã hội.
+      const stripped = stripImageMetadata(new Uint8Array(Buffer.from(base64Data, "base64")));
+      if (stripped.bytesRemoved > 0) {
+        console.info(
+          `[image-metadata] stripped ${stripped.removed.join(", ")} (${stripped.bytesRemoved} bytes) before upload`
+        );
+      }
+      const buffer = Buffer.from(stripped.bytes);
       const filePath = `${project_id}/${Date.now()}.png`;
 
       const { error: uploadError } = await supabase.storage
