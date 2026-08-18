@@ -7,6 +7,7 @@ import { IS_MOCK_MODE } from "@/lib/use-store";
 import type {
   BaseImageStatus,
   Character,
+  CharacterDna,
   ExpressionTag,
   LayoutPreset,
   MascotBaseImage,
@@ -205,4 +206,45 @@ export async function saveGeneratedBaseImage(input: SaveBaseImageInput) {
 
   if (error) throw new Error(error.message);
   return data as MascotBaseImage;
+}
+
+export function useCharacterDna(characterId: string | null) {
+  const [dna, setDna] = useState<CharacterDna | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    if (IS_MOCK_MODE || !characterId) {
+      setLoading(false);
+      return;
+    }
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("character_dna")
+      .select("*")
+      .eq("character_id", characterId)
+      .maybeSingle();
+    setDna((data as CharacterDna | null) ?? null);
+    setLoading(false);
+  }, [characterId]);
+
+  useDeferredTask(load);
+
+  const save = useCallback(
+    async (patch: Partial<CharacterDna>) => {
+      if (!characterId) return;
+      const supabase = createClient();
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("character_dna")
+        .upsert(
+          { character_id: characterId, ...patch, updated_by: userData.user?.id ?? null },
+          { onConflict: "character_id" }
+        );
+      if (error) throw new Error(error.message);
+      await load();
+    },
+    [characterId, load]
+  );
+
+  return { dna, loading, save, reload: load };
 }
