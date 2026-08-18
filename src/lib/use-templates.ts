@@ -11,6 +11,7 @@ import type {
   ExpressionTag,
   LayoutPreset,
   MascotBaseImage,
+  MemeCollection,
   MemeFormat,
 } from "@/types/database";
 
@@ -247,4 +248,87 @@ export function useCharacterDna(characterId: string | null) {
   );
 
   return { dna, loading, save, reload: load };
+}
+
+export interface CollectionWithCount extends MemeCollection {
+  meme_count: number;
+}
+
+export function useMemeCollections(projectRef: string) {
+  const [collections, setCollections] = useState<CollectionWithCount[]>([]);
+  const [membership, setMembership] = useState<Record<string, string[]>>({});
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    if (IS_MOCK_MODE) {
+      setLoading(false);
+      return;
+    }
+    const projectId = await resolveProjectId(projectRef);
+    if (!projectId) {
+      setCollections([]);
+      setLoading(false);
+      return;
+    }
+
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("meme_collections")
+      .select("*, meme_collection_items(meme_id)")
+      .eq("project_id", projectId)
+      .order("sort_order")
+      .order("created_at");
+
+    const rows = (data ?? []) as (MemeCollection & { meme_collection_items: { meme_id: string }[] })[];
+    setCollections(rows.map((row) => ({ ...row, meme_count: row.meme_collection_items?.length ?? 0 })));
+    setMembership(
+      Object.fromEntries(rows.map((row) => [row.id, (row.meme_collection_items ?? []).map((item) => item.meme_id)]))
+    );
+    setLoading(false);
+  }, [projectRef]);
+
+  useDeferredTask(load);
+
+  const create = useCallback(
+    async (name: string) => {
+      const projectId = await resolveProjectId(projectRef);
+      if (!projectId) throw new Error("Không tìm thấy dự án");
+      const supabase = createClient();
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("meme_collections")
+        .insert({ project_id: projectId, name, created_by: userData.user?.id ?? null });
+      if (error) throw new Error(error.message);
+      await load();
+    },
+    [projectRef, load]
+  );
+
+  const addMeme = useCallback(
+    async (collectionId: string, memeId: string) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("meme_collection_items")
+        .upsert({ collection_id: collectionId, meme_id: memeId }, { onConflict: "collection_id,meme_id" });
+      if (error) throw new Error(error.message);
+      await load();
+    },
+    [load]
+  );
+
+  const removeMeme = useCallback(
+    async (collectionId: string, memeId: string) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("meme_collection_items")
+        .delete()
+        .eq("collection_id", collectionId)
+        .eq("meme_id", memeId);
+      if (error) throw new Error(error.message);
+      await load();
+    },
+    [load]
+  );
+
+  return { collections, membership, loading, create, addMeme, removeMeme, reload: load };
 }

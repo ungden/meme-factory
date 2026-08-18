@@ -9,6 +9,7 @@ import Card from "@/components/ui/card";
 import Modal from "@/components/ui/modal";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { useToast } from "@/components/ui/toast";
+import { useMemeCollections } from "@/lib/use-templates";
 import {
   Download,
   Trash2,
@@ -23,6 +24,7 @@ import {
   Wand2,
   Sparkles,
   Type,
+  FolderPlus,
 } from "lucide-react";
 import type { MemeContent } from "@/types/database";
 
@@ -42,6 +44,14 @@ export default function GalleryPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isZipping, setIsZipping] = useState(false);
   const [zipProgress, setZipProgress] = useState({ done: 0, total: 0 });
+
+  const { collections, membership, create: createCollection, addMeme, removeMeme } = useMemeCollections(projectId);
+  const [activeCollection, setActiveCollection] = useState<string | null>(null);
+
+  // Collection filtering happens on the already-loaded list; no extra round trip.
+  const visibleMemes = activeCollection
+    ? memes.filter((meme) => (membership[activeCollection] ?? []).includes(meme.id))
+    : memes;
 
   const selected = memes.find((m) => m.id === selectedMeme);
 
@@ -232,6 +242,53 @@ export default function GalleryPage() {
           )}
         </div>
 
+        {/* Collections */}
+        {!loading && memes.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setActiveCollection(null)}
+              className={`rounded-full border px-3 py-1 text-xs ${
+                activeCollection === null
+                  ? "border-blue-600 text-blue-600 bg-blue-600/10"
+                  : "th-border-secondary th-text-tertiary"
+              }`}
+            >
+              Tất cả ({memes.length})
+            </button>
+            {collections.map((collection) => (
+              <button
+                key={collection.id}
+                type="button"
+                onClick={() => setActiveCollection(collection.id)}
+                className={`rounded-full border px-3 py-1 text-xs ${
+                  activeCollection === collection.id
+                    ? "border-blue-600 text-blue-600 bg-blue-600/10"
+                    : "th-border-secondary th-text-tertiary"
+                }`}
+              >
+                {collection.name} ({collection.meme_count})
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={async () => {
+                const name = window.prompt("Tên bộ sưu tập mới");
+                if (!name?.trim()) return;
+                try {
+                  await createCollection(name.trim());
+                  toast.success("Đã tạo bộ sưu tập");
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "Không tạo được bộ sưu tập");
+                }
+              }}
+              className="flex items-center gap-1 rounded-full border border-dashed th-border-secondary px-3 py-1 text-xs th-text-tertiary"
+            >
+              <FolderPlus size={12} /> Bộ sưu tập mới
+            </button>
+          </div>
+        )}
+
         {/* Selection bar */}
         {selectionMode && (
           <div
@@ -306,7 +363,7 @@ export default function GalleryPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {memes.map((meme) => {
+            {visibleMemes.map((meme) => {
               const content = meme.generated_content as MemeContent;
               const isSelected = selectedIds.has(meme.id);
               const hasImage = !!meme.image_url;
@@ -514,6 +571,38 @@ export default function GalleryPage() {
                       <Button variant="outline" size="sm" onClick={() => goEditText(selected.id)}>
                         <Type size={14} /> Sửa chữ
                       </Button>
+                      {collections.length > 0 && (
+                        <select
+                          aria-label="Thêm vào bộ sưu tập"
+                          defaultValue=""
+                          onChange={async (event) => {
+                            const collectionId = event.target.value;
+                            event.target.value = "";
+                            if (!collectionId) return;
+                            const already = (membership[collectionId] ?? []).includes(selected.id);
+                            try {
+                              if (already) {
+                                await removeMeme(collectionId, selected.id);
+                                toast.success("Đã bỏ khỏi bộ sưu tập");
+                              } else {
+                                await addMeme(collectionId, selected.id);
+                                toast.success("Đã thêm vào bộ sưu tập");
+                              }
+                            } catch (error) {
+                              toast.error(error instanceof Error ? error.message : "Không cập nhật được");
+                            }
+                          }}
+                          className="rounded-xl border th-border-secondary th-bg-tertiary px-3 text-sm th-text-primary"
+                        >
+                          <option value="">Bộ sưu tập…</option>
+                          {collections.map((collection) => (
+                            <option key={collection.id} value={collection.id}>
+                              {(membership[collection.id] ?? []).includes(selected.id) ? "✓ " : ""}
+                              {collection.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                       <Button variant="outline" size="sm" onClick={() => goReuseIdea(selected.id)}>
                         <Wand2 size={14} /> Dùng lại idea
                       </Button>
