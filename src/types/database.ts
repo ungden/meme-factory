@@ -45,13 +45,16 @@ export interface Meme {
   project_id: string;
   source_meme_id?: string | null;
   generation_job_id?: string | null;
+  base_image_id?: string | null;
+  editor_doc?: unknown;
+  composed_locally?: boolean;
   title: string | null;
   original_idea: string; // user's raw input
   generated_content: MemeContent; // AI-generated content
   selected_characters: SelectedCharacter[];
   format: MemeFormat;
   image_url: string | null; // final composed image
-  canvas_data: string | null; // fabric.js JSON for re-editing
+  canvas_data: string | null; // legacy, never populated; superseded by editor_doc
   has_watermark: boolean;
   status: MemeStatus;
   created_at: string;
@@ -353,6 +356,94 @@ export interface TopupInfo {
   bankBin?: string;
   bankName?: string;
   accountName?: string;
+}
+
+// ============================================
+// Mascot Meme Engine — base images & templates
+// ============================================
+
+export type LayoutPresetId = "tight_closeup" | "medium_portrait" | "offset_composition";
+export type BaseImageStatus = "draft" | "ready" | "archived";
+export type SafeZonesSource = "layout_default" | "authored" | "detected";
+
+export interface ExpressionTag {
+  slug: string;
+  label_vi: string;
+  vibe_group: "positive" | "negative" | "neutral" | "intense" | "playful";
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface LayoutPreset {
+  id: LayoutPresetId;
+  label_vi: string;
+  description: string | null;
+  default_safe_zones: Record<string, unknown>;
+  default_text_style: Record<string, unknown>;
+  recommended_chars: number;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface MascotBaseImage {
+  id: string;
+  character_id: string;
+  legacy_pose_id: string | null;
+  expression_slug: string;
+  expression_label: string | null;
+  layout_preset_id: LayoutPresetId;
+  variant_index: number;
+  image_url: string;
+  storage_bucket: string;
+  storage_path: string | null;
+  width: number | null;
+  height: number | null;
+  aspect_ratio: MemeFormat;
+  has_transparent_bg: boolean;
+  safe_zones: Record<string, unknown>;
+  safe_zones_source: SafeZonesSource;
+  safe_zones_updated_at: string | null;
+  default_text_style: Record<string, unknown>;
+  recommended_chars: number;
+  watermark_area: Record<string, unknown>;
+  status: BaseImageStatus;
+  sort_order: number;
+  generation_job_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CharacterDna {
+  character_id: string;
+  summary: string;
+  palette: Array<{ name?: string; hex: string; role?: string }>;
+  face_traits: string[];
+  body_traits: string[];
+  tone: Record<string, unknown>;
+  background_style: Record<string, unknown>;
+  watermark_safe_area: Record<string, unknown>;
+  must_preserve: string[];
+  may_change: string[];
+  updated_by: string | null;
+  updated_at: string;
+}
+
+export interface MemeCollection {
+  id: string;
+  project_id: string;
+  name: string;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface TextPreset {
+  id: string;
+  project_id: string | null;
+  name: string;
+  style: Record<string, unknown>;
+  is_system: boolean;
+  created_at: string;
 }
 
 // ============================================
