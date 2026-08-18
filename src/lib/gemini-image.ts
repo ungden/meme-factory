@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { getGeminiApiKey } from "@/lib/server-secrets";
+import { stripImageMetadata } from "@/lib/image-metadata";
 
 // ============================================
 // Gemini Nano Banana 2 - Image Generation
@@ -358,6 +359,11 @@ function extractImageFromResponse(response: any): GeneratedImageResult {
     throw new Error("AI không tạo được ảnh. Vui lòng thử lại với mô tả khác.");
   }
 
+  // Gỡ metadata (EXIF/XMP/C2PA/text chunk...) ngay tại điểm ảnh rời khỏi
+  // provider, để mọi đường ra sau đó — trả về client, tải xuống, upload lên
+  // storage — đều dùng chung một bản đã sạch.
+  imageData = sanitizeGeneratedImage(imageData);
+
   const metadata = response?.usageMetadata;
   const usage: ImageGenerationUsage | undefined = metadata ? {
     promptTokenCount: metadata.promptTokenCount,
@@ -369,4 +375,26 @@ function extractImageFromResponse(response: any): GeneratedImageResult {
   } : undefined;
 
   return { image: imageData, text: textContent, usage };
+}
+
+// ============================================
+// Helper: Strip provenance metadata from provider output
+// ============================================
+// Chỉ gỡ metadata trong file (EXIF, XMP, IPTC, C2PA/Content Credentials, text
+// chunk). KHÔNG gỡ được SynthID — watermark ẩn Google nhúng vào pixel.
+function sanitizeGeneratedImage(base64Image: string): string {
+  try {
+    const raw = Buffer.from(base64Image, "base64");
+    const result = stripImageMetadata(new Uint8Array(raw));
+    if (result.bytesRemoved === 0) return base64Image;
+
+    console.info(
+      `[image-metadata] stripped ${result.removed.join(", ")} (${result.bytesRemoved} bytes) from ${result.format}`
+    );
+    return Buffer.from(result.bytes).toString("base64");
+  } catch (error) {
+    // Ảnh vẫn dùng được — không để bước dọn metadata làm hỏng cả lần generate.
+    console.error("[image-metadata] strip failed, returning original image:", error);
+    return base64Image;
+  }
 }

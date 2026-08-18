@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { stripImageMetadataFromFile } from "@/lib/image-metadata";
 import {
   MOCK_USER,
   MOCK_PROJECTS,
@@ -312,7 +313,10 @@ export function useCharacters(projectRef: string) {
     const supabase = createClient();
     const fileExt = input.file.name.split(".").pop();
     const filePath = `${projectRef}/${characterId}/${Date.now()}.${fileExt}`;
-    const { error: uploadError } = await supabase.storage.from("character-poses").upload(filePath, input.file);
+    // Bucket này public: gỡ EXIF/XMP/C2PA trước khi upload để ảnh người dùng
+    // chọn từ máy không mang theo GPS, model máy ảnh hay dấu vết công cụ AI.
+    const uploadFile = await stripImageMetadataFromFile(input.file);
+    const { error: uploadError } = await supabase.storage.from("character-poses").upload(filePath, uploadFile);
     if (uploadError) throw uploadError;
     const { data: urlData } = supabase.storage.from("character-poses").getPublicUrl(filePath);
     const { data: insertedPose } = await supabase.from("character_poses").insert({
