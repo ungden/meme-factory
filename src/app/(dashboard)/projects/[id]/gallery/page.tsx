@@ -22,6 +22,7 @@ import {
   CheckCircle,
   Wand2,
   Sparkles,
+  Type,
 } from "lucide-react";
 import type { MemeContent } from "@/types/database";
 
@@ -112,6 +113,16 @@ export default function GalleryPage() {
     setSelectedIds(new Set());
     requestAnimationFrame(() => {
       router.push(`/projects/${projectId}/generate?fromMeme=${encodeURIComponent(memeId)}&mode=regenerate`);
+    });
+  };
+
+  const goEditText = (memeId: string) => {
+    setSelectedMeme(null);
+    setDeleteTarget(null);
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    requestAnimationFrame(() => {
+      router.push(`/projects/${projectId}/editor?meme=${encodeURIComponent(memeId)}`);
     });
   };
 
@@ -376,6 +387,17 @@ export default function GalleryPage() {
                           <Sparkles size={18} className="text-white" />
                         </button>
                         <button
+                          aria-label="Sửa chữ trên meme này"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            goEditText(meme.id);
+                          }}
+                          className="p-2 bg-blue-500/40 rounded-xl hover:bg-blue-500/60 transition-colors"
+                          title="Sửa chữ (0 điểm)"
+                        >
+                          <Type size={18} className="text-white" />
+                        </button>
+                        <button
                           aria-label="Dùng lại ý tưởng"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -488,6 +510,9 @@ export default function GalleryPage() {
                     <div className="flex gap-2 pt-2">
                       <Button variant="outline" size="sm" onClick={() => goRegenerate(selected.id)}>
                         <Sparkles size={14} /> Tạo biến thể
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => goEditText(selected.id)}>
+                        <Type size={14} /> Sửa chữ
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => goReuseIdea(selected.id)}>
                         <Wand2 size={14} /> Dùng lại idea

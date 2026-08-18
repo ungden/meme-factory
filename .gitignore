@@ -44,3 +44,6 @@ next-env.d.ts
 
 # supabase local
 supabase/.temp/
+
+# local dev server config for the Claude Code browser preview
+.claude/

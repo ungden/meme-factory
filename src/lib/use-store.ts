@@ -403,6 +403,10 @@ export function useMemes(projectRef: string) {
     image_base64?: string | null;
     source_meme_id?: string | null;
     generation_request_id?: string | null;
+    /** Text-overlay document; present when the meme was composed client-side. */
+    editor_doc?: unknown;
+    base_image_id?: string | null;
+    composed_locally?: boolean;
   }) => {
     if (IS_MOCK_MODE) {
       const newMeme: Meme = {
@@ -416,6 +420,9 @@ export function useMemes(projectRef: string) {
         format: input.format,
         image_url: input.image_base64 || null,
         canvas_data: null,
+        editor_doc: input.editor_doc,
+        base_image_id: input.base_image_id || null,
+        composed_locally: Boolean(input.composed_locally),
         has_watermark: input.has_watermark,
         status: "completed",
         created_at: new Date().toISOString(),

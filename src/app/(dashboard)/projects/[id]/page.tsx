@@ -16,12 +16,20 @@ import {
   Users,
   Video,
   Zap,
+  Type,
 } from "lucide-react";
 import { useProject, useCharacters, useMemes } from "@/lib/use-store";
 import { getProjectCover } from "@/lib/project-visuals";
 import Sidebar from "@/components/layout/sidebar";
 
 const modes = [
+  {
+    title: "Ghép chữ lên mascot",
+    description: "Chọn biểu cảm có sẵn, đặt chữ và tải về. Không tốn điểm.",
+    icon: Type,
+    color: "#265ee8",
+    path: "editor",
+  },
   {
     title: "Ý tưởng & chú thích",
     description: "Từ yêu cầu ngắn thành câu mở đầu, chú thích và lịch đăng.",

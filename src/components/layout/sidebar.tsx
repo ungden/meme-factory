@@ -17,6 +17,7 @@ import {
   Wallet,
   UserPlus,
   Clapperboard,
+  Type,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -128,6 +129,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
     ? [
         { href: `/projects/${projectId}`, label: "Tổng quan", icon: Sparkles },
         { href: `/projects/${projectId}/studio`, label: "Studio", icon: Clapperboard, aliases: [`/projects/${projectId}/generate`] },
+        { href: `/projects/${projectId}/editor`, label: "Ghép chữ", icon: Type },
         { href: `/projects/${projectId}/characters`, label: "Tài nguyên", icon: Users },
         { href: `/projects/${projectId}/gallery`, label: "Thư viện", icon: Image },
       ]

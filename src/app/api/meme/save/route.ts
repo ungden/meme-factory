@@ -35,6 +35,9 @@ export async function POST(request: NextRequest) {
       image_base64,
       source_meme_id,
       generation_request_id,
+      editor_doc,
+      base_image_id,
+      composed_locally,
     } = body;
 
     // Verify access (owner or shared member via RLS)
@@ -108,6 +111,9 @@ export async function POST(request: NextRequest) {
       status: image_url ? "completed" : "draft",
       source_meme_id: source_meme_id || null,
       generation_job_id: generation_request_id || null,
+      editor_doc: editor_doc ?? null,
+      base_image_id: base_image_id || null,
+      composed_locally: Boolean(composed_locally),
     };
 
     let { data: meme, error } = await supabase
@@ -120,8 +126,8 @@ export async function POST(request: NextRequest) {
     const insertErrorMessage = error?.message || "";
     if (
       error &&
-      ["source_meme_id", "generation_job_id"].some((column) =>
-        insertErrorMessage.includes(column)
+      ["source_meme_id", "generation_job_id", "editor_doc", "base_image_id", "composed_locally"].some(
+        (column) => insertErrorMessage.includes(column)
       )
     ) {
       const fallback = await supabase
