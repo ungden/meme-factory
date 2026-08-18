@@ -269,7 +269,17 @@ export async function POST(request: NextRequest) {
       }
 
       case "character": {
-        const { characterName, characterDescription, emotion, style, existingPoseImages, character_id } = body;
+        const {
+          characterName,
+          characterDescription,
+          emotion,
+          style,
+          existingPoseImages,
+          character_id,
+          layoutGroup,
+          subjectSide,
+          aspectRatio,
+        } = body;
 
         if (!characterName || !characterDescription) {
           throw new Error("VALIDATION_CHARACTER_REQUIRED");
@@ -281,6 +291,11 @@ export async function POST(request: NextRequest) {
           emotion: emotion || "neutral",
           style,
           existingPoseImages,
+          layoutGroup: ["tight_closeup", "medium_portrait", "offset_composition"].includes(layoutGroup)
+            ? layoutGroup
+            : undefined,
+          subjectSide: subjectSide === "left" || subjectSide === "right" ? subjectSide : undefined,
+          aspectRatio: ["1:1", "9:16", "16:9", "4:5"].includes(aspectRatio) ? aspectRatio : undefined,
         };
         const manifestInput = {
           model: IMAGE_MODEL,

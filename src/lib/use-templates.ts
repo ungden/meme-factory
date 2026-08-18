@@ -10,6 +10,7 @@ import type {
   ExpressionTag,
   LayoutPreset,
   MascotBaseImage,
+  MemeFormat,
 } from "@/types/database";
 
 export type BaseImageWithCharacter = MascotBaseImage & {
@@ -135,4 +136,73 @@ export function useLayoutPresets() {
 
   useDeferredTask(load);
   return presets;
+}
+
+export interface SaveBaseImageInput {
+  characterId: string;
+  expressionSlug: string;
+  expressionLabel: string;
+  layoutPresetId: string;
+  aspectRatio: MemeFormat;
+  imageBase64: string;
+  generationJobId?: string | null;
+  preset?: Pick<LayoutPreset, "default_safe_zones" | "default_text_style" | "recommended_chars"> | null;
+}
+
+/**
+ * Stores a generated base image as-is. Deliberately no JPEG re-encode: the artwork
+ * gets scaled up onto a 1080-1920px canvas later, so losing pixels here is visible.
+ */
+export async function saveGeneratedBaseImage(input: SaveBaseImageInput) {
+  const supabase = createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) throw new Error("Phiên đăng nhập đã hết hạn");
+
+  const blob = await (await fetch(`data:image/png;base64,${input.imageBase64}`)).blob();
+  // First path segment is the user id so the bucket delete policy matches.
+  const storagePath = `${userData.user.id}/${input.characterId}/${Date.now()}-${input.expressionSlug}.png`;
+  const { error: uploadError } = await supabase.storage
+    .from("base-images")
+    .upload(storagePath, blob, { contentType: "image/png", upsert: false });
+  if (uploadError) throw new Error(`Tải ảnh lên thất bại: ${uploadError.message}`);
+
+  const { data: urlData } = supabase.storage.from("base-images").getPublicUrl(storagePath);
+
+  // variant_index disambiguates repeats of the same expression + layout + ratio.
+  const { count } = await supabase
+    .from("mascot_base_images")
+    .select("id", { count: "exact", head: true })
+    .eq("character_id", input.characterId)
+    .eq("expression_slug", input.expressionSlug)
+    .eq("layout_preset_id", input.layoutPresetId)
+    .eq("aspect_ratio", input.aspectRatio);
+
+  const safeZones = (input.preset?.default_safe_zones as Record<string, unknown> | undefined)?.[input.aspectRatio];
+
+  const { data, error } = await supabase
+    .from("mascot_base_images")
+    .insert({
+      character_id: input.characterId,
+      expression_slug: input.expressionSlug,
+      expression_label: input.expressionLabel,
+      layout_preset_id: input.layoutPresetId,
+      variant_index: count ?? 0,
+      image_url: urlData.publicUrl,
+      storage_bucket: "base-images",
+      storage_path: storagePath,
+      aspect_ratio: input.aspectRatio,
+      safe_zones: safeZones ?? {},
+      safe_zones_source: "layout_default",
+      default_text_style: input.preset?.default_text_style ?? {},
+      recommended_chars: input.preset?.recommended_chars ?? 60,
+      // Generated with a reserved caption area, so it is a usable template already.
+      status: "ready",
+      generation_job_id: input.generationJobId ?? null,
+      created_by: userData.user.id,
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as MascotBaseImage;
 }

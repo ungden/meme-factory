@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import BasePackWizard from "@/components/templates/base-pack-wizard";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useProject, useCharacters, generateImage } from "@/lib/use-store";
@@ -25,6 +26,7 @@ import {
   Image as ImageIcon,
   Star,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { BulkUploader } from "@/components/ui/bulk-uploader";
 import { PROMPT_TEMPLATES, type PromptTemplate } from "@/lib/prompt-templates";
@@ -42,12 +44,13 @@ export default function CharacterDetailPage() {
   const characterId = params.characterId as string;
 
   const { project } = useProject(projectId);
-  const { characters, loading, updateCharacter, deleteCharacter, addPose, deletePose, setCharacterAvatar } = useCharacters(projectId);
+  const { characters, loading, updateCharacter, deleteCharacter, addPose, deletePose, setCharacterAvatar, reload } = useCharacters(projectId);
   const { refreshBalance } = useWallet();
 
   const character = characters.find((c) => c.id === characterId);
 
   // Edit character modal
+  const [showBasePackWizard, setShowBasePackWizard] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", description: "", personality: "" });
   const [editSaving, setEditSaving] = useState(false);
@@ -374,6 +377,9 @@ export default function CharacterDetailPage() {
                   <p className="text-sm th-text-muted mt-0.5">{character.poses.length} biểu cảm</p>
                 </div>
                 <div className="flex gap-2">
+                  <Button size="sm" onClick={() => setShowBasePackWizard(true)}>
+                    <Sparkles size={14} /> Tạo bộ biểu cảm
+                  </Button>
                   <Button variant="outline" size="sm" onClick={openEditChar}>
                     <Edit2 size={14} /> Chỉnh sửa
                   </Button>
@@ -748,6 +754,22 @@ export default function CharacterDetailPage() {
           confirmText="Xoá tư thế"
           variant="danger"
         />
+
+        {project && (
+          <BasePackWizard
+            open={showBasePackWizard}
+            onClose={() => setShowBasePackWizard(false)}
+            projectId={project.id}
+            character={{
+              id: character.id,
+              name: character.name,
+              description: character.description,
+              personality: character.personality,
+            }}
+            projectStyle={project.style_prompt}
+            onSaved={reload}
+          />
+        )}
       </main>
     </div>
   );

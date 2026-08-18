@@ -201,11 +201,16 @@ export interface ImageGenMemeParams {
 export interface ImageGenCharacterParams {
   project_id?: string;
   type: "character";
+  character_id?: string;
   characterName: string;
   characterDescription: string;
   emotion?: string;
   style?: string;
   existingPoseImages?: { base64: string; mimeType: string }[];
+  /** Meme-template framing: replaces the full-body rule and reserves caption space. */
+  layoutGroup?: "tight_closeup" | "medium_portrait" | "offset_composition";
+  subjectSide?: "left" | "right";
+  aspectRatio?: MemeFormat;
 }
 
 export interface ImageGenBackgroundParams {

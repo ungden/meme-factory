@@ -213,17 +213,57 @@ Nếu nhân vật trong ảnh reference là con bò thì PHẢI vẽ con bò, l�
 // ============================================
 // 2. Generate Character Pose
 // ============================================
+export type BaseLayoutGroup = "tight_closeup" | "medium_portrait" | "offset_composition";
+
 export interface GenerateCharacterPoseParams {
   characterName: string;
   characterDescription: string;
   emotion: string;
   style?: string;
   existingPoseImages?: { base64: string; mimeType: string }[];
+  /** Set when generating a meme template: framing plus a reserved caption area. */
+  layoutGroup?: BaseLayoutGroup;
+  subjectSide?: "left" | "right";
+  aspectRatio?: string;
 }
 
+/**
+ * Framing and reserved empty space per layout group. The reserved region matches
+ * the safe zones in `layout_presets`, so the caption the editor places later lands
+ * on flat background rather than on the mascot.
+ */
+const LAYOUT_BRIEFS: Record<BaseLayoutGroup, { framing: string; reserved: string }> = {
+  tight_closeup: {
+    framing: "Cận mặt: đầu và vai chiếm phần giữa khung, cắt ngang ngực. KHÔNG vẽ toàn thân.",
+    reserved: "20% phía trên và 22% phía dưới khung",
+  },
+  medium_portrait: {
+    framing: "Trung cảnh: thấy rõ đầu, vai và phần thân trên, cắt ngang eo.",
+    reserved: "26% phía trên khung",
+  },
+  offset_composition: {
+    framing: "Toàn thân đặt lệch hẳn sang MỘT BÊN khung, chừa nguyên nửa khung còn lại trống.",
+    reserved: "45% chiều ngang ở phía đối diện nhân vật",
+  },
+};
+
 export function compileCharacterPosePrompt(params: GenerateCharacterPoseParams) {
-  const { characterName, characterDescription, emotion, style, existingPoseImages } =
+  const { characterName, characterDescription, emotion, style, existingPoseImages, layoutGroup } =
     params;
+
+  const brief = layoutGroup ? LAYOUT_BRIEFS[layoutGroup] : null;
+  const sideText =
+    params.subjectSide === "right"
+      ? " Nhân vật đứng lệch sang PHẢI, vùng trống nằm bên TRÁI."
+      : params.subjectSide === "left"
+        ? " Nhân vật đứng lệch sang TRÁI, vùng trống nằm bên PHẢI."
+        : "";
+  // Requirement 1 demands a full body, which is impossible for a close-up, so a
+  // template request replaces it instead of appending to it.
+  const framingRule = brief
+    ? `1. BỐ CỤC: ${brief.framing}${sideText}
+   CHỪA TRỐNG HOÀN TOÀN ${brief.reserved} — không chi tiết, không tay/chân/tóc/phụ kiện/hiệu ứng lấn vào; vùng đó chỉ là nền phẳng để ghép chữ sau.`
+    : "1. Full body character (toàn thân), KHÔNG bị cắt, nhìn rõ từ đầu đến chân";
 
   const defaultStyle = `PHONG CÁCH:
 - Cartoon nhân hóa (anthropomorphic) chất lượng cao, phù hợp fanpage meme Việt Nam
@@ -245,7 +285,7 @@ ${style ? `PHONG CÁCH YÊU CẦU: ${style}
 QUY TẮC DIỄN GIẢI PHONG CÁCH: Phần PHONG CÁCH YÊU CẦU chỉ được dùng để quyết định nét vẽ, chất liệu, shading, line art, bảng màu, tỉ lệ minh hoạ, level chi tiết. KHÔNG được suy ra hay tự thêm outfit, phụ kiện, nghề nghiệp hoặc persona nếu mô tả nhân vật không nói tới.` : defaultStyle}
 
 YÊU CẦU BẮT BUỘC:
-1. Full body character (toàn thân), KHÔNG bị cắt, nhìn rõ từ đầu đến chân
+${framingRule}
 2. Background: TRẮNG TINH (#FFFFFF) hoặc gradient nhạt đơn giản — để dễ tách nền
 3. Bold outlines sắc sảo, chi tiết rõ ràng, professional quality
 4. Biểu cảm khuôn mặt: Emotion "${emotion}" phải thể hiện RÕ RÀNG trên mặt — phù hợp tính cách nhân vật
@@ -263,6 +303,7 @@ export async function generateCharacterPose(
   const ai = await getClient();
   const { existingPoseImages } = params;
   const prompt = compileCharacterPosePrompt(params);
+  const poseAspectRatio = FORMAT_TO_ASPECT[params.aspectRatio ?? "1:1"] || "1:1";
 
   const contents: (
     | { text: string }
@@ -288,7 +329,7 @@ export async function generateCharacterPose(
     config: {
       responseModalities: ["IMAGE"],
       imageConfig: {
-        aspectRatio: "1:1",
+        aspectRatio: poseAspectRatio,
         imageSize: "1K",
       },
     },
