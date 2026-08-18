@@ -45,14 +45,18 @@ npx tsc --noEmit
 npm run build
 ```
 
-The repository currently has pre-existing whole-repo ESLint failures, mostly the React `set-state-in-effect` rule in legacy web/mobile surfaces. Validate changed files separately until that cleanup is completed.
+All four commands pass on `main`. `npm test` needs the platform binary for Rolldown; if `vitest` fails with `Cannot find module './rolldown-binding.<platform>.node'`, install the matching optional dependency, e.g. `npm install @rolldown/binding-darwin-arm64 --no-save`.
 
 ## Continuity core
 
 - `src/lib/continuity/reference-router.ts` applies deterministic provider budgets and category caps.
+- `src/lib/continuity/hashing.ts` holds the shared base64/manifest hashing helpers.
 - `src/lib/continuity/meme-manifest.ts` compiles a stable manifest and SHA-256 hash for meme generation.
-- `src/app/api/ai/generate-image/route.ts` persists the job before calling Gemini and records completion/failure afterward.
+- `src/lib/continuity/asset-manifest.ts` does the same for character reference and background generation.
+- `src/app/api/ai/generate-image/route.ts` persists a job before calling Gemini for every billed creation kind (meme, character, background) and records completion/failure afterward.
+- `src/app/api/continuity/jobs/[id]/route.ts` returns the persisted job (status, recipe, manifest, real cost, outputs) for the caller's projects.
 - `src/app/api/meme/save/route.ts` persists the output and links the existing meme transaction.
 - `supabase/migrations/20260720083320_add_continuity_asset_core.sql` adds the schema, backfill, immutability triggers, grants, and RLS policies.
+- `supabase/migrations/20260818090000_extend_generation_job_creation_kinds.sql` widens `generation_jobs.creation_kind` to cover `character_reference` and `background`.
 
 Next phases add the Character Reference Builder, reusable Look/Item/Environment/Style library UI, shot/version records, review/repair, and the OpenAI repair adapter.

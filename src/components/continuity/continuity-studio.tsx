@@ -43,6 +43,15 @@ type View = "studio" | "assets" | "character" | "review" | "workflow";
 type CreativeMode = "social" | "fashion" | "storyboard" | "product";
 type Toast = { title: string; detail: string } | null;
 
+type PersistedJob = {
+  id: string;
+  status: GenerationJob["status"];
+  progress: number;
+  recipe: Pick<GenerationJob["recipe"], "provider" | "model" | "prompt" | "policy" | "references" | "droppedReferences">;
+  estimatedCostUsd?: number;
+  actualCostUsd?: number;
+};
+
 const creativeModes: Record<CreativeMode, { label: string; workspaceTitle: string; workspaceDetail: string; prompt: string }> = {
   social: {
     label: "Mạng xã hội",
@@ -124,6 +133,7 @@ export function ContinuityStudio({ projectId, projectName, initialMode = "social
   const [model, setModel] = useState("gemini-3.1-flash-image");
   const [prompt, setPrompt] = useState(creativeModes[initialMode].prompt);
   const [job, setJob] = useState<GenerationJob | null>(null);
+  const [hydrationJobId, setHydrationJobId] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast>(null);
   const [expert, setExpert] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset>(assets[0]);
@@ -156,14 +166,46 @@ export function ContinuityStudio({ projectId, projectName, initialMode = "social
     return matchesKind && asset.name.toLowerCase().includes(search.toLowerCase());
   });
 
+  // The optimistic job above is local. Once the API returns the persisted job id,
+  // reconcile status, recipe and real cost with what the server actually stored.
   useEffect(() => {
-    if (!job || job.status === "completed" || job.status === "cancelled" || job.status === "failed") return;
-    const timer = window.setTimeout(async () => {
-      const response = await fetch(`/api/continuity/jobs/${job.id}`);
-      if (response.ok) setJob(await response.json());
-    }, 850);
-    return () => window.clearTimeout(timer);
-  }, [job]);
+    if (!hydrationJobId) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await fetch(`/api/continuity/jobs/${hydrationJobId}`);
+        if (!response.ok || cancelled) return;
+        const persisted = (await response.json()) as PersistedJob;
+        setJob((current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            id: persisted.id,
+            status: persisted.status,
+            progress: persisted.progress,
+            recipe: {
+              ...current.recipe,
+              provider: persisted.recipe.provider,
+              model: persisted.recipe.model,
+              prompt: persisted.recipe.prompt,
+              policy: persisted.recipe.policy,
+              references: persisted.recipe.references,
+              droppedReferences: persisted.recipe.droppedReferences,
+            },
+            estimatedCostUsd: persisted.estimatedCostUsd ?? current.estimatedCostUsd,
+            actualCostUsd: persisted.actualCostUsd,
+          };
+        });
+      } catch {
+        // Keep the optimistic job; bookkeeping must not break the studio view.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrationJobId]);
 
   useEffect(() => {
     if (!toast) return;
@@ -190,6 +232,7 @@ export function ContinuityStudio({ projectId, projectName, initialMode = "social
     }
 
     const startedAt = new Date().toISOString();
+    setHydrationJobId(null);
     setJob({
       id: crypto.randomUUID(),
       status: "running",
@@ -243,6 +286,7 @@ export function ContinuityStudio({ projectId, projectName, initialMode = "social
       setGeneratedVariants((current) => [output, ...current].slice(0, 4));
       setSelectedVariant(0);
       setGenerationRequestId(result.generation_request_id || null);
+      setHydrationJobId(result.generation_job_id || result.generation_request_id || null);
       setManifestSummary({
         selected: result.reference_manifest?.selected ?? sourceCharacters.length,
         dropped: result.reference_manifest?.dropped.length ?? 0,

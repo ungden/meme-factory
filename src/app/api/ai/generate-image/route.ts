@@ -3,12 +3,16 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getRequestUser } from "@/lib/supabase/request-auth";
 import {
   compileMemeImagePrompt,
+  compileCharacterPosePrompt,
+  compileBackgroundPrompt,
   generateMemeImage,
   generateCharacterPose,
   generateBackground,
   IMAGE_MODEL,
   type GeneratedImageResult,
   type GenerateMemeImageParams,
+  type GenerateCharacterPoseParams,
+  type GenerateBackgroundParams,
 } from "@/lib/gemini-image";
 import { POINT_COSTS, POINT_LABELS, type PointAction } from "@/lib/point-pricing";
 import {
@@ -17,6 +21,10 @@ import {
   type ImagePriceEstimate,
 } from "@/lib/ai-pricing";
 import { buildMemeManifest } from "@/lib/continuity/meme-manifest";
+import {
+  buildBackgroundManifest,
+  buildCharacterManifest,
+} from "@/lib/continuity/asset-manifest";
 import type { GenerationRecipe } from "@/lib/continuity/types";
 
 let supabaseAdminClient: SupabaseClient | null = null;
@@ -132,6 +140,56 @@ export async function POST(request: NextRequest) {
       deductedAction = action;
     }
 
+    // Every billed provider call gets a job row before the call happens, so a
+    // crash or provider failure still leaves an auditable record of what was sent.
+    const persistGenerationJob = async (
+      recipe: GenerationRecipe,
+      estimate: ImagePriceEstimate,
+      source?: { type: string | null; id: string | null }
+    ): Promise<boolean> => {
+      const { error: jobInsertError } = await getSupabaseAdmin()
+        .from("generation_jobs")
+        .insert({
+          id: generationRequestId,
+          project_id: projectId,
+          creation_kind: recipe.creationKind,
+          source_entity_type: source?.type ?? null,
+          source_entity_id: source?.id ?? null,
+          workflow_version: recipe.workflowVersion,
+          provider: recipe.provider,
+          model: recipe.model,
+          continuity_policy: recipe.policy,
+          status: "running",
+          compiled_prompt: recipe.prompt,
+          reference_manifest: recipe.references,
+          dropped_references: recipe.droppedReferences,
+          manifest_hash: recipe.manifestHash,
+          requested_output: recipe.output,
+          estimated_points: cost,
+          estimated_cost_usd: estimate.providerCostUsd,
+          created_by: user.id,
+          started_at: new Date().toISOString(),
+        });
+      if (jobInsertError) {
+        // Rollout tolerance: `character_reference` and `background` only became
+        // valid creation kinds in 20260818090000. While that migration is still
+        // rolling out, keep the paid generation working instead of failing it
+        // over bookkeeping. Meme generation predates the constraint change and
+        // still fails hard.
+        const isPendingCreationKindMigration =
+          recipe.creationKind !== "meme" &&
+          jobInsertError.message.includes("creation_kind");
+        if (isPendingCreationKindMigration) {
+          console.error(
+            `Generation job persistence skipped for ${recipe.creationKind}; apply migration 20260818090000_extend_generation_job_creation_kinds.sql`
+          );
+          return false;
+        }
+        throw new Error(`GENERATION_JOB_PERSIST_FAILED:${jobInsertError.message}`);
+      }
+      return true;
+    };
+
     let result: GeneratedImageResult;
 
     switch (type) {
@@ -202,52 +260,55 @@ export async function POST(request: NextRequest) {
           inputImageCount: manifestPlan.recipe.references.length,
           prompt: compiledPrompt,
         });
-
-        const { error: jobInsertError } = await getSupabaseAdmin()
-          .from("generation_jobs")
-          .insert({
-            id: generationRequestId,
-            project_id: projectId,
-            creation_kind: "meme",
-            source_entity_type: body.source_meme_id ? "meme" : null,
-            source_entity_id: body.source_meme_id || null,
-            workflow_version: manifestPlan.recipe.workflowVersion,
-            provider: manifestPlan.recipe.provider,
-            model: manifestPlan.recipe.model,
-            continuity_policy: manifestPlan.recipe.policy,
-            status: "running",
-            compiled_prompt: manifestPlan.recipe.prompt,
-            reference_manifest: manifestPlan.recipe.references,
-            dropped_references: manifestPlan.recipe.droppedReferences,
-            manifest_hash: manifestPlan.recipe.manifestHash,
-            requested_output: manifestPlan.recipe.output,
-            estimated_points: cost,
-            estimated_cost_usd: priceEstimate.providerCostUsd,
-            created_by: user.id,
-            started_at: new Date().toISOString(),
-          });
-        if (jobInsertError) {
-          throw new Error(`GENERATION_JOB_PERSIST_FAILED:${jobInsertError.message}`);
-        }
-        generationJobPersisted = true;
+        generationJobPersisted = await persistGenerationJob(generationRecipe, priceEstimate, {
+          type: body.source_meme_id ? "meme" : null,
+          id: body.source_meme_id || null,
+        });
         result = await generateMemeImage(providerParams);
         break;
       }
 
       case "character": {
-        const { characterName, characterDescription, emotion, style, existingPoseImages } = body;
+        const { characterName, characterDescription, emotion, style, existingPoseImages, character_id } = body;
 
         if (!characterName || !characterDescription) {
           throw new Error("VALIDATION_CHARACTER_REQUIRED");
         }
 
-        result = await generateCharacterPose({
+        const unfilteredParams: GenerateCharacterPoseParams = {
           characterName,
           characterDescription,
           emotion: emotion || "neutral",
           style,
           existingPoseImages,
+        };
+        const manifestInput = {
+          model: IMAGE_MODEL,
+          policy: "balanced" as const,
+          characterName,
+          characterId: typeof character_id === "string" ? character_id : undefined,
+          existingPoseImages: unfilteredParams.existingPoseImages,
+        };
+        const initialPlan = buildCharacterManifest({ ...manifestInput, prompt: "" });
+        const selectedPoseIndexes = new Set(initialPlan.selectedPoseIndexes);
+        const providerParams: GenerateCharacterPoseParams = {
+          ...unfilteredParams,
+          existingPoseImages: unfilteredParams.existingPoseImages?.filter(
+            (_: unknown, index: number) => selectedPoseIndexes.has(index)
+          ),
+        };
+        const compiledPrompt = compileCharacterPosePrompt(providerParams);
+        const manifestPlan = buildCharacterManifest({ ...manifestInput, prompt: compiledPrompt });
+
+        generationRecipe = manifestPlan.recipe;
+        priceEstimate = estimateImageGenerationPrice({
+          model: IMAGE_MODEL,
+          resolution: "1K",
+          inputImageCount: manifestPlan.recipe.references.length,
+          prompt: compiledPrompt,
         });
+        generationJobPersisted = await persistGenerationJob(generationRecipe, priceEstimate);
+        result = await generateCharacterPose(providerParams);
         break;
       }
 
@@ -258,9 +319,29 @@ export async function POST(request: NextRequest) {
           throw new Error("VALIDATION_BACKGROUND_REQUIRED");
         }
 
-        result = await generateBackground({
-          description, mood, format: format || "1:1",
+        const providerParams: GenerateBackgroundParams = {
+          description,
+          mood,
+          format: format || "1:1",
+        };
+        const compiledPrompt = compileBackgroundPrompt(providerParams);
+        const manifestPlan = buildBackgroundManifest({
+          prompt: compiledPrompt,
+          model: IMAGE_MODEL,
+          policy: "balanced",
+          aspectRatio: providerParams.format,
+          description,
         });
+
+        generationRecipe = manifestPlan.recipe;
+        priceEstimate = estimateImageGenerationPrice({
+          model: IMAGE_MODEL,
+          resolution: "2K",
+          inputImageCount: 0,
+          prompt: compiledPrompt,
+        });
+        generationJobPersisted = await persistGenerationJob(generationRecipe, priceEstimate);
+        result = await generateBackground(providerParams);
         break;
       }
 

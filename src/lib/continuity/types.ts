@@ -1,6 +1,11 @@
 export type AssetKind = "character" | "look" | "item" | "environment" | "style";
 export type AssetStatus = "draft" | "locked" | "archived";
-export type CreationKind = "meme" | "fashion_shot" | "storyboard_shot";
+export type CreationKind =
+  | "meme"
+  | "fashion_shot"
+  | "storyboard_shot"
+  | "character_reference"
+  | "background";
 export type ContinuityPolicy = "strict" | "balanced" | "creative";
 export type Provider = "openai" | "google";
 

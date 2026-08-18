@@ -213,15 +213,15 @@ Nếu nhân vật trong ảnh reference là con bò thì PHẢI vẽ con bò, l�
 // ============================================
 // 2. Generate Character Pose
 // ============================================
-export async function generateCharacterPose(params: {
+export interface GenerateCharacterPoseParams {
   characterName: string;
   characterDescription: string;
   emotion: string;
   style?: string;
   existingPoseImages?: { base64: string; mimeType: string }[];
-}): Promise<GeneratedImageResult> {
-  const ai = await getClient();
+}
 
+export function compileCharacterPosePrompt(params: GenerateCharacterPoseParams) {
   const { characterName, characterDescription, emotion, style, existingPoseImages } =
     params;
 
@@ -235,7 +235,7 @@ export async function generateCharacterPose(params: {
 - Tư thế dynamic, có năng lượng, phù hợp tính cách nhân vật
 - Màu sắc tươi sáng, bão hoà, hài hoà với tổng thể`;
 
-  const prompt = `Bạn là họa sĩ chuyên vẽ mascot/nhân vật cho fanpage meme Việt Nam (chứng khoán, tài chính, đời sống). Hãy tạo một character illustration chất lượng cao, có cá tính mạnh.
+  return `Bạn là họa sĩ chuyên vẽ mascot/nhân vật cho fanpage meme Việt Nam (chứng khoán, tài chính, đời sống). Hãy tạo một character illustration chất lượng cao, có cá tính mạnh.
 
 NHÂN VẬT: "${characterName}"
 MÔ TẢ CHI TIẾT: ${characterDescription}
@@ -255,15 +255,24 @@ YÊU CẦU BẮT BUỘC:
 8. KHÔNG có text, chữ viết, watermark, logo trên ảnh
 9. Nhân vật phải có đặc điểm nhận dạng UNIQUE, dễ nhớ, phù hợp làm mascot fanpage
 ${existingPoseImages?.length ? "10. QUAN TRỌNG NHẤT: Giữ CHÍNH XÁC design, phong cách, tỉ lệ cơ thể, màu sắc outfit, và mọi đặc điểm nhận dạng của nhân vật từ các ảnh reference đính kèm. Chỉ thay đổi biểu cảm và tư thế." : ""}`;
+}
+
+export async function generateCharacterPose(
+  params: GenerateCharacterPoseParams
+): Promise<GeneratedImageResult> {
+  const ai = await getClient();
+  const { existingPoseImages } = params;
+  const prompt = compileCharacterPosePrompt(params);
 
   const contents: (
     | { text: string }
     | { inlineData: { mimeType: string; data: string } }
   )[] = [{ text: prompt }];
 
-  // Add existing pose images for character consistency (up to 4)
+  // Existing poses arrive pre-routed by the deterministic Reference Router,
+  // which already applies the provider identity budget. Do not slice again here.
   if (existingPoseImages) {
-    for (const img of existingPoseImages.slice(0, 4)) {
+    for (const img of existingPoseImages) {
       contents.push({
         inlineData: {
           mimeType: img.mimeType,
@@ -291,17 +300,16 @@ ${existingPoseImages?.length ? "10. QUAN TRỌNG NHẤT: Giữ CHÍNH XÁC desig
 // ============================================
 // 3. Generate Background
 // ============================================
-export async function generateBackground(params: {
+export interface GenerateBackgroundParams {
   description: string;
   mood?: string;
   format: string;
-}): Promise<GeneratedImageResult> {
-  const ai = await getClient();
+}
 
+export function compileBackgroundPrompt(params: GenerateBackgroundParams) {
   const { description, mood, format } = params;
-  const aspectRatio = FORMAT_TO_ASPECT[format] || "1:1";
 
-  const prompt = `Tạo một background image cho meme fanpage Việt Nam.
+  return `Tạo một background image cho meme fanpage Việt Nam.
 
 MÔ TẢ: ${description}
 ${mood ? `MOOD/TONE: ${mood}` : ""}
@@ -313,6 +321,14 @@ YÊU CẦU:
 4. Màu sắc hài hòa, phù hợp với mood
 5. Chất lượng cao, phù hợp đăng social media
 6. Tỉ lệ ${format}`;
+}
+
+export async function generateBackground(
+  params: GenerateBackgroundParams
+): Promise<GeneratedImageResult> {
+  const ai = await getClient();
+  const aspectRatio = FORMAT_TO_ASPECT[params.format] || "1:1";
+  const prompt = compileBackgroundPrompt(params);
 
   const response = await ai.models.generateContent({
     model: IMAGE_MODEL,
