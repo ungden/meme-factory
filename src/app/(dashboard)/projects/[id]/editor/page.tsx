@@ -18,6 +18,7 @@ export default function MemeEditorPage() {
 
   const baseImageId = searchParams.get("base");
   const sourceMemeId = searchParams.get("meme");
+  const initialText = searchParams.get("text");
 
   const sourceMeme = useMemo(
     () => (sourceMemeId ? memes.find((meme) => meme.id === sourceMemeId) ?? null : null),
@@ -69,6 +70,7 @@ export default function MemeEditorPage() {
           project={project}
           initialDoc={initialDoc}
           initialBaseImageId={baseImageId}
+          initialText={initialText}
           sourceMemeId={sourceMemeId}
         />
       </main>

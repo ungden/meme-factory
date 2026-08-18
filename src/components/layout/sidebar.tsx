@@ -130,6 +130,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         { href: `/projects/${projectId}`, label: "Tổng quan", icon: Sparkles },
         { href: `/projects/${projectId}/studio`, label: "Studio", icon: Clapperboard, aliases: [`/projects/${projectId}/generate`] },
         { href: `/projects/${projectId}/editor`, label: "Ghép chữ", icon: Type },
+        { href: `/projects/${projectId}/ai-meme`, label: "AI Meme", icon: Sparkles },
         { href: `/projects/${projectId}/mascots`, label: "Mascot", icon: Users, aliases: [`/projects/${projectId}/characters`] },
         { href: `/projects/${projectId}/gallery`, label: "Thư viện", icon: Image },
       ]

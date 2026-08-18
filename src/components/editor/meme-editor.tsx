@@ -18,6 +18,7 @@ import { useBaseImages, useExpressionTags } from "@/lib/use-templates";
 import { useMemes } from "@/lib/use-store";
 import type { MemeFormat, Project } from "@/types/database";
 import BaseImagePicker from "./base-image-picker";
+import CaptionSuggestions from "./caption-suggestions";
 import TextControls from "./text-controls";
 import WatermarkControls from "./watermark-controls";
 
@@ -28,6 +29,8 @@ interface MemeEditorProps {
   project: Project | null;
   initialDoc: MemeDoc | null;
   initialBaseImageId: string | null;
+  /** Caption handed over from the AI Meme page. */
+  initialText?: string | null;
   sourceMemeId?: string | null;
 }
 
@@ -36,6 +39,7 @@ export default function MemeEditor({
   project,
   initialDoc,
   initialBaseImageId,
+  initialText,
   sourceMemeId,
 }: MemeEditorProps) {
   const toast = useToast();
@@ -60,9 +64,9 @@ export default function MemeEditor({
   useEffect(() => {
     if (doc || baseImages.length === 0) return;
     const preferred = baseImages.find((image) => image.id === seededBaseId) ?? baseImages[0];
-    setDoc(createDocForBaseImage({ baseImage: preferred, project }));
+    setDoc(createDocForBaseImage({ baseImage: preferred, project, primaryText: initialText ?? "" }));
     setSeededBaseId(preferred.id);
-  }, [doc, baseImages, seededBaseId, project]);
+  }, [doc, baseImages, seededBaseId, project, initialText]);
 
   useEffect(() => {
     if (doc && !activeLayerId) setActiveLayerId(doc.layers[0]?.id ?? null);
@@ -311,6 +315,20 @@ export default function MemeEditor({
               )}
               <span className="text-xs th-text-tertiary">Ghép chữ không tốn điểm.</span>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <span className="text-sm font-semibold th-text-primary">Cần một câu?</span>
+          </CardHeader>
+          <CardContent>
+            <CaptionSuggestions
+              projectId={project?.id ?? ""}
+              seed={activeLayer?.text ?? ""}
+              recommendedChars={doc.meta.recommendedChars}
+              onPick={(text) => patchLayer({ text })}
+            />
           </CardContent>
         </Card>
 
