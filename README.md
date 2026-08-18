@@ -57,6 +57,6 @@ All four commands pass on `main`. `npm test` needs the platform binary for Rolld
 - `src/app/api/continuity/jobs/[id]/route.ts` returns the persisted job (status, recipe, manifest, real cost, outputs) for the caller's projects.
 - `src/app/api/meme/save/route.ts` persists the output and links the existing meme transaction.
 - `supabase/migrations/20260720083320_add_continuity_asset_core.sql` adds the schema, backfill, immutability triggers, grants, and RLS policies.
-- `supabase/migrations/20260818090000_extend_generation_job_creation_kinds.sql` widens `generation_jobs.creation_kind` to cover `character_reference` and `background`.
+- `supabase/migrations/20260818135130_extend_generation_job_creation_kinds.sql` widens `generation_jobs.creation_kind` to cover `character_reference` and `background`.
 
 Next phases add the Character Reference Builder, reusable Look/Item/Environment/Style library UI, shot/version records, review/repair, and the OpenAI repair adapter.

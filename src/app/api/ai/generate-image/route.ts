@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
         });
       if (jobInsertError) {
         // Rollout tolerance: `character_reference` and `background` only became
-        // valid creation kinds in 20260818090000. While that migration is still
+        // valid creation kinds in 20260818135130. While that migration is still
         // rolling out, keep the paid generation working instead of failing it
         // over bookkeeping. Meme generation predates the constraint change and
         // still fails hard.
@@ -181,7 +181,7 @@ export async function POST(request: NextRequest) {
           jobInsertError.message.includes("creation_kind");
         if (isPendingCreationKindMigration) {
           console.error(
-            `Generation job persistence skipped for ${recipe.creationKind}; apply migration 20260818090000_extend_generation_job_creation_kinds.sql`
+            `Generation job persistence skipped for ${recipe.creationKind}; apply migration 20260818135130_extend_generation_job_creation_kinds.sql`
           );
           return false;
         }
