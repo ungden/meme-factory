@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, Download, Eye, EyeOff, Loader2, Save, Undo2 } from "lucide-react";
+import { Download, Eye, EyeOff, Loader2, Save, Undo2 } from "lucide-react";
 import Button from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import MemeCanvas, { type MemeCanvasHandle } from "@/components/meme/meme-canvas";
@@ -48,9 +48,8 @@ export default function MemeEditor({
   const canvasRef = useRef<MemeCanvasHandle>(null);
   const measureCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Every pose backfilled from the legacy library starts as a draft, so the editor
-  // reads all statuses and lets the user promote the one they actually compose on.
-  const { baseImages, loading: baseImagesLoading, updateBaseImage } = useBaseImages(projectRef, "all");
+  // Only templates a human confirmed. Drafts are finished on the Mẫu meme page.
+  const { baseImages, loading: baseImagesLoading } = useBaseImages(projectRef, "ready");
   const expressionTags = useExpressionTags();
   const { saveMeme } = useMemes(projectRef);
 
@@ -60,7 +59,6 @@ export default function MemeEditor({
   const [showSafeZones, setShowSafeZones] = useState(false);
   const [saving, setSaving] = useState(false);
   const [seededBaseId, setSeededBaseId] = useState<string | null>(initialBaseImageId);
-  const [approving, setApproving] = useState(false);
 
   // Seed from a base image once the library resolves (fresh editor, or ?base= link).
   useEffect(() => {
@@ -187,24 +185,6 @@ export default function MemeEditor({
     [patchWatermark, toast]
   );
 
-  const selectedBaseImage = useMemo(
-    () => baseImages.find((image) => image.id === doc?.base?.baseImageId) ?? null,
-    [baseImages, doc]
-  );
-
-  const approveTemplate = useCallback(async () => {
-    if (!selectedBaseImage) return;
-    setApproving(true);
-    try {
-      await updateBaseImage(selectedBaseImage.id, { status: "ready" });
-      toast.success("Đã duyệt ảnh này làm template");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Không duyệt được ảnh");
-    } finally {
-      setApproving(false);
-    }
-  }, [selectedBaseImage, updateBaseImage, toast]);
-
   const handleDownload = useCallback(() => {
     const dataUrl = canvasRef.current?.exportImage();
     if (!dataUrl || !doc) return;
@@ -293,11 +273,16 @@ export default function MemeEditor({
           ) : (
             <div className="space-y-3">
               <p className="th-text-tertiary">
-                Dự án chưa có ảnh mascot nào để ghép chữ.
+                Chưa có mẫu meme nào dùng được. Tải ảnh của bạn lên, hoặc sinh bộ biểu cảm cho một mascot.
               </p>
-              <Link href={`/projects/${projectRef}/mascots`}>
-                <Button variant="outline">Tạo mascot và bộ biểu cảm</Button>
-              </Link>
+              <div className="flex justify-center gap-2">
+                <Link href={`/projects/${projectRef}/templates`}>
+                  <Button>Thêm mẫu meme</Button>
+                </Link>
+                <Link href={`/projects/${projectRef}/mascots`}>
+                  <Button variant="outline">Tạo mascot</Button>
+                </Link>
+              </div>
             </div>
           )}
         </CardContent>
@@ -340,12 +325,6 @@ export default function MemeEditor({
                 <Download size={16} />
                 Tải PNG
               </Button>
-              {selectedBaseImage?.status === "draft" && (
-                <Button variant="outline" onClick={approveTemplate} loading={approving}>
-                  <Check size={16} />
-                  Duyệt làm template
-                </Button>
-              )}
               <span className="text-xs th-text-tertiary">Ghép chữ không tốn điểm.</span>
             </div>
           </CardContent>

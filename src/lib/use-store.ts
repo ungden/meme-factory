@@ -21,7 +21,6 @@ import type {
 } from "@/types/database";
 import { v4 as uuidv4 } from "uuid";
 import { useDeferredTask } from "@/lib/use-deferred-task";
-import { syncPoseToBaseImage } from "@/lib/base-image-sync";
 
 // ============================================
 // Check if Supabase is configured
@@ -351,17 +350,9 @@ export function useCharacters(projectRef: string) {
       await supabase.from("characters").update({ avatar_url: urlData.publicUrl }).eq("id", characterId);
     }
 
-    // Mirror into the template library so the pose shows up in the meme editor.
-    if (insertedPose?.id) {
-      await syncPoseToBaseImage({
-        poseId: insertedPose.id,
-        characterId,
-        imageUrl: urlData.publicUrl,
-        name: input.name,
-        emotion: input.emotion,
-        isTransparent: input.is_transparent,
-      });
-    }
+    // Deliberately does NOT create a meme template here. A pose is an AI identity
+    // reference; a template needs a measured size, a frame and a confirmed caption
+    // area. Mirroring one into the other is what produced 135 unusable rows.
 
     await load();
     return insertedPose as CharacterPose | undefined;

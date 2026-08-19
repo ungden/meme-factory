@@ -1,4 +1,5 @@
-import type { MascotBaseImage, MemeFormat, Project } from "@/types/database";
+import type { MascotBaseImage, MemeFormat, Project, TemplateFrame } from "@/types/database";
+import { DEFAULT_FRAME } from "@/lib/template-upload";
 import { DEFAULT_TEXT_STYLE, parseSafeZones, parseTextStyle } from "@/lib/meme-layout-presets";
 import type { BaseRef, MemeDoc, Rect, TextLayer, TextStyle, WatermarkLayer, ZoneName } from "./types";
 import { MEME_DOC_SCHEMA, MEME_DOC_VERSION } from "./types";
@@ -49,7 +50,10 @@ function textLayer(zone: ZoneName, box: Rect, style: TextStyle, text = ""): Text
  * zones, styled by whatever the layout preset recommends for that artwork.
  */
 export function createDocForBaseImage(params: {
-  baseImage: Pick<MascotBaseImage, "id" | "character_id" | "image_url" | "aspect_ratio" | "safe_zones" | "default_text_style" | "recommended_chars">;
+  baseImage: Pick<
+    MascotBaseImage,
+    "id" | "character_id" | "image_url" | "aspect_ratio" | "safe_zones" | "default_text_style" | "recommended_chars" | "frame"
+  >;
   project?: ProjectBrand | null;
   primaryText?: string;
   secondaryText?: string;
@@ -60,15 +64,19 @@ export function createDocForBaseImage(params: {
   const style = parseTextStyle(baseImage.default_text_style);
 
   const doc = emptyDoc(format);
+  // The frame the user chose at import time. Hardcoding cover/0/1 here is what
+  // cropped the head off any artwork whose ratio did not match the canvas.
+  const frame = parseFrame(baseImage.frame);
   doc.base = {
     kind: "base_image",
     baseImageId: baseImage.id,
-    characterId: baseImage.character_id,
+    characterId: baseImage.character_id ?? undefined,
     imageUrl: baseImage.image_url,
-    fit: "cover",
-    offset: { x: 0, y: 0 },
-    scale: 1,
+    fit: frame.fit,
+    offset: frame.offset,
+    scale: frame.scale,
   };
+  if (frame.fit === "contain") doc.canvas.background = "#FFFFFF";
 
   const primaryZone: ZoneName = safeZones.zones.top
     ? "top"
@@ -121,6 +129,21 @@ export function createDocForRawImage(params: {
   );
   doc.watermark = watermarkFromProject(params.project);
   return doc;
+}
+
+/** Tolerant read of the persisted `frame` jsonb. */
+function parseFrame(raw: unknown): TemplateFrame {
+  if (!raw || typeof raw !== "object") return DEFAULT_FRAME;
+  const source = raw as Record<string, unknown>;
+  const offset = source.offset as Record<string, unknown> | undefined;
+  return {
+    fit: source.fit === "contain" ? "contain" : "cover",
+    offset: {
+      x: typeof offset?.x === "number" ? offset.x : 0,
+      y: typeof offset?.y === "number" ? offset.y : 0,
+    },
+    scale: typeof source.scale === "number" && source.scale > 0 ? source.scale : 1,
+  };
 }
 
 function isRect(value: unknown): value is Rect {

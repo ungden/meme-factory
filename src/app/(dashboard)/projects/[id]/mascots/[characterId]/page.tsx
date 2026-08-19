@@ -11,10 +11,11 @@ import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import BasePackWizard from "@/components/templates/base-pack-wizard";
 import SafeZoneEditor from "@/components/templates/safe-zone-editor";
+import TemplateUploadDialog from "@/components/templates/template-upload-dialog";
 import CharacterDnaPanel from "@/components/templates/character-dna-panel";
-import { LAYOUT_PRESET_LABELS } from "@/lib/meme-layout-presets";
+import { layoutLabel } from "@/lib/meme-layout-presets";
 import { useBaseImages, useCharacterDna, useExpressionTags } from "@/lib/use-templates";
-import { syncCharacterPoses } from "@/lib/base-image-sync";
+import { fetchPoseAsFile } from "@/lib/template-create";
 import { resolveMascotCover } from "@/lib/mascot-cover";
 import { useCharacters, useMemes, useProject } from "@/lib/use-store";
 import type { BaseImageStatus, LayoutPresetId } from "@/types/database";
@@ -44,7 +45,9 @@ export default function MascotDetailPage() {
   const [tab, setTab] = useState<Tab>("reactions");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [zoneTarget, setZoneTarget] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [poseFiles, setPoseFiles] = useState<File[]>([]);
   const [savingDna, setSavingDna] = useState(false);
 
   const character = characters.find((entry) => entry.id === characterId);
@@ -63,9 +66,11 @@ export default function MascotDetailPage() {
   );
 
   const byLayout = useMemo(() => {
-    const groups = new Map<LayoutPresetId, typeof images>();
+    // A manually uploaded template has no preset; it groups under "Tuỳ chỉnh".
+    const groups = new Map<LayoutPresetId | "custom", typeof images>();
     for (const image of images) {
-      groups.set(image.layout_preset_id, [...(groups.get(image.layout_preset_id) ?? []), image]);
+      const key = image.layout_preset_id ?? "custom";
+      groups.set(key, [...(groups.get(key) ?? []), image]);
     }
     return groups;
   }, [images]);
@@ -81,19 +86,25 @@ export default function MascotDetailPage() {
 
   // Poses uploaded from the mobile app, or before poses were mirrored automatically,
   // exist in the legacy library but not here.
-  const mirroredPoseIds = new Set(images.map((image) => image.legacy_pose_id).filter(Boolean));
+  const mirroredPoseIds = new Set(images.map((image) => image.source_pose_id).filter(Boolean));
   const unsyncedPoses = (character?.poses ?? []).filter((pose) => !mirroredPoseIds.has(pose.id)).length;
 
-  const syncLegacyPoses = async () => {
-    setSyncing(true);
+  // Pose -> template is now an explicit import: bytes are copied, the image is
+  // measured, and the user confirms where the caption goes.
+  const openPoseImport = async () => {
+    setImporting(true);
     try {
-      const created = await syncCharacterPoses(characterId);
-      await reload();
-      toast.success(created > 0 ? `Đã đưa ${created} ảnh cũ vào thư viện template` : "Không còn ảnh nào cần đồng bộ");
+      const mirrored = new Set(images.map((image) => image.source_pose_id).filter(Boolean));
+      const pending = (character?.poses ?? []).filter((pose) => !mirrored.has(pose.id));
+      const files = await Promise.all(
+        pending.map((pose) => fetchPoseAsFile(pose.image_url, pose.name || "pose"))
+      );
+      setPoseFiles(files);
+      setImportOpen(true);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Đồng bộ thất bại");
+      toast.error(error instanceof Error ? error.message : "Không tải được ảnh gốc");
     } finally {
-      setSyncing(false);
+      setImporting(false);
     }
   };
 
@@ -199,10 +210,10 @@ export default function MascotDetailPage() {
             style={{ background: "var(--bg-card)", borderColor: "var(--accent)" }}
           >
             <p className="text-sm th-text-secondary">
-              {unsyncedPoses} ảnh gốc chưa có trong thư viện template nên chưa ghép chữ được.
+              {unsyncedPoses} ảnh gốc chưa thành mẫu meme. Import để chọn khung và khoanh vùng chữ.
             </p>
-            <Button size="sm" variant="outline" loading={syncing} onClick={syncLegacyPoses}>
-              <RefreshCw size={14} /> Đồng bộ ảnh cũ
+            <Button size="sm" variant="outline" loading={importing} onClick={openPoseImport}>
+              <RefreshCw size={14} /> Đưa vào mẫu meme
             </Button>
           </div>
         )}
@@ -247,7 +258,7 @@ export default function MascotDetailPage() {
                       {image.expression_label || labelBySlug.get(image.expression_slug) || image.expression_slug}
                     </p>
                     <p className="truncate text-[10px] th-text-tertiary">
-                      {LAYOUT_PRESET_LABELS[image.layout_preset_id] ?? image.layout_preset_id} · {image.aspect_ratio}
+                      {layoutLabel(image.layout_preset_id)} · {image.aspect_ratio}
                     </p>
                     <div className="flex gap-1">
                       {image.status !== "ready" ? (
@@ -289,7 +300,7 @@ export default function MascotDetailPage() {
               <Card key={layout}>
                 <CardHeader className="flex items-center justify-between">
                   <span className="text-sm font-semibold th-text-primary">
-                    {LAYOUT_PRESET_LABELS[layout] ?? layout}
+                    {layout === "custom" ? "Tuỳ chỉnh" : layoutLabel(layout)}
                   </span>
                   <span className="text-xs th-text-tertiary">{group.length} ảnh</span>
                 </CardHeader>
@@ -358,6 +369,19 @@ export default function MascotDetailPage() {
               />
             </CardContent>
           </Card>
+        )}
+
+        {project && (
+          <TemplateUploadDialog
+            open={importOpen}
+            onClose={() => setImportOpen(false)}
+            projectId={project.id}
+            characterId={characterId}
+            expressionTags={expressionTags}
+            initialFiles={poseFiles}
+            source="imported_pose"
+            onSaved={reload}
+          />
         )}
 
         <SafeZoneEditor

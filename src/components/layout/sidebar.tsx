@@ -20,6 +20,7 @@ import {
   Type,
   Palette,
   Wand2,
+  LayoutTemplate,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -142,6 +143,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
 
   const projectLibraryNav = projectId
     ? [
+        { href: `/projects/${projectId}/templates`, label: "Mẫu meme", icon: LayoutTemplate },
         { href: `/projects/${projectId}/mascots`, label: "Mascot", icon: Users, aliases: [`/projects/${projectId}/characters`] },
         { href: `/projects/${projectId}/gallery`, label: "Thư viện", icon: Image },
       ]

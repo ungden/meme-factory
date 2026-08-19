@@ -396,27 +396,45 @@ export interface LayoutPreset {
   is_active: boolean;
 }
 
+export type TemplateSource = "upload" | "ai_base_pack" | "imported_pose";
+
+export interface TemplateFrame {
+  fit: "cover" | "contain";
+  offset: { x: number; y: number };
+  scale: number;
+}
+
+/**
+ * A meme template: artwork the editor can put text on. Owned by the project;
+ * `character_id` is an optional mascot label, so a manually uploaded image needs
+ * no mascot at all.
+ */
 export interface MascotBaseImage {
   id: string;
-  character_id: string;
-  legacy_pose_id: string | null;
+  project_id: string;
+  character_id: string | null;
+  source: TemplateSource;
+  source_pose_id: string | null;
+  title: string | null;
   expression_slug: string;
   expression_label: string | null;
-  layout_preset_id: LayoutPresetId;
-  variant_index: number;
+  layout_preset_id: LayoutPresetId | null;
   image_url: string;
   storage_bucket: string;
   storage_path: string | null;
+  content_hash: string | null;
   width: number | null;
   height: number | null;
+  source_width: number | null;
+  source_height: number | null;
   aspect_ratio: MemeFormat;
   has_transparent_bg: boolean;
+  frame: TemplateFrame;
   safe_zones: Record<string, unknown>;
   safe_zones_source: SafeZonesSource;
   safe_zones_updated_at: string | null;
   default_text_style: Record<string, unknown>;
   recommended_chars: number;
-  watermark_area: Record<string, unknown>;
   status: BaseImageStatus;
   sort_order: number;
   generation_job_id: string | null;

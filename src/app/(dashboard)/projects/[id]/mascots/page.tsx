@@ -25,7 +25,7 @@ import Textarea from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import BasePackWizard from "@/components/templates/base-pack-wizard";
 import { compressImageToBase64 } from "@/lib/image-utils";
-import { LAYOUT_PRESET_LABELS } from "@/lib/meme-layout-presets";
+import { LAYOUT_PRESET_LABELS, layoutLabel } from "@/lib/meme-layout-presets";
 import { resolveMascotCover } from "@/lib/mascot-cover";
 import { useBaseImages, useExpressionTags } from "@/lib/use-templates";
 import { useCharacters, useMemes, useProject } from "@/lib/use-store";
@@ -104,12 +104,14 @@ export default function MascotsPage() {
     }
 
     for (const image of baseImages) {
+      // Templates with no mascot are counted on the Mẫu meme page, not here.
+      if (!image.character_id) continue;
       const entry =
         stats.get(image.character_id) ??
         ({ ready: 0, draft: 0, layouts: new Set(), vibes: new Set(), memes: 0 } as MascotStats);
       if (image.status === "ready") entry.ready += 1;
       if (image.status === "draft") entry.draft += 1;
-      entry.layouts.add(image.layout_preset_id);
+      if (image.layout_preset_id) entry.layouts.add(image.layout_preset_id);
       const vibe = vibeBySlug.get(image.expression_slug);
       if (vibe) entry.vibes.add(vibe);
       entry.memes += memeCountByBaseImage.get(image.id) ?? 0;
@@ -458,7 +460,7 @@ export default function MascotsPage() {
                         <div className="flex flex-wrap gap-1">
                           {[...(stats?.layouts ?? [])].map((layout) => (
                             <span key={layout} className="rounded-full th-bg-tertiary px-2 py-0.5 text-[10px] th-text-tertiary">
-                              {LAYOUT_PRESET_LABELS[layout] ?? layout}
+                              {layoutLabel(layout)}
                             </span>
                           ))}
                           {(stats?.memes ?? 0) > 0 && (

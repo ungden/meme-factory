@@ -48,6 +48,14 @@ export const LAYOUT_PRESET_LABELS: Record<LayoutPresetId, string> = {
   offset_composition: "Lệch một bên",
 };
 
+/** A manually uploaded template has no composed layout; the user draws its zones. */
+export const CUSTOM_LAYOUT_LABEL = "Tuỳ chỉnh";
+
+export function layoutLabel(id: LayoutPresetId | null | undefined): string {
+  if (!id) return CUSTOM_LAYOUT_LABEL;
+  return LAYOUT_PRESET_LABELS[id] ?? id;
+}
+
 export const DEFAULT_TEXT_STYLE: TextStyle = {
   fontFamily: "inter",
   fontWeight: 800,

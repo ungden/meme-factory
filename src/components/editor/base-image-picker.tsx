@@ -12,7 +12,7 @@ interface BaseImagePickerProps {
   onSelect: (baseImage: BaseImageWithCharacter) => void;
 }
 
-const STATUS_LABEL = "Nháp";
+const UNASSIGNED = "__unassigned__";
 
 export default function BaseImagePicker({
   baseImages,
@@ -24,7 +24,10 @@ export default function BaseImagePicker({
 
   const characters = useMemo(() => {
     const seen = new Map<string, string>();
-    for (const image of baseImages) seen.set(image.character_id, image.character_name);
+    // A template need not belong to a mascot; those group under "Không gắn mascot".
+    for (const image of baseImages) {
+      seen.set(image.character_id ?? UNASSIGNED, image.character_name);
+    }
     return [...seen.entries()].map(([id, name]) => ({ id, name }));
   }, [baseImages]);
 
@@ -33,7 +36,10 @@ export default function BaseImagePicker({
     [expressionTags]
   );
 
-  const visible = characterId === "all" ? baseImages : baseImages.filter((image) => image.character_id === characterId);
+  const visible =
+    characterId === "all"
+      ? baseImages
+      : baseImages.filter((image) => (image.character_id ?? UNASSIGNED) === characterId);
 
   if (baseImages.length === 0) {
     return (
@@ -96,14 +102,7 @@ export default function BaseImagePicker({
                   unoptimized
                 />
               </div>
-              <span className="flex items-center justify-between gap-1 px-1.5 py-1 text-[10px] th-text-tertiary">
-                <span className="truncate">{label}</span>
-                {image.status === "draft" && (
-                  <span className="shrink-0 rounded px-1 th-bg-tertiary" title="Chưa duyệt làm template">
-                    {STATUS_LABEL}
-                  </span>
-                )}
-              </span>
+              <span className="block truncate px-1.5 py-1 text-[10px] th-text-tertiary">{label}</span>
             </button>
           );
         })}

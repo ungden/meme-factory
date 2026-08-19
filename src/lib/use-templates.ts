@@ -3,7 +3,9 @@
 import { useCallback, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useDeferredTask } from "@/lib/use-deferred-task";
+import { DEFAULT_FRAME } from "@/lib/template-upload";
 import { IS_MOCK_MODE } from "@/lib/use-store";
+import { FORMAT_DIMENSIONS } from "@/types/database";
 import type {
   BaseImageStatus,
   Character,
@@ -34,8 +36,8 @@ async function resolveProjectId(projectRef: string): Promise<string | null> {
 }
 
 /**
- * Base images of every mascot in the project. `status` filters to 'ready' by
- * default so the editor only offers artwork a human has approved as a template.
+ * Meme templates of a project. Ownership is the project, so a template with no
+ * mascot is a first-class row rather than something that cannot exist.
  */
 export function useBaseImages(projectRef: string, status: BaseImageStatus | "all" = "ready") {
   const [baseImages, setBaseImages] = useState<BaseImageWithCharacter[]>([]);
@@ -56,34 +58,34 @@ export function useBaseImages(projectRef: string, status: BaseImageStatus | "all
     }
 
     const supabase = createClient();
-    const { data: characters } = await supabase
-      .from("characters")
-      .select("id, name")
-      .eq("project_id", projectId);
-
-    const characterIds = (characters ?? []).map((character: Pick<Character, "id">) => character.id);
-    if (characterIds.length === 0) {
-      setBaseImages([]);
-      setLoading(false);
-      return;
-    }
-
     let query = supabase
       .from("mascot_base_images")
       .select("*")
-      .in("character_id", characterIds)
+      .eq("project_id", projectId)
       .order("sort_order")
-      .order("created_at");
+      .order("created_at", { ascending: false });
     if (status !== "all") query = query.eq("status", status);
 
     const { data, error } = await query;
-    if (error) console.error("Failed to load base images:", error.message);
+    if (error) console.error("Failed to load meme templates:", error.message);
 
-    const nameById = new Map((characters ?? []).map((c: Pick<Character, "id" | "name">) => [c.id, c.name]));
+    const rows = (data ?? []) as MascotBaseImage[];
+    const characterIds = [...new Set(rows.map((row) => row.character_id).filter(Boolean))] as string[];
+    const nameById = new Map<string, string>();
+    if (characterIds.length > 0) {
+      const { data: characters } = await supabase
+        .from("characters")
+        .select("id, name")
+        .in("id", characterIds);
+      for (const character of (characters ?? []) as Pick<Character, "id" | "name">[]) {
+        nameById.set(character.id, character.name);
+      }
+    }
+
     setBaseImages(
-      (data ?? []).map((row: MascotBaseImage) => ({
+      rows.map((row) => ({
         ...row,
-        character_name: nameById.get(row.character_id) ?? "Mascot",
+        character_name: row.character_id ? nameById.get(row.character_id) ?? "Mascot" : "Không gắn mascot",
       }))
     );
     setLoading(false);
@@ -102,7 +104,18 @@ export function useBaseImages(projectRef: string, status: BaseImageStatus | "all
     [load]
   );
 
-  return { baseImages, loading, reload: load, updateBaseImage };
+  const deleteBaseImage = useCallback(
+    async (id: string) => {
+      if (IS_MOCK_MODE) return;
+      const supabase = createClient();
+      const { error } = await supabase.from("mascot_base_images").delete().eq("id", id);
+      if (error) throw new Error(error.message);
+      await load();
+    },
+    [load]
+  );
+
+  return { baseImages, loading, reload: load, updateBaseImage, deleteBaseImage };
 }
 
 export function useExpressionTags() {
@@ -161,6 +174,13 @@ export async function saveGeneratedBaseImage(input: SaveBaseImageInput) {
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) throw new Error("Phiên đăng nhập đã hết hạn");
 
+  const { data: character } = await supabase
+    .from("characters")
+    .select("id, project_id, avatar_url")
+    .eq("id", input.characterId)
+    .single();
+  if (!character) throw new Error("Không tìm thấy mascot");
+
   const blob = await (await fetch(`data:image/png;base64,${input.imageBase64}`)).blob();
   // First path segment is the user id so the bucket delete policy matches.
   const storagePath = `${userData.user.id}/${input.characterId}/${Date.now()}-${input.expressionSlug}.png`;
@@ -170,30 +190,29 @@ export async function saveGeneratedBaseImage(input: SaveBaseImageInput) {
   if (uploadError) throw new Error(`Tải ảnh lên thất bại: ${uploadError.message}`);
 
   const { data: urlData } = supabase.storage.from("base-images").getPublicUrl(storagePath);
-
-  // variant_index disambiguates repeats of the same expression + layout + ratio.
-  const { count } = await supabase
-    .from("mascot_base_images")
-    .select("id", { count: "exact", head: true })
-    .eq("character_id", input.characterId)
-    .eq("expression_slug", input.expressionSlug)
-    .eq("layout_preset_id", input.layoutPresetId)
-    .eq("aspect_ratio", input.aspectRatio);
-
+  const dimensions = FORMAT_DIMENSIONS[input.aspectRatio];
   const safeZones = (input.preset?.default_safe_zones as Record<string, unknown> | undefined)?.[input.aspectRatio];
 
   const { data, error } = await supabase
     .from("mascot_base_images")
     .insert({
+      project_id: character.project_id,
       character_id: input.characterId,
+      source: "ai_base_pack",
       expression_slug: input.expressionSlug,
       expression_label: input.expressionLabel,
       layout_preset_id: input.layoutPresetId,
-      variant_index: count ?? 0,
       image_url: urlData.publicUrl,
       storage_bucket: "base-images",
       storage_path: storagePath,
       aspect_ratio: input.aspectRatio,
+      // The provider rendered at the requested ratio, so the canvas size is the
+      // real size; the `ready` constraint requires both to be present.
+      width: dimensions.width,
+      height: dimensions.height,
+      source_width: dimensions.width,
+      source_height: dimensions.height,
+      frame: DEFAULT_FRAME,
       safe_zones: safeZones ?? {},
       safe_zones_source: "layout_default",
       default_text_style: input.preset?.default_text_style ?? {},
@@ -207,6 +226,13 @@ export async function saveGeneratedBaseImage(input: SaveBaseImageInput) {
     .single();
 
   if (error) throw new Error(error.message);
+
+  // Without this a wizard-only mascot has no image the legacy AI generator can
+  // use as an identity reference, and that page throws.
+  if (!character.avatar_url) {
+    await supabase.from("characters").update({ avatar_url: urlData.publicUrl }).eq("id", input.characterId);
+  }
+
   return data as MascotBaseImage;
 }
 
