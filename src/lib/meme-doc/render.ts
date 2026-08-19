@@ -88,20 +88,38 @@ function watermarkAnchor(position: WatermarkLayer["position"], width: number, he
   const padX = width * 0.03;
   const padY = height * 0.03;
 
+  const left = padX;
+  const centerX = (width - boxWidth) / 2;
+  const right = width - boxWidth - padX;
+  const top = padY;
+  const middleY = (height - boxHeight) / 2;
+  const bottom = height - boxHeight - padY;
+
   switch (position) {
     case "top-left":
-      return { x: padX, y: padY };
+      return { x: left, y: top };
+    case "top-center":
+      return { x: centerX, y: top };
     case "top-right":
-      return { x: width - boxWidth - padX, y: padY };
-    case "bottom-left":
-      return { x: padX, y: height - boxHeight - padY };
+      return { x: right, y: top };
+    case "center-left":
+      return { x: left, y: middleY };
     case "center":
-      return { x: (width - boxWidth) / 2, y: (height - boxHeight) / 2 };
+      return { x: centerX, y: middleY };
+    case "center-right":
+      return { x: right, y: middleY };
+    case "bottom-left":
+      return { x: left, y: bottom };
+    case "bottom-center":
+      return { x: centerX, y: bottom };
     case "bottom-right":
     default:
-      return { x: width - boxWidth - padX, y: height - boxHeight - padY };
+      return { x: right, y: bottom };
   }
 }
+
+/** Exported for tests: the grid must never place a watermark outside the canvas. */
+export const __watermarkAnchor = watermarkAnchor;
 
 function drawWatermark(ctx: CanvasRenderingContext2D, doc: MemeDoc, assets: RenderAssets, width: number, height: number) {
   const watermark = doc.watermark;

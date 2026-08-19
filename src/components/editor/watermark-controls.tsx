@@ -3,16 +3,8 @@
 import { useRef } from "react";
 import { Upload, X } from "lucide-react";
 import type { WatermarkLayer } from "@/lib/meme-doc/types";
-import type { WatermarkPosition } from "@/types/database";
 import { ControlRow, SegmentedControl, Slider, Toggle } from "./control-primitives";
-
-const POSITIONS: { value: WatermarkPosition; label: string }[] = [
-  { value: "top-left", label: "↖" },
-  { value: "center", label: "•" },
-  { value: "top-right", label: "↗" },
-  { value: "bottom-left", label: "↙" },
-  { value: "bottom-right", label: "↘" },
-];
+import WatermarkGrid from "./watermark-grid";
 
 interface WatermarkControlsProps {
   watermark: WatermarkLayer;
@@ -143,12 +135,7 @@ export default function WatermarkControls({
           </ControlRow>
 
           <ControlRow label="Vị trí">
-            <SegmentedControl
-              ariaLabel="Vị trí watermark"
-              value={watermark.position}
-              onChange={(position) => onChange({ position })}
-              options={POSITIONS.map((item) => ({ value: item.value, label: item.label, title: item.value }))}
-            />
+            <WatermarkGrid value={watermark.position} onChange={(position) => onChange({ position })} />
           </ControlRow>
         </>
       )}

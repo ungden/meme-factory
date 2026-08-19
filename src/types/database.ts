@@ -66,12 +66,17 @@ export interface Meme {
 // Enums & Supporting Types
 // ============================================
 
+/** 3x3 placement grid: corners, edge midpoints and the centre. */
 export type WatermarkPosition =
   | "top-left"
+  | "top-center"
   | "top-right"
+  | "center-left"
+  | "center"
+  | "center-right"
   | "bottom-left"
-  | "bottom-right"
-  | "center";
+  | "bottom-center"
+  | "bottom-right";
 
 export type MemeFormat = "1:1" | "9:16" | "16:9" | "4:5";
 

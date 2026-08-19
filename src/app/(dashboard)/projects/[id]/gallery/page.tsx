@@ -25,8 +25,10 @@ import {
   Sparkles,
   Type,
   FolderPlus,
+  CopyPlus,
 } from "lucide-react";
-import { FORMAT_DIMENSIONS, type MemeContent } from "@/types/database";
+import { FORMAT_DIMENSIONS, type MemeContent, type MemeFormat } from "@/types/database";
+import { createClient } from "@/lib/supabase/client";
 
 export default function GalleryPage() {
   const params = useParams();
@@ -35,7 +37,7 @@ export default function GalleryPage() {
   const toast = useToast();
 
   const { project } = useProject(projectId);
-  const { memes, loading, remove } = useMemes(projectId);
+  const { memes, loading, remove, reload } = useMemes(projectId);
   const [selectedMeme, setSelectedMeme] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
@@ -48,11 +50,23 @@ export default function GalleryPage() {
   const { collections, membership, create: createCollection, addMeme, removeMeme } = useMemeCollections(projectId);
   const { exports: exportHistory, reload: reloadExports } = useMemeExports(selectedMeme);
   const [activeCollection, setActiveCollection] = useState<string | null>(null);
+  const [timeFilter, setTimeFilter] = useState<"all" | "7d" | "30d">("all");
+  const [formatFilter, setFormatFilter] = useState<"all" | MemeFormat>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "draft">("all");
+  const [duplicating, setDuplicating] = useState(false);
 
-  // Collection filtering happens on the already-loaded list; no extra round trip.
-  const visibleMemes = activeCollection
-    ? memes.filter((meme) => (membership[activeCollection] ?? []).includes(meme.id))
-    : memes;
+  // All filtering happens on the already-loaded list; no extra round trip.
+  const visibleMemes = memes.filter((meme) => {
+    if (activeCollection && !(membership[activeCollection] ?? []).includes(meme.id)) return false;
+    if (formatFilter !== "all" && meme.format !== formatFilter) return false;
+    if (statusFilter !== "all" && meme.status !== statusFilter) return false;
+    if (timeFilter !== "all") {
+      const days = timeFilter === "7d" ? 7 : 30;
+      const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+      if (new Date(meme.created_at).getTime() < cutoff) return false;
+    }
+    return true;
+  });
 
   const selected = memes.find((m) => m.id === selectedMeme);
 
@@ -119,6 +133,39 @@ export default function GalleryPage() {
       }).then(() => {
         if (selectedMeme === id) reloadExports();
       });
+    }
+  };
+
+  /** Reuses the stored image object; only the row is copied. */
+  const handleDuplicate = async (id: string) => {
+    const source = memes.find((meme) => meme.id === id);
+    if (!source || !project?.id) return;
+
+    setDuplicating(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from("memes").insert({
+        project_id: project.id,
+        original_idea: source.original_idea,
+        generated_content: source.generated_content,
+        selected_characters: source.selected_characters,
+        format: source.format,
+        image_url: source.image_url,
+        has_watermark: source.has_watermark,
+        status: source.status,
+        source_meme_id: source.id,
+        editor_doc: source.editor_doc ?? null,
+        base_image_id: source.base_image_id ?? null,
+        composed_locally: Boolean(source.composed_locally),
+      });
+      if (error) throw new Error(error.message);
+      toast.success("Đã nhân bản");
+      setSelectedMeme(null);
+      await reload();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Nhân bản thất bại");
+    } finally {
+      setDuplicating(false);
     }
   };
 
@@ -258,6 +305,48 @@ export default function GalleryPage() {
             </Button>
           )}
         </div>
+
+        {/* Filters */}
+        {!loading && memes.length > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <select
+              aria-label="Lọc theo thời gian"
+              value={timeFilter}
+              onChange={(event) => setTimeFilter(event.target.value as typeof timeFilter)}
+              className="rounded-xl border th-border-secondary th-bg-tertiary px-3 py-1.5 text-xs th-text-primary"
+            >
+              <option value="all">Mọi thời điểm</option>
+              <option value="7d">7 ngày qua</option>
+              <option value="30d">30 ngày qua</option>
+            </select>
+            <select
+              aria-label="Lọc theo khổ ảnh"
+              value={formatFilter}
+              onChange={(event) => setFormatFilter(event.target.value as typeof formatFilter)}
+              className="rounded-xl border th-border-secondary th-bg-tertiary px-3 py-1.5 text-xs th-text-primary"
+            >
+              <option value="all">Mọi khổ ảnh</option>
+              {(Object.keys(FORMAT_DIMENSIONS) as MemeFormat[]).map((format) => (
+                <option key={format} value={format}>
+                  {format}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Lọc theo trạng thái"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+              className="rounded-xl border th-border-secondary th-bg-tertiary px-3 py-1.5 text-xs th-text-primary"
+            >
+              <option value="all">Mọi trạng thái</option>
+              <option value="completed">Đã hoàn tất</option>
+              <option value="draft">Nháp</option>
+            </select>
+            <span className="text-xs th-text-tertiary">
+              {visibleMemes.length} / {memes.length} đầu ra
+            </span>
+          </div>
+        )}
 
         {/* Collections */}
         {!loading && memes.length > 0 && (
@@ -587,6 +676,14 @@ export default function GalleryPage() {
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => goEditText(selected.id)}>
                         <Type size={14} /> Sửa chữ
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        loading={duplicating}
+                        onClick={() => handleDuplicate(selected.id)}
+                      >
+                        <CopyPlus size={14} /> Nhân bản
                       </Button>
                       {collections.length > 0 && (
                         <select

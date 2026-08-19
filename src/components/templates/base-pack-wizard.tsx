@@ -30,6 +30,8 @@ interface BasePackWizardProps {
   projectId: string;
   character: { id: string; name: string; description: string; personality: string };
   projectStyle?: string | null;
+  /** Sketch or logo the mascot should be drawn from, used only for the anchor image. */
+  sketchImage?: { base64: string; mimeType: string } | null;
   onSaved?: () => void;
 }
 
@@ -39,6 +41,7 @@ export default function BasePackWizard({
   projectId,
   character,
   projectStyle,
+  sketchImage,
   onSaved,
 }: BasePackWizardProps) {
   const toast = useToast();
@@ -72,6 +75,14 @@ export default function BasePackWizard({
 
   const generateOne = useCallback(
     async (recipe: BasePackRecipe, reference?: string): Promise<GeneratedItem> => {
+      // The anchor follows the uploaded sketch; every later image follows the
+      // approved anchor, so identity is pinned to one picture the user has seen.
+      const references = reference
+        ? [{ base64: reference, mimeType: "image/png" }]
+        : sketchImage
+          ? [sketchImage]
+          : undefined;
+
       const result = await generateImage({
         project_id: projectId,
         type: "character",
@@ -83,7 +94,7 @@ export default function BasePackWizard({
         layoutGroup: recipe.layoutGroup,
         subjectSide: recipe.subjectSide,
         aspectRatio,
-        existingPoseImages: reference ? [{ base64: reference, mimeType: "image/png" }] : undefined,
+        existingPoseImages: references,
       });
 
       if (result.error || !result.image) {
@@ -91,7 +102,7 @@ export default function BasePackWizard({
       }
       return { recipe, image: result.image, jobId: result.generation_job_id ?? null, accepted: true };
     },
-    [character, describe, projectStyle, aspectRatio, projectId]
+    [character, describe, projectStyle, aspectRatio, projectId, sketchImage]
   );
 
   const runAnchor = useCallback(async () => {
@@ -178,6 +189,23 @@ export default function BasePackWizard({
           <p className="text-sm th-text-tertiary">
             Mỗi ảnh được vẽ sẵn chỗ trống cho chữ, nên sau này bạn ghép chữ không tốn thêm điểm nào.
           </p>
+
+          {sketchImage && (
+            <div className="flex items-center gap-3 rounded-xl border th-border-secondary p-3">
+              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg th-bg-tertiary">
+                <Image
+                  src={`data:${sketchImage.mimeType};base64,${sketchImage.base64}`}
+                  alt="Phác thảo"
+                  fill
+                  className="object-contain"
+                  unoptimized
+                />
+              </div>
+              <p className="text-xs th-text-tertiary">
+                Ảnh mẫu sẽ được vẽ bám theo phác thảo này. Duyệt xong, các ảnh còn lại bám theo ảnh mẫu.
+              </p>
+            </div>
+          )}
 
           <div>
             <span className="mb-2 block text-xs font-medium th-text-tertiary">Khổ ảnh</span>

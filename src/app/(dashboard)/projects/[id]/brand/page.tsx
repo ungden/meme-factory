@@ -9,18 +9,11 @@ import Button from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import Input from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { ControlRow, SegmentedControl, Slider } from "@/components/editor/control-primitives";
+import { ControlRow, Slider } from "@/components/editor/control-primitives";
+import WatermarkGrid from "@/components/editor/watermark-grid";
 import { createClient } from "@/lib/supabase/client";
 import { useProject } from "@/lib/use-store";
 import { FORMAT_DIMENSIONS, type MemeFormat, type WatermarkPosition } from "@/types/database";
-
-const POSITIONS: { value: WatermarkPosition; label: string }[] = [
-  { value: "top-left", label: "↖" },
-  { value: "center", label: "•" },
-  { value: "top-right", label: "↗" },
-  { value: "bottom-left", label: "↙" },
-  { value: "bottom-right", label: "↘" },
-];
 
 const FORMAT_LABELS: Record<MemeFormat, string> = {
   "1:1": "Bài đăng vuông",
@@ -150,12 +143,7 @@ export default function BrandSettingsPage() {
                 )}
 
                 <ControlRow label="Vị trí">
-                  <SegmentedControl
-                    ariaLabel="Vị trí watermark"
-                    value={position}
-                    onChange={setPosition}
-                    options={POSITIONS.map((entry) => ({ value: entry.value, label: entry.label, title: entry.value }))}
-                  />
+                  <WatermarkGrid value={position} onChange={setPosition} />
                 </ControlRow>
 
                 <ControlRow label="Độ mờ" value={`${Math.round(opacity * 100)}%`}>

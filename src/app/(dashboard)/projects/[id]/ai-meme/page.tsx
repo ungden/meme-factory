@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Loader2, RefreshCw, Shuffle, Sparkles, Type } from "lucide-react";
+import { Loader2, PenLine, RefreshCw, Shuffle, Sparkles, Type } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
@@ -47,6 +47,7 @@ export default function AiMemePage() {
   const [tone, setTone] = useState(TONES[0]);
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [rewriting, setRewriting] = useState<number | null>(null);
 
   const byExpression = useMemo(() => {
     const map = new Map<string, BaseImageWithCharacter[]>();
@@ -115,6 +116,47 @@ export default function AiMemePage() {
       setLoading(false);
     }
   }, [project?.id, situation, tone, pickBaseImage, toast]);
+
+  /** Asks for one fresh line for a single card, keeping its artwork. */
+  const rewriteLine = useCallback(
+    async (index: number) => {
+      if (!project?.id) return;
+      const current = suggestions[index];
+      if (!current) return;
+
+      setRewriting(index);
+      try {
+        const response = await fetch("/api/ai/generate-content", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_id: project.id,
+            idea: `${situation.trim()} (Tone: ${tone}). Viết lại câu "${current.headline}" theo cách khác hẳn, giữ nguyên ý.`,
+            num_variations: 2,
+            noCharacters: true,
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data?.error || "Không viết lại được");
+
+        const variations = (data?.variations ?? []) as { content?: MemeContent; headline?: string }[];
+        const fresh = variations
+          .map((variation) => variation.content?.headline || variation.headline || "")
+          .find((line) => line && line !== current.headline);
+
+        if (!fresh) {
+          toast.error("AI trả về câu trùng, thử lại nhé");
+          return;
+        }
+        setSuggestions((rows) => rows.map((row, i) => (i === index ? { ...row, headline: fresh } : row)));
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Không viết lại được");
+      } finally {
+        setRewriting(null);
+      }
+    },
+    [project?.id, suggestions, situation, tone, toast]
+  );
 
   const swapMascot = (index: number) => {
     setSuggestions((current) =>
@@ -241,6 +283,16 @@ export default function AiMemePage() {
                     </Link>
                     <Button size="sm" variant="outline" onClick={() => swapMascot(index)} disabled={baseImages.length < 2}>
                       <RefreshCw size={14} /> Đổi mascot
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      aria-label="Viết lại câu"
+                      title="Viết lại câu"
+                      loading={rewriting === index}
+                      onClick={() => rewriteLine(index)}
+                    >
+                      <PenLine size={14} />
                     </Button>
                   </div>
                 </CardContent>

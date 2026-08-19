@@ -1,13 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import { Plus, Search, Sparkles } from "lucide-react";
+import { Plus, Search, Sparkles, Upload, X } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
 import Card, { CardContent } from "@/components/ui/card";
+import Input from "@/components/ui/input";
+import Modal from "@/components/ui/modal";
+import Textarea from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
+import BasePackWizard from "@/components/templates/base-pack-wizard";
+import { compressImageToBase64 } from "@/lib/image-utils";
 import { LAYOUT_PRESET_LABELS } from "@/lib/meme-layout-presets";
 import { useBaseImages } from "@/lib/use-templates";
 import { useCharacters, useProject } from "@/lib/use-store";
@@ -19,12 +25,63 @@ export default function MascotsPage() {
   const params = useParams<{ id: string }>();
   const projectRef = params.id;
 
+  const toast = useToast();
+  const sketchRef = useRef<HTMLInputElement>(null);
+
   const { project } = useProject(projectRef);
-  const { characters, loading } = useCharacters(projectRef);
-  const { baseImages } = useBaseImages(projectRef, "all");
+  const { characters, loading, createCharacter, reload } = useCharacters(projectRef);
+  const { baseImages, reload: reloadBaseImages } = useBaseImages(projectRef, "all");
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+
+  // Build-a-mascot: name + traits + an optional sketch the artwork should follow.
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({ name: "", description: "", personality: "" });
+  const [sketch, setSketch] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
+  const [wizardFor, setWizardFor] = useState<
+    { id: string; name: string; description: string; personality: string } | null
+  >(null);
+
+  const pickSketch = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Phác thảo phải là file ảnh");
+      return;
+    }
+    const compressed = await compressImageToBase64(file);
+    setSketch({ ...compressed, preview: URL.createObjectURL(file) });
+  };
+
+  const submitCreate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const name = form.name.trim();
+    if (!name) return;
+
+    setCreating(true);
+    try {
+      const created = await createCharacter({
+        name,
+        description: form.description.trim() || `Nhân vật ${name}`,
+        personality: form.personality.trim() || "Linh hoạt theo ngữ cảnh meme",
+      });
+      if (!created) throw new Error("Không tạo được mascot");
+
+      setShowCreate(false);
+      setForm({ name: "", description: "", personality: "" });
+      // Straight into the pack wizard: a mascot with no expressions is not usable yet.
+      setWizardFor({
+        id: created.id,
+        name: created.name,
+        description: created.description,
+        personality: created.personality,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không tạo được mascot");
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const statsByCharacter = useMemo(() => {
     const stats = new Map<string, { ready: number; draft: number; layouts: Set<LayoutPresetId>; cover?: string }>();
@@ -58,12 +115,10 @@ export default function MascotsPage() {
               Thư viện nhân vật của dự án và bộ biểu cảm dùng để ghép chữ.
             </p>
           </div>
-          <Link href={`/projects/${projectRef}/characters`}>
-            <Button>
-              <Plus size={16} />
-              Thêm mascot
-            </Button>
-          </Link>
+          <Button onClick={() => setShowCreate(true)}>
+            <Plus size={16} />
+            Tạo mascot mới
+          </Button>
         </div>
 
         <div className="mb-5 flex flex-wrap items-center gap-2">
@@ -149,6 +204,95 @@ export default function MascotsPage() {
               );
             })}
           </div>
+        )}
+
+        <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Tạo mascot mới">
+          <form onSubmit={submitCreate} className="space-y-4">
+            <input
+              ref={sketchRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) pickSketch(file);
+                event.target.value = "";
+              }}
+            />
+
+            {sketch ? (
+              <div className="flex items-center gap-3 rounded-xl border th-border-secondary p-3">
+                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg th-bg-tertiary">
+                  <Image src={sketch.preview} alt="Phác thảo" fill className="object-contain" unoptimized />
+                </div>
+                <span className="flex-1 text-xs th-text-tertiary">
+                  AI sẽ vẽ mascot bám theo phác thảo này.
+                </span>
+                <button
+                  type="button"
+                  aria-label="Bỏ phác thảo"
+                  onClick={() => setSketch(null)}
+                  className="th-text-tertiary hover:th-text-primary"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => sketchRef.current?.click()}
+                className="flex w-full flex-col items-center gap-1 rounded-xl border border-dashed th-border-secondary p-5 th-text-tertiary th-bg-hover"
+              >
+                <Upload size={18} />
+                <span className="text-xs">Tải phác thảo hoặc logo (không bắt buộc)</span>
+              </button>
+            )}
+
+            <Input
+              label="Tên mascot"
+              value={form.name}
+              maxLength={60}
+              placeholder="Bò Vàng"
+              onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+            />
+            <Textarea
+              rows={3}
+              value={form.description}
+              placeholder="Ngoại hình: bò vàng, sừng cong ngắn, mắt to tròn, mặc hoodie xanh…"
+              onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+            />
+            <Textarea
+              rows={2}
+              value={form.personality}
+              placeholder="Tính cách: hay nghĩ nhiều, nói móc nhẹ nhàng…"
+              onChange={(event) => setForm((current) => ({ ...current, personality: event.target.value }))}
+            />
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>
+                Huỷ
+              </Button>
+              <Button type="submit" loading={creating} disabled={!form.name.trim()}>
+                Tạo và sinh biểu cảm
+              </Button>
+            </div>
+          </form>
+        </Modal>
+
+        {project && wizardFor && (
+          <BasePackWizard
+            open
+            onClose={() => setWizardFor(null)}
+            projectId={project.id}
+            character={wizardFor}
+            projectStyle={project.style_prompt}
+            sketchImage={sketch ? { base64: sketch.base64, mimeType: sketch.mimeType } : null}
+            onSaved={() => {
+              reload();
+              reloadBaseImages();
+              setSketch(null);
+            }}
+          />
         )}
 
         <p className="mt-6 flex items-center gap-1.5 text-xs th-text-tertiary">

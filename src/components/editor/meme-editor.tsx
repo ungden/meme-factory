@@ -19,6 +19,7 @@ import { useMemes } from "@/lib/use-store";
 import type { MemeFormat, Project } from "@/types/database";
 import BaseImagePicker from "./base-image-picker";
 import CaptionSuggestions from "./caption-suggestions";
+import TemplateInfo from "./template-info";
 import TextControls from "./text-controls";
 import WatermarkControls from "./watermark-controls";
 
@@ -423,6 +424,15 @@ export default function MemeEditor({
                 onUpload={uploadWatermark}
               />
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <span className="text-sm font-semibold th-text-primary">Thông tin mẫu</span>
+          </CardHeader>
+          <CardContent>
+            <TemplateInfo doc={doc} style={activeLayer?.style} />
           </CardContent>
         </Card>
 
