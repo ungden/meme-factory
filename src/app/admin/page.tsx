@@ -22,6 +22,7 @@ interface Overview {
     outstandingLiabilityVnd: number;
     pointsConsumed: number;
     refundedPoints: number;
+    refundedCalls: number;
     cost: {
       measuredUsd: number;
       measuredCalls: number;
@@ -45,7 +46,16 @@ interface Overview {
     exports: number;
     users: number;
   };
-  health: { failedJobs: number; jobsByProvider: Record<string, number> };
+  health: {
+    failedJobs: number;
+    jobsByProvider: Record<string, number>;
+    integrity: {
+      jobsMissingCost: number;
+      stuckJobs: number;
+      chargesWithoutJob: number;
+      chargesWithoutAction: number;
+    };
+  };
 }
 
 interface Stats {
@@ -221,7 +231,9 @@ export default function AdminDashboard() {
                 </div>
                 {overview.finance.refundedPoints > 0 && (
                   <p className="mt-2 text-[11px] th-text-muted">
-                    Đã hoàn {overview.finance.refundedPoints.toLocaleString("vi-VN")} điểm cho các lần tạo lỗi.
+                    Đã hoàn {overview.finance.refundedPoints.toLocaleString("vi-VN")} điểm cho{" "}
+                    {overview.finance.refundedCalls} lần tạo lỗi — những lần này không tính chi phí vì
+                    provider không xuất ảnh.
                   </p>
                 )}
               </section>
@@ -249,10 +261,48 @@ export default function AdminDashboard() {
                 <AssetCard label="Lượt tải" value={overview.assets.exports} />
               </div>
               {overview.health.failedJobs > 0 && (
-                <p className="mt-2 text-[11px] th-text-danger">
-                  {overview.health.failedJobs} lần tạo thất bại đã ghi nhận.
+                <p className="mt-2 text-[11px] th-text-muted">
+                  {overview.health.failedJobs} lần tạo thất bại đã ghi nhận và hoàn điểm.
                 </p>
               )}
+            </section>
+
+            {/* Toàn vẹn sổ sách */}
+            <section className="mb-8">
+              <h2 className="mb-3 text-sm font-semibold th-text-primary">Toàn vẹn sổ sách</h2>
+              {(() => {
+                const checks = [
+                  { label: "Job xong nhưng thiếu số chi phí", value: overview.health.integrity.jobsMissingCost },
+                  { label: "Job treo quá 10 phút (đã trừ điểm, chưa hoàn)", value: overview.health.integrity.stuckJobs },
+                  { label: "Lần trừ điểm không có bản ghi job", value: overview.health.integrity.chargesWithoutJob },
+                  { label: "Lần trừ điểm không rõ loại", value: overview.health.integrity.chargesWithoutAction },
+                ];
+                const clean = checks.every((check) => check.value === 0);
+                return (
+                  <div className="rounded-2xl border p-4" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
+                    {clean ? (
+                      <p className="text-sm" style={{ color: "#16a34a" }}>
+                        Không có sai lệch. Mọi lần trừ điểm đều có bản ghi job và số chi phí đi kèm.
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {checks.map((check) => (
+                          <div key={check.label} className="flex items-center justify-between text-xs">
+                            <span className={check.value > 0 ? "th-text-danger" : "th-text-tertiary"}>{check.label}</span>
+                            <span className={`tabular-nums font-medium ${check.value > 0 ? "th-text-danger" : "th-text-tertiary"}`}>
+                              {check.value}
+                            </span>
+                          </div>
+                        ))}
+                        <p className="pt-1 text-[11px] th-text-muted">
+                          Số liệu cũ trước 22/07/2026 không có bản ghi job nên luôn nằm ở dòng thứ ba; từ mốc
+                          đó về sau con số này phải đứng yên.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </section>
           </>
         )}

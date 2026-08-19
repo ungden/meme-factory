@@ -3,6 +3,7 @@ import {
   ACTION_UNIT_COST_USD,
   buildCostBreakdown,
   costPerPointUsd,
+  netSpendByAction,
   summariseProfit,
 } from "./admin-finance";
 import { AI_PRICING_USD_VND } from "./ai-pricing";
@@ -97,5 +98,45 @@ describe("summariseProfit", () => {
       costPerPointUsd: 0,
     });
     expect(summary.grossMarginPercent).toBe(0);
+  });
+});
+
+describe("netSpendByAction", () => {
+  const payments = [
+    { requestId: "a", action: "meme", points: 6 },
+    { requestId: "b", action: "meme", points: 6 },
+    { requestId: "c", action: "character", points: 6 },
+  ];
+
+  it("excludes a refunded call from cost attribution entirely", () => {
+    // A refunded call failed, so the provider produced nothing and billed nothing.
+    // Counting it would overstate cost and understate profit.
+    const net = netSpendByAction(payments, ["b"]);
+    expect(net.refundedCalls).toBe(1);
+    expect(net.refundedPoints).toBe(6);
+    expect(net.spendByAction.find((row) => row.action === "meme")?.calls).toBe(1);
+    expect(net.spendByAction.find((row) => row.action === "meme")?.points).toBe(6);
+  });
+
+  it("leaves the tally untouched when nothing was refunded", () => {
+    const net = netSpendByAction(payments, []);
+    expect(net.refundedCalls).toBe(0);
+    expect(net.spendByAction.reduce((sum, row) => sum + row.calls, 0)).toBe(3);
+  });
+
+  it("keeps a payment with no request id, since it cannot have been refunded", () => {
+    const net = netSpendByAction([{ requestId: null, action: "meme", points: 6 }], ["b"]);
+    expect(net.spendByAction[0].calls).toBe(1);
+  });
+
+  it("orders by points so the biggest cost driver reads first", () => {
+    const net = netSpendByAction(
+      [
+        { requestId: "x", action: "character", points: 6 },
+        { requestId: "y", action: "meme", points: 12 },
+      ],
+      []
+    );
+    expect(net.spendByAction[0].action).toBe("meme");
   });
 });

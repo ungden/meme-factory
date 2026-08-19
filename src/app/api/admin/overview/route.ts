@@ -3,8 +3,8 @@ import { requireAdmin, supabaseAdmin, AdminError } from "@/lib/admin";
 import {
   buildCostBreakdown,
   costPerPointUsd,
+  netSpendByAction,
   summariseProfit,
-  type SpendByAction,
 } from "@/lib/admin-finance";
 
 /**
@@ -25,17 +25,17 @@ export async function GET(req: Request) {
       countsRes,
     ] = await Promise.all([
       supabaseAdmin.from("topup_orders").select("amount, created_at").eq("status", "completed"),
-      supabaseAdmin.from("generation_jobs").select("actual_cost_usd, estimated_cost_usd, status, provider, creation_kind"),
+      supabaseAdmin.from("generation_jobs").select("id, actual_cost_usd, estimated_cost_usd, status, provider, creation_kind, started_at, created_at"),
       supabaseAdmin
         .from("project_transactions")
-        .select("ai_action, amount")
+        .select("ai_action, amount, request_id")
         .eq("type", "payment")
         .eq("status", "completed"),
       supabaseAdmin.from("wallets").select("points"),
       supabaseAdmin.from("project_wallets").select("points"),
       supabaseAdmin
         .from("project_transactions")
-        .select("amount")
+        .select("amount, request_id")
         .eq("type", "refund")
         .eq("status", "completed"),
       Promise.all([
@@ -56,16 +56,23 @@ export async function GET(req: Request) {
     const jobs = jobsRes.data ?? [];
     const measuredUsd = jobs.reduce((sum, job) => sum + Number(job.actual_cost_usd ?? 0), 0);
     const measuredCalls = jobs.filter((job) => job.actual_cost_usd !== null).length;
+    const jobIds = new Set(jobs.map((job) => job.id as string));
 
-    const spendMap = new Map<string | null, SpendByAction>();
-    for (const row of spendRes.data ?? []) {
-      const key = (row.ai_action as string | null) ?? null;
-      const entry = spendMap.get(key) ?? { action: key, calls: 0, points: 0 };
-      entry.calls += 1;
-      entry.points += Math.abs(Number(row.amount));
-      spendMap.set(key, entry);
-    }
-    const spendByAction = [...spendMap.values()].sort((a, b) => b.points - a.points);
+    // A refunded call failed, so the provider never billed for it. Netting these
+    // out before attributing cost is the difference between a real margin and a
+    // pessimistic one.
+    const refundedRequestIds = (refundsRes.data ?? [])
+      .map((row) => row.request_id as string | null)
+      .filter((id): id is string => Boolean(id));
+
+    const { spendByAction, refundedCalls, refundedPoints } = netSpendByAction(
+      (spendRes.data ?? []).map((row) => ({
+        requestId: (row.request_id as string | null) ?? null,
+        action: (row.ai_action as string | null) ?? null,
+        points: Math.abs(Number(row.amount)),
+      })),
+      refundedRequestIds
+    );
 
     const cost = buildCostBreakdown({ measuredUsd, measuredCalls, spendByAction });
     const outstandingPoints =
@@ -97,7 +104,8 @@ export async function GET(req: Request) {
       finance: {
         ...profit,
         pointsConsumed: spendByAction.reduce((sum, row) => sum + row.points, 0),
-        refundedPoints: (refundsRes.data ?? []).reduce((sum, row) => sum + Math.abs(Number(row.amount)), 0),
+        refundedPoints,
+        refundedCalls,
         cost,
         spendByAction,
         dailyCash,
@@ -119,6 +127,23 @@ export async function GET(req: Request) {
           acc[job.provider] = (acc[job.provider] ?? 0) + 1;
           return acc;
         }, {}),
+        // Anything here means a future number is quietly drifting, so it is
+        // surfaced rather than left to be discovered in a monthly total.
+        integrity: {
+          // Billed, finished, but the cost write failed — cost unknown forever.
+          jobsMissingCost: jobs.filter(
+            (job) => job.status === "completed" && job.actual_cost_usd === null
+          ).length,
+          // Points taken, no image, no refund: the request died mid-flight.
+          stuckJobs: jobs.filter(
+            (job) => job.status === "running" && new Date(job.started_at ?? job.created_at).getTime() < Date.now() - 10 * 60_000
+          ).length,
+          // A charge with no job row cannot have its cost measured.
+          chargesWithoutJob: (spendRes.data ?? []).filter(
+            (row) => row.request_id && !jobIds.has(row.request_id as string)
+          ).length,
+          chargesWithoutAction: (spendRes.data ?? []).filter((row) => !row.ai_action).length,
+        },
       },
     });
   } catch (error) {

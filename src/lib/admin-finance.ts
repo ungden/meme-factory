@@ -129,3 +129,49 @@ export function costPerPointUsd(spendByAction: SpendByAction[]): number {
 function round(value: number) {
   return Number(value.toFixed(6));
 }
+
+export interface BilledCall {
+  requestId: string | null;
+  action: string | null;
+  points: number;
+}
+
+export interface NetSpend {
+  spendByAction: SpendByAction[];
+  /** Calls that were refunded, so the provider never charged for them. */
+  refundedCalls: number;
+  refundedPoints: number;
+}
+
+/**
+ * Nets refunds out before any cost is attributed.
+ *
+ * A refunded call is one that failed, which means the provider produced nothing
+ * and billed nothing. Counting it as a cost-incurring call overstates spend and
+ * understates profit. The refund rows carry the same request_id as the payment
+ * they reverse, which is what makes this exact rather than a ratio.
+ */
+export function netSpendByAction(payments: BilledCall[], refundedRequestIds: Iterable<string>): NetSpend {
+  const refunded = new Set(refundedRequestIds);
+  const byAction = new Map<string | null, SpendByAction>();
+  let refundedCalls = 0;
+  let refundedPoints = 0;
+
+  for (const payment of payments) {
+    if (payment.requestId && refunded.has(payment.requestId)) {
+      refundedCalls += 1;
+      refundedPoints += payment.points;
+      continue;
+    }
+    const entry = byAction.get(payment.action) ?? { action: payment.action, calls: 0, points: 0 };
+    entry.calls += 1;
+    entry.points += payment.points;
+    byAction.set(payment.action, entry);
+  }
+
+  return {
+    spendByAction: [...byAction.values()].sort((a, b) => b.points - a.points),
+    refundedCalls,
+    refundedPoints,
+  };
+}
