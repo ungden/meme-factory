@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { Check, Download, Eye, EyeOff, Loader2, Save, Undo2 } from "lucide-react";
 import Button from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
@@ -290,9 +291,14 @@ export default function MemeEditor({
           {baseImagesLoading ? (
             <Loader2 className="mx-auto animate-spin th-text-tertiary" size={22} />
           ) : (
-            <p className="th-text-tertiary">
-              Dự án chưa có ảnh mascot nào. Vào Tài nguyên để thêm pose cho mascot trước đã.
-            </p>
+            <div className="space-y-3">
+              <p className="th-text-tertiary">
+                Dự án chưa có ảnh mascot nào để ghép chữ.
+              </p>
+              <Link href={`/projects/${projectRef}/mascots`}>
+                <Button variant="outline">Tạo mascot và bộ biểu cảm</Button>
+              </Link>
+            </div>
           )}
         </CardContent>
       </Card>

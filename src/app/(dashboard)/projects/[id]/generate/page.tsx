@@ -792,6 +792,19 @@ export default function GeneratePage() {
       <div className="flex">
         <Sidebar projectId={projectId} />
         <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
+        <div
+          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3"
+          style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
+        >
+          <p className="text-sm th-text-tertiary">
+            Chỉ muốn đổi chữ trên mascot có sẵn? Dùng Ghép chữ để khỏi tốn điểm — trang này dành cho khi cần
+            dựng ảnh hoàn toàn mới.
+          </p>
+          <Button size="sm" variant="outline" onClick={() => router.push(`/projects/${projectId}/editor`)}>
+            Mở Ghép chữ
+          </Button>
+        </div>
+
           <div className="animate-pulse h-96 th-bg-card rounded-2xl" />
         </main>
       </div>

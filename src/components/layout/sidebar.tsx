@@ -19,6 +19,7 @@ import {
   Clapperboard,
   Type,
   Palette,
+  Wand2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -126,12 +127,21 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
     { href: "/wallet", label: "Ví tiền", icon: Wallet },
   ];
 
+  // Grouped so the free paths read first and the paid ones are visibly separate.
   const projectPrimaryNav = projectId
+    ? [{ href: `/projects/${projectId}`, label: "Tổng quan", icon: Sparkles }]
+    : [];
+
+  const projectCreateNav = projectId
     ? [
-        { href: `/projects/${projectId}`, label: "Tổng quan", icon: Sparkles },
+        { href: `/projects/${projectId}/editor`, label: "Ghép chữ", icon: Type, badge: "0đ" },
+        { href: `/projects/${projectId}/ai-meme`, label: "AI Meme", icon: Wand2, badge: "0đ" },
         { href: `/projects/${projectId}/studio`, label: "Studio", icon: Clapperboard, aliases: [`/projects/${projectId}/generate`] },
-        { href: `/projects/${projectId}/editor`, label: "Ghép chữ", icon: Type },
-        { href: `/projects/${projectId}/ai-meme`, label: "AI Meme", icon: Sparkles },
+      ]
+    : [];
+
+  const projectLibraryNav = projectId
+    ? [
         { href: `/projects/${projectId}/mascots`, label: "Mascot", icon: Users, aliases: [`/projects/${projectId}/characters`] },
         { href: `/projects/${projectId}/gallery`, label: "Thư viện", icon: Image },
       ]
@@ -201,13 +211,36 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
             <NavItem key={item.href} {...item} active={pathname === item.href} />
           ))}
 
-        {projectPrimaryNav.map((item) => {
-          const isOverview = item.href === `/projects/${projectId}`;
-          const active = isOverview
-            ? pathname === item.href
-            : pathname === item.href || pathname.startsWith(`${item.href}/`) || item.aliases?.some((alias) => pathname === alias || pathname.startsWith(`${alias}/`)) || false;
-          return <NavItem key={item.href} href={item.href} label={item.label} icon={item.icon} active={active} />;
-        })}
+        {projectPrimaryNav.map((item) => (
+          <NavItem key={item.href} href={item.href} label={item.label} icon={item.icon} active={pathname === item.href} />
+        ))}
+
+        {projectId && (
+          <>
+            <div className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] th-text-muted">Tạo</div>
+            {projectCreateNav.map((item) => (
+              <NavItem
+                key={item.href}
+                href={item.href}
+                label={item.label}
+                icon={item.icon}
+                badge={item.badge}
+                active={isNavActive(pathname, item.href, item.aliases)}
+              />
+            ))}
+
+            <div className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] th-text-muted">Thư viện</div>
+            {projectLibraryNav.map((item) => (
+              <NavItem
+                key={item.href}
+                href={item.href}
+                label={item.label}
+                icon={item.icon}
+                active={isNavActive(pathname, item.href, item.aliases)}
+              />
+            ))}
+          </>
+        )}
 
         {projectId && (
           <>
@@ -313,16 +346,23 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
   );
 }
 
+function isNavActive(pathname: string, href: string, aliases?: string[]) {
+  if (pathname === href || pathname.startsWith(`${href}/`)) return true;
+  return aliases?.some((alias) => pathname === alias || pathname.startsWith(`${alias}/`)) ?? false;
+}
+
 function NavItem({
   href,
   label,
   icon: Icon,
   active,
+  badge,
 }: {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   active: boolean;
+  badge?: string;
 }) {
   return (
     <Link
@@ -335,7 +375,10 @@ function NavItem({
       }`}
     >
       <Icon size={18} className={active ? "th-text-accent" : ""} />
-      {label}
+      <span className="flex-1 truncate">{label}</span>
+      {badge && (
+        <span className="rounded-full px-1.5 py-0.5 text-[10px] th-bg-tertiary th-text-tertiary">{badge}</span>
+      )}
     </Link>
   );
 }

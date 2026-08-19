@@ -14,7 +14,6 @@ import {
   Sparkles,
   TrendingUp,
   Users,
-  Video,
   Zap,
   Type,
 } from "lucide-react";
@@ -25,31 +24,35 @@ import Sidebar from "@/components/layout/sidebar";
 const modes = [
   {
     title: "Ghép chữ lên mascot",
-    description: "Chọn biểu cảm có sẵn, đặt chữ và tải về. Không tốn điểm.",
+    description: "Chọn biểu cảm có sẵn, đặt chữ và tải về.",
     icon: Type,
     color: "#265ee8",
     path: "editor",
+    cost: "0 điểm",
   },
   {
-    title: "Ý tưởng & chú thích",
-    description: "Từ yêu cầu ngắn thành câu mở đầu, chú thích và lịch đăng.",
+    title: "Gợi ý câu bằng AI",
+    description: "Kể một tình huống, nhận sáu câu kèm biểu cảm hợp cảnh.",
     icon: MessageCircle,
+    color: "#12a594",
+    path: "ai-meme",
+    cost: "0 điểm",
+  },
+  {
+    title: "Tạo ảnh mới bằng AI",
+    description: "Khi chưa có ảnh mascot phù hợp, dựng hẳn ảnh mới từ ý tưởng.",
+    icon: Sparkles,
     color: "#f05a32",
     path: "generate",
+    cost: "tốn điểm",
   },
   {
-    title: "Meme & bài đăng",
-    description: "Giữ đúng nhân vật qua meme, bài vuông và chuỗi ảnh.",
+    title: "Meme, bài đăng & Reels",
+    description: "Giữ đúng nhân vật qua meme, bài vuông, chuỗi ảnh và hình dọc.",
     icon: ImageIcon,
     color: "#265ee8",
     path: "studio?mode=social",
-  },
-  {
-    title: "TikTok & Reels",
-    description: "Lên câu mở đầu, hướng dẫn dựng cảnh và hình dọc nhất quán.",
-    icon: Video,
-    color: "#12a594",
-    path: "studio?mode=social",
+    cost: "tốn điểm",
   },
   {
     title: "Quảng cáo",
@@ -57,6 +60,7 @@ const modes = [
     icon: Megaphone,
     color: "#f59e0b",
     path: "studio?mode=product",
+    cost: "tốn điểm",
   },
   {
     title: "Thời trang",
@@ -64,6 +68,7 @@ const modes = [
     icon: Shirt,
     color: "#df6b8b",
     path: "studio?mode=fashion",
+    cost: "tốn điểm",
   },
   {
     title: "Storyboard",
@@ -71,6 +76,7 @@ const modes = [
     icon: Clapperboard,
     color: "#7668d6",
     path: "studio?mode=storyboard",
+    cost: "tốn điểm",
   },
 ];
 
@@ -146,7 +152,8 @@ export default function ProjectOverviewPage() {
               {modes.map((mode) => (
                 <button key={mode.title} onClick={() => router.push(`/projects/${projectId}/${mode.path}`)} className="group rounded-2xl border p-5 text-left transition hover:-translate-y-1 hover:shadow-xl" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
                   <div className="flex items-start justify-between"><span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${mode.color}18`, color: mode.color }}><mode.icon size={19} /></span><ArrowRight size={16} className="th-text-muted transition group-hover:translate-x-1" /></div>
-                  <h3 className="mt-7 font-semibold th-text-primary">{mode.title}</h3>
+                  <span className={`mt-6 inline-block rounded-full px-2 py-0.5 text-[10px] ${mode.cost === "0 điểm" ? "bg-blue-600/10 text-blue-600" : "th-bg-tertiary th-text-tertiary"}`}>{mode.cost}</span>
+                  <h3 className="mt-1.5 font-semibold th-text-primary">{mode.title}</h3>
                   <p className="mt-2 text-sm leading-5 th-text-tertiary">{mode.description}</p>
                 </button>
               ))}

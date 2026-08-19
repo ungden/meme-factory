@@ -158,7 +158,9 @@ export function ContinuityStudio({ projectId, projectName, initialMode = "social
       referenceCount: character.poses.length + (character.avatar_url ? 1 : 0),
       notes: [character.description, character.personality].filter(Boolean).join(" · ") || "Chưa có ghi chú về tính nhất quán.",
     }));
-    return characterAssets.length > 0 ? [...characterAssets, ...assets.slice(2)] : assets;
+    // Once a project has real mascots, showing sample look/item/environment cards
+    // next to them reads as if the project owns assets it does not.
+    return characterAssets.length > 0 ? characterAssets : assets;
   }, [characters]);
 
   const visibleAssets = projectAssets.filter((asset) => {

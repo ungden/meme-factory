@@ -303,6 +303,20 @@ export default function CharacterDetailPage() {
       <div className="flex">
         <Sidebar projectId={projectId} />
         <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
+        <div
+          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3"
+          style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
+        >
+          <p className="text-sm th-text-tertiary">
+            Ảnh tải lên đây tự động vào thư viện template. Sang trang Mascot để duyệt, chỉnh vùng chữ và ghép chữ.
+          </p>
+          <Link href={`/projects/${projectId}/mascots/${characterId}`}>
+            <Button size="sm" variant="outline">
+              Mở trang Mascot
+            </Button>
+          </Link>
+        </div>
+
           <div className="animate-pulse space-y-6">
             <div className="h-6 w-48 th-bg-tertiary rounded-lg" />
             <div className="flex gap-6">

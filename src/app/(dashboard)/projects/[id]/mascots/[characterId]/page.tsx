@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import { Archive, Check, ChevronLeft, Crop, Dna, Grid2x2, Images, ShieldCheck, Sparkles, Type } from "lucide-react";
+import { Archive, Check, ChevronLeft, Crop, Dna, Grid2x2, Images, RefreshCw, ShieldCheck, Sparkles, Type, Upload } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import SafeZoneEditor from "@/components/templates/safe-zone-editor";
 import CharacterDnaPanel from "@/components/templates/character-dna-panel";
 import { LAYOUT_PRESET_LABELS } from "@/lib/meme-layout-presets";
 import { useBaseImages, useCharacterDna, useExpressionTags } from "@/lib/use-templates";
+import { syncCharacterPoses } from "@/lib/base-image-sync";
 import { useCharacters, useMemes, useProject } from "@/lib/use-store";
 import type { BaseImageStatus, LayoutPresetId } from "@/types/database";
 
@@ -42,6 +43,7 @@ export default function MascotDetailPage() {
   const [tab, setTab] = useState<Tab>("reactions");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [zoneTarget, setZoneTarget] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const [savingDna, setSavingDna] = useState(false);
 
   const character = characters.find((entry) => entry.id === characterId);
@@ -73,6 +75,24 @@ export default function MascotDetailPage() {
       toast.success(status === "ready" ? "Đã duyệt làm template" : "Đã lưu trữ ảnh");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Không cập nhật được");
+    }
+  };
+
+  // Poses uploaded from the mobile app, or before poses were mirrored automatically,
+  // exist in the legacy library but not here.
+  const mirroredPoseIds = new Set(images.map((image) => image.legacy_pose_id).filter(Boolean));
+  const unsyncedPoses = (character?.poses ?? []).filter((pose) => !mirroredPoseIds.has(pose.id)).length;
+
+  const syncLegacyPoses = async () => {
+    setSyncing(true);
+    try {
+      const created = await syncCharacterPoses(characterId);
+      await reload();
+      toast.success(created > 0 ? `Đã đưa ${created} ảnh cũ vào thư viện template` : "Không còn ảnh nào cần đồng bộ");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Đồng bộ thất bại");
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -134,6 +154,11 @@ export default function MascotDetailPage() {
                     <Type size={16} /> Ghép chữ
                   </Button>
                 </Link>
+                <Link href={`/projects/${projectRef}/characters/${characterId}`}>
+                  <Button variant="outline" title="Tải ảnh gốc, tạo pose lẻ, đặt ảnh đại diện">
+                    <Upload size={16} /> Ảnh gốc
+                  </Button>
+                </Link>
               </div>
             </div>
 
@@ -161,6 +186,20 @@ export default function MascotDetailPage() {
             </CardContent>
           </Card>
         </div>
+
+        {unsyncedPoses > 0 && (
+          <div
+            className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3"
+            style={{ background: "var(--bg-card)", borderColor: "var(--accent)" }}
+          >
+            <p className="text-sm th-text-secondary">
+              {unsyncedPoses} ảnh gốc chưa có trong thư viện template nên chưa ghép chữ được.
+            </p>
+            <Button size="sm" variant="outline" loading={syncing} onClick={syncLegacyPoses}>
+              <RefreshCw size={14} /> Đồng bộ ảnh cũ
+            </Button>
+          </div>
+        )}
 
         <div className="mb-5 flex gap-1 border-b th-border-secondary">
           {TABS.map((entry) => (
