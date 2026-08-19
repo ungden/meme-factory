@@ -26,6 +26,7 @@ import { useToast } from "@/components/ui/toast";
 import BasePackWizard from "@/components/templates/base-pack-wizard";
 import { compressImageToBase64 } from "@/lib/image-utils";
 import { LAYOUT_PRESET_LABELS } from "@/lib/meme-layout-presets";
+import { resolveMascotCover } from "@/lib/mascot-cover";
 import { useBaseImages, useExpressionTags } from "@/lib/use-templates";
 import { useCharacters, useMemes, useProject } from "@/lib/use-store";
 import type { ExpressionTag, LayoutPresetId } from "@/types/database";
@@ -60,7 +61,6 @@ interface MascotStats {
   layouts: Set<LayoutPresetId>;
   vibes: Set<VibeGroup>;
   memes: number;
-  cover?: string;
 }
 
 export default function MascotsPage() {
@@ -113,7 +113,6 @@ export default function MascotsPage() {
       const vibe = vibeBySlug.get(image.expression_slug);
       if (vibe) entry.vibes.add(vibe);
       entry.memes += memeCountByBaseImage.get(image.id) ?? 0;
-      if (!entry.cover && image.status === "ready") entry.cover = image.image_url;
       stats.set(image.character_id, entry);
     }
     return stats;
@@ -173,6 +172,13 @@ export default function MascotsPage() {
 
   const firstReadyBaseImage = (characterId: string) =>
     baseImages.find((image) => image.character_id === characterId && image.status === "ready");
+
+  const coverFor = (character: (typeof characters)[number]) =>
+    resolveMascotCover({
+      avatarUrl: character.avatar_url,
+      baseImages: baseImages.filter((image) => image.character_id === character.id),
+      poses: character.poses,
+    });
 
   const resetFilters = () => {
     setVibeFilter(null);
@@ -366,9 +372,9 @@ export default function MascotsPage() {
               <Card>
                 <CardContent className="flex flex-col gap-4 py-4 sm:flex-row">
                   <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-xl th-bg-tertiary sm:w-56">
-                    {(featured.avatar_url || statsByCharacter.get(featured.id)?.cover) && (
+                    {coverFor(featured) && (
                       <Image
-                        src={(featured.avatar_url || statsByCharacter.get(featured.id)?.cover)!}
+                        src={coverFor(featured)!}
                         alt={featured.name}
                         fill
                         sizes="224px"
@@ -420,7 +426,7 @@ export default function MascotsPage() {
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {visible.map((character) => {
                   const stats = statsByCharacter.get(character.id);
-                  const cover = character.avatar_url || stats?.cover;
+                  const cover = coverFor(character);
                   const ready = firstReadyBaseImage(character.id);
                   return (
                     <Card key={character.id} className="flex h-full flex-col">

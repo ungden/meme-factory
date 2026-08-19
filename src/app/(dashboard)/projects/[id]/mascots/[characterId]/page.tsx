@@ -15,6 +15,7 @@ import CharacterDnaPanel from "@/components/templates/character-dna-panel";
 import { LAYOUT_PRESET_LABELS } from "@/lib/meme-layout-presets";
 import { useBaseImages, useCharacterDna, useExpressionTags } from "@/lib/use-templates";
 import { syncCharacterPoses } from "@/lib/base-image-sync";
+import { resolveMascotCover } from "@/lib/mascot-cover";
 import { useCharacters, useMemes, useProject } from "@/lib/use-store";
 import type { BaseImageStatus, LayoutPresetId } from "@/types/database";
 
@@ -96,6 +97,11 @@ export default function MascotDetailPage() {
     }
   };
 
+  const cover = resolveMascotCover({
+    avatarUrl: character?.avatar_url,
+    baseImages: images,
+    poses: character?.poses,
+  });
   const readyCount = images.filter((image) => image.status === "ready").length;
   const layoutCount = byLayout.size;
   const authoredZoneCount = images.filter((image) => image.safe_zones_source === "authored").length;
@@ -130,8 +136,8 @@ export default function MascotDetailPage() {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="relative h-20 w-20 overflow-hidden rounded-2xl th-bg-tertiary">
-                  {character.avatar_url ? (
-                    <Image src={character.avatar_url} alt={character.name} fill sizes="80px" className="object-cover" unoptimized />
+                  {cover ? (
+                    <Image src={cover} alt={character.name} fill sizes="80px" className="object-cover" unoptimized />
                   ) : (
                     <div className="flex h-full items-center justify-center text-2xl th-text-tertiary">
                       {character.name[0]?.toUpperCase()}
