@@ -20,6 +20,7 @@ import {
   estimateImageGenerationPrice,
   type ImagePriceEstimate,
 } from "@/lib/ai-pricing";
+import { isArtDirectionId } from "@/lib/mascot-art-direction";
 import { buildMemeManifest } from "@/lib/continuity/meme-manifest";
 import {
   buildBackgroundManifest,
@@ -279,6 +280,7 @@ export async function POST(request: NextRequest) {
           layoutGroup,
           subjectSide,
           aspectRatio,
+          artDirection,
         } = body;
 
         if (!characterName || !characterDescription) {
@@ -296,6 +298,7 @@ export async function POST(request: NextRequest) {
             : undefined,
           subjectSide: subjectSide === "left" || subjectSide === "right" ? subjectSide : undefined,
           aspectRatio: ["1:1", "9:16", "16:9", "4:5"].includes(aspectRatio) ? aspectRatio : undefined,
+          artDirection: isArtDirectionId(artDirection) ? artDirection : undefined,
         };
         const manifestInput = {
           model: IMAGE_MODEL,

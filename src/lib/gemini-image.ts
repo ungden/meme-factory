@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { getGeminiApiKey } from "@/lib/server-secrets";
+import { resolveArtDirection, type ArtDirectionId } from "@/lib/mascot-art-direction";
 import { stripImageMetadata } from "@/lib/image-metadata";
 
 // ============================================
@@ -39,6 +40,7 @@ const FORMAT_TO_ASPECT: Record<string, string> = {
 };
 
 export interface GenerateMemeImageParams {
+  artDirection?: ArtDirectionId;
   headline: string;
   subtext?: string;
   tone: string;
@@ -88,10 +90,11 @@ export function compileMemeImagePrompt(params: GenerateMemeImageParams) {
   const hasHeadline = Boolean(headline?.trim());
   const requiredCharacters = characters.map((c) => c.name).filter(Boolean);
 
-  const defaultMemeStyle = `Phong cách: Cartoon meme fanpage Việt Nam. Bold outlines, shading rõ ràng, dynamic composition. Màu sắc tươi sáng bão hoà, bắt mắt trên news feed. Đây là ảnh minh hoạ (illustration), KHÔNG phải ảnh chụp thật.`;
+  const memeDirection = resolveArtDirection(params.artDirection);
+  const defaultMemeStyle = `Phong cách: ${memeDirection.memeStyle} Bố cục rõ ràng, bắt mắt trên news feed. Đây là ảnh dựng 3D, KHÔNG phải ảnh chụp thật.`;
 
-  return `Bạn là một họa sĩ minh họa (Illustrator) chuyên nghiệp tạo meme cho mạng xã hội Việt Nam.
-Nhiệm vụ của bạn là tạo một bức tranh (Illustration) chất lượng cao theo đúng các yêu cầu bên dưới.
+  return `Bạn là art director dựng ảnh 3D cho mạng xã hội Việt Nam.
+Nhiệm vụ của bạn là dựng một ảnh 3D chất lượng cao theo đúng các yêu cầu bên dưới.
 
 === 1. CHỈ DẪN VẼ HÌNH ẢNH (VISUAL BRIEF) ===
 ${customPrompt ? customPrompt : "Sáng tạo hình ảnh phù hợp với văn bản."}
@@ -113,13 +116,14 @@ Vị trí văn bản: ${textPosition === "top" ? "Phía trên cùng" : textPosit
 - Bắt buộc đúng chính tả tiếng Việt có dấu.
 
 === 4. PHONG CÁCH & MOOD (STYLE) ===
-${style ? style : defaultMemeStyle}
+${defaultMemeStyle}${style ? `\nGhi chú thương hiệu (chỉ chỉnh tông màu và cảm xúc, KHÔNG đổi phong cách dựng hình): ${style}` : ""}
 Tone/Mood: ${tone}
 ${watermark?.enabled ? `\nWatermark: Góc dưới cùng bên phải. ${watermark.text ? `Chữ: "${watermark.text}"` : ""}` : ""}
 
 === 5. QUY TẮC CẤM (NEGATIVE PROMPT) ===
-- KHÔNG vẽ ảnh chụp thật (photorealistic), KHÔNG 3D render thực tế. CHỈ VẼ tranh minh họa (comic/illustration).
-- KHÔNG tạo nhân vật mới khác loài nếu đã có ảnh tham khảo (Reference). Bắt buộc vẽ giống hệt ảnh mẫu.
+- KHÔNG ảnh chụp người thật, KHÔNG phong cách tài liệu/đời thực. Đây là nhân vật hoạt hình được dựng 3D.
+- KHÔNG viền nét đen kiểu truyện tranh, KHÔNG màu phẳng.
+- KHÔNG tạo nhân vật mới khác loài nếu đã có ảnh tham khảo (Reference). Bắt buộc dựng giống hệt ảnh mẫu.
 `;
 }
 
@@ -219,6 +223,9 @@ export interface GenerateCharacterPoseParams {
   characterName: string;
   characterDescription: string;
   emotion: string;
+  /** House art direction. Defaults to the 3D look. */
+  artDirection?: ArtDirectionId;
+  /** Free-text brand note. Layered on top of the art direction, never replacing it. */
   style?: string;
   existingPoseImages?: { base64: string; mimeType: string }[];
   /** Set when generating a meme template: framing plus a reserved caption area. */
@@ -265,33 +272,35 @@ export function compileCharacterPosePrompt(params: GenerateCharacterPoseParams) 
    CHỪA TRỐNG HOÀN TOÀN ${brief.reserved} — không chi tiết, không tay/chân/tóc/phụ kiện/hiệu ứng lấn vào; vùng đó chỉ là nền phẳng để ghép chữ sau.`
     : "1. Full body character (toàn thân), KHÔNG bị cắt, nhìn rõ từ đầu đến chân";
 
-  const defaultStyle = `PHONG CÁCH:
-- Cartoon nhân hóa (anthropomorphic) chất lượng cao, phù hợp fanpage meme Việt Nam
-- Bold outlines sắc sảo (2-3px), nét vẽ professional
-- Semi-realistic cartoon shading: có bóng đổ, highlights, texture rõ ràng
-- Phong cách chỉ ảnh hưởng NÉT VẼ / RENDERING / SHADING / TỈ LỆ / MÀU SẮC TỔNG THỂ
-- KHÔNG dùng phong cách để tự thêm trang phục, phụ kiện, nghề nghiệp, archetype hay đổi loài nhân vật
-- Biểu cảm khuôn mặt rõ ràng, có cá tính, phù hợp emotion được yêu cầu
-- Tư thế dynamic, có năng lượng, phù hợp tính cách nhân vật
-- Màu sắc tươi sáng, bão hoà, hài hoà với tổng thể`;
+  // The art direction always applies; a project's free-text style is a brand note
+  // layered on top. Previously any style string replaced the whole block, which is
+  // how projects silently lost the house look.
+  const direction = resolveArtDirection(params.artDirection);
+  const artDirectionBlock = `${direction.characterStyle}
+- Phong cách chỉ quyết định NÉT DỰNG / ÁNH SÁNG / CHẤT LIỆU / TỈ LỆ / MÀU SẮC
+- KHÔNG dùng phong cách để tự thêm trang phục, phụ kiện, nghề nghiệp hay đổi loài nhân vật
+- Biểu cảm khuôn mặt rõ ràng, có cá tính, đúng cảm xúc được yêu cầu`;
 
-  return `Bạn là họa sĩ chuyên vẽ mascot/nhân vật cho fanpage meme Việt Nam (chứng khoán, tài chính, đời sống). Hãy tạo một character illustration chất lượng cao, có cá tính mạnh.
+  const brandNoteBlock = style
+    ? `\n\nGHI CHÚ THƯƠNG HIỆU (chỉ chỉnh tông màu và cảm xúc, KHÔNG đổi phong cách dựng hình): ${style}`
+    : "";
+
+  return `Bạn là art director dựng nhân vật 3D cho thương hiệu. Hãy dựng một mascot 3D chất lượng cao, có cá tính rõ, dùng được cho fanpage Việt Nam.
 
 NHÂN VẬT: "${characterName}"
 MÔ TẢ CHI TIẾT: ${characterDescription}
 BIỂU CẢM/TƯ THẾ CẦN THỂ HIỆN: ${emotion}
 
-${style ? `PHONG CÁCH YÊU CẦU: ${style}
-QUY TẮC DIỄN GIẢI PHONG CÁCH: Phần PHONG CÁCH YÊU CẦU chỉ được dùng để quyết định nét vẽ, chất liệu, shading, line art, bảng màu, tỉ lệ minh hoạ, level chi tiết. KHÔNG được suy ra hay tự thêm outfit, phụ kiện, nghề nghiệp hoặc persona nếu mô tả nhân vật không nói tới.` : defaultStyle}
+${artDirectionBlock}${brandNoteBlock}
 
 YÊU CẦU BẮT BUỘC:
 ${framingRule}
 2. Background: TRẮNG TINH (#FFFFFF) hoặc gradient nhạt đơn giản — để dễ tách nền
-3. Bold outlines sắc sảo, chi tiết rõ ràng, professional quality
+3. Dựng hình sạch, chi tiết rõ, chất lượng như phim hoạt hình rạp
 4. Biểu cảm khuôn mặt: Emotion "${emotion}" phải thể hiện RÕ RÀNG trên mặt — phù hợp tính cách nhân vật
 5. Trang phục và phụ kiện: THEO ĐÚNG MÔ TẢ NHÂN VẬT bên trên — KHÔNG tự thêm trang phục/phụ kiện ngoài mô tả, kể cả khi phong cách gợi nhớ streetwear/corporate/graffiti/anime...
 6. Tư thế tự nhiên, có năng lượng, phù hợp với emotion và tính cách nhân vật
-7. Rendering chất lượng cao, phù hợp phong cách đã chọn (có thể semi-realistic, chibi, flat... tuỳ style)
+7. Rendering chất lượng cao, đúng chất liệu và ánh sáng của phong cách đã chọn
 8. KHÔNG có text, chữ viết, watermark, logo trên ảnh
 9. Nhân vật phải có đặc điểm nhận dạng UNIQUE, dễ nhớ, phù hợp làm mascot fanpage
 ${existingPoseImages?.length ? "10. QUAN TRỌNG NHẤT: Giữ CHÍNH XÁC design, phong cách, tỉ lệ cơ thể, màu sắc outfit, và mọi đặc điểm nhận dạng của nhân vật từ các ảnh reference đính kèm. Chỉ thay đổi biểu cảm và tư thế." : ""}`;

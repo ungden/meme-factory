@@ -1,6 +1,16 @@
 // ============================================
-// Prompt Template Library
-// Thư viện style mẫu cho AI image generation
+// Prompt Template Library — RETIRED for generation
+// ============================================
+//
+// These eight 2D fanpage styles were the art direction before the house look moved
+// to 3D. Nothing generates from them any more: their text ("Bold outlines 2-3px",
+// "flat shading", "cel shading") directly contradicts the 3D direction in
+// `src/lib/mascot-art-direction.ts`, and mixing both into one prompt produced
+// muddy output.
+//
+// Kept on disk because the preview art in `public/templates/` is still useful if a
+// 2D line is ever revived. Do not wire it back into a generate call without first
+// removing the 3D direction from that same prompt.
 // ============================================
 
 export interface PromptTemplate {

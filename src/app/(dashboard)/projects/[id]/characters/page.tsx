@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { BulkUploader } from "@/components/ui/bulk-uploader";
 import type { Character } from "@/types/database";
-import { PROMPT_TEMPLATES, type PromptTemplate } from "@/lib/prompt-templates";
+import { ART_DIRECTION_LIST, DEFAULT_ART_DIRECTION, type ArtDirectionId } from "@/lib/mascot-art-direction";
 import { useWallet } from "@/contexts/WalletContext";
 import { trackEvent } from "@/lib/analytics";
 
@@ -77,13 +77,12 @@ export default function CharactersPage() {
   const [showAiPoseModal, setShowAiPoseModal] = useState(false);
   const [aiPoseCharId, setAiPoseCharId] = useState<string | null>(null);
   const [aiPoseStyle, setAiPoseStyle] = useState("");
+  const [artDirection, setArtDirection] = useState<ArtDirectionId>(DEFAULT_ART_DIRECTION);
   const [aiPoseGenerating, setAiPoseGenerating] = useState(false);
   const [aiPoseImage, setAiPoseImage] = useState<string | null>(null);
   const [aiPoseError, setAiPoseError] = useState<string | null>(null);
   const [aiPoseSaving, setAiPoseSaving] = useState(false);
   const [aiPoseRequestId, setAiPoseRequestId] = useState<string | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
-  const [showTemplateGuide, setShowTemplateGuide] = useState(false);
 
   // AI character roster suggestion
   const [showSuggestModal, setShowSuggestModal] = useState(false);
@@ -185,14 +184,8 @@ export default function CharactersPage() {
     setAiPoseStyle("");
     setAiPoseImage(null);
     setAiPoseError(null);
-    setSelectedTemplate(null);
-    setShowTemplateGuide(false);
+    setArtDirection(DEFAULT_ART_DIRECTION);
     setShowAiPoseModal(true);
-  };
-
-  const selectTemplate = (template: PromptTemplate) => {
-    setSelectedTemplate(template);
-    setShowTemplateGuide(false);
   };
 
   const handleSuggestCharacters = async () => {
@@ -346,7 +339,9 @@ export default function CharactersPage() {
       ].filter(Boolean).join(". ");
 
       // Chỉ dùng style khi user chủ động chọn template hoặc tự nhập custom style
-      const styleToUse = aiPoseStyle.trim() || selectedTemplate?.characterStyle || undefined;
+      // The 2D preset library is retired for generation: its text ("Bold outlines
+      // 2-3px", "flat shading") contradicts the 3D house direction inside one prompt.
+      const styleToUse = aiPoseStyle.trim() || undefined;
 
       const result = await generateImage({
         project_id: project?.id || projectId,
@@ -354,6 +349,7 @@ export default function CharactersPage() {
         characterName: char.name,
         characterDescription: fullDescription || `Nhân vật ${char.name} cho fanpage meme Việt Nam`,
         emotion: "neutral",
+        artDirection,
         style: styleToUse,
       });
 
@@ -816,88 +812,27 @@ export default function CharactersPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-medium th-text-secondary">Chọn phong cách</label>
-                <button
-                  type="button"
-                  onClick={() => setShowTemplateGuide(!showTemplateGuide)}
-                  className="text-xs th-text-accent hover:underline"
-                >
-                  {showTemplateGuide ? "Ẩn hướng dẫn" : "Xem hướng dẫn prompt"}
-                </button>
               </div>
               <div className="grid grid-cols-4 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedTemplate(null)}
-                  className={`rounded-xl text-center transition-all border p-3 ${
-                    !selectedTemplate ? "th-border-accent ring-2 th-ring-accent th-bg-accent-light" : "th-border th-bg-hover"
-                  }`}
-                >
-                  <span className={`text-xs font-medium block ${!selectedTemplate ? "th-text-accent" : "th-text-primary"}`}>
-                    Không ép template
-                  </span>
-                  <span className="text-[10px] th-text-muted block mt-1">Giữ đúng mô tả nhân vật</span>
-                </button>
-                {PROMPT_TEMPLATES.map((t) => (
+                {ART_DIRECTION_LIST.map((direction) => (
                   <button
-                    key={t.id}
+                    key={direction.id}
                     type="button"
-                    onClick={() => selectTemplate(t)}
-                    className={`rounded-xl text-center transition-all border overflow-hidden ${
-                      selectedTemplate?.id === t.id
+                    onClick={() => setArtDirection(direction.id)}
+                    className={`rounded-xl border p-3 text-left transition-all ${
+                      artDirection === direction.id
                         ? "th-border-accent ring-2 th-ring-accent"
                         : "th-border th-bg-hover"
                     }`}
                   >
-                    {t.previewUrl ? (
-                      <div className="aspect-square overflow-hidden" style={{ background: "var(--bg-tertiary)" }}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={t.previewUrl} alt={t.nameVi} className="w-full h-full object-cover" />
-                      </div>
-                    ) : (
-                      <div className="aspect-square flex items-center justify-center th-bg-tertiary">
-                        <span className="text-3xl">{t.preview}</span>
-                      </div>
-                    )}
-                    <div className="p-2">
-                      <span className={`text-xs font-medium block ${
-                        selectedTemplate?.id === t.id ? "th-text-accent" : "th-text-primary"
-                      }`}>{t.nameVi}</span>
-                    </div>
+                    <span className="block text-xs font-medium th-text-primary">{direction.label}</span>
+                    <span className="mt-0.5 block text-[10px] th-text-muted">{direction.description}</span>
                   </button>
                 ))}
               </div>
             </div>
 
             {/* Template Guide / Example */}
-            {showTemplateGuide && selectedTemplate && (
-              <div className="p-4 rounded-xl border space-y-3" style={{ background: "var(--bg-tertiary)", borderColor: "var(--border-primary)" }}>
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-semibold th-text-primary">{selectedTemplate.preview} {selectedTemplate.nameVi}</h4>
-                  <span className="flex gap-1">
-                    {selectedTemplate.tags.map((tag) => (
-                      <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded th-bg-card th-text-muted">#{tag}</span>
-                    ))}
-                  </span>
-                </div>
-                <p className="text-xs th-text-secondary">{selectedTemplate.description}</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-[10px] font-medium th-text-muted mb-1 uppercase tracking-wide">Mô tả mẫu</p>
-                    <p className="text-xs th-text-secondary p-2 rounded-lg th-bg-card">{selectedTemplate.exampleDescription}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-medium th-text-muted mb-1 uppercase tracking-wide">Emotion mẫu</p>
-                    <p className="text-xs th-text-secondary p-2 rounded-lg th-bg-card">{selectedTemplate.exampleEmotion}</p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => {
-                  setShowTemplateGuide(false);
-                }}>
-                  OK, tôi hiểu rồi
-                </Button>
-              </div>
-            )}
-
             <div className="p-2 rounded-lg th-bg-tertiary text-xs th-text-secondary">
               AI sẽ tạo 1 <strong>ảnh nhân vật gốc</strong> (không khoá biểu cảm). Biểu cảm được điều khiển theo từng đầu ra sau này.
             </div>
@@ -906,11 +841,11 @@ export default function CharactersPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium th-text-secondary">Style tuỳ chỉnh</label>
-                <span className="text-[10px] th-text-muted">(để trống = chỉ dùng mô tả nhân vật{selectedTemplate ? ` + template ${selectedTemplate.nameVi}` : ""})</span>
+                <span className="text-[10px] th-text-muted">(để trống = chỉ dùng mô tả nhân vật và phong cách đã chọn)</span>
               </div>
               <Textarea
                 id="ai-pose-style"
-                placeholder={selectedTemplate ? `Đang dùng template ${selectedTemplate.nameVi}. Nhập ở đây để override...` : 'VD: "Chibi dễ thương", "Flat vector", hoặc để trống để AI bám mô tả nhân vật...'}
+                placeholder='VD: "tông kem, xanh cobalt" — ghi chú thương hiệu, không đổi phong cách dựng hình'
                 value={aiPoseStyle}
                 onChange={(e) => setAiPoseStyle(e.target.value)}
                 rows={2}
@@ -922,7 +857,7 @@ export default function CharactersPage() {
             {!aiPoseImage && !aiPoseGenerating && (
               <Button className="w-full" size="lg" onClick={handleAiPoseGenerate}>
                 <Wand2 size={18} />
-                Tạo Character bằng AI ({selectedTemplate?.nameVi || "Không template"}) — 3 pts
+                Tạo nhân vật 3D bằng AI
               </Button>
             )}
 

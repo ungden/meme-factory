@@ -211,6 +211,8 @@ export interface ImageGenCharacterParams {
   characterName: string;
   characterDescription: string;
   emotion?: string;
+  /** House art direction id; defaults to the 3D look server-side. */
+  artDirection?: string;
   style?: string;
   existingPoseImages?: { base64: string; mimeType: string }[];
   /** Meme-template framing: replaces the full-body rule and reserves caption space. */
@@ -445,6 +447,8 @@ export interface MascotBaseImage {
 
 export interface CharacterDna {
   character_id: string;
+  /** Render style id from src/lib/mascot-art-direction.ts. */
+  art_direction: string;
   summary: string;
   palette: Array<{ name?: string; hex: string; role?: string }>;
   face_traits: string[];

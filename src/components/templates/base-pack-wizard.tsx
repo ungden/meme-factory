@@ -8,6 +8,7 @@ import Modal from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { BASE_PACK_RECIPES, DEFAULT_PACK_RECIPE_IDS, estimatePackCost, type BasePackRecipe } from "@/lib/base-pack";
 import { LAYOUT_PRESET_LABELS } from "@/lib/meme-layout-presets";
+import { ART_DIRECTION_LIST, DEFAULT_ART_DIRECTION, type ArtDirectionId } from "@/lib/mascot-art-direction";
 import { generateImage } from "@/lib/use-store";
 import { saveGeneratedBaseImage, useLayoutPresets } from "@/lib/use-templates";
 import { POINT_COSTS } from "@/lib/point-pricing";
@@ -30,6 +31,9 @@ interface BasePackWizardProps {
   projectId: string;
   character: { id: string; name: string; description: string; personality: string };
   projectStyle?: string | null;
+  /** Art direction the mascot was built in, so a later batch matches. */
+  initialArtDirection?: ArtDirectionId | null;
+  onArtDirectionChange?: (direction: ArtDirectionId) => void;
   /** Sketch or logo the mascot should be drawn from, used only for the anchor image. */
   sketchImage?: { base64: string; mimeType: string } | null;
   onSaved?: () => void;
@@ -41,6 +45,8 @@ export default function BasePackWizard({
   projectId,
   character,
   projectStyle,
+  initialArtDirection,
+  onArtDirectionChange,
   sketchImage,
   onSaved,
 }: BasePackWizardProps) {
@@ -50,6 +56,7 @@ export default function BasePackWizard({
   const [step, setStep] = useState<Step>("pick");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(DEFAULT_PACK_RECIPE_IDS));
   const [aspectRatio, setAspectRatio] = useState<MemeFormat>("1:1");
+  const [artDirection, setArtDirection] = useState<ArtDirectionId>(initialArtDirection ?? DEFAULT_ART_DIRECTION);
   const [anchor, setAnchor] = useState<GeneratedItem | null>(null);
   const [items, setItems] = useState<GeneratedItem[]>([]);
   const [busy, setBusy] = useState(false);
@@ -90,6 +97,7 @@ export default function BasePackWizard({
         characterName: character.name,
         characterDescription: describe(),
         emotion: recipe.poseBrief,
+        artDirection,
         style: projectStyle || undefined,
         layoutGroup: recipe.layoutGroup,
         subjectSide: recipe.subjectSide,
@@ -102,7 +110,7 @@ export default function BasePackWizard({
       }
       return { recipe, image: result.image, jobId: result.generation_job_id ?? null, accepted: true };
     },
-    [character, describe, projectStyle, aspectRatio, projectId, sketchImage]
+    [character, describe, projectStyle, aspectRatio, projectId, sketchImage, artDirection]
   );
 
   const runAnchor = useCallback(async () => {
@@ -206,6 +214,30 @@ export default function BasePackWizard({
               </p>
             </div>
           )}
+
+          <div>
+            <span className="mb-2 block text-xs font-medium th-text-tertiary">Phong cách dựng hình</span>
+            <div className="grid gap-1.5 sm:grid-cols-2">
+              {ART_DIRECTION_LIST.map((direction) => (
+                <button
+                  key={direction.id}
+                  type="button"
+                  onClick={() => {
+                    setArtDirection(direction.id);
+                    onArtDirectionChange?.(direction.id);
+                  }}
+                  className={`rounded-xl border p-2.5 text-left ${
+                    artDirection === direction.id
+                      ? "border-blue-600 bg-blue-600/10"
+                      : "th-border-secondary th-bg-hover"
+                  }`}
+                >
+                  <p className="text-xs font-medium th-text-primary">{direction.label}</p>
+                  <p className="text-[11px] th-text-tertiary">{direction.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div>
             <span className="mb-2 block text-xs font-medium th-text-tertiary">Khổ ảnh</span>

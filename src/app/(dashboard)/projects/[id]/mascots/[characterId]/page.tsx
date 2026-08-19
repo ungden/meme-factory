@@ -17,6 +17,7 @@ import { layoutLabel } from "@/lib/meme-layout-presets";
 import { useBaseImages, useCharacterDna, useExpressionTags } from "@/lib/use-templates";
 import { fetchPoseAsFile } from "@/lib/template-create";
 import { resolveMascotCover } from "@/lib/mascot-cover";
+import { isArtDirectionId } from "@/lib/mascot-art-direction";
 import { useCharacters, useMemes, useProject } from "@/lib/use-store";
 import type { BaseImageStatus, LayoutPresetId } from "@/types/database";
 
@@ -410,6 +411,10 @@ export default function MascotDetailPage() {
               personality: character.personality,
             }}
             projectStyle={project.style_prompt}
+            initialArtDirection={isArtDirectionId(dna?.art_direction) ? dna.art_direction : null}
+            onArtDirectionChange={(direction) => {
+              void saveDna({ art_direction: direction });
+            }}
             onSaved={() => {
               reload();
               reloadCharacters();
