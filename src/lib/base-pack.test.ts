@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { BASE_PACK_RECIPES, DEFAULT_PACK_RECIPE_IDS, estimatePackCost } from "./base-pack";
+import {
+  ANCHOR_RECIPE_ID,
+  BASE_PACK_RECIPES,
+  DEFAULT_PACK_RECIPE_IDS,
+  estimatePackCost,
+  missingRecipes,
+} from "./base-pack";
 import { compileCharacterPosePrompt, compileMemeImagePrompt } from "./gemini-image";
 import { ART_DIRECTION_LIST, DEFAULT_ART_DIRECTION } from "./mascot-art-direction";
 import { POINT_COSTS } from "./point-pricing";
@@ -29,11 +35,32 @@ describe("base pack recipes", () => {
     }
   });
 
-  it("has unique ids and a sensible default selection", () => {
+  it("has unique ids and one recipe per expression", () => {
     const ids = BASE_PACK_RECIPES.map((recipe) => recipe.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(DEFAULT_PACK_RECIPE_IDS.length).toBeGreaterThan(0);
-    expect(DEFAULT_PACK_RECIPE_IDS.length).toBeLessThan(BASE_PACK_RECIPES.length);
+    const slugs = BASE_PACK_RECIPES.map((recipe) => recipe.expressionSlug);
+    expect(new Set(slugs).size).toBe(slugs.length);
+  });
+
+  it("covers the whole reaction taxonomy except the custom placeholder", () => {
+    const covered = new Set(BASE_PACK_RECIPES.map((recipe) => recipe.expressionSlug));
+    for (const slug of SEEDED_EXPRESSION_SLUGS) {
+      if (slug === "custom") continue;
+      expect(covered.has(slug)).toBe(true);
+    }
+  });
+
+  it("starts from an anchor that exists", () => {
+    expect(BASE_PACK_RECIPES.some((recipe) => recipe.id === ANCHOR_RECIPE_ID)).toBe(true);
+    expect(DEFAULT_PACK_RECIPE_IDS).toContain(ANCHOR_RECIPE_ID);
+  });
+
+  it("only offers what the mascot is missing, so a stopped run is never repaid", () => {
+    const owned = ["neutral", "happy", "crying"];
+    const missing = missingRecipes(owned);
+    expect(missing.some((recipe) => owned.includes(recipe.expressionSlug))).toBe(false);
+    expect(missing.length).toBe(BASE_PACK_RECIPES.length - owned.length);
+    expect(missingRecipes(BASE_PACK_RECIPES.map((r) => r.expressionSlug))).toEqual([]);
   });
 
   it("only marks a subject side on offset compositions", () => {

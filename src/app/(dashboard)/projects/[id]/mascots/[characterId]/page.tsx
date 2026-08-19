@@ -18,6 +18,7 @@ import { useBaseImages, useCharacterDna, useExpressionTags } from "@/lib/use-tem
 import { fetchPoseAsFile } from "@/lib/template-create";
 import { resolveMascotCover } from "@/lib/mascot-cover";
 import { isArtDirectionId } from "@/lib/mascot-art-direction";
+import { BASE_PACK_RECIPES } from "@/lib/base-pack";
 import { useCharacters, useMemes, useProject } from "@/lib/use-store";
 import type { BaseImageStatus, LayoutPresetId } from "@/types/database";
 
@@ -114,6 +115,10 @@ export default function MascotDetailPage() {
     baseImages: images,
     poses: character?.poses,
   });
+  const ownedExpressionSlugs = [
+    ...new Set(images.filter((image) => image.status !== "archived").map((image) => image.expression_slug)),
+  ];
+  const missingReactionCount = BASE_PACK_RECIPES.length - ownedExpressionSlugs.length;
   const readyCount = images.filter((image) => image.status === "ready").length;
   const layoutCount = byLayout.size;
   const authoredZoneCount = images.filter((image) => image.safe_zones_source === "authored").length;
@@ -165,7 +170,12 @@ export default function MascotDetailPage() {
               </div>
               <div className="flex gap-2">
                 <Button onClick={() => setWizardOpen(true)}>
-                  <Sparkles size={16} /> Tạo bộ biểu cảm
+                  <Sparkles size={16} />
+                  {ownedExpressionSlugs.length === 0
+                    ? `Tạo ${BASE_PACK_RECIPES.length} biểu cảm`
+                    : missingReactionCount > 0
+                      ? `Tạo tiếp ${missingReactionCount} biểu cảm`
+                      : "Đủ bộ biểu cảm"}
                 </Button>
                 <Link href={`/projects/${projectRef}/editor`}>
                   <Button variant="outline">
@@ -411,6 +421,7 @@ export default function MascotDetailPage() {
               personality: character.personality,
             }}
             projectStyle={project.style_prompt}
+            existingExpressionSlugs={ownedExpressionSlugs}
             initialArtDirection={isArtDirectionId(dna?.art_direction) ? dna.art_direction : null}
             onArtDirectionChange={(direction) => {
               void saveDna({ art_direction: direction });

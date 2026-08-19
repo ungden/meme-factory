@@ -1,12 +1,19 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { AlertTriangle, Check, Coins, Loader2, X } from "lucide-react";
+import { AlertTriangle, Coins, Loader2 } from "lucide-react";
 import Button from "@/components/ui/button";
 import Modal from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
-import { BASE_PACK_RECIPES, DEFAULT_PACK_RECIPE_IDS, estimatePackCost, type BasePackRecipe } from "@/lib/base-pack";
+import {
+  ANCHOR_RECIPE_ID,
+  BASE_PACK_RECIPES,
+  estimatePackCost,
+  missingRecipes,
+  recipeById,
+  type BasePackRecipe,
+} from "@/lib/base-pack";
 import { LAYOUT_PRESET_LABELS } from "@/lib/meme-layout-presets";
 import { ART_DIRECTION_LIST, DEFAULT_ART_DIRECTION, type ArtDirectionId } from "@/lib/mascot-art-direction";
 import { generateImage } from "@/lib/use-store";
@@ -21,7 +28,6 @@ interface GeneratedItem {
   image?: string;
   jobId?: string | null;
   error?: string;
-  accepted: boolean;
 }
 
 interface BasePackWizardProps {
@@ -34,6 +40,8 @@ interface BasePackWizardProps {
   /** Art direction the mascot was built in, so a later batch matches. */
   initialArtDirection?: ArtDirectionId | null;
   onArtDirectionChange?: (direction: ArtDirectionId) => void;
+  /** Expressions this mascot already has, so a stopped run resumes instead of repeating. */
+  existingExpressionSlugs?: string[];
   /** Sketch or logo the mascot should be drawn from, used only for the anchor image. */
   sketchImage?: { base64: string; mimeType: string } | null;
   onSaved?: () => void;
@@ -47,6 +55,7 @@ export default function BasePackWizard({
   projectStyle,
   initialArtDirection,
   onArtDirectionChange,
+  existingExpressionSlugs,
   sketchImage,
   onSaved,
 }: BasePackWizardProps) {
@@ -54,20 +63,30 @@ export default function BasePackWizard({
   const layoutPresets = useLayoutPresets();
 
   const [step, setStep] = useState<Step>("pick");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(DEFAULT_PACK_RECIPE_IDS));
+  const pending = useMemo(
+    () => missingRecipes(existingExpressionSlugs ?? []),
+    [existingExpressionSlugs]
+  );
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(
+    () => new Set(pending.map((recipe) => recipe.id))
+  );
+  const [stopRequested, setStopRequested] = useState(false);
+  const stopRef = useRef(false);
   const [aspectRatio, setAspectRatio] = useState<MemeFormat>("1:1");
   const [artDirection, setArtDirection] = useState<ArtDirectionId>(initialArtDirection ?? DEFAULT_ART_DIRECTION);
   const [anchor, setAnchor] = useState<GeneratedItem | null>(null);
   const [items, setItems] = useState<GeneratedItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [saving, setSaving] = useState(false);
 
   const selectedRecipes = useMemo(
     () => BASE_PACK_RECIPES.filter((recipe) => selectedIds.has(recipe.id)),
     [selectedIds]
   );
-  const anchorRecipe = selectedRecipes[0] ?? BASE_PACK_RECIPES[0];
+  // Always anchor on the calm straight-on shot: it is the cleanest thing to judge
+  // identity against, and every later image is matched to it.
+  const anchorRecipe =
+    recipeById(ANCHOR_RECIPE_ID) ?? selectedRecipes[0] ?? BASE_PACK_RECIPES[0];
   const totalCost = estimatePackCost(selectedRecipes.length);
 
   const presetFor = useCallback(
@@ -106,9 +125,9 @@ export default function BasePackWizard({
       });
 
       if (result.error || !result.image) {
-        return { recipe, error: result.error || "Không nhận được ảnh", accepted: false };
+        return { recipe, error: result.error || "Không nhận được ảnh" };
       }
-      return { recipe, image: result.image, jobId: result.generation_job_id ?? null, accepted: true };
+      return { recipe, image: result.image, jobId: result.generation_job_id ?? null };
     },
     [character, describe, projectStyle, aspectRatio, projectId, sketchImage, artDirection]
   );
@@ -122,37 +141,10 @@ export default function BasePackWizard({
     if (result.error) toast.error(result.error);
   }, [anchorRecipe, generateOne, toast]);
 
-  const runBatch = useCallback(async () => {
-    if (!anchor?.image) return;
-    setBusy(true);
-    setStep("batch");
-    setProgress(0);
-
-    const rest = selectedRecipes.filter((recipe) => recipe.id !== anchorRecipe.id);
-    const done: GeneratedItem[] = [];
-    for (const recipe of rest) {
-      // Sequential on purpose: each call bills points, and a mid-batch failure
-      // should stop at a known point rather than fan out.
-      const result = await generateOne(recipe, anchor.image);
-      done.push(result);
-      setProgress(done.length);
-      setItems([...done]);
-    }
-
-    setBusy(false);
-    setStep("review");
-  }, [anchor, selectedRecipes, anchorRecipe, generateOne]);
-
-  const saveAccepted = useCallback(async () => {
-    const all = [anchor, ...items].filter((item): item is GeneratedItem => Boolean(item?.image && item.accepted));
-    if (all.length === 0) {
-      toast.error("Chưa có ảnh nào được giữ lại");
-      return;
-    }
-
-    setSaving(true);
-    let saved = 0;
-    for (const item of all) {
+  /** Persists one generated image immediately. Returns false if saving failed. */
+  const persist = useCallback(
+    async (item: GeneratedItem) => {
+      if (!item.image) return false;
       try {
         await saveGeneratedBaseImage({
           characterId: character.id,
@@ -160,26 +152,64 @@ export default function BasePackWizard({
           expressionLabel: item.recipe.label,
           layoutPresetId: item.recipe.layoutGroup,
           aspectRatio,
-          imageBase64: item.image!,
+          imageBase64: item.image,
           generationJobId: item.jobId,
           preset: presetFor(item.recipe.layoutGroup),
         });
-        saved += 1;
+        return true;
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Lưu ảnh thất bại");
+        toast.error(
+          `${item.recipe.label}: ${error instanceof Error ? error.message : "lưu thất bại"}`
+        );
+        return false;
       }
+    },
+    [character.id, aspectRatio, presetFor, toast]
+  );
+
+  const runBatch = useCallback(async () => {
+    if (!anchor?.image) return;
+    setBusy(true);
+    setStep("batch");
+    setProgress(0);
+    setStopRequested(false);
+    stopRef.current = false;
+
+    // The anchor was paid for too; save it before spending anything else.
+    const savedItems: GeneratedItem[] = [];
+    if (await persist(anchor)) savedItems.push(anchor);
+
+    const rest = selectedRecipes.filter((recipe) => recipe.id !== anchorRecipe.id);
+    for (const recipe of rest) {
+      if (stopRef.current) break;
+
+      // Sequential on purpose: each call bills points, and each result is written
+      // to the library the moment it lands. Closing the tab mid-run then costs you
+      // only the image in flight, never the ones already paid for.
+      const result = await generateOne(recipe, anchor.image);
+      if (result.image) await persist(result);
+      savedItems.push(result);
+      setProgress(savedItems.length);
+      setItems([...savedItems]);
     }
 
-    setSaving(false);
-    if (saved > 0) {
-      toast.success(`Đã lưu ${saved} ảnh nền vào thư viện mascot`);
-      onSaved?.();
-      onClose();
-      setStep("pick");
-      setAnchor(null);
-      setItems([]);
-    }
-  }, [anchor, items, character.id, aspectRatio, presetFor, toast, onSaved, onClose]);
+    setBusy(false);
+    setStep("review");
+    onSaved?.();
+  }, [anchor, selectedRecipes, anchorRecipe, generateOne, persist, onSaved]);
+
+  const requestStop = useCallback(() => {
+    stopRef.current = true;
+    setStopRequested(true);
+  }, []);
+
+  const finish = useCallback(() => {
+    onSaved?.();
+    onClose();
+    setStep("pick");
+    setAnchor(null);
+    setItems([]);
+  }, [onSaved, onClose]);
 
   const toggle = (id: string) => {
     setSelectedIds((current) => {
@@ -195,8 +225,16 @@ export default function BasePackWizard({
       {step === "pick" && (
         <div className="space-y-4">
           <p className="text-sm th-text-tertiary">
-            Mỗi ảnh được vẽ sẵn chỗ trống cho chữ, nên sau này bạn ghép chữ không tốn thêm điểm nào.
+            Một lần bấm là dựng cả bộ biểu cảm, dùng mãi về sau. Mỗi ảnh chừa sẵn chỗ cho chữ nên ghép
+            chữ sau này không tốn thêm điểm nào.
           </p>
+
+          {(existingExpressionSlugs?.length ?? 0) > 0 && (
+            <div className="rounded-xl border th-border-secondary p-3 text-xs th-text-tertiary">
+              Mascot này đã có {existingExpressionSlugs!.length} biểu cảm. Danh sách dưới chỉ còn{" "}
+              {pending.length} cái chưa tạo — không tính tiền lại phần đã có.
+            </div>
+          )}
 
           {sketchImage && (
             <div className="flex items-center gap-3 rounded-xl border th-border-secondary p-3">
@@ -260,7 +298,7 @@ export default function BasePackWizard({
           </div>
 
           <div className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
-            {BASE_PACK_RECIPES.map((recipe) => (
+            {pending.map((recipe) => (
               <label
                 key={recipe.id}
                 className="flex cursor-pointer items-center gap-3 rounded-lg border th-border-secondary px-3 py-2"
@@ -277,11 +315,24 @@ export default function BasePackWizard({
             ))}
           </div>
 
-          <div className="flex items-center justify-between rounded-xl border th-border-secondary p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border th-border-secondary p-3">
             <div className="flex items-center gap-2 text-sm th-text-primary">
               <Coins size={16} className="th-text-accent" />
               {selectedRecipes.length} ảnh × {POINT_COSTS.character} điểm ={" "}
               <strong>{totalCost} điểm</strong>
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedIds(
+                    selectedRecipes.length === pending.length
+                      ? new Set()
+                      : new Set(pending.map((recipe) => recipe.id))
+                  )
+                }
+                className="ml-1 text-xs th-text-accent hover:underline"
+              >
+                {selectedRecipes.length === pending.length ? "Bỏ chọn hết" : "Chọn hết"}
+              </button>
             </div>
             <Button onClick={runAnchor} disabled={selectedRecipes.length === 0}>
               Tạo ảnh mẫu trước ({POINT_COSTS.character} điểm)
@@ -331,72 +382,76 @@ export default function BasePackWizard({
       )}
 
       {step === "batch" && (
-        <div className="space-y-3 py-8 text-center">
-          <Loader2 className="mx-auto animate-spin th-text-accent" size={24} />
-          <p className="text-sm th-text-primary">
-            Đang tạo {progress} / {selectedRecipes.length - 1} ảnh…
-          </p>
-          <p className="text-xs th-text-tertiary">Đừng đóng cửa sổ này. Mỗi ảnh xong sẽ hiện ở bước duyệt.</p>
+        <div className="space-y-4 py-6">
+          <div className="space-y-2 text-center">
+            <Loader2 className="mx-auto animate-spin th-text-accent" size={24} />
+            <p className="text-sm th-text-primary">
+              Đã lưu {progress} / {selectedRecipes.length} biểu cảm
+            </p>
+            <div className="mx-auto h-1.5 w-full max-w-sm overflow-hidden rounded-full th-bg-tertiary">
+              <div
+                className="h-full rounded-full bg-blue-600 transition-all"
+                style={{ width: `${Math.round((progress / Math.max(1, selectedRecipes.length)) * 100)}%` }}
+              />
+            </div>
+            <p className="text-xs th-text-tertiary">
+              Mỗi ảnh được lưu ngay khi xong. Đóng cửa sổ giữa chừng cũng không mất ảnh đã tạo —
+              mở lại là chạy tiếp phần còn thiếu.
+            </p>
+          </div>
+
+          {items.length > 0 && (
+            <div className="grid max-h-40 grid-cols-5 gap-1.5 overflow-y-auto sm:grid-cols-8">
+              {items.filter((item) => item.image).map((item, index) => (
+                <div key={`${item.recipe.id}-${index}`} className="relative aspect-square overflow-hidden rounded-lg th-bg-tertiary">
+                  <Image src={`data:image/png;base64,${item.image}`} alt={item.recipe.label} fill className="object-cover" unoptimized />
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-center">
+            <Button variant="outline" onClick={requestStop} disabled={stopRequested}>
+              {stopRequested ? "Đang dừng sau ảnh này…" : "Dừng lại"}
+            </Button>
+          </div>
         </div>
       )}
 
       {step === "review" && (
         <div className="space-y-4">
           <p className="text-sm th-text-tertiary">
-            Bỏ những ảnh vẽ sai nhân vật. Ảnh bị bỏ vẫn đã bị trừ điểm vì AI đã chạy xong.
+            Đã lưu {items.filter((item) => item.image).length} biểu cảm vào thư viện mascot. Ảnh nào vẽ sai
+            nhân vật thì mở trang mascot để lưu trữ nó — ảnh đã tạo đều đã bị trừ điểm.
           </p>
-          <div className="grid max-h-80 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
-            {[anchor, ...items].filter(Boolean).map((item, index) => {
-              const entry = item as GeneratedItem;
-              return (
-                <div key={`${entry.recipe.id}-${index}`} className="space-y-1">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      index === 0
-                        ? setAnchor({ ...entry, accepted: !entry.accepted })
-                        : setItems((current) =>
-                            current.map((row, i) => (i === index - 1 ? { ...row, accepted: !row.accepted } : row))
-                          )
-                    }
-                    className={`relative block w-full overflow-hidden rounded-lg border-2 ${
-                      entry.accepted ? "border-blue-600" : "border-transparent opacity-40"
-                    }`}
-                  >
-                    <div className="relative aspect-square th-bg-tertiary">
-                      {entry.image ? (
-                        <Image
-                          src={`data:image/png;base64,${entry.image}`}
-                          alt={entry.recipe.label}
-                          fill
-                          className="object-cover"
-                          unoptimized
-                        />
-                      ) : (
-                        <span className="flex h-full items-center justify-center px-1 text-center text-[10px] th-text-danger">
-                          {entry.error}
-                        </span>
-                      )}
-                    </div>
-                    <span className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white">
-                      {entry.accepted ? <Check size={12} /> : <X size={12} />}
+          <div className="grid max-h-80 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-5">
+            {items.map((entry, index) => (
+              <div key={`${entry.recipe.id}-${index}`} className="space-y-1">
+                <div className="relative aspect-square overflow-hidden rounded-lg th-bg-tertiary">
+                  {entry.image ? (
+                    <Image
+                      src={`data:image/png;base64,${entry.image}`}
+                      alt={entry.recipe.label}
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <span className="flex h-full items-center justify-center px-1 text-center text-[10px] th-text-danger">
+                      {entry.error}
                     </span>
-                  </button>
-                  <p className="truncate text-center text-[10px] th-text-tertiary">{entry.recipe.label}</p>
+                  )}
                 </div>
-              );
-            })}
+                <p className="truncate text-center text-[10px] th-text-tertiary">{entry.recipe.label}</p>
+              </div>
+            ))}
           </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
-              Đóng
-            </Button>
-            <Button onClick={saveAccepted} loading={saving}>
-              Lưu ảnh đã giữ
-            </Button>
+          <div className="flex justify-end">
+            <Button onClick={finish}>Xong</Button>
           </div>
         </div>
       )}
+
     </Modal>
   );
 }
