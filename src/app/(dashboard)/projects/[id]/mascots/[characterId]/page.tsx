@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/toast";
 import BasePackWizard from "@/components/templates/base-pack-wizard";
 import SafeZoneEditor from "@/components/templates/safe-zone-editor";
 import TemplateUploadDialog from "@/components/templates/template-upload-dialog";
+import PoseManager from "@/components/mascots/pose-manager";
 import CharacterDnaPanel from "@/components/templates/character-dna-panel";
 import { layoutLabel } from "@/lib/meme-layout-presets";
 import { useBaseImages, useCharacterDna, useExpressionTags } from "@/lib/use-templates";
@@ -22,12 +23,13 @@ import { BASE_PACK_RECIPES } from "@/lib/base-pack";
 import { useCharacters, useMemes, useProject } from "@/lib/use-store";
 import type { BaseImageStatus, LayoutPresetId } from "@/types/database";
 
-type Tab = "reactions" | "layouts" | "memes" | "dna";
+type Tab = "reactions" | "layouts" | "memes" | "poses" | "dna";
 
 const TABS: { id: Tab; label: string; icon: typeof Grid2x2 }[] = [
   { id: "reactions", label: "Biểu cảm", icon: Grid2x2 },
   { id: "layouts", label: "Bố cục", icon: Images },
   { id: "memes", label: "Meme đã làm", icon: Type },
+  { id: "poses", label: "Ảnh gốc", icon: Upload },
   { id: "dna", label: "Character DNA", icon: Dna },
 ];
 
@@ -180,11 +182,6 @@ export default function MascotDetailPage() {
                 <Link href={`/projects/${projectRef}/editor`}>
                   <Button variant="outline">
                     <Type size={16} /> Ghép chữ
-                  </Button>
-                </Link>
-                <Link href={`/projects/${projectRef}/characters/${characterId}`}>
-                  <Button variant="outline" title="Tải ảnh gốc, tạo pose lẻ, đặt ảnh đại diện">
-                    <Upload size={16} /> Ảnh gốc
                   </Button>
                 </Link>
               </div>
@@ -354,6 +351,10 @@ export default function MascotDetailPage() {
               ))}
             </div>
           )
+        )}
+
+        {tab === "poses" && (
+          <PoseManager projectRef={projectRef} characterId={characterId} />
         )}
 
         {tab === "dna" && (

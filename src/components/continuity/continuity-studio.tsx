@@ -650,7 +650,7 @@ function CharacterBuilder({ projectId, onBack, onToast }: { projectId: string; o
   const steps = ["Bộ ảnh tham chiếu", "Kiểm tra chất lượng", "Hồ sơ nhận diện", "Khóa nhân vật"];
   function openCharacterLibrary() {
     onToast({ title: "Mở Thư viện nhân vật", detail: "Tải ảnh thật và lưu phiên bản được thực hiện trong thư viện nhân vật hiện tại." });
-    window.location.assign(`/projects/${projectId}/characters`);
+    window.location.assign(`/projects/${projectId}/mascots`);
   }
   return (
     <div className="builder-page">

@@ -171,13 +171,13 @@ export default function ProjectOverviewPage() {
 
           <div className="grid gap-7 xl:grid-cols-[.8fr_1.2fr]">
             <section>
-              <div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold th-text-primary">Tài nguyên gần đây</h2><Link href={`/projects/${projectId}/characters`} className="flex items-center gap-1 text-xs font-medium text-blue-500">Xem thư viện <ArrowRight size={12} /></Link></div>
+              <div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold th-text-primary">Tài nguyên gần đây</h2><Link href={`/projects/${projectId}/mascots`} className="flex items-center gap-1 text-xs font-medium text-blue-500">Xem thư viện <ArrowRight size={12} /></Link></div>
               <div className="rounded-2xl border p-3" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
                 {characters.length > 0 ? characters.slice(0, 4).map((character, index) => {
                   const image = character.avatar_url || character.poses[0]?.image_url;
                   const fallback = index % 2 === 0 ? "/continuity/linh-master.webp" : "/continuity/minh-master.webp";
                   return <Link key={character.id} href={`/projects/${projectId}/characters/${character.id}`} className="flex items-center gap-3 rounded-xl p-2.5 th-bg-hover"><span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl"><Image src={image && !image.startsWith("/mock/") ? image : fallback} alt={character.name} fill sizes="44px" className="object-cover" /></span><span className="min-w-0 flex-1"><strong className="block truncate text-sm th-text-primary">{character.name}</strong><small className="mt-0.5 block text-xs th-text-muted">{character.poses.length} ảnh tham chiếu</small></span><ArrowRight size={14} className="th-text-muted" /></Link>;
-                }) : <div className="py-10 text-center"><p className="text-sm th-text-tertiary">Chưa có tài nguyên nhân vật.</p><Link href={`/projects/${projectId}/characters`} className="mt-3 inline-flex text-sm font-medium text-blue-500">Thêm nhân vật đầu tiên</Link></div>}
+                }) : <div className="py-10 text-center"><p className="text-sm th-text-tertiary">Chưa có tài nguyên nhân vật.</p><Link href={`/projects/${projectId}/mascots`} className="mt-3 inline-flex text-sm font-medium text-blue-500">Thêm nhân vật đầu tiên</Link></div>}
               </div>
             </section>
 
