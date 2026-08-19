@@ -68,6 +68,27 @@ export default function GalleryPage() {
     return true;
   });
 
+  const memesThisMonth = memes.filter((meme) => {
+    const created = new Date(meme.created_at);
+    const now = new Date();
+    return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
+  }).length;
+  const composedCount = memes.filter((meme) => meme.composed_locally).length;
+  const watermarkedCount = memes.filter((meme) => meme.has_watermark).length;
+  const topMascot = (() => {
+    const counts = new Map<string, number>();
+    for (const meme of memes) {
+      const name = Array.isArray(meme.selected_characters) && meme.selected_characters[0]?.character_name;
+      if (!name) continue;
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+    let best: { name: string; count: number } | null = null;
+    for (const [name, count] of counts) {
+      if (!best || count > best.count) best = { name, count };
+    }
+    return best;
+  })();
+
   const selected = memes.find((m) => m.id === selectedMeme);
 
   // Only memes with images can be downloaded
@@ -306,6 +327,28 @@ export default function GalleryPage() {
           )}
         </div>
 
+        {/* Stats */}
+        {!loading && memes.length > 0 && (
+          <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard label="Tổng đầu ra" value={String(memes.length)} hint={`+${memesThisMonth} trong tháng này`} />
+            <StatCard
+              label="Ghép chữ tại chỗ"
+              value={String(composedCount)}
+              hint={`${Math.round((composedCount / memes.length) * 100)}% không tốn điểm`}
+            />
+            <StatCard
+              label="Có watermark"
+              value={`${Math.round((watermarkedCount / memes.length) * 100)}%`}
+              hint={`${watermarkedCount} / ${memes.length} đầu ra`}
+            />
+            <StatCard
+              label="Mascot dùng nhiều nhất"
+              value={topMascot?.name ?? "—"}
+              hint={topMascot ? `${topMascot.count} meme` : "chưa có dữ liệu"}
+            />
+          </div>
+        )}
+
         {/* Filters */}
         {!loading && memes.length > 0 && (
           <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -348,52 +391,47 @@ export default function GalleryPage() {
           </div>
         )}
 
-        {/* Collections */}
-        {!loading && memes.length > 0 && (
-          <div className="mb-4 flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setActiveCollection(null)}
-              className={`rounded-full border px-3 py-1 text-xs ${
-                activeCollection === null
-                  ? "border-blue-600 text-blue-600 bg-blue-600/10"
-                  : "th-border-secondary th-text-tertiary"
-              }`}
-            >
-              Tất cả ({memes.length})
-            </button>
-            {collections.map((collection) => (
+        {/* Collections rail + grid */}
+        <div className="grid gap-5 lg:grid-cols-[190px_minmax(0,1fr)]">
+          <aside className="space-y-1">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-xs font-medium th-text-tertiary">Bộ sưu tập</span>
               <button
-                key={collection.id}
                 type="button"
-                onClick={() => setActiveCollection(collection.id)}
-                className={`rounded-full border px-3 py-1 text-xs ${
-                  activeCollection === collection.id
-                    ? "border-blue-600 text-blue-600 bg-blue-600/10"
-                    : "th-border-secondary th-text-tertiary"
-                }`}
+                aria-label="Bộ sưu tập mới"
+                onClick={async () => {
+                  const name = window.prompt("Tên bộ sưu tập mới");
+                  if (!name?.trim()) return;
+                  try {
+                    await createCollection(name.trim());
+                    toast.success("Đã tạo bộ sưu tập");
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Không tạo được bộ sưu tập");
+                  }
+                }}
+                className="th-text-tertiary hover:th-text-primary"
               >
-                {collection.name} ({collection.meme_count})
+                <FolderPlus size={14} />
               </button>
+            </div>
+            <CollectionRow
+              label="Tất cả đầu ra"
+              count={memes.length}
+              active={activeCollection === null}
+              onClick={() => setActiveCollection(null)}
+            />
+            {collections.map((collection) => (
+              <CollectionRow
+                key={collection.id}
+                label={collection.name}
+                count={collection.meme_count}
+                active={activeCollection === collection.id}
+                onClick={() => setActiveCollection(collection.id)}
+              />
             ))}
-            <button
-              type="button"
-              onClick={async () => {
-                const name = window.prompt("Tên bộ sưu tập mới");
-                if (!name?.trim()) return;
-                try {
-                  await createCollection(name.trim());
-                  toast.success("Đã tạo bộ sưu tập");
-                } catch (error) {
-                  toast.error(error instanceof Error ? error.message : "Không tạo được bộ sưu tập");
-                }
-              }}
-              className="flex items-center gap-1 rounded-full border border-dashed th-border-secondary px-3 py-1 text-xs th-text-tertiary"
-            >
-              <FolderPlus size={12} /> Bộ sưu tập mới
-            </button>
-          </div>
-        )}
+          </aside>
+
+          <div className="min-w-0 space-y-4">
 
         {/* Selection bar */}
         {selectionMode && (
@@ -619,6 +657,10 @@ export default function GalleryPage() {
           </div>
         )}
 
+          </div>
+        </div>
+
+
         {/* Detail Modal */}
         <Modal isOpen={!!selected} onClose={() => setSelectedMeme(null)} title="Chi tiết đầu ra" size="xl">
           {selected &&
@@ -777,5 +819,41 @@ export default function GalleryPage() {
         />
       </main>
     </div>
+  );
+}
+
+function StatCard({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return (
+    <div className="rounded-2xl border p-3" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
+      <p className="text-xs th-text-tertiary">{label}</p>
+      <p className="mt-0.5 truncate text-xl font-bold th-text-primary">{value}</p>
+      <p className="truncate text-[11px] th-text-tertiary">{hint}</p>
+    </div>
+  );
+}
+
+function CollectionRow({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors ${
+        active ? "bg-blue-600/10 text-blue-600" : "th-text-secondary th-bg-hover"
+      }`}
+    >
+      <span className="truncate">{label}</span>
+      <span className="tabular-nums th-text-tertiary">{count}</span>
+    </button>
   );
 }

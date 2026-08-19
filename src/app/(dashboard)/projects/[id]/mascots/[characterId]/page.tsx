@@ -4,14 +4,14 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import { Archive, Check, ChevronLeft, Crop, Dna, Grid2x2, Images, Sparkles, Type } from "lucide-react";
+import { Archive, Check, ChevronLeft, Crop, Dna, Grid2x2, Images, ShieldCheck, Sparkles, Type } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
-import Textarea from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import BasePackWizard from "@/components/templates/base-pack-wizard";
 import SafeZoneEditor from "@/components/templates/safe-zone-editor";
+import CharacterDnaPanel from "@/components/templates/character-dna-panel";
 import { LAYOUT_PRESET_LABELS } from "@/lib/meme-layout-presets";
 import { useBaseImages, useCharacterDna, useExpressionTags } from "@/lib/use-templates";
 import { useCharacters, useMemes, useProject } from "@/lib/use-store";
@@ -42,7 +42,6 @@ export default function MascotDetailPage() {
   const [tab, setTab] = useState<Tab>("reactions");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [zoneTarget, setZoneTarget] = useState<string | null>(null);
-  const [dnaDraft, setDnaDraft] = useState<string | null>(null);
   const [savingDna, setSavingDna] = useState(false);
 
   const character = characters.find((entry) => entry.id === characterId);
@@ -78,6 +77,14 @@ export default function MascotDetailPage() {
   };
 
   const readyCount = images.filter((image) => image.status === "ready").length;
+  const layoutCount = byLayout.size;
+  const authoredZoneCount = images.filter((image) => image.safe_zones_source === "authored").length;
+  const resolutionLabel = (() => {
+    const sized = images.find((image) => image.width && image.height);
+    if (sized) return `${sized.width}×${sized.height}`;
+    const ratios = new Set(images.map((image) => image.aspect_ratio));
+    return ratios.size > 0 ? [...ratios].join(", ") : "—";
+  })();
 
   if (!character) {
     return (
@@ -98,34 +105,61 @@ export default function MascotDetailPage() {
           <ChevronLeft size={15} /> Tất cả mascot
         </Link>
 
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="relative h-20 w-20 overflow-hidden rounded-2xl th-bg-tertiary">
-              {character.avatar_url ? (
-                <Image src={character.avatar_url} alt={character.name} fill sizes="80px" className="object-cover" unoptimized />
-              ) : (
-                <div className="flex h-full items-center justify-center text-2xl th-text-tertiary">
-                  {character.name[0]?.toUpperCase()}
+        <div className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_240px]">
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="relative h-20 w-20 overflow-hidden rounded-2xl th-bg-tertiary">
+                  {character.avatar_url ? (
+                    <Image src={character.avatar_url} alt={character.name} fill sizes="80px" className="object-cover" unoptimized />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-2xl th-text-tertiary">
+                      {character.name[0]?.toUpperCase()}
+                    </div>
+                  )}
                 </div>
-              )}
+                <div>
+                  <h1 className="text-2xl font-bold th-text-primary">{character.name}</h1>
+                  <p className="th-text-tertiary mt-0.5 line-clamp-2 max-w-xl text-sm">
+                    {character.description || "Chưa có mô tả ngoại hình."}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={() => setWizardOpen(true)}>
+                  <Sparkles size={16} /> Tạo bộ biểu cảm
+                </Button>
+                <Link href={`/projects/${projectRef}/editor`}>
+                  <Button variant="outline">
+                    <Type size={16} /> Ghép chữ
+                  </Button>
+                </Link>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold th-text-primary">{character.name}</h1>
-              <p className="th-text-tertiary mt-0.5 text-sm">
-                {readyCount} template sẵn sàng · {images.length} ảnh nền · {relatedMemes.length} meme đã làm
-              </p>
-            </div>
+
+            <Card>
+              <CardContent className="grid grid-cols-2 gap-3 py-3 sm:grid-cols-4">
+                <Stat icon={<Grid2x2 size={14} />} value={String(readyCount)} label="Biểu cảm sẵn sàng" />
+                <Stat icon={<Images size={14} />} value={String(layoutCount)} label="Bố cục" />
+                <Stat icon={<Type size={14} />} value={String(relatedMemes.length)} label="Meme đã làm" />
+                <Stat
+                  icon={<ShieldCheck size={14} />}
+                  value={authoredZoneCount > 0 ? `${authoredZoneCount} chỉnh tay` : "Mặc định"}
+                  label="Vùng an toàn"
+                />
+              </CardContent>
+            </Card>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={() => setWizardOpen(true)}>
-              <Sparkles size={16} /> Tạo bộ biểu cảm
-            </Button>
-            <Link href={`/projects/${projectRef}/editor`}>
-              <Button variant="outline">
-                <Type size={16} /> Ghép chữ
-              </Button>
-            </Link>
-          </div>
+
+          <Card>
+            <CardContent className="space-y-2 py-3 text-xs">
+              <MetaRow label="Tạo lúc" value={new Date(character.created_at).toLocaleDateString("vi-VN")} />
+              <MetaRow label="Cập nhật" value={new Date(character.updated_at).toLocaleDateString("vi-VN")} />
+              <MetaRow label="Ảnh nền" value={`${images.length} ảnh`} />
+              <MetaRow label="Độ phân giải" value={resolutionLabel} />
+              <MetaRow label="Định dạng" value="PNG" />
+            </CardContent>
+          </Card>
         </div>
 
         <div className="mb-5 flex gap-1 border-b th-border-secondary">
@@ -260,35 +294,23 @@ export default function MascotDetailPage() {
             <CardHeader>
               <span className="text-sm font-semibold th-text-primary">Character DNA</span>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-xs th-text-tertiary">
-                Ghi lại những đặc điểm phải giữ nguyên qua mọi ảnh. Nội dung này đi kèm mô tả nhân vật khi tạo bộ
-                biểu cảm mới.
-              </p>
-              <Textarea
-                rows={6}
-                value={dnaDraft ?? dna?.summary ?? ""}
-                placeholder="Ví dụ: bò vàng, sừng cong ngắn, mắt to tròn, luôn mặc áo hoodie xanh cobalt…"
-                onChange={(event) => setDnaDraft(event.target.value)}
+            <CardContent>
+              <CharacterDnaPanel
+                dna={dna}
+                watermarkPosition={project?.watermark_position ?? "bottom-right"}
+                saving={savingDna}
+                onSave={async (patch) => {
+                  setSavingDna(true);
+                  try {
+                    await saveDna(patch);
+                    toast.success("Đã lưu Character DNA");
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Lưu thất bại");
+                  } finally {
+                    setSavingDna(false);
+                  }
+                }}
               />
-              <div className="flex justify-end">
-                <Button
-                  loading={savingDna}
-                  onClick={async () => {
-                    setSavingDna(true);
-                    try {
-                      await saveDna({ summary: dnaDraft ?? dna?.summary ?? "" });
-                      toast.success("Đã lưu Character DNA");
-                    } catch (error) {
-                      toast.error(error instanceof Error ? error.message : "Lưu thất bại");
-                    } finally {
-                      setSavingDna(false);
-                    }
-                  }}
-                >
-                  Lưu
-                </Button>
-              </div>
             </CardContent>
           </Card>
         )}
@@ -326,6 +348,27 @@ export default function MascotDetailPage() {
           />
         )}
       </main>
+    </div>
+  );
+}
+
+function Stat({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="th-text-accent">{icon}</span>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold th-text-primary">{value}</p>
+        <p className="truncate text-[11px] th-text-tertiary">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+function MetaRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="th-text-tertiary">{label}</span>
+      <span className="truncate th-text-secondary">{value}</span>
     </div>
   );
 }
