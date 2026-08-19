@@ -21,6 +21,13 @@ import {
   type ImagePriceEstimate,
 } from "@/lib/ai-pricing";
 import { isArtDirectionId } from "@/lib/mascot-art-direction";
+import {
+  OPENAI_IMAGE_MODEL,
+  calculateOpenAiActualCost,
+  generateMemeImageWithOpenAI,
+  openAiSizeFor,
+} from "@/lib/openai-image";
+import { hasOpenAiApiKey } from "@/lib/server-secrets";
 import { buildMemeManifest } from "@/lib/continuity/meme-manifest";
 import {
   buildBackgroundManifest,
@@ -60,6 +67,7 @@ export async function POST(request: NextRequest) {
   let priceEstimate: ImagePriceEstimate | null = null;
   let deductedCost = 0;
   let deductedAction: PointAction | null = null;
+  let useOpenAi = false;
 
   try {
     const { supabase, user } = await getRequestUser(request);
@@ -254,18 +262,37 @@ export async function POST(request: NextRequest) {
           watermark: unfilteredParams.watermark,
           sourceMemeId: body.source_meme_id,
         });
-        generationRecipe = manifestPlan.recipe;
-        priceEstimate = estimateImageGenerationPrice({
-          model: IMAGE_MODEL,
-          resolution: "1K",
-          inputImageCount: manifestPlan.recipe.references.length,
-          prompt: compiledPrompt,
-        });
+        // The caption is drawn by the model here, and Vietnamese diacritics are
+        // where Gemini slips. GPT Image 2 is the provider OpenAI documents for
+        // text rendering, and at medium quality it also costs less than Gemini 1K
+        // (0.053 vs 0.067 USD), so text memes route there when a key exists.
+        const wantsRenderedText = Boolean(headline?.trim() || subtext?.trim());
+        useOpenAi = wantsRenderedText && hasOpenAiApiKey();
+
+        generationRecipe = useOpenAi
+          ? { ...manifestPlan.recipe, provider: "openai", model: OPENAI_IMAGE_MODEL }
+          : manifestPlan.recipe;
+        priceEstimate = useOpenAi
+          ? estimateImageGenerationPrice({
+              model: "gpt-image-2",
+              resolution: openAiSizeFor(unfilteredParams.format).resolution,
+              quality: "medium",
+              inputImageCount: manifestPlan.recipe.references.length,
+              prompt: compiledPrompt,
+            })
+          : estimateImageGenerationPrice({
+              model: IMAGE_MODEL,
+              resolution: "1K",
+              inputImageCount: manifestPlan.recipe.references.length,
+              prompt: compiledPrompt,
+            });
         generationJobPersisted = await persistGenerationJob(generationRecipe, priceEstimate, {
           type: body.source_meme_id ? "meme" : null,
           id: body.source_meme_id || null,
         });
-        result = await generateMemeImage(providerParams);
+        result = useOpenAi
+          ? await generateMemeImageWithOpenAI({ ...providerParams, quality: "medium" })
+          : await generateMemeImage(providerParams);
         break;
       }
 
@@ -367,13 +394,27 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Unknown type" }, { status: 400 });
     }
 
-    const actualCostUsd = priceEstimate
-      ? calculateGoogleImageActualCost({
-          model: IMAGE_MODEL,
-          usage: result.usage,
-          fallback: priceEstimate,
-        })
-      : undefined;
+    const actualCostUsd = !priceEstimate
+      ? undefined
+      : useOpenAi
+        ? calculateOpenAiActualCost({
+            usage: result.usage
+              ? {
+                  input_tokens: result.usage.promptTokenCount,
+                  output_tokens: result.usage.candidatesTokenCount,
+                  input_tokens_details: {
+                    text_tokens: result.usage.promptTokensDetails?.find((entry) => entry.modality === "TEXT")?.tokenCount,
+                    image_tokens: result.usage.promptTokensDetails?.find((entry) => entry.modality === "IMAGE")?.tokenCount,
+                  },
+                }
+              : undefined,
+            fallbackUsd: priceEstimate.providerCostUsd,
+          })
+        : calculateGoogleImageActualCost({
+            model: IMAGE_MODEL,
+            usage: result.usage,
+            fallback: priceEstimate,
+          });
 
     if (generationJobPersisted && generationRequestId) {
       const { error: completeJobError } = await getSupabaseAdmin()

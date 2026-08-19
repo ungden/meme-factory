@@ -33,9 +33,15 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 GEMINI_API_KEY=
+OPENAI_API_KEY=
 ```
 
 Provider keys remain server-side. The service role key must never use a `NEXT_PUBLIC_` prefix.
+
+`OPENAI_API_KEY` is optional. When it is set, memes whose caption is drawn by the
+model render on `gpt-image-2`, which OpenAI documents for text rendering; without
+it everything stays on Gemini. Mascot artwork carries no text and always uses
+Gemini, which is cheaper for that job.
 
 ## Verification
 
