@@ -18,6 +18,7 @@ import {
   UserPlus,
   Clapperboard,
   Type,
+  Palette,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -138,6 +139,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
 
   const projectManagementNav = projectId
     ? [
+        { href: `/projects/${projectId}/brand`, label: "Thương hiệu", icon: Palette },
         { href: `/projects/${projectId}/members`, label: "Thành viên", icon: UserPlus },
         { href: `/projects/${projectId}/wallet`, label: "Điểm dự án", icon: Coins },
       ]

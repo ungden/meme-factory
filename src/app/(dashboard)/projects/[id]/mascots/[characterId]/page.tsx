@@ -4,13 +4,14 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import { Archive, Check, ChevronLeft, Dna, Grid2x2, Images, Sparkles, Type } from "lucide-react";
+import { Archive, Check, ChevronLeft, Crop, Dna, Grid2x2, Images, Sparkles, Type } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import Textarea from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import BasePackWizard from "@/components/templates/base-pack-wizard";
+import SafeZoneEditor from "@/components/templates/safe-zone-editor";
 import { LAYOUT_PRESET_LABELS } from "@/lib/meme-layout-presets";
 import { useBaseImages, useCharacterDna, useExpressionTags } from "@/lib/use-templates";
 import { useCharacters, useMemes, useProject } from "@/lib/use-store";
@@ -40,6 +41,7 @@ export default function MascotDetailPage() {
 
   const [tab, setTab] = useState<Tab>("reactions");
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [zoneTarget, setZoneTarget] = useState<string | null>(null);
   const [dnaDraft, setDnaDraft] = useState<string | null>(null);
   const [savingDna, setSavingDna] = useState(false);
 
@@ -180,6 +182,15 @@ export default function MascotDetailPage() {
                           </Button>
                         </Link>
                       )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label="Chỉnh vùng chữ"
+                        title="Chỉnh vùng chữ"
+                        onClick={() => setZoneTarget(image.id)}
+                      >
+                        <Crop size={12} />
+                      </Button>
                       {image.status !== "archived" && (
                         <Button size="sm" variant="ghost" aria-label="Lưu trữ" onClick={() => setStatus(image.id, "archived")}>
                           <Archive size={12} />
@@ -281,6 +292,20 @@ export default function MascotDetailPage() {
             </CardContent>
           </Card>
         )}
+
+        <SafeZoneEditor
+          open={Boolean(zoneTarget)}
+          onClose={() => setZoneTarget(null)}
+          baseImage={images.find((image) => image.id === zoneTarget) ?? null}
+          onSave={async (safeZones) => {
+            if (!zoneTarget) return;
+            await updateBaseImage(zoneTarget, {
+              safe_zones: safeZones as unknown as Record<string, unknown>,
+              safe_zones_source: "authored",
+              safe_zones_updated_at: new Date().toISOString(),
+            });
+          }}
+        />
 
         {project && (
           <BasePackWizard

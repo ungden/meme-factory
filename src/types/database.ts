@@ -13,6 +13,7 @@ export interface Project {
   watermark_position: WatermarkPosition;
   watermark_opacity: number;
   default_format: MemeFormat;
+  creator_handle?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -432,6 +433,21 @@ export interface CharacterDna {
   may_change: string[];
   updated_by: string | null;
   updated_at: string;
+}
+
+export interface MemeExport {
+  id: string;
+  meme_id: string | null;
+  project_id: string;
+  base_image_id: string | null;
+  format: "png" | "jpg" | "webp";
+  aspect_ratio: MemeFormat;
+  width: number | null;
+  height: number | null;
+  file_size_bytes: number | null;
+  had_watermark: boolean;
+  exported_by: string | null;
+  created_at: string;
 }
 
 export interface MemeCollection {

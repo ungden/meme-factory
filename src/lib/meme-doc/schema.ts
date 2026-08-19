@@ -21,12 +21,19 @@ function emptyDoc(format: MemeFormat): MemeDoc {
   };
 }
 
-function watermarkFromProject(project?: Pick<Project, "name" | "watermark_url" | "watermark_position" | "watermark_opacity"> | null): WatermarkLayer {
+type ProjectBrand = Pick<
+  Project,
+  "name" | "watermark_url" | "watermark_position" | "watermark_opacity" | "creator_handle"
+>;
+
+function watermarkFromProject(project?: ProjectBrand | null): WatermarkLayer {
+  // A logo wins; otherwise the creator handle, which is what a fanpage signs with.
+  const fallbackText = project?.creator_handle?.trim() || project?.name || null;
   return {
-    enabled: Boolean(project?.watermark_url) || Boolean(project?.name),
+    enabled: Boolean(project?.watermark_url) || Boolean(fallbackText),
     source: project?.watermark_url ? "project" : "text",
     imageUrl: project?.watermark_url ?? null,
-    text: project?.watermark_url ? null : project?.name ?? null,
+    text: project?.watermark_url ? null : fallbackText,
     position: project?.watermark_position ?? "bottom-right",
     opacity: typeof project?.watermark_opacity === "number" ? project.watermark_opacity : 0.8,
     scale: 0.15,
@@ -43,7 +50,7 @@ function textLayer(zone: ZoneName, box: Rect, style: TextStyle, text = ""): Text
  */
 export function createDocForBaseImage(params: {
   baseImage: Pick<MascotBaseImage, "id" | "character_id" | "image_url" | "aspect_ratio" | "safe_zones" | "default_text_style" | "recommended_chars">;
-  project?: Pick<Project, "name" | "watermark_url" | "watermark_position" | "watermark_opacity"> | null;
+  project?: ProjectBrand | null;
   primaryText?: string;
   secondaryText?: string;
 }): MemeDoc {
@@ -99,7 +106,7 @@ export function createDocForBaseImage(params: {
 export function createDocForRawImage(params: {
   imageUrl: string;
   format: MemeFormat;
-  project?: Pick<Project, "name" | "watermark_url" | "watermark_position" | "watermark_opacity"> | null;
+  project?: ProjectBrand | null;
 }): MemeDoc {
   const doc = emptyDoc(params.format);
   doc.base = {

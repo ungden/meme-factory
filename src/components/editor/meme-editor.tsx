@@ -14,7 +14,7 @@ import { canvasSize } from "@/lib/meme-doc/render";
 import { createDocForBaseImage } from "@/lib/meme-doc/schema";
 import type { MemeDoc, TextLayer, TextStyle, WatermarkLayer } from "@/lib/meme-doc/types";
 import type { BaseImageWithCharacter } from "@/lib/use-templates";
-import { useBaseImages, useExpressionTags } from "@/lib/use-templates";
+import { recordMemeExport, useBaseImages, useExpressionTags } from "@/lib/use-templates";
 import { useMemes } from "@/lib/use-store";
 import type { MemeFormat, Project } from "@/types/database";
 import BaseImagePicker from "./base-image-picker";
@@ -205,12 +205,27 @@ export default function MemeEditor({
 
   const handleDownload = useCallback(() => {
     const dataUrl = canvasRef.current?.exportImage();
-    if (!dataUrl) return;
+    if (!dataUrl || !doc) return;
+
     const link = document.createElement("a");
     link.download = `meme-${Date.now()}.png`;
     link.href = dataUrl;
     link.click();
-  }, []);
+
+    const { width, height } = canvasSize(doc);
+    const base64Length = dataUrl.length - (dataUrl.indexOf(",") + 1);
+    void recordMemeExport({
+      projectId: project?.id ?? "",
+      memeId: sourceMemeId ?? null,
+      baseImageId: doc.base?.baseImageId ?? null,
+      aspectRatio: doc.canvas.format,
+      width,
+      height,
+      // base64 carries 3 bytes per 4 characters.
+      fileSizeBytes: Math.round((base64Length * 3) / 4),
+      hadWatermark: Boolean(doc.watermark?.enabled),
+    });
+  }, [doc, project?.id, sourceMemeId]);
 
   const handleSave = useCallback(async () => {
     if (!doc) return;
@@ -223,7 +238,7 @@ export default function MemeEditor({
     setSaving(true);
     try {
       const [primary, secondary] = doc.layers;
-      await saveMeme({
+      const saved = await saveMeme({
         original_idea: primary?.text || "Meme ghép chữ",
         generated_content: {
           headline: primary?.text ?? "",
@@ -240,13 +255,24 @@ export default function MemeEditor({
         base_image_id: doc.base?.baseImageId ?? null,
         composed_locally: true,
       });
+      const { width, height } = canvasSize(doc);
+      void recordMemeExport({
+        projectId: project?.id ?? "",
+        memeId: saved?.id ?? sourceMemeId ?? null,
+        baseImageId: doc.base?.baseImageId ?? null,
+        aspectRatio: doc.canvas.format,
+        width,
+        height,
+        fileSizeBytes: Math.round(((dataUrl.length - (dataUrl.indexOf(",") + 1)) * 3) / 4),
+        hadWatermark: Boolean(doc.watermark?.enabled),
+      });
       toast.success("Đã lưu vào Thư viện — không tốn điểm nào");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Lưu thất bại");
     } finally {
       setSaving(false);
     }
-  }, [doc, saveMeme, sourceMemeId, toast]);
+  }, [doc, saveMeme, sourceMemeId, project?.id, toast]);
 
   const changeFormat = useCallback(
     (format: MemeFormat) => {
@@ -392,7 +418,7 @@ export default function MemeEditor({
               <WatermarkControls
                 watermark={doc.watermark}
                 projectWatermarkUrl={project?.watermark_url ?? null}
-                projectName={project?.name ?? "AIDA"}
+                projectName={project?.creator_handle?.trim() || project?.name || "AIDA"}
                 onChange={patchWatermark}
                 onUpload={uploadWatermark}
               />

@@ -9,7 +9,7 @@ import Card from "@/components/ui/card";
 import Modal from "@/components/ui/modal";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { useToast } from "@/components/ui/toast";
-import { useMemeCollections } from "@/lib/use-templates";
+import { recordMemeExport, useMemeCollections, useMemeExports } from "@/lib/use-templates";
 import {
   Download,
   Trash2,
@@ -26,7 +26,7 @@ import {
   Type,
   FolderPlus,
 } from "lucide-react";
-import type { MemeContent } from "@/types/database";
+import { FORMAT_DIMENSIONS, type MemeContent } from "@/types/database";
 
 export default function GalleryPage() {
   const params = useParams();
@@ -46,6 +46,7 @@ export default function GalleryPage() {
   const [zipProgress, setZipProgress] = useState({ done: 0, total: 0 });
 
   const { collections, membership, create: createCollection, addMeme, removeMeme } = useMemeCollections(projectId);
+  const { exports: exportHistory, reload: reloadExports } = useMemeExports(selectedMeme);
   const [activeCollection, setActiveCollection] = useState<string | null>(null);
 
   // Collection filtering happens on the already-loaded list; no extra round trip.
@@ -103,6 +104,22 @@ export default function GalleryPage() {
     link.download = `meme-${id}.png`;
     link.click();
     toast.success("Đang tải xuống...");
+
+    const meme = memes.find((entry) => entry.id === id);
+    if (project?.id && meme) {
+      const dimensions = FORMAT_DIMENSIONS[meme.format];
+      void recordMemeExport({
+        projectId: project.id,
+        memeId: meme.id,
+        baseImageId: meme.base_image_id ?? null,
+        aspectRatio: meme.format,
+        width: dimensions.width,
+        height: dimensions.height,
+        hadWatermark: Boolean(meme.has_watermark),
+      }).then(() => {
+        if (selectedMeme === id) reloadExports();
+      });
+    }
   };
 
   const handleCopyCaption = (text: string) => {
@@ -613,6 +630,38 @@ export default function GalleryPage() {
                         <Trash2 size={14} /> Xoá
                       </Button>
                     </div>
+
+                    {exportHistory.length > 0 && (
+                      <div className="pt-2">
+                        <p className="text-xs th-text-muted uppercase tracking-wider mb-1.5">
+                          Lịch sử tải xuống
+                        </p>
+                        <ul className="space-y-1">
+                          {exportHistory.slice(0, 6).map((entry) => (
+                            <li
+                              key={entry.id}
+                              className="flex items-center justify-between gap-2 text-xs th-text-tertiary"
+                            >
+                              <span>
+                                {new Date(entry.created_at).toLocaleString("vi-VN", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                              <span className="tabular-nums">
+                                {entry.format.toUpperCase()} · {entry.width}×{entry.height}
+                                {entry.file_size_bytes
+                                  ? ` · ${(entry.file_size_bytes / 1024 / 1024).toFixed(1)} MB`
+                                  : ""}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
               );

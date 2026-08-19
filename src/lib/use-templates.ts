@@ -12,6 +12,7 @@ import type {
   LayoutPreset,
   MascotBaseImage,
   MemeCollection,
+  MemeExport,
   MemeFormat,
 } from "@/types/database";
 
@@ -331,4 +332,68 @@ export function useMemeCollections(projectRef: string) {
   );
 
   return { collections, membership, loading, create, addMeme, removeMeme, reload: load };
+}
+
+export interface RecordExportInput {
+  projectId: string;
+  memeId?: string | null;
+  baseImageId?: string | null;
+  aspectRatio: MemeFormat;
+  width: number;
+  height: number;
+  fileSizeBytes?: number | null;
+  hadWatermark: boolean;
+}
+
+/**
+ * The PNG is produced and downloaded in the browser, so only its metadata is
+ * recorded. Failing to log an export must never block the download itself.
+ */
+export async function recordMemeExport(input: RecordExportInput): Promise<void> {
+  if (IS_MOCK_MODE || !input.projectId) return;
+  try {
+    const supabase = createClient();
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return;
+
+    await supabase.from("meme_exports").insert({
+      project_id: input.projectId,
+      meme_id: input.memeId ?? null,
+      base_image_id: input.baseImageId ?? null,
+      format: "png",
+      aspect_ratio: input.aspectRatio,
+      width: input.width,
+      height: input.height,
+      file_size_bytes: input.fileSizeBytes ?? null,
+      had_watermark: input.hadWatermark,
+      exported_by: userData.user.id,
+    });
+  } catch (error) {
+    console.error("Export history not recorded:", error);
+  }
+}
+
+export function useMemeExports(memeId: string | null) {
+  const [exports, setExports] = useState<MemeExport[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    if (IS_MOCK_MODE || !memeId) {
+      setExports([]);
+      setLoading(false);
+      return;
+    }
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("meme_exports")
+      .select("*")
+      .eq("meme_id", memeId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    setExports((data ?? []) as MemeExport[]);
+    setLoading(false);
+  }, [memeId]);
+
+  useDeferredTask(load);
+  return { exports, loading, reload: load };
 }

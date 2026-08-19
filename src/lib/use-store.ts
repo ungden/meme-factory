@@ -164,7 +164,24 @@ export function useProject(projectId: string) {
 
   useDeferredTask(load);
 
-  return { project, loading };
+  const update = useCallback(async (patch: Partial<Project>) => {
+    if (IS_MOCK_MODE) {
+      mockProjects = mockProjects.map((p) =>
+        p.id === projectId || p.slug === projectId ? { ...p, ...patch } : p
+      );
+      setProject((current) => (current ? { ...current, ...patch } : current));
+      return;
+    }
+    const supabase = createClient();
+    const target = isUuid(projectId)
+      ? supabase.from("projects").update(patch).eq("id", projectId)
+      : supabase.from("projects").update(patch).eq("slug", projectId);
+    const { error } = await target;
+    if (error) throw new Error(error.message);
+    await load();
+  }, [projectId, load]);
+
+  return { project, loading, update, reload: load };
 }
 
 // ============================================
