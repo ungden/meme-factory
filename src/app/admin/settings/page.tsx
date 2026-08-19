@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { Save, Plus, Trash2, Eye, EyeOff, Bell, Coins } from "lucide-react";
-import { POINT_COSTS, POINT_PACKAGES } from "@/lib/point-pricing";
+import { POINT_COSTS, POINT_PACKAGES, checkMargin } from "@/lib/point-pricing";
 import {
   AI_PRICE_MARKUP_PERCENT,
   AI_PRICING_CATALOG,
@@ -180,9 +180,24 @@ export default function AdminSettingsPage() {
                 { key: "meme" as const, label: "Tạo ảnh meme / cú máy AI (1K)", current: POINT_COSTS.meme },
               ].map((item) => (
                 <div key={item.key} className="flex items-center justify-between">
-                  <div className="flex-1">
+                  <div className="flex-1 pr-3">
                     <p className="text-sm th-text-primary">{item.label}</p>
                     <p className="text-xs th-text-muted">Mặc định: {item.current} pts</p>
+                    {(() => {
+                      const margin = checkMargin(item.key, pointCosts[item.key]);
+                      if (item.key === "content") return null;
+                      return (
+                        <p className={`text-[11px] ${margin.coversCost ? "th-text-muted" : "th-text-danger"}`}>
+                          Chi phí xấu nhất {margin.worstCostVnd.toLocaleString("vi-VN")}đ · biên{" "}
+                          {margin.marginMultiplier.toFixed(2)}x
+                          {margin.coversCost
+                            ? margin.meetsTarget
+                              ? ""
+                              : ` · dưới mục tiêu 1.5x, nên từ ${margin.minimumPoints} pts`
+                            : ` · LỖ, tối thiểu ${margin.minimumPoints} pts`}
+                        </p>
+                      );
+                    })()}
                   </div>
                   <div className="flex items-center gap-2">
                     <input
@@ -203,7 +218,8 @@ export default function AdminSettingsPage() {
                   <Save size={16} /> Lưu cấu hình giá
                 </Button>
                 <p className="text-[10px] th-text-muted mt-2 text-center">
-                  Lưu ý: Thay đổi giá chỉ có hiệu lực khi cập nhật code point-pricing.ts. Bảng này dùng để ghi nhận cấu hình.
+                  Giá lưu ở đây có hiệu lực ngay, không cần deploy. Server từ chối mức giá thấp hơn chi phí
+                  thực tế xấu nhất của hành động đó.
                 </p>
               </div>
             </div>

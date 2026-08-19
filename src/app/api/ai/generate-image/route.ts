@@ -14,7 +14,8 @@ import {
   type GenerateCharacterPoseParams,
   type GenerateBackgroundParams,
 } from "@/lib/gemini-image";
-import { POINT_COSTS, POINT_LABELS, type PointAction } from "@/lib/point-pricing";
+import { POINT_LABELS, type PointAction } from "@/lib/point-pricing";
+import { assertPriceCoversCost, getPointCost } from "@/lib/point-pricing.server";
 import {
   calculateGoogleImageActualCost,
   estimateImageGenerationPrice,
@@ -112,7 +113,11 @@ export async function POST(request: NextRequest) {
     // ============================================
     const action = getPointAction(type);
     generationRequestId = crypto.randomUUID();
-    const cost = POINT_COSTS[action];
+    // Price comes from the admin-configured table, falling back to the compiled
+    // constants, and is checked against the worst call this action can make before
+    // a single point is taken.
+    const cost = await getPointCost(action);
+    if (cost > 0) await assertPriceCoversCost(action, cost);
 
     if (cost > 0) {
       const { data: deductResult, error: deductRpcErr } = await getSupabaseAdmin().rpc("atomic_deduct_project_points", {
