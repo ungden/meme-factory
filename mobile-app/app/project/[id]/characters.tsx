@@ -1,6 +1,8 @@
 import { useCallback, useState } from "react";
 import { Alert, Image, Switch, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { File } from "expo-file-system";
+import { stripImageMetadata } from "@/lib/image-metadata";
 import { useLocalSearchParams } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import type { Character, CharacterPose } from "@/types/models";
@@ -60,12 +62,22 @@ export default function CharactersScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 1 });
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
-    const response = await fetch(asset.uri);
-    const blob = await response.blob();
     const extension = (asset.fileName?.split(".").pop() || "png").toLowerCase();
     const filePath = buildPoseUploadPath(id, characterId, extension);
 
-    const upload = await supabase.storage.from("character-poses").upload(filePath, blob, {
+    // This bucket is public. A camera-roll photo carries EXIF including GPS, so
+    // strip it before upload exactly as the web client does. No re-encode, so the
+    // pixels are untouched.
+    let payload: ArrayBuffer;
+    try {
+      const original = new Uint8Array(await new File(asset.uri).arrayBuffer());
+      payload = stripImageMetadata(original).bytes.buffer as ArrayBuffer;
+    } catch (error) {
+      Alert.alert("Không đọc được ảnh", error instanceof Error ? error.message : "Vui lòng thử ảnh khác");
+      return;
+    }
+
+    const upload = await supabase.storage.from("character-poses").upload(filePath, payload, {
       contentType: asset.mimeType || "image/png",
       upsert: false,
     });
