@@ -438,6 +438,8 @@ export default function GeneratePage() {
         personality: quickCharacterForm.personality.trim() || "Linh hoạt theo ngữ cảnh meme",
       });
       if (created) {
+        setSelectedCharacterIds((current) => new Set([...current, created.id]));
+        setTaggedCharacterIds((current) => new Set([...current, created.id]));
         appendMentionToIdea(created.name);
         toast.success(`Đã tạo nhanh nhân vật "${created.name}"`);
         setShowQuickCharacterModal(false);
@@ -994,10 +996,10 @@ export default function GeneratePage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-blue-500">
-              <Sparkles size={13} /> AIDA Studio · Nội dung nhanh
+              <Sparkles size={13} /> AIDA Studio · Bộ nội dung
             </div>
-            <h1 className="text-2xl font-bold th-text-primary">Tạo nội dung nhanh</h1>
-            <p className="th-text-tertiary mt-1">Biến một ý tưởng thành social post, meme và caption sẵn đăng</p>
+            <h1 className="text-2xl font-bold th-text-primary">Tạo bộ nội dung</h1>
+            <p className="th-text-tertiary mt-1">Một brief, cast và thương hiệu xuyên suốt từ bài ảnh đến video.</p>
           </div>
           {step > 1 && (
             <Button variant="outline" onClick={handleReset}>
@@ -1021,9 +1023,9 @@ export default function GeneratePage() {
         {/* Steps indicator */}
         <div className="flex items-center gap-3 mb-8">
           {[
-            { num: 1, label: "Nhập ý tưởng" },
-            { num: 2, label: "Chọn nội dung" },
-            { num: 3, label: "Duyệt & xuất" },
+            { num: 1, label: "Brief & cast" },
+            { num: 2, label: "Kịch bản & đầu ra" },
+            { num: 3, label: "Duyệt & tải" },
           ].map((s, i) => (
             <div key={s.num} className="flex items-center gap-3">
               <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
@@ -1046,7 +1048,7 @@ export default function GeneratePage() {
               <CardHeader>
                 <h2 className="text-lg font-semibold th-text-primary flex items-center gap-2">
                   <Sparkles size={20} style={{ color: "var(--accent)" }} />
-                  Bạn muốn kể điều gì?
+                  Brief cho bài đăng này
                 </h2>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1154,9 +1156,9 @@ export default function GeneratePage() {
                   {!noCharacters && (
                     <>
                       <div className="flex items-center justify-between">
-                        <p className="text-xs th-text-tertiary">Nhân vật có sẵn (click để mention):</p>
+                        <p className="text-xs th-text-tertiary">Cast của bộ nội dung (chọn nhân vật sẽ xuất hiện trong bài):</p>
                         <Button size="sm" variant="outline" onClick={openQuickCharacterModal}>
-                          <Plus size={14} /> Tạo nhanh nhân vật
+                          <Plus size={14} /> Thêm nhân vật
                         </Button>
                       </div>
 
@@ -1196,7 +1198,7 @@ export default function GeneratePage() {
                                   }}
                                   className="ml-auto text-[10px] px-2 py-1 rounded-md th-bg-card th-text-secondary"
                                 >
-                                  mention
+                                  {selected ? "đã chọn" : "chọn cast"}
                                 </span>
                               </button>
                             );
@@ -1702,7 +1704,7 @@ export default function GeneratePage() {
             />
             <div className="flex justify-end gap-2">
               <Button variant="ghost" type="button" onClick={() => setShowQuickCharacterModal(false)}>Huỷ</Button>
-              <Button type="submit" loading={quickCharacterSaving}>Tạo và mention</Button>
+              <Button type="submit" loading={quickCharacterSaving}>Tạo và chọn cast</Button>
             </div>
           </form>
         </Modal>
