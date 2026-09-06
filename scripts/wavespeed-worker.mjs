@@ -11,7 +11,7 @@ async function tick() {
   });
   if (!response.ok) throw new Error(`Reconcile ${response.status}: ${await response.text()}`);
   const result = await response.json();
-  if (result.processed) console.log(`Reconciled ${result.processed} WaveSpeed job(s).`);
+  console.log(`WaveSpeed reconcile complete: ${result.processed ?? 0} job(s) processed.`);
 }
 
 while (true) {
