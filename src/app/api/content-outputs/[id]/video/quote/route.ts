@@ -15,8 +15,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { data: output } = await supabase.from("content_outputs").select("id, kind").eq("id", id).maybeSingle();
   if (!output || output.kind !== "video") return NextResponse.json({ error: "Không tìm thấy đầu ra video." }, { status: 404 });
   try {
-    const quote = await quoteSeedanceVideo({ prompt: body.prompt.trim(), image: body.image, duration: Number(body.duration) as 15 | 30, resolution: body.resolution, generateAudio: body.generate_audio !== false });
-    return NextResponse.json({ quote, expiresAt: new Date(Date.now() + 5 * 60_000).toISOString() });
+    const config = { prompt: body.prompt.trim(), image: body.image, duration: Number(body.duration) as 15 | 30, resolution: body.resolution, generateAudio: body.generate_audio !== false };
+    const quote = await quoteSeedanceVideo(config);
+    const expiresAt = new Date(Date.now() + 5 * 60_000).toISOString();
+    const { error: saveError } = await supabase.from("content_outputs").update({ quote_snapshot: { ...quote, config }, quote_expires_at: expiresAt }).eq("id", id);
+    if (saveError) return NextResponse.json({ error: "Không lưu được báo giá video." }, { status: 500 });
+    return NextResponse.json({ quote, expiresAt });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Không lấy được báo giá video." }, { status: 503 });
   }

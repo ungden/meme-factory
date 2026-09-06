@@ -111,6 +111,9 @@ export interface ContentSet {
   brief: string;
   selected_character_ids: string[];
   brand_snapshot: Record<string, unknown>;
+  cast_snapshot?: Array<Record<string, unknown>>;
+  title?: string | null;
+  brief_version?: number;
   status: "draft" | "ready" | "archived";
   created_by: string;
   created_at: string;
@@ -121,6 +124,7 @@ export interface ContentOutput {
   id: string;
   content_set_id: string;
   generation_job_id?: string | null;
+  meme_id?: string | null;
   kind: ContentOutputKind;
   format: MemeFormat;
   caption?: string | null;
@@ -132,6 +136,10 @@ export interface ContentOutput {
   review_version: number;
   approved_at?: string | null;
   approved_by?: string | null;
+  source_snapshot?: Record<string, unknown>;
+  quote_snapshot?: Record<string, unknown> | null;
+  quote_expires_at?: string | null;
+  attempt_count?: number;
   created_at: string;
   updated_at: string;
 }

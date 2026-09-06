@@ -11,6 +11,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!set) return NextResponse.json({ error: "Không tìm thấy bộ nội dung." }, { status: 404 });
   const { data, error } = await supabase.from("content_outputs").insert({
     content_set_id: id,
+    meme_id: typeof body.meme_id === "string" ? body.meme_id : null,
     kind: body.kind,
     format: body.format,
     caption: typeof body.caption === "string" ? body.caption : null,
@@ -19,6 +20,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     media_url: typeof body.media_url === "string" ? body.media_url : null,
     status: body.kind === "image" && typeof body.media_url === "string" ? "completed" : "draft",
     duration_seconds: body.kind === "video" ? Number(body.duration_seconds ?? 15) : null,
+    source_snapshot: typeof body.source_snapshot === "object" && body.source_snapshot ? body.source_snapshot : {},
   }).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ output: data }, { status: 201 });

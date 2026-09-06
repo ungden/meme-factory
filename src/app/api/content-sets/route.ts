@@ -25,9 +25,33 @@ export async function POST(request: NextRequest) {
   if (typeof body.project_id !== "string" || typeof body.brief !== "string") return NextResponse.json({ error: "Thiếu dự án hoặc ý tưởng." }, { status: 400 });
   const { data: project } = await projectForRef(supabase, body.project_id);
   if (!project) return NextResponse.json({ error: "Bạn không có quyền với dự án này." }, { status: 403 });
-  const selectedCharacterIds = Array.isArray(body.selected_character_ids) ? body.selected_character_ids.filter((id: unknown) => typeof id === "string") : [];
+  const selectedCharacterIds = Array.isArray(body.selected_character_ids) ? [...new Set(body.selected_character_ids.filter((id: unknown) => typeof id === "string"))] : [];
+  const { data: characterRows, error: characterError } = selectedCharacterIds.length
+    ? await supabase
+      .from("characters")
+      .select("id, name, description, personality, avatar_url, continuity_asset_id, character_poses(id, name, emotion, image_url)")
+      .eq("project_id", project.id)
+      .in("id", selectedCharacterIds)
+    : { data: [], error: null };
+  if (characterError || (characterRows?.length ?? 0) !== selectedCharacterIds.length) {
+    return NextResponse.json({ error: "Một hoặc nhiều nhân vật không thuộc dự án này." }, { status: 400 });
+  }
+  const castSnapshot = (characterRows ?? []).map((character) => ({
+    id: character.id,
+    name: character.name,
+    description: character.description,
+    personality: character.personality,
+    avatar_url: character.avatar_url,
+    continuity_asset_id: character.continuity_asset_id,
+    poses: character.character_poses ?? [],
+  }));
   const brandSnapshot = { voice: body.brand_voice ?? project.brand_voice ?? "", audience: body.audience ?? project.audience ?? "", guidelines: body.content_guidelines ?? project.content_guidelines ?? "", watermarkUrl: project.watermark_url ?? null };
-  const { data, error } = await supabase.from("content_sets").insert({ project_id: project.id, brief: body.brief.trim(), selected_character_ids: selectedCharacterIds, brand_snapshot: brandSnapshot, created_by: user.id }).select().single();
+  const { data, error } = await supabase.from("content_sets").insert({
+    project_id: project.id,
+    title: typeof body.title === "string" ? body.title.trim().slice(0, 120) || null : null,
+    brief: body.brief.trim(), selected_character_ids: selectedCharacterIds,
+    cast_snapshot: castSnapshot, brand_snapshot: brandSnapshot, created_by: user.id, updated_by: user.id,
+  }).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ contentSet: data }, { status: 201 });
 }

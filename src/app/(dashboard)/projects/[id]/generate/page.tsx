@@ -124,7 +124,7 @@ export default function GeneratePage() {
     const storageKey = `aida:content-draft:${projectId}`;
     const queryIdea = searchParams.get("idea");
     const landing = window.sessionStorage.getItem("aida:landing-draft");
-    let saved: { idea?: string; format?: MemeFormat; voice?: string; character?: string; output?: string; noCharacters?: boolean } | null = null;
+    let saved: { idea?: string; format?: MemeFormat; voice?: string; character?: string; output?: string; noCharacters?: boolean; selectedCharacterIds?: string[]; taggedCharacterIds?: string[]; contentSetId?: string; contentSetFingerprint?: string } | null = null;
     try { saved = JSON.parse(window.sessionStorage.getItem(storageKey) || landing || "null"); } catch { /* ignore malformed local state */ }
     const selectedOutput = searchParams.get("output") || saved?.output;
     const formatFromOutput: Record<string, MemeFormat> = {
@@ -139,6 +139,18 @@ export default function GeneratePage() {
     if (restoredFormat) setFormat(restoredFormat);
     if (saved?.voice) setAiCustomPrompt((current) => current || `Giọng thương hiệu: ${saved?.voice}`);
     if (saved?.noCharacters) setNoCharacters(true);
+    if (Array.isArray(saved?.selectedCharacterIds) && characters.length) {
+      const valid = saved.selectedCharacterIds.filter((id) => characters.some((item) => item.id === id));
+      if (valid.length) setSelectedCharacterIds((current) => current.size ? current : new Set(valid));
+    }
+    if (Array.isArray(saved?.taggedCharacterIds) && characters.length) {
+      const valid = saved.taggedCharacterIds.filter((id) => characters.some((item) => item.id === id));
+      if (valid.length) setTaggedCharacterIds((current) => current.size ? current : new Set(valid));
+    }
+    if (saved?.contentSetId) {
+      setContentSetId(saved.contentSetId);
+      setContentSetBrief(saved.contentSetFingerprint ?? null);
+    }
     const selectedName = searchParams.get("character") || saved?.character;
     if (selectedName && selectedName !== "Thêm nhân vật mới" && characters.length) {
       const matched = characters.find((item) => item.name.toLocaleLowerCase() === selectedName.toLocaleLowerCase());
@@ -155,11 +167,15 @@ export default function GeneratePage() {
       format,
       voice: aiCustomPrompt.replace(/^Giọng thương hiệu:\s*/, ""),
       noCharacters,
+      selectedCharacterIds: [...selectedCharacterIds],
+      taggedCharacterIds: [...taggedCharacterIds],
+      contentSetId,
+      contentSetFingerprint: JSON.stringify({ brief: idea.trim(), cast: [...selectedCharacterIds].sort(), format }),
       character: [...selectedCharacterIds][0]
         ? characters.find((item) => item.id === [...selectedCharacterIds][0])?.name
         : undefined,
     }));
-  }, [projectId, idea, format, aiCustomPrompt, noCharacters, selectedCharacterIds, characters]);
+  }, [projectId, idea, format, aiCustomPrompt, noCharacters, selectedCharacterIds, taggedCharacterIds, contentSetId, characters]);
 
   const fetchProjectPoints = useCallback(async () => {
     if (IS_MOCK_MODE) {
@@ -180,7 +196,8 @@ export default function GeneratePage() {
   useDeferredTask(fetchProjectPoints);
 
   const ensureContentSet = useCallback(async () => {
-    if (contentSetId && contentSetBrief === idea.trim()) return contentSetId;
+    const fingerprint = JSON.stringify({ brief: idea.trim(), cast: [...selectedCharacterIds].sort(), format });
+    if (contentSetId && contentSetBrief === fingerprint) return contentSetId;
     const response = await fetch("/api/content-sets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -196,17 +213,21 @@ export default function GeneratePage() {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload.contentSet?.id) throw new Error(payload.error || "Không lưu được brief.");
     setContentSetId(payload.contentSet.id);
-    setContentSetBrief(idea.trim());
+    setContentSetBrief(fingerprint);
     return payload.contentSet.id as string;
-  }, [contentSetId, contentSetBrief, project, projectId, idea, selectedCharacterIds]);
+  }, [contentSetId, contentSetBrief, project, projectId, idea, selectedCharacterIds, format]);
 
-  const recordImageOutput = useCallback(async (meme: { image_url?: string | null }, variation: ContentVariation) => {
+  const recordImageOutput = useCallback(async (meme: { id?: string; image_url?: string | null }, variation: ContentVariation, characterIds: string[]) => {
     const setId = await ensureContentSet();
     if (!meme.image_url) return;
     const response = await fetch(`/api/content-sets/${setId}/outputs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: "image", format, caption: variation.caption ?? variation.content.caption, media_url: meme.image_url }),
+      body: JSON.stringify({
+        kind: "image", format, meme_id: meme.id,
+        caption: variation.caption ?? variation.content.caption, media_url: meme.image_url,
+        source_snapshot: { selected_character_ids: characterIds, format, variation: { headline: variation.headline, caption: variation.caption } },
+      }),
     });
     const payload = await response.json().catch(() => ({}));
     if (response.ok && payload.output?.id) {
@@ -217,6 +238,7 @@ export default function GeneratePage() {
 
   const getVideoQuote = useCallback(async () => {
     if (!imageSourceUrl || !variations[selectedVariation]) throw new Error("Ảnh đầu chưa được lưu.");
+    if (format !== "9:16") throw new Error("Video dọc cần ảnh đầu 9:16. Hãy tạo ảnh 9:16 trước khi làm video.");
     setVideoLoading(true);
     try {
       const setId = await ensureContentSet();
@@ -224,7 +246,7 @@ export default function GeneratePage() {
       if (!outputId) {
         const created = await fetch(`/api/content-sets/${setId}/outputs`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kind: "video", format: "9:16", poster_url: imageSourceUrl, script: variations[selectedVariation].caption ?? idea, duration_seconds: videoDuration }),
+          body: JSON.stringify({ kind: "video", format: "9:16", poster_url: imageSourceUrl, script: variations[selectedVariation].caption ?? idea, duration_seconds: videoDuration, source_snapshot: { image_output_id: imageOutputId, selected_character_ids: [...taggedCharacterIds] } }),
         });
         const createdPayload = await created.json().catch(() => ({}));
         if (!created.ok || !createdPayload.output?.id) throw new Error(createdPayload.error || "Không tạo được đầu ra video.");
@@ -239,7 +261,7 @@ export default function GeneratePage() {
       if (!response.ok) throw new Error(payload.error || "Không lấy được báo giá video.");
       setVideoQuote(payload.quote);
     } finally { setVideoLoading(false); }
-  }, [imageSourceUrl, variations, selectedVariation, ensureContentSet, videoOutputId, videoDuration, videoResolution, videoAudio, idea]);
+  }, [imageSourceUrl, variations, selectedVariation, ensureContentSet, videoOutputId, videoDuration, videoResolution, videoAudio, idea, format, imageOutputId, taggedCharacterIds]);
 
   const submitVideo = useCallback(async () => {
     if (!videoOutputId || !imageSourceUrl || !variations[selectedVariation]) return;
@@ -533,7 +555,7 @@ export default function GeneratePage() {
     setGenerating(true);
 
     try {
-      await ensureContentSet();
+      const persistedContentSetId = await ensureContentSet();
       const results = await generateContent({
         project_id: project?.id || projectId,
         idea: idea.trim(),
@@ -541,6 +563,8 @@ export default function GeneratePage() {
         projectStyle: project?.style_prompt || undefined,
         adHocCharacters: noCharacters ? [] : oneOffCharacters,
         noCharacters,
+        selectedCharacterIds: [...selectedCharacterIds],
+        contentSetId: persistedContentSetId,
         referenceImages: refImages.length > 0
           ? refImages.map((img) => ({ base64: img.base64, mimeType: img.mimeType }))
           : undefined,
@@ -835,14 +859,22 @@ export default function GeneratePage() {
           const savedMeme = await saveMeme({
             original_idea: idea,
             generated_content: v.content,
-            selected_characters: v.suggested_characters,
+          selected_characters: sourceCharacters.map((character) => ({
+            character_id: character.characterId || "",
+            character_name: character.name,
+            pose_id: character.poseId || "",
+            pose_name: "",
+            emotion: character.emotion as EmotionTag,
+            suggested_emotion: character.emotion as EmotionTag,
+            reasoning: "Đã dùng trong lần tạo này",
+          })),
             format,
             has_watermark: enableWatermark,
             image_base64: `data:image/png;base64,${result.image}`,
             source_meme_id: lineageSourceMemeId,
             generation_request_id: result.generation_request_id,
           });
-          await recordImageOutput(savedMeme, v);
+          await recordImageOutput(savedMeme, v, sourceCharacters.flatMap((character) => character.characterId ? [character.characterId] : []));
           trackEvent("save_meme_success", {
             project_id: project?.id || projectId,
             request_id: result.generation_request_id || undefined,
@@ -893,14 +925,14 @@ export default function GeneratePage() {
       const savedMeme = await saveMeme({
         original_idea: idea,
         generated_content: v.content,
-        selected_characters: v.suggested_characters,
+        selected_characters: v.suggested_characters.filter((character) => taggedCharacterIds.has(character.character_id)),
         format,
         has_watermark: enableWatermark,
         image_base64: imageData,
         source_meme_id: lineageSourceMemeId,
         generation_request_id: aiGenerationRequestId,
       });
-      await recordImageOutput(savedMeme, v);
+      await recordImageOutput(savedMeme, v, [...taggedCharacterIds]);
       toast.success("Đã lưu đầu ra vào thư viện!");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Không thể lưu đầu ra. Vui lòng thử lại.");

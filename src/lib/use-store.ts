@@ -500,6 +500,8 @@ export async function generateContent(input: {
   adHocCharacters?: string[];
   noCharacters?: boolean;
   referenceImages?: { base64: string; mimeType: string }[];
+  selectedCharacterIds?: string[];
+  contentSetId?: string | null;
 }) {
   // Try server API route first (works in both real and mock mode if GEMINI_API_KEY is set server-side)
   try {
@@ -511,6 +513,8 @@ export async function generateContent(input: {
         idea: input.idea,
         adHocCharacters: input.noCharacters ? [] : input.adHocCharacters,
         noCharacters: input.noCharacters || false,
+        selected_character_ids: input.noCharacters ? [] : input.selectedCharacterIds,
+        content_set_id: input.contentSetId,
         num_variations: 3,
         referenceImages: input.referenceImages,
       }),

@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = (await request.json()) as GenerateContentRequest & { noCharacters?: boolean };
+    const body = (await request.json()) as GenerateContentRequest & { noCharacters?: boolean; selected_character_ids?: string[]; content_set_id?: string };
     const { project_id, idea, tone, num_variations, referenceImages, adHocCharacters, noCharacters } = body;
 
     // Verify project access (owner or shared member via RLS)
@@ -26,14 +26,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Get characters with their available poses/emotions (skip if noCharacters)
+    const selectedIds = [...new Set((body.selected_character_ids ?? []).filter((id): id is string => typeof id === "string"))];
     let characterData: { id: string; name: string; personality: string; description: string; available_emotions: string[] }[] = [];
     let characters: Record<string, unknown>[] | null = null;
 
     if (!noCharacters) {
-      const { data: charRows } = await supabase
-        .from("characters")
-        .select("*, character_poses(*)")
-        .eq("project_id", project_id);
+      const charQuery = supabase.from("characters").select("*, character_poses(*)").eq("project_id", project_id);
+      const { data: charRows } = selectedIds.length ? await charQuery.in("id", selectedIds) : await charQuery;
+
+      if (selectedIds.length && (charRows?.length ?? 0) !== selectedIds.length) {
+        return NextResponse.json({ error: "Nhân vật đã chọn không còn thuộc dự án." }, { status: 400 });
+      }
 
       characters = charRows;
       characterData = (charRows || []).map((c: Record<string, unknown>) => ({
@@ -48,9 +51,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate meme content with Gemini
+    let editorialContext = project.style_prompt || "";
+    if (body.content_set_id) {
+      const { data: set } = await supabase.from("content_sets").select("brand_snapshot, selected_character_ids").eq("id", body.content_set_id).eq("project_id", project_id).maybeSingle();
+      if (!set) return NextResponse.json({ error: "Bộ nội dung không thuộc dự án này." }, { status: 400 });
+      const brand = (set.brand_snapshot ?? {}) as Record<string, string>;
+      editorialContext = [editorialContext, brand.voice && `Giọng viết: ${brand.voice}`, brand.audience && `Đối tượng đọc: ${brand.audience}`, brand.guidelines && `Hướng dẫn nội dung: ${brand.guidelines}`].filter(Boolean).join("\n");
+    }
     const results = await generateMemeContent({
       idea: tone ? `${idea} (Tone: ${tone})` : idea,
-      projectStyle: project.style_prompt || undefined,
+      projectStyle: editorialContext || undefined,
       characters: characterData,
       adHocCharacters: noCharacters ? [] : adHocCharacters,
       noCharacters: noCharacters || false,

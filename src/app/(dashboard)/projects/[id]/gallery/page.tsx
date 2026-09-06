@@ -71,6 +71,20 @@ export default function GalleryPage() {
 
   const videoOutputs = contentOutputs.filter((output) => output.kind === "video");
 
+  const reviewOutput = useCallback(async (outputId: string, status: "approved" | "rejected") => {
+    try {
+      const response = await fetch(`/api/content-outputs/${outputId}/approve`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Không lưu được trạng thái duyệt.");
+      setContentOutputs((current) => current.map((output) => output.id === outputId ? payload.output : output));
+      toast.success(status === "approved" ? "Đã duyệt đầu ra." : "Đã đánh dấu cần chỉnh sửa.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không lưu được trạng thái duyệt.");
+    }
+  }, [toast]);
+
   // All filtering happens on the already-loaded list; no extra round trip.
   const visibleMemes = memes.filter((meme) => {
     if (activeCollection && !(membership[activeCollection] ?? []).includes(meme.id)) return false;
@@ -349,8 +363,8 @@ export default function GalleryPage() {
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {videoOutputs.map((output) => (
                 <Card key={output.id} className="overflow-hidden p-0">
-                  {output.status === "completed" ? <video controls preload="metadata" poster={output.poster_url ?? undefined} className="aspect-[9/16] w-full bg-black" src={`/api/content-outputs/${output.id}/media`} /> : <div className="flex aspect-[9/16] items-center justify-center p-5 text-center text-sm th-text-tertiary">{output.status === "failed" ? "Video chưa tạo được. Hãy tạo đầu ra mới để xem giá và thử lại." : "Video đang được xử lý. Bạn có thể rời trang và quay lại sau."}</div>}
-                  <div className="p-3"><p className="line-clamp-2 text-sm th-text-secondary">{output.caption || output.script || "Video Seedance 2.5"}</p><p className="mt-1 text-xs th-text-muted">{output.duration_seconds ? `${output.duration_seconds} giây` : ""} · {output.status === "completed" ? "Sẵn sàng tải MP4" : output.status}</p>{output.status === "completed" && <a className="mt-2 inline-flex text-xs font-semibold text-blue-600" href={`/api/content-outputs/${output.id}/media?download=1`}>Tải MP4</a>}</div>
+                  {["completed", "approved", "rejected"].includes(output.status) ? <video controls preload="metadata" poster={output.poster_url ?? undefined} className="aspect-[9/16] w-full bg-black" src={`/api/content-outputs/${output.id}/media`} /> : <div className="flex aspect-[9/16] items-center justify-center p-5 text-center text-sm th-text-tertiary">{output.status === "failed" ? "Video chưa tạo được. Hãy tạo đầu ra mới để xem giá và thử lại." : "Video đang được xử lý. Bạn có thể rời trang và quay lại sau."}</div>}
+                  <div className="p-3"><p className="line-clamp-2 text-sm th-text-secondary">{output.caption || output.script || "Video Seedance 2.5"}</p><p className="mt-1 text-xs th-text-muted">{output.duration_seconds ? `${output.duration_seconds} giây` : ""} · {["completed", "approved", "rejected"].includes(output.status) ? (output.status === "approved" ? "Đã duyệt" : output.status === "rejected" ? "Cần chỉnh sửa" : "Sẵn sàng tải MP4") : output.status}</p>{["completed", "approved", "rejected"].includes(output.status) && <div className="mt-2 flex flex-wrap gap-2"><a className="inline-flex text-xs font-semibold text-blue-600" href={`/api/content-outputs/${output.id}/media?download=1`}>Tải MP4</a>{output.status === "completed" && <><button onClick={() => reviewOutput(output.id, "approved")} className="text-xs font-semibold text-emerald-600">Duyệt</button><button onClick={() => reviewOutput(output.id, "rejected")} className="text-xs font-semibold text-amber-600">Cần chỉnh</button></>}</div>}</div>
                 </Card>
               ))}
             </div>
