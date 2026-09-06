@@ -28,7 +28,8 @@ async function persistVideo(sourceUrl: string, projectId: string, jobId: string)
 
 export async function POST(request: NextRequest) {
   const token = process.env.VIDEO_WORKER_TOKEN;
-  if (!token || request.headers.get("authorization") !== `Bearer ${token}`) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!token) return NextResponse.json({ error: "Worker credential is not configured." }, { status: 503 });
+  if (request.headers.get("authorization") !== `Bearer ${token}`) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const admin = getSupabaseAdmin();
   const { data: jobs, error } = await admin.from("generation_jobs").select("id, project_id, content_output_id, provider_request_id").eq("provider", "wavespeed").eq("status", "running").not("provider_request_id", "is", null).order("started_at", { ascending: true }).limit(24);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
