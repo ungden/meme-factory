@@ -36,6 +36,21 @@ export async function POST(request: NextRequest) {
   if (characterError || (characterRows?.length ?? 0) !== selectedCharacterIds.length) {
     return NextResponse.json({ error: "Một hoặc nhiều nhân vật không thuộc dự án này." }, { status: 400 });
   }
+  const assetIds = (characterRows ?? []).flatMap((character) => character.continuity_asset_id ? [character.continuity_asset_id] : []);
+  const { data: versions } = assetIds.length
+    ? await supabase
+      .from("asset_versions")
+      .select("id, asset_id, version, status, content_hash, identity_cards(summary, must_preserve, may_change), reference_images(id, role, image_url, source_hash, is_primary, priority)")
+      .in("asset_id", assetIds)
+      .order("version", { ascending: false })
+    : { data: [] };
+  const canonicalVersionByAsset = new Map<string, Record<string, unknown>>();
+  for (const rawVersion of versions ?? []) {
+    const version = rawVersion as unknown as Record<string, unknown>;
+    const assetId = version.asset_id as string;
+    const existing = canonicalVersionByAsset.get(assetId);
+    if (!existing || (version.status === "locked" && existing.status !== "locked")) canonicalVersionByAsset.set(assetId, version);
+  }
   const castSnapshot = (characterRows ?? []).map((character) => ({
     id: character.id,
     name: character.name,
@@ -43,6 +58,7 @@ export async function POST(request: NextRequest) {
     personality: character.personality,
     avatar_url: character.avatar_url,
     continuity_asset_id: character.continuity_asset_id,
+    asset_version: character.continuity_asset_id ? canonicalVersionByAsset.get(character.continuity_asset_id) ?? null : null,
     poses: character.character_poses ?? [],
   }));
   const brandSnapshot = { voice: body.brand_voice ?? project.brand_voice ?? "", audience: body.audience ?? project.audience ?? "", guidelines: body.content_guidelines ?? project.content_guidelines ?? "", watermarkUrl: project.watermark_url ?? null };

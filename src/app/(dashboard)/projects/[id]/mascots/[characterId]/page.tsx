@@ -171,6 +171,11 @@ export default function MascotDetailPage() {
                 </div>
               </div>
               <div className="flex gap-2">
+                <Link href={`/projects/${projectRef}/generate?character=${encodeURIComponent(character.name)}&output=Bài%20fanpage`}>
+                  <Button variant="outline">
+                    <Sparkles size={16} /> Tạo nội dung
+                  </Button>
+                </Link>
                 <Button onClick={() => setWizardOpen(true)}>
                   <Sparkles size={16} />
                   {ownedExpressionSlugs.length === 0
