@@ -30,9 +30,8 @@ export async function POST(request: NextRequest) {
     let characterData: { id: string; name: string; personality: string; description: string; available_emotions: string[] }[] = [];
     let characters: Record<string, unknown>[] | null = null;
 
-    if (!noCharacters) {
-      const charQuery = supabase.from("characters").select("*, character_poses(*)").eq("project_id", project_id);
-      const { data: charRows } = selectedIds.length ? await charQuery.in("id", selectedIds) : await charQuery;
+    if (!noCharacters && selectedIds.length) {
+      const { data: charRows } = await supabase.from("characters").select("*, character_poses(*)").eq("project_id", project_id).in("id", selectedIds);
 
       if (selectedIds.length && (charRows?.length ?? 0) !== selectedIds.length) {
         return NextResponse.json({ error: "Nhân vật đã chọn không còn thuộc dự án." }, { status: 400 });

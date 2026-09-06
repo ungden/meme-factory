@@ -7,8 +7,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!user) return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
   const body = await request.json();
   if (!['image', 'video'].includes(body.kind) || !['1:1', '4:5', '9:16', '16:9'].includes(body.format)) return NextResponse.json({ error: "Đầu ra không hợp lệ." }, { status: 400 });
-  const { data: set } = await supabase.from("content_sets").select("id").eq("id", id).maybeSingle();
+  const { data: set } = await supabase.from("content_sets").select("id, project_id").eq("id", id).maybeSingle();
   if (!set) return NextResponse.json({ error: "Không tìm thấy bộ nội dung." }, { status: 404 });
+  if (typeof body.meme_id === "string") {
+    const { data: meme } = await supabase.from("memes").select("id").eq("id", body.meme_id).eq("project_id", set.project_id).maybeSingle();
+    if (!meme) return NextResponse.json({ error: "Ảnh nguồn không thuộc dự án này." }, { status: 400 });
+  }
   const { data, error } = await supabase.from("content_outputs").insert({
     content_set_id: id,
     meme_id: typeof body.meme_id === "string" ? body.meme_id : null,

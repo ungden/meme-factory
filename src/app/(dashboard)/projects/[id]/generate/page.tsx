@@ -559,7 +559,7 @@ export default function GeneratePage() {
       const results = await generateContent({
         project_id: project?.id || projectId,
         idea: idea.trim(),
-        characters: noCharacters ? [] : characters,
+        characters: noCharacters ? [] : characters.filter((character) => selectedCharacterIds.has(character.id)),
         projectStyle: project?.style_prompt || undefined,
         adHocCharacters: noCharacters ? [] : oneOffCharacters,
         noCharacters,

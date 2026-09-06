@@ -20,6 +20,9 @@ drop index if exists public.idx_generation_jobs_one_content_output;
 create index if not exists idx_generation_jobs_content_output_created
   on public.generation_jobs(content_output_id, created_at desc)
   where content_output_id is not null;
+create unique index if not exists idx_generation_jobs_one_active_content_output
+  on public.generation_jobs(content_output_id)
+  where content_output_id is not null and status in ('queued', 'running');
 create index if not exists idx_content_outputs_meme_id
   on public.content_outputs(meme_id)
   where meme_id is not null;
