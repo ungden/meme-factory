@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Clapperboard,
@@ -36,6 +36,17 @@ export default function ProjectsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
+  const [summaries, setSummaries] = useState<Record<string, { characterCount: number; outputCount: number; draftCount: number }>>({});
+
+  useEffect(() => {
+    if (IS_MOCK_MODE || !projects.length) return;
+    let active = true;
+    fetch("/api/projects/summaries")
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((payload) => { if (active && payload?.summaries) setSummaries(payload.summaries); })
+      .catch(() => { if (active) setSummaries({}); });
+    return () => { active = false; };
+  }, [projects.length]);
 
   const handleCreate = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -108,6 +119,7 @@ export default function ProjectsPage() {
               {projects.map((project, index) => {
                 const projectRef = getProjectRouteRef(project);
                 const cover = getProjectCover(project.name, project.description || "");
+                const summary = summaries[project.id];
                 return (
                 <article
                   key={project.id}
@@ -149,9 +161,10 @@ export default function ProjectsPage() {
                     </div>
 
                     <div className="mt-5 flex items-center justify-between border-t pt-4 text-xs th-text-muted" style={{ borderColor: "var(--border-primary)" }}>
-                      <div className="flex gap-4"><span className="flex items-center gap-1.5"><Users size={13} /> Tài nguyên</span><span className="flex items-center gap-1.5"><Images size={13} /> Đầu ra</span></div>
+                      <div className="flex gap-4"><span className="flex items-center gap-1.5"><Users size={13} /> {summary ? `${summary.characterCount} nhân vật` : "Đang tải"}</span><span className="flex items-center gap-1.5"><Images size={13} /> {summary ? `${summary.outputCount} đầu ra` : ""}</span></div>
                       <button onClick={() => router.push(`/projects/${projectRef}/generate`)} className="flex items-center gap-1.5 font-semibold text-blue-500 hover:text-blue-400">Tạo nội dung <ArrowRight size={13} /></button>
                     </div>
+                    {summary && summary.draftCount > 0 && <button onClick={() => router.push(`/projects/${projectRef}/generate`)} className="mt-3 text-xs font-medium text-amber-600">{summary.draftCount} bộ nội dung đang làm dở · Tiếp tục</button>}
                   </div>
                 </article>
               );})}
