@@ -14,6 +14,9 @@ export interface Project {
   watermark_opacity: number;
   default_format: MemeFormat;
   creator_handle?: string | null;
+  brand_voice?: string | null;
+  audience?: string | null;
+  content_guidelines?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -98,6 +101,40 @@ export type EmotionTag =
   | "custom";
 
 export type MemeStatus = "draft" | "generating" | "completed" | "failed";
+
+export type ContentOutputKind = "image" | "video";
+export type ContentOutputStatus = "draft" | "queued" | "running" | "completed" | "failed" | "approved" | "rejected";
+
+export interface ContentSet {
+  id: string;
+  project_id: string;
+  brief: string;
+  selected_character_ids: string[];
+  brand_snapshot: Record<string, unknown>;
+  status: "draft" | "ready" | "archived";
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContentOutput {
+  id: string;
+  content_set_id: string;
+  generation_job_id?: string | null;
+  kind: ContentOutputKind;
+  format: MemeFormat;
+  caption?: string | null;
+  script?: string | null;
+  media_url?: string | null;
+  poster_url?: string | null;
+  duration_seconds?: number | null;
+  status: ContentOutputStatus;
+  review_version: number;
+  approved_at?: string | null;
+  approved_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface MemeContent {
   headline: string; // main text on the meme

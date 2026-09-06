@@ -59,14 +59,27 @@ export default function MemeEditor({
   const [showSafeZones, setShowSafeZones] = useState(false);
   const [saving, setSaving] = useState(false);
   const [seededBaseId, setSeededBaseId] = useState<string | null>(initialBaseImageId);
+  const appliedInitialDocRef = useRef(Boolean(initialDoc));
+
+  // The source meme is loaded after this editor mounts. Adopt that document
+  // only while the canvas is still untouched; a late network response must
+  // never replace text the user has already edited.
+  useEffect(() => {
+    if (!initialDoc || doc || appliedInitialDocRef.current) return;
+    appliedInitialDocRef.current = true;
+    setDoc(initialDoc);
+    setHistory([]);
+    setActiveLayerId(initialDoc.layers[0]?.id ?? null);
+    setSeededBaseId(initialBaseImageId);
+  }, [initialDoc, initialBaseImageId, doc]);
 
   // Seed from a base image once the library resolves (fresh editor, or ?base= link).
   useEffect(() => {
-    if (doc || baseImages.length === 0) return;
+    if (doc || initialDoc || baseImages.length === 0) return;
     const preferred = baseImages.find((image) => image.id === seededBaseId) ?? baseImages[0];
     setDoc(createDocForBaseImage({ baseImage: preferred, project, primaryText: initialText ?? "" }));
     setSeededBaseId(preferred.id);
-  }, [doc, baseImages, seededBaseId, project, initialText]);
+  }, [doc, initialDoc, baseImages, seededBaseId, project, initialText]);
 
   useEffect(() => {
     if (doc && !activeLayerId) setActiveLayerId(doc.layers[0]?.id ?? null);

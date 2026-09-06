@@ -16,11 +16,7 @@ import {
   X,
   Wallet,
   UserPlus,
-  Clapperboard,
-  Type,
   Palette,
-  Wand2,
-  LayoutTemplate,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -135,17 +131,19 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
 
   const projectCreateNav = projectId
     ? [
-        { href: `/projects/${projectId}/editor`, label: "Ghép chữ", icon: Type, badge: "0đ" },
-        { href: `/projects/${projectId}/ai-meme`, label: "AI Meme", icon: Wand2, badge: "0đ" },
-        { href: `/projects/${projectId}/studio`, label: "Studio", icon: Clapperboard, aliases: [`/projects/${projectId}/generate`] },
+        {
+          href: `/projects/${projectId}/generate`,
+          label: "Tạo nội dung",
+          icon: Sparkles,
+          aliases: [`/projects/${projectId}/studio`, `/projects/${projectId}/editor`, `/projects/${projectId}/ai-meme`],
+        },
       ]
     : [];
 
   const projectLibraryNav = projectId
     ? [
-        { href: `/projects/${projectId}/templates`, label: "Mẫu meme", icon: LayoutTemplate },
-        { href: `/projects/${projectId}/mascots`, label: "Mascot", icon: Users, aliases: [`/projects/${projectId}/characters`] },
-        { href: `/projects/${projectId}/gallery`, label: "Thư viện", icon: Image },
+        { href: `/projects/${projectId}/gallery`, label: "Nội dung đã lưu", icon: Image, aliases: [`/projects/${projectId}/templates`] },
+        { href: `/projects/${projectId}/mascots`, label: "Nhân vật", icon: Users, aliases: [`/projects/${projectId}/characters`] },
       ]
     : [];
 
@@ -226,7 +224,6 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
                 href={item.href}
                 label={item.label}
                 icon={item.icon}
-                badge={item.badge}
                 active={isNavActive(pathname, item.href, item.aliases)}
               />
             ))}

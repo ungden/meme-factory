@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import {
   ArrowRight,
@@ -34,6 +34,7 @@ export default function ProjectsPage() {
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
 
   const handleCreate = async (event: React.FormEvent) => {
@@ -48,7 +49,8 @@ export default function ProjectsPage() {
       setShowCreate(false);
       setNewProject({ name: "", description: "", style_prompt: "" });
       toast.success(`Đã tạo dự án "${project.name}"`);
-      router.push(`/projects/${project.slug}`);
+      const query = searchParams.toString();
+      router.push(`/projects/${project.slug}${query ? `/generate?${query}` : ""}`);
     } else {
       toast.error("Không thể tạo dự án. Vui lòng thử lại.");
     }
@@ -112,7 +114,7 @@ export default function ProjectsPage() {
                   className="group overflow-hidden rounded-2xl border transition hover:-translate-y-1 hover:shadow-2xl"
                   style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
                 >
-                  <button onClick={() => router.push(`/projects/${projectRef}`)} className="block w-full text-left" aria-label={`Mở dự án ${project.name}`}>
+                  <button onClick={() => router.push(`/projects/${projectRef}${searchParams.toString() ? `/generate?${searchParams}` : ""}`)} className="block w-full text-left" aria-label={`Mở dự án ${project.name}`}>
                     <div className="relative aspect-[16/8.6] overflow-hidden" style={{ background: "var(--bg-tertiary)" }}>
                       <Image src={cover} alt={`Ảnh bìa dự án ${project.name}`} fill priority={index === 0} sizes="(max-width: 1280px) 50vw, 33vw" className="object-cover transition duration-500 group-hover:scale-[1.03]" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
@@ -148,7 +150,7 @@ export default function ProjectsPage() {
 
                     <div className="mt-5 flex items-center justify-between border-t pt-4 text-xs th-text-muted" style={{ borderColor: "var(--border-primary)" }}>
                       <div className="flex gap-4"><span className="flex items-center gap-1.5"><Users size={13} /> Tài nguyên</span><span className="flex items-center gap-1.5"><Images size={13} /> Đầu ra</span></div>
-                      <button onClick={() => router.push(`/projects/${projectRef}/studio`)} className="flex items-center gap-1.5 font-semibold text-blue-500 hover:text-blue-400">Mở Studio <ArrowRight size={13} /></button>
+                      <button onClick={() => router.push(`/projects/${projectRef}/generate`)} className="flex items-center gap-1.5 font-semibold text-blue-500 hover:text-blue-400">Tạo nội dung <ArrowRight size={13} /></button>
                     </div>
                   </div>
                 </article>

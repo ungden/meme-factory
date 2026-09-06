@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useProject, useMemes } from "@/lib/use-store";
 import Sidebar from "@/components/layout/sidebar";
@@ -27,7 +27,7 @@ import {
   FolderPlus,
   CopyPlus,
 } from "lucide-react";
-import { FORMAT_DIMENSIONS, type MemeContent, type MemeFormat } from "@/types/database";
+import { FORMAT_DIMENSIONS, type ContentOutput, type MemeContent, type MemeFormat } from "@/types/database";
 import { createClient } from "@/lib/supabase/client";
 
 export default function GalleryPage() {
@@ -54,6 +54,22 @@ export default function GalleryPage() {
   const [formatFilter, setFormatFilter] = useState<"all" | MemeFormat>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "draft">("all");
   const [duplicating, setDuplicating] = useState(false);
+  const [contentOutputs, setContentOutputs] = useState<ContentOutput[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/content-sets?project=${encodeURIComponent(projectId)}`)
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((payload) => {
+        if (!active) return;
+        const outputs = (payload?.contentSets ?? []).flatMap((set: { content_outputs?: ContentOutput[] }) => set.content_outputs ?? []);
+        setContentOutputs(outputs);
+      })
+      .catch(() => { if (active) setContentOutputs([]); });
+    return () => { active = false; };
+  }, [projectId]);
+
+  const videoOutputs = contentOutputs.filter((output) => output.kind === "video");
 
   // All filtering happens on the already-loaded list; no extra round trip.
   const visibleMemes = memes.filter((meme) => {
@@ -326,6 +342,20 @@ export default function GalleryPage() {
             </Button>
           )}
         </div>
+
+        {videoOutputs.length > 0 && (
+          <section className="mb-6">
+            <h2 className="mb-3 text-lg font-semibold th-text-primary">Video của bộ nội dung</h2>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {videoOutputs.map((output) => (
+                <Card key={output.id} className="overflow-hidden p-0">
+                  {output.status === "completed" ? <video controls preload="metadata" poster={output.poster_url ?? undefined} className="aspect-[9/16] w-full bg-black" src={`/api/content-outputs/${output.id}/media`} /> : <div className="flex aspect-[9/16] items-center justify-center p-5 text-center text-sm th-text-tertiary">{output.status === "failed" ? "Video chưa tạo được. Hãy tạo đầu ra mới để xem giá và thử lại." : "Video đang được xử lý. Bạn có thể rời trang và quay lại sau."}</div>}
+                  <div className="p-3"><p className="line-clamp-2 text-sm th-text-secondary">{output.caption || output.script || "Video Seedance 2.5"}</p><p className="mt-1 text-xs th-text-muted">{output.duration_seconds ? `${output.duration_seconds} giây` : ""} · {output.status === "completed" ? "Sẵn sàng tải MP4" : output.status}</p>{output.status === "completed" && <a className="mt-2 inline-flex text-xs font-semibold text-blue-600" href={`/api/content-outputs/${output.id}/media?download=1`}>Tải MP4</a>}</div>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Stats */}
         {!loading && memes.length > 0 && (

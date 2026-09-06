@@ -8,6 +8,7 @@ import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import Input from "@/components/ui/input";
+import Textarea from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { ControlRow, Slider } from "@/components/editor/control-primitives";
 import WatermarkGrid from "@/components/editor/watermark-grid";
@@ -35,6 +36,9 @@ export default function BrandSettingsPage() {
   const [position, setPosition] = useState<WatermarkPosition>("bottom-right");
   const [opacity, setOpacity] = useState(0.8);
   const [defaultFormat, setDefaultFormat] = useState<MemeFormat>("1:1");
+  const [brandVoice, setBrandVoice] = useState("");
+  const [audience, setAudience] = useState("");
+  const [contentGuidelines, setContentGuidelines] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -45,6 +49,9 @@ export default function BrandSettingsPage() {
     setPosition(project.watermark_position ?? "bottom-right");
     setOpacity(typeof project.watermark_opacity === "number" ? project.watermark_opacity : 0.8);
     setDefaultFormat(project.default_format ?? "1:1");
+    setBrandVoice(project.brand_voice ?? "");
+    setAudience(project.audience ?? "");
+    setContentGuidelines(project.content_guidelines ?? "");
   }, [project]);
 
   const uploadLogo = async (file: File) => {
@@ -79,6 +86,9 @@ export default function BrandSettingsPage() {
         watermark_position: position,
         watermark_opacity: opacity,
         default_format: defaultFormat,
+        brand_voice: brandVoice.trim() || null,
+        audience: audience.trim() || null,
+        content_guidelines: contentGuidelines.trim() || null,
       });
       toast.success("Đã lưu cài đặt thương hiệu");
     } catch (error) {
@@ -177,6 +187,16 @@ export default function BrandSettingsPage() {
                   <p className="text-xs th-text-tertiary">
                     Dùng làm watermark chữ mặc định khi dự án chưa có logo.
                   </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader><span className="text-sm font-semibold th-text-primary">Hướng dẫn nội dung</span></CardHeader>
+                <CardContent className="space-y-3">
+                  <Textarea label="Giọng viết" value={brandVoice} onChange={(event) => setBrandVoice(event.target.value)} placeholder="Ví dụ: gần gũi, vui nhưng không sáo rỗng" rows={2} />
+                  <Textarea label="Độc giả chính" value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="Ví dụ: dân văn phòng 25–35 tuổi tại Hà Nội" rows={2} />
+                  <Textarea label="Quy ước và điều cần tránh" value={contentGuidelines} onChange={(event) => setContentGuidelines(event.target.value)} placeholder="Ví dụ: không hứa hẹn quá mức; luôn có CTA mềm" rows={3} />
+                  <p className="text-xs th-text-tertiary">Các hướng dẫn này được đưa vào brief; bạn vẫn có thể chỉnh cho từng bộ nội dung.</p>
                 </CardContent>
               </Card>
 

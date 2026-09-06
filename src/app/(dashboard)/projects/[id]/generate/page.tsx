@@ -10,7 +10,7 @@ import Input from "@/components/ui/input";
 import Textarea from "@/components/ui/textarea";
 import Modal from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
-import { Zap, Sparkles, Download, Save, RotateCcw, ChevronRight, Check, Wand2, ImageIcon, Loader2, Upload, X, Tags, Plus } from "lucide-react";
+import { Zap, Sparkles, Download, Save, RotateCcw, ChevronRight, Check, Wand2, ImageIcon, Loader2, Upload, X, Tags, Plus, Clapperboard } from "lucide-react";
 import type { MemeContent, MemeFormat, SelectedCharacter, EmotionTag, ImageGenResponse } from "@/types/database";
 import { FORMAT_DIMENSIONS } from "@/types/database";
 import { POINT_COSTS } from "@/lib/point-pricing";
@@ -66,6 +66,17 @@ export default function GeneratePage() {
   const [hasPickedVariation, setHasPickedVariation] = useState(false);
   const [format, setFormat] = useState<MemeFormat>("1:1");
   const [saving, setSaving] = useState(false);
+  const [contentSetId, setContentSetId] = useState<string | null>(null);
+  const [contentSetBrief, setContentSetBrief] = useState<string | null>(null);
+  const [imageOutputId, setImageOutputId] = useState<string | null>(null);
+  const [imageSourceUrl, setImageSourceUrl] = useState<string | null>(null);
+  const [videoOutputId, setVideoOutputId] = useState<string | null>(null);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const [videoDuration, setVideoDuration] = useState<15 | 30>(15);
+  const [videoResolution, setVideoResolution] = useState<"720p" | "1080p">("720p");
+  const [videoAudio, setVideoAudio] = useState(true);
+  const [videoQuote, setVideoQuote] = useState<{ customerPoints: number; providerCostUsd: number } | null>(null);
+  const [videoLoading, setVideoLoading] = useState(false);
 
   // AI image generation
   const [aiGenerating, setAiGenerating] = useState(false);
@@ -106,6 +117,50 @@ export default function GeneratePage() {
   const [prefillAppliedKey, setPrefillAppliedKey] = useState<string | null>(null);
   const resolvedWatermarkText = watermarkText ?? project?.name ?? "";
 
+  // A landing-page brief must survive login, project selection and a refresh.
+  // Save only editable intent here; files remain in memory so we never silently
+  // re-upload a reference image after a page reload.
+  useEffect(() => {
+    const storageKey = `aida:content-draft:${projectId}`;
+    const queryIdea = searchParams.get("idea");
+    const landing = window.sessionStorage.getItem("aida:landing-draft");
+    let saved: { idea?: string; format?: MemeFormat; voice?: string; character?: string; output?: string; noCharacters?: boolean } | null = null;
+    try { saved = JSON.parse(window.sessionStorage.getItem(storageKey) || landing || "null"); } catch { /* ignore malformed local state */ }
+    const selectedOutput = searchParams.get("output") || saved?.output;
+    const formatFromOutput: Record<string, MemeFormat> = {
+      "TikTok / Reels": "9:16",
+      "Quảng cáo": "16:9",
+      "Bài fanpage": "4:5",
+      Meme: "1:1",
+    };
+    const nextIdea = queryIdea || saved?.idea;
+    if (nextIdea && !idea) setIdea(nextIdea);
+    const restoredFormat = saved?.format ?? (selectedOutput ? formatFromOutput[selectedOutput] : undefined);
+    if (restoredFormat) setFormat(restoredFormat);
+    if (saved?.voice) setAiCustomPrompt((current) => current || `Giọng thương hiệu: ${saved?.voice}`);
+    if (saved?.noCharacters) setNoCharacters(true);
+    const selectedName = searchParams.get("character") || saved?.character;
+    if (selectedName && selectedName !== "Thêm nhân vật mới" && characters.length) {
+      const matched = characters.find((item) => item.name.toLocaleLowerCase() === selectedName.toLocaleLowerCase());
+      if (matched) setSelectedCharacterIds((current) => current.size ? current : new Set([matched.id]));
+    }
+  // This is restoration, not a reactive editor. Applying it once avoids
+  // overwriting a deliberate change made in the composer.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, characters.length]);
+
+  useEffect(() => {
+    window.sessionStorage.setItem(`aida:content-draft:${projectId}`, JSON.stringify({
+      idea,
+      format,
+      voice: aiCustomPrompt.replace(/^Giọng thương hiệu:\s*/, ""),
+      noCharacters,
+      character: [...selectedCharacterIds][0]
+        ? characters.find((item) => item.id === [...selectedCharacterIds][0])?.name
+        : undefined,
+    }));
+  }, [projectId, idea, format, aiCustomPrompt, noCharacters, selectedCharacterIds, characters]);
+
   const fetchProjectPoints = useCallback(async () => {
     if (IS_MOCK_MODE) {
       setProjectPoints(0);
@@ -123,6 +178,84 @@ export default function GeneratePage() {
   }, [projectId]);
 
   useDeferredTask(fetchProjectPoints);
+
+  const ensureContentSet = useCallback(async () => {
+    if (contentSetId && contentSetBrief === idea.trim()) return contentSetId;
+    const response = await fetch("/api/content-sets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        project_id: project?.id || projectId,
+        brief: idea.trim(),
+        selected_character_ids: [...selectedCharacterIds],
+        brand_voice: project?.brand_voice,
+        audience: project?.audience,
+        content_guidelines: project?.content_guidelines,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.contentSet?.id) throw new Error(payload.error || "Không lưu được brief.");
+    setContentSetId(payload.contentSet.id);
+    setContentSetBrief(idea.trim());
+    return payload.contentSet.id as string;
+  }, [contentSetId, contentSetBrief, project, projectId, idea, selectedCharacterIds]);
+
+  const recordImageOutput = useCallback(async (meme: { image_url?: string | null }, variation: ContentVariation) => {
+    const setId = await ensureContentSet();
+    if (!meme.image_url) return;
+    const response = await fetch(`/api/content-sets/${setId}/outputs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "image", format, caption: variation.caption ?? variation.content.caption, media_url: meme.image_url }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (response.ok && payload.output?.id) {
+      setImageOutputId(payload.output.id);
+      setImageSourceUrl(meme.image_url);
+    }
+  }, [ensureContentSet, format]);
+
+  const getVideoQuote = useCallback(async () => {
+    if (!imageSourceUrl || !variations[selectedVariation]) throw new Error("Ảnh đầu chưa được lưu.");
+    setVideoLoading(true);
+    try {
+      const setId = await ensureContentSet();
+      let outputId = videoOutputId;
+      if (!outputId) {
+        const created = await fetch(`/api/content-sets/${setId}/outputs`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kind: "video", format: "9:16", poster_url: imageSourceUrl, script: variations[selectedVariation].caption ?? idea, duration_seconds: videoDuration }),
+        });
+        const createdPayload = await created.json().catch(() => ({}));
+        if (!created.ok || !createdPayload.output?.id) throw new Error(createdPayload.error || "Không tạo được đầu ra video.");
+        outputId = createdPayload.output.id;
+        setVideoOutputId(outputId);
+      }
+      const response = await fetch(`/api/content-outputs/${outputId}/video/quote`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: variations[selectedVariation].caption ?? idea, image: imageSourceUrl, duration: videoDuration, resolution: videoResolution, generate_audio: videoAudio }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Không lấy được báo giá video.");
+      setVideoQuote(payload.quote);
+    } finally { setVideoLoading(false); }
+  }, [imageSourceUrl, variations, selectedVariation, ensureContentSet, videoOutputId, videoDuration, videoResolution, videoAudio, idea]);
+
+  const submitVideo = useCallback(async () => {
+    if (!videoOutputId || !imageSourceUrl || !variations[selectedVariation]) return;
+    setVideoLoading(true);
+    try {
+      const response = await fetch(`/api/content-outputs/${videoOutputId}/video`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: variations[selectedVariation].caption ?? idea, image: imageSourceUrl, duration: videoDuration, resolution: videoResolution, generate_audio: videoAudio, request_id: crypto.randomUUID() }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Không gửi được video.");
+      toast.success("Đã gửi tạo video. Bạn có thể rời trang, AIDA vẫn theo dõi kết quả.");
+      setShowVideoModal(false);
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Không gửi được video."); }
+    finally { setVideoLoading(false); }
+  }, [videoOutputId, imageSourceUrl, variations, selectedVariation, idea, videoDuration, videoResolution, videoAudio, toast]);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -400,6 +533,7 @@ export default function GeneratePage() {
     setGenerating(true);
 
     try {
+      await ensureContentSet();
       const results = await generateContent({
         project_id: project?.id || projectId,
         idea: idea.trim(),
@@ -454,9 +588,16 @@ export default function GeneratePage() {
     setGenerating(false);
   };
 
-  const handleDirectFlow = () => {
+  const handleDirectFlow = async () => {
     const normalizedIdea = idea.trim();
     if (!normalizedIdea) return;
+
+    try {
+      await ensureContentSet();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không lưu được brief.");
+      return;
+    }
 
     const promptWithoutMentions = normalizedIdea.replace(/@([\p{L}\p{N}_\-\s]+)/gu, "$1").trim();
 
@@ -691,7 +832,7 @@ export default function GeneratePage() {
           points: result.pointsUsed ?? POINT_COSTS.meme,
         });
         try {
-          await saveMeme({
+          const savedMeme = await saveMeme({
             original_idea: idea,
             generated_content: v.content,
             selected_characters: v.suggested_characters,
@@ -701,6 +842,7 @@ export default function GeneratePage() {
             source_meme_id: lineageSourceMemeId,
             generation_request_id: result.generation_request_id,
           });
+          await recordImageOutput(savedMeme, v);
           trackEvent("save_meme_success", {
             project_id: project?.id || projectId,
             request_id: result.generation_request_id || undefined,
@@ -748,7 +890,7 @@ export default function GeneratePage() {
 
     const v = variations[selectedVariation];
     try {
-      await saveMeme({
+      const savedMeme = await saveMeme({
         original_idea: idea,
         generated_content: v.content,
         selected_characters: v.suggested_characters,
@@ -758,6 +900,7 @@ export default function GeneratePage() {
         source_meme_id: lineageSourceMemeId,
         generation_request_id: aiGenerationRequestId,
       });
+      await recordImageOutput(savedMeme, v);
       toast.success("Đã lưu đầu ra vào thư viện!");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Không thể lưu đầu ra. Vui lòng thử lại.");
@@ -986,11 +1129,9 @@ export default function GeneratePage() {
 
                       {characters.length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {characters.map((c, index) => {
+                          {characters.map((c) => {
                             const rawAvatar = c.avatar_url || c.poses[0]?.image_url;
-                            const avatar = rawAvatar && !rawAvatar.startsWith("/mock/")
-                              ? rawAvatar
-                              : (index % 2 === 0 ? "/continuity/linh-master.webp" : "/continuity/minh-master.webp");
+                            const avatar = rawAvatar && !rawAvatar.startsWith("/mock/") ? rawAvatar : null;
                             const selected = selectedCharacterIds.has(c.id);
                             return (
                               <button
@@ -1236,6 +1377,9 @@ export default function GeneratePage() {
                           </Button>
                           <Button variant="outline" size="sm" onClick={handleAiGenerate}>
                             <RotateCcw size={14} /> Tạo lại ({POINT_COSTS.meme} pts)
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => setShowVideoModal(true)} disabled={!imageOutputId}>
+                            <Clapperboard size={14} /> Dùng ảnh này tạo video
                           </Button>
                           <span className="text-xs th-text-muted">Ví dự án: {projectPoints} pts</span>
                         </div>
@@ -1528,6 +1672,18 @@ export default function GeneratePage() {
               <Button type="submit" loading={quickCharacterSaving}>Tạo và mention</Button>
             </div>
           </form>
+        </Modal>
+        <Modal isOpen={showVideoModal} onClose={() => setShowVideoModal(false)} title="Tạo video từ ảnh đầu">
+          <div className="space-y-4">
+            <p className="text-sm th-text-tertiary">Seedance 2.5 dùng đúng ảnh đầu đã lưu. Video dọc 9:16, âm thanh tiếng Việt được bật mặc định.</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[15, 30].map((seconds) => <button key={seconds} type="button" onClick={() => { setVideoDuration(seconds as 15 | 30); setVideoQuote(null); }} className={`rounded-xl border px-3 py-2 text-sm ${videoDuration === seconds ? "th-border-accent th-bg-accent-light th-text-accent" : "th-border"}`}>{seconds} giây</button>)}
+              {["720p", "1080p"].map((resolution) => <button key={resolution} type="button" onClick={() => { setVideoResolution(resolution as "720p" | "1080p"); setVideoQuote(null); }} className={`rounded-xl border px-3 py-2 text-sm ${videoResolution === resolution ? "th-border-accent th-bg-accent-light th-text-accent" : "th-border"}`}>{resolution}</button>)}
+            </div>
+            <label className="flex items-center justify-between rounded-xl th-bg-tertiary px-3 py-2 text-sm th-text-secondary"><span>Có âm thanh native</span><input type="checkbox" checked={videoAudio} onChange={(event) => { setVideoAudio(event.target.checked); setVideoQuote(null); }} /></label>
+            {videoQuote ? <div className="rounded-xl th-bg-accent-light p-3 text-sm th-text-accent">Báo giá đã chốt: <strong>{videoQuote.customerPoints} điểm</strong>{videoQuote.providerCostUsd ? ` · $${videoQuote.providerCostUsd.toFixed(3)} provider` : ""}</div> : <Button className="w-full" onClick={() => getVideoQuote().catch((error) => toast.error(error instanceof Error ? error.message : "Không lấy được báo giá."))} loading={videoLoading}>Xem giá video</Button>}
+            {videoQuote && <Button className="w-full" onClick={submitVideo} loading={videoLoading}>Tạo video với giá này</Button>}
+          </div>
         </Modal>
       </main>
     </div>

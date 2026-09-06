@@ -13,14 +13,22 @@ interface ModalProps {
 
 export default function Modal({ isOpen, onClose, title, children, size = "md" }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const previousOverflowRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
+      returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      previousOverflowRef.current = document.body.style.overflow;
       document.body.style.overflow = "hidden";
     } else {
-      document.body.style.overflow = "unset";
+      if (previousOverflowRef.current !== null) document.body.style.overflow = previousOverflowRef.current;
+      returnFocusRef.current?.focus();
+      returnFocusRef.current = null;
     }
-    return () => { document.body.style.overflow = "unset"; };
+    return () => {
+      if (previousOverflowRef.current !== null) document.body.style.overflow = previousOverflowRef.current;
+    };
   }, [isOpen]);
 
   // Escape key handler
@@ -33,11 +41,27 @@ export default function Modal({ isOpen, onClose, title, children, size = "md" }:
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Focus trap — focus modal on open
+  // Focus trap and return focus to the trigger after close.
   useEffect(() => {
     if (isOpen && dialogRef.current) {
-      dialogRef.current.focus();
+      const first = dialogRef.current.querySelector<HTMLElement>("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])");
+      (first ?? dialogRef.current).focus();
     }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])"));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", trapFocus);
+    return () => document.removeEventListener("keydown", trapFocus);
   }, [isOpen]);
 
   if (!isOpen) return null;

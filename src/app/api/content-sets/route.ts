@@ -1,0 +1,33 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getRequestUser } from "@/lib/supabase/request-auth";
+
+async function projectForRef(supabase: Awaited<ReturnType<typeof getRequestUser>>["supabase"], ref: string) {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ref);
+  return (isUuid ? supabase.from("projects").select("*").eq("id", ref) : supabase.from("projects").select("*").eq("slug", ref)).maybeSingle();
+}
+
+export async function GET(request: NextRequest) {
+  const projectRef = request.nextUrl.searchParams.get("project");
+  const { supabase, user } = await getRequestUser(request);
+  if (!user) return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
+  if (!projectRef) return NextResponse.json({ error: "Thiếu project." }, { status: 400 });
+  const { data: project } = await projectForRef(supabase, projectRef);
+  if (!project) return NextResponse.json({ error: "Không tìm thấy dự án." }, { status: 404 });
+  const { data, error } = await supabase.from("content_sets").select("*, content_outputs(*)").eq("project_id", project.id).order("updated_at", { ascending: false }).limit(24);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ contentSets: data ?? [] });
+}
+
+export async function POST(request: NextRequest) {
+  const { supabase, user } = await getRequestUser(request);
+  if (!user) return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
+  const body = await request.json();
+  if (typeof body.project_id !== "string" || typeof body.brief !== "string") return NextResponse.json({ error: "Thiếu dự án hoặc ý tưởng." }, { status: 400 });
+  const { data: project } = await projectForRef(supabase, body.project_id);
+  if (!project) return NextResponse.json({ error: "Bạn không có quyền với dự án này." }, { status: 403 });
+  const selectedCharacterIds = Array.isArray(body.selected_character_ids) ? body.selected_character_ids.filter((id: unknown) => typeof id === "string") : [];
+  const brandSnapshot = { voice: body.brand_voice ?? project.brand_voice ?? "", audience: body.audience ?? project.audience ?? "", guidelines: body.content_guidelines ?? project.content_guidelines ?? "", watermarkUrl: project.watermark_url ?? null };
+  const { data, error } = await supabase.from("content_sets").insert({ project_id: project.id, brief: body.brief.trim(), selected_character_ids: selectedCharacterIds, brand_snapshot: brandSnapshot, created_by: user.id }).select().single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ contentSet: data }, { status: 201 });
+}

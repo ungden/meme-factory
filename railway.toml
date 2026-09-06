@@ -1,0 +1,7 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.video-worker"
+
+[deploy]
+restartPolicyType = "always"
+restartPolicyMaxRetries = 10

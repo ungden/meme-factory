@@ -5,80 +5,13 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowRight,
-  Clapperboard,
   Images,
-  Image as ImageIcon,
-  Megaphone,
-  MessageCircle,
-  Shirt,
   Sparkles,
   TrendingUp,
   Users,
-  Zap,
-  Type,
 } from "lucide-react";
 import { useProject, useCharacters, useMemes } from "@/lib/use-store";
-import { getProjectCover } from "@/lib/project-visuals";
 import Sidebar from "@/components/layout/sidebar";
-
-const modes = [
-  {
-    title: "Ghép chữ lên mascot",
-    description: "Chọn biểu cảm có sẵn, đặt chữ và tải về.",
-    icon: Type,
-    color: "#265ee8",
-    path: "editor",
-    cost: "0 điểm",
-  },
-  {
-    title: "Gợi ý câu bằng AI",
-    description: "Kể một tình huống, nhận sáu câu kèm biểu cảm hợp cảnh.",
-    icon: MessageCircle,
-    color: "#12a594",
-    path: "ai-meme",
-    cost: "0 điểm",
-  },
-  {
-    title: "Tạo ảnh mới bằng AI",
-    description: "Khi chưa có ảnh mascot phù hợp, dựng hẳn ảnh mới từ ý tưởng.",
-    icon: Sparkles,
-    color: "#f05a32",
-    path: "generate",
-    cost: "tốn điểm",
-  },
-  {
-    title: "Meme, bài đăng & Reels",
-    description: "Giữ đúng nhân vật qua meme, bài vuông, chuỗi ảnh và hình dọc.",
-    icon: ImageIcon,
-    color: "#265ee8",
-    path: "studio?mode=social",
-    cost: "tốn điểm",
-  },
-  {
-    title: "Quảng cáo",
-    description: "Tạo hình chủ đạo và biến thể theo từng nền tảng.",
-    icon: Megaphone,
-    color: "#f59e0b",
-    path: "studio?mode=product",
-    cost: "tốn điểm",
-  },
-  {
-    title: "Thời trang",
-    description: "Giữ đúng người mẫu, trang phục và định hướng hình ảnh của chiến dịch.",
-    icon: Shirt,
-    color: "#df6b8b",
-    path: "studio?mode=fashion",
-    cost: "tốn điểm",
-  },
-  {
-    title: "Storyboard",
-    description: "Khi cần, dựng cảnh và cú máy theo mạch kể dài hơn.",
-    icon: Clapperboard,
-    color: "#7668d6",
-    path: "studio?mode=storyboard",
-    cost: "tốn điểm",
-  },
-];
 
 export default function ProjectOverviewPage() {
   const params = useParams();
@@ -113,7 +46,6 @@ export default function ProjectOverviewPage() {
     { label: "Đầu ra đã lưu", value: memes.length, icon: Images },
     { label: "Tạo trong 7 ngày", value: weeklyOutputs, icon: TrendingUp },
   ];
-  const projectCover = getProjectCover(project.name, project.description || "");
 
   return (
     <div className="flex">
@@ -126,37 +58,15 @@ export default function ProjectOverviewPage() {
               <h1 className="text-3xl font-semibold tracking-tight th-text-primary">{project.name}</h1>
               {project.description && <p className="mt-2 max-w-2xl th-text-tertiary">{project.description}</p>}
             </div>
-            <button onClick={() => router.push(`/projects/${projectId}/studio`)} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500">
-              <Clapperboard size={17} /> Mở Studio
+            <button onClick={() => router.push(`/projects/${projectId}/generate`)} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500">
+              <Sparkles size={17} /> Tạo nội dung
             </button>
           </header>
 
-          <section className="relative mb-8 overflow-hidden rounded-[28px] border bg-[#fbf6e9] text-[#171818] shadow-[0_18px_55px_rgba(73,53,15,.09)]" style={{ borderColor: "rgba(93,76,42,.16)" }}>
-            <div className="absolute inset-y-0 right-0 w-full md:w-[68%]">
-              <Image src={projectCover} alt={`Không gian media của ${project.name}`} fill priority sizes="(max-width: 768px) 100vw, 66vw" className="object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-r from-[#fbf6e9] via-[#fbf6e9]/90 to-[#fbf6e9]/5" />
-            </div>
-            <div className="relative max-w-xl px-6 py-10 md:px-9 md:py-12">
-              <span className="inline-flex items-center gap-2 rounded-full border border-blue-600/20 bg-blue-600/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-700"><Zap size={12} /> Hệ thống nội dung của bạn</span>
-              <h2 className="mt-5 text-3xl font-bold leading-[1.08] tracking-[-0.025em] md:text-[40px]">Nhân vật nhất quán.<br />Nội dung đều đặn.</h2>
-              <p className="mt-4 max-w-lg text-sm leading-6 text-[#5c5c54]">AIDA nhớ nhân vật, giọng điệu và tài nguyên thương hiệu. Bạn chỉ cần chọn định dạng và nói ý tưởng hôm nay.</p>
-              <div className="mt-6 flex flex-wrap gap-2 text-[11px] text-[#5c5c54]">
-                {["Ý tưởng & chú thích", "Ảnh tham chiếu", "AI dựng cảnh", "Duyệt đầu ra"].map((feature) => <span key={feature} className="rounded-lg border border-black/10 bg-white/55 px-2.5 py-1.5">{feature}</span>)}
-              </div>
-            </div>
-          </section>
-
           <section className="mb-8">
-            <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-semibold th-text-primary">Hôm nay bạn muốn làm gì?</h2><p className="mt-1 text-sm th-text-tertiary">Chọn đầu ra. AIDA giữ nguyên nhân vật và mở đúng bộ điều khiển.</p></div></div>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {modes.map((mode) => (
-                <button key={mode.title} onClick={() => router.push(`/projects/${projectId}/${mode.path}`)} className="group rounded-2xl border p-5 text-left transition hover:-translate-y-1 hover:shadow-xl" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
-                  <div className="flex items-start justify-between"><span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${mode.color}18`, color: mode.color }}><mode.icon size={19} /></span><ArrowRight size={16} className="th-text-muted transition group-hover:translate-x-1" /></div>
-                  <span className={`mt-6 inline-block rounded-full px-2 py-0.5 text-[10px] ${mode.cost === "0 điểm" ? "bg-blue-600/10 text-blue-600" : "th-bg-tertiary th-text-tertiary"}`}>{mode.cost}</span>
-                  <h3 className="mt-1.5 font-semibold th-text-primary">{mode.title}</h3>
-                  <p className="mt-2 text-sm leading-5 th-text-tertiary">{mode.description}</p>
-                </button>
-              ))}
+            <div className="rounded-2xl border p-6 md:flex md:items-center md:justify-between" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
+              <div><h2 className="text-lg font-semibold th-text-primary">Bắt đầu một bộ nội dung</h2><p className="mt-1 max-w-2xl text-sm th-text-tertiary">Viết ý tưởng, chọn ảnh mới hoặc ảnh có sẵn, sau đó duyệt và tải từng đầu ra trong cùng một luồng.</p></div>
+              <button onClick={() => router.push(`/projects/${projectId}/generate`)} className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white md:mt-0"><Sparkles size={16} /> Tạo nội dung</button>
             </div>
           </section>
 
@@ -173,10 +83,9 @@ export default function ProjectOverviewPage() {
             <section>
               <div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold th-text-primary">Tài nguyên gần đây</h2><Link href={`/projects/${projectId}/mascots`} className="flex items-center gap-1 text-xs font-medium text-blue-500">Xem thư viện <ArrowRight size={12} /></Link></div>
               <div className="rounded-2xl border p-3" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
-                {characters.length > 0 ? characters.slice(0, 4).map((character, index) => {
+                {characters.length > 0 ? characters.slice(0, 4).map((character) => {
                   const image = character.avatar_url || character.poses[0]?.image_url;
-                  const fallback = index % 2 === 0 ? "/continuity/linh-master.webp" : "/continuity/minh-master.webp";
-                  return <Link key={character.id} href={`/projects/${projectId}/characters/${character.id}`} className="flex items-center gap-3 rounded-xl p-2.5 th-bg-hover"><span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl"><Image src={image && !image.startsWith("/mock/") ? image : fallback} alt={character.name} fill sizes="44px" className="object-cover" /></span><span className="min-w-0 flex-1"><strong className="block truncate text-sm th-text-primary">{character.name}</strong><small className="mt-0.5 block text-xs th-text-muted">{character.poses.length} ảnh tham chiếu</small></span><ArrowRight size={14} className="th-text-muted" /></Link>;
+                  return <Link key={character.id} href={`/projects/${projectId}/characters/${character.id}`} className="flex items-center gap-3 rounded-xl p-2.5 th-bg-hover"><span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl th-bg-tertiary text-sm font-semibold th-text-muted">{image && !image.startsWith("/mock/") ? <Image src={image} alt={character.name} fill sizes="44px" className="object-cover" /> : character.name.slice(0, 1).toUpperCase()}</span><span className="min-w-0 flex-1"><strong className="block truncate text-sm th-text-primary">{character.name}</strong><small className="mt-0.5 block text-xs th-text-muted">{character.poses.length} ảnh tham chiếu</small></span><ArrowRight size={14} className="th-text-muted" /></Link>;
                 }) : <div className="py-10 text-center"><p className="text-sm th-text-tertiary">Chưa có tài nguyên nhân vật.</p><Link href={`/projects/${projectId}/mascots`} className="mt-3 inline-flex text-sm font-medium text-blue-500">Thêm nhân vật đầu tiên</Link></div>}
               </div>
             </section>
@@ -185,15 +94,15 @@ export default function ProjectOverviewPage() {
               <div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold th-text-primary">Đầu ra gần đây</h2><Link href={`/projects/${projectId}/gallery`} className="flex items-center gap-1 text-xs font-medium text-blue-500">Mở thư viện <ArrowRight size={12} /></Link></div>
               {recentOutputs.length > 0 ? (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {recentOutputs.map((output, index) => (
+                  {recentOutputs.map((output) => (
                     <button key={output.id} onClick={() => router.push(`/projects/${projectId}/gallery`)} className="group flex min-h-28 overflow-hidden rounded-2xl border text-left" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
-                      <span className="relative w-28 shrink-0 overflow-hidden bg-slate-900"><Image src={output.image_url || `/continuity/scene-02d-variant-${(index % 4) + 1}.webp`} alt="" fill sizes="112px" className="object-cover transition group-hover:scale-105" /></span>
+                      <span className="relative flex w-28 shrink-0 items-center justify-center overflow-hidden th-bg-tertiary">{output.image_url ? <Image src={output.image_url} alt="" fill sizes="112px" className="object-cover transition group-hover:scale-105" /> : <Images size={20} className="th-text-muted" />}</span>
                       <span className="min-w-0 p-3"><strong className="line-clamp-2 text-sm leading-5 th-text-primary">{output.generated_content.headline || output.title || "Đầu ra sáng tạo"}</strong><small className="mt-2 line-clamp-2 text-xs leading-4 th-text-muted">{output.original_idea}</small></span>
                     </button>
                   ))}
                 </div>
               ) : (
-                <div className="flex min-h-52 flex-col items-center justify-center rounded-2xl border text-center" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}><Images size={24} className="th-text-muted" /><p className="mt-3 text-sm th-text-tertiary">Đầu ra đầu tiên sẽ xuất hiện ở đây.</p><button onClick={() => router.push(`/projects/${projectId}/studio`)} className="mt-3 text-sm font-medium text-blue-500">Mở Studio</button></div>
+                <div className="flex min-h-52 flex-col items-center justify-center rounded-2xl border text-center" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}><Images size={24} className="th-text-muted" /><p className="mt-3 text-sm th-text-tertiary">Đầu ra đầu tiên sẽ xuất hiện ở đây.</p><button onClick={() => router.push(`/projects/${projectId}/generate`)} className="mt-3 text-sm font-medium text-blue-500">Tạo nội dung</button></div>
               )}
             </section>
           </div>
