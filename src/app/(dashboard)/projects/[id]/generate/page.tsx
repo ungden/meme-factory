@@ -75,6 +75,7 @@ export default function GeneratePage() {
   const [videoDuration, setVideoDuration] = useState<15 | 30>(15);
   const [videoResolution, setVideoResolution] = useState<"720p" | "1080p">("720p");
   const [videoAudio, setVideoAudio] = useState(true);
+  const [videoScript, setVideoScript] = useState("");
   const [videoQuote, setVideoQuote] = useState<{ customerPoints: number; providerCostUsd: number } | null>(null);
   const [videoLoading, setVideoLoading] = useState(false);
 
@@ -246,7 +247,7 @@ export default function GeneratePage() {
       if (!outputId) {
         const created = await fetch(`/api/content-sets/${setId}/outputs`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kind: "video", format: "9:16", poster_url: imageSourceUrl, script: variations[selectedVariation].caption ?? idea, duration_seconds: videoDuration, source_snapshot: { image_output_id: imageOutputId, selected_character_ids: [...taggedCharacterIds] } }),
+          body: JSON.stringify({ kind: "video", format: "9:16", poster_url: imageSourceUrl, script: videoScript.trim(), duration_seconds: videoDuration, source_snapshot: { image_output_id: imageOutputId, selected_character_ids: [...taggedCharacterIds] } }),
         });
         const createdPayload = await created.json().catch(() => ({}));
         if (!created.ok || !createdPayload.output?.id) throw new Error(createdPayload.error || "Không tạo được đầu ra video.");
@@ -255,13 +256,13 @@ export default function GeneratePage() {
       }
       const response = await fetch(`/api/content-outputs/${outputId}/video/quote`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: variations[selectedVariation].caption ?? idea, image: imageSourceUrl, duration: videoDuration, resolution: videoResolution, generate_audio: videoAudio }),
+        body: JSON.stringify({ prompt: videoScript.trim(), image: imageSourceUrl, duration: videoDuration, resolution: videoResolution, generate_audio: videoAudio }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Không lấy được báo giá video.");
       setVideoQuote(payload.quote);
     } finally { setVideoLoading(false); }
-  }, [imageSourceUrl, variations, selectedVariation, ensureContentSet, videoOutputId, videoDuration, videoResolution, videoAudio, idea, format, imageOutputId, taggedCharacterIds]);
+  }, [imageSourceUrl, variations, selectedVariation, ensureContentSet, videoOutputId, videoDuration, videoResolution, videoAudio, videoScript, format, imageOutputId, taggedCharacterIds]);
 
   const submitVideo = useCallback(async () => {
     if (!videoOutputId || !imageSourceUrl || !variations[selectedVariation]) return;
@@ -269,7 +270,7 @@ export default function GeneratePage() {
     try {
       const response = await fetch(`/api/content-outputs/${videoOutputId}/video`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: variations[selectedVariation].caption ?? idea, image: imageSourceUrl, duration: videoDuration, resolution: videoResolution, generate_audio: videoAudio, request_id: crypto.randomUUID() }),
+        body: JSON.stringify({ prompt: videoScript.trim(), image: imageSourceUrl, duration: videoDuration, resolution: videoResolution, generate_audio: videoAudio, request_id: crypto.randomUUID() }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Không gửi được video.");
@@ -277,7 +278,7 @@ export default function GeneratePage() {
       setShowVideoModal(false);
     } catch (error) { toast.error(error instanceof Error ? error.message : "Không gửi được video."); }
     finally { setVideoLoading(false); }
-  }, [videoOutputId, imageSourceUrl, variations, selectedVariation, idea, videoDuration, videoResolution, videoAudio, toast]);
+  }, [videoOutputId, imageSourceUrl, variations, selectedVariation, videoScript, videoDuration, videoResolution, videoAudio, toast]);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -1410,7 +1411,7 @@ export default function GeneratePage() {
                           <Button variant="outline" size="sm" onClick={handleAiGenerate}>
                             <RotateCcw size={14} /> Tạo lại ({POINT_COSTS.meme} pts)
                           </Button>
-                          <Button variant="outline" size="sm" onClick={() => setShowVideoModal(true)} disabled={!imageOutputId}>
+                          <Button variant="outline" size="sm" onClick={() => { setVideoScript(variations[selectedVariation]?.caption || idea); setVideoQuote(null); setShowVideoModal(true); }} disabled={!imageOutputId || format !== "9:16"} title={format !== "9:16" ? "Hãy tạo ảnh đầu 9:16 trước" : undefined}>
                             <Clapperboard size={14} /> Dùng ảnh này tạo video
                           </Button>
                           <span className="text-xs th-text-muted">Ví dự án: {projectPoints} pts</span>
@@ -1708,12 +1709,13 @@ export default function GeneratePage() {
         <Modal isOpen={showVideoModal} onClose={() => setShowVideoModal(false)} title="Tạo video từ ảnh đầu">
           <div className="space-y-4">
             <p className="text-sm th-text-tertiary">Seedance 2.5 dùng đúng ảnh đầu đã lưu. Video dọc 9:16, âm thanh tiếng Việt được bật mặc định.</p>
+            <Textarea id="video-script" label="Kịch bản video" value={videoScript} onChange={(event) => { setVideoScript(event.target.value); setVideoQuote(null); }} rows={5} placeholder="Mô tả chuyển động, lời thoại và âm thanh bằng tiếng Việt" />
             <div className="grid grid-cols-2 gap-2">
               {[15, 30].map((seconds) => <button key={seconds} type="button" onClick={() => { setVideoDuration(seconds as 15 | 30); setVideoQuote(null); }} className={`rounded-xl border px-3 py-2 text-sm ${videoDuration === seconds ? "th-border-accent th-bg-accent-light th-text-accent" : "th-border"}`}>{seconds} giây</button>)}
               {["720p", "1080p"].map((resolution) => <button key={resolution} type="button" onClick={() => { setVideoResolution(resolution as "720p" | "1080p"); setVideoQuote(null); }} className={`rounded-xl border px-3 py-2 text-sm ${videoResolution === resolution ? "th-border-accent th-bg-accent-light th-text-accent" : "th-border"}`}>{resolution}</button>)}
             </div>
             <label className="flex items-center justify-between rounded-xl th-bg-tertiary px-3 py-2 text-sm th-text-secondary"><span>Có âm thanh native</span><input type="checkbox" checked={videoAudio} onChange={(event) => { setVideoAudio(event.target.checked); setVideoQuote(null); }} /></label>
-            {videoQuote ? <div className="rounded-xl th-bg-accent-light p-3 text-sm th-text-accent">Báo giá đã chốt: <strong>{videoQuote.customerPoints} điểm</strong>{videoQuote.providerCostUsd ? ` · $${videoQuote.providerCostUsd.toFixed(3)} provider` : ""}</div> : <Button className="w-full" onClick={() => getVideoQuote().catch((error) => toast.error(error instanceof Error ? error.message : "Không lấy được báo giá."))} loading={videoLoading}>Xem giá video</Button>}
+            {videoQuote ? <div className="rounded-xl th-bg-accent-light p-3 text-sm th-text-accent">Báo giá đã chốt: <strong>{videoQuote.customerPoints} điểm</strong>{videoQuote.providerCostUsd ? ` · $${videoQuote.providerCostUsd.toFixed(3)} provider` : ""}</div> : <Button className="w-full" disabled={!videoScript.trim()} onClick={() => getVideoQuote().catch((error) => toast.error(error instanceof Error ? error.message : "Không lấy được báo giá."))} loading={videoLoading}>Xem giá video</Button>}
             {videoQuote && <Button className="w-full" onClick={submitVideo} loading={videoLoading}>Tạo video với giá này</Button>}
           </div>
         </Modal>

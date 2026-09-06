@@ -3,7 +3,7 @@ import { getRequestUser } from "@/lib/supabase/request-auth";
 import { quoteSeedanceVideo } from "@/lib/wavespeed";
 
 function validInput(body: Record<string, unknown>) {
-  return typeof body.prompt === "string" && typeof body.image === "string" && [15, 30].includes(Number(body.duration)) && ["720p", "1080p"].includes(String(body.resolution));
+  return typeof body.prompt === "string" && body.prompt.trim().length > 0 && typeof body.image === "string" && [15, 30].includes(Number(body.duration)) && ["720p", "1080p"].includes(String(body.resolution));
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

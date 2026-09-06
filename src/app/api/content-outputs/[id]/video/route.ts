@@ -10,7 +10,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { supabase, user } = await getRequestUser(request);
   if (!user) return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
   const body = await request.json();
-  if (typeof body.prompt !== "string" || typeof body.image !== "string" || ![15, 30].includes(Number(body.duration)) || !["720p", "1080p"].includes(body.resolution)) return NextResponse.json({ error: "Cấu hình video không hợp lệ." }, { status: 400 });
+  if (typeof body.prompt !== "string" || !body.prompt.trim() || typeof body.image !== "string" || ![15, 30].includes(Number(body.duration)) || !["720p", "1080p"].includes(body.resolution)) return NextResponse.json({ error: "Cấu hình video không hợp lệ." }, { status: 400 });
   const requestId = typeof body.request_id === "string" && UUID.test(body.request_id) ? body.request_id : crypto.randomUUID();
   const { data: output } = await supabase.from("content_outputs").select("*, content_sets!inner(project_id)").eq("id", id).maybeSingle();
   if (!output || output.kind !== "video") return NextResponse.json({ error: "Không tìm thấy đầu ra video." }, { status: 404 });
