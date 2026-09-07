@@ -4,6 +4,7 @@ import { getRequestUser } from "@/lib/supabase/request-auth";
 /** Lightweight project-card data. RLS on every query keeps cross-project
  * drafts and media out of this aggregate response. */
 export async function GET(request: NextRequest) {
+  const startedAt = performance.now();
   const { supabase, user } = await getRequestUser(request);
   if (!user) return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
 
@@ -27,5 +28,5 @@ export async function GET(request: NextRequest) {
     if (set.status === "draft") summary.draftCount += 1;
     summary.outputCount += (set.content_outputs ?? []).length;
   }
-  return NextResponse.json({ summaries });
+  return NextResponse.json({ summaries }, { headers: { "Server-Timing": `summaries;dur=${(performance.now() - startedAt).toFixed(1)}` } });
 }

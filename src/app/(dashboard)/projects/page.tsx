@@ -25,6 +25,7 @@ import Textarea from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import AnnouncementBanner from "@/components/ui/announcement-banner";
 import { getProjectCover, getProjectRouteRef } from "@/lib/project-visuals";
+import { fetchJsonCached, invalidateClientCache } from "@/lib/client-fetch";
 
 export default function ProjectsPage() {
   const { projects, loading, create, remove } = useProjects();
@@ -41,8 +42,7 @@ export default function ProjectsPage() {
   useEffect(() => {
     if (IS_MOCK_MODE || !projects.length) return;
     let active = true;
-    fetch("/api/projects/summaries")
-      .then(async (response) => response.ok ? response.json() : null)
+    fetchJsonCached<{ summaries?: Record<string, { characterCount: number; outputCount: number; draftCount: number }> }>("/api/projects/summaries", 60_000)
       .then((payload) => { if (active && payload?.summaries) setSummaries(payload.summaries); })
       .catch(() => { if (active) setSummaries({}); });
     return () => { active = false; };
@@ -57,6 +57,7 @@ export default function ProjectsPage() {
       style_prompt: newProject.style_prompt || undefined,
     });
     if (project) {
+      invalidateClientCache("/api/projects/summaries");
       setShowCreate(false);
       setNewProject({ name: "", description: "", style_prompt: "" });
       toast.success(`Đã tạo dự án "${project.name}"`);
@@ -71,6 +72,7 @@ export default function ProjectsPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     await remove(deleteTarget);
+    invalidateClientCache("/api/projects/summaries");
     toast.success("Đã xoá dự án");
     setDeleteTarget(null);
     setMenuOpen(null);
