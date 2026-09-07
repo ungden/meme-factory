@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import {
   ArrowDown,
   ArrowRight,
@@ -33,6 +34,7 @@ const steps = [
 export default function Home() {
   const { theme, toggleTheme } = useTheme();
   const [user, setUser] = useState<{ email?: string } | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [idea, setIdea] = useState("");
   const [character, setCharacter] = useState("Foxy");
   const [voice, setVoice] = useState("Thân thiện, dí dỏm");
@@ -41,12 +43,40 @@ export default function Home() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }: { data: { user: unknown } }) => {
-      setUser(data.user as { email?: string } | null);
+
+    const syncSession = (session: Session | null) => {
+      setUser(session?.user ?? null);
+      setAuthReady(true);
+    };
+
+    const readSession = async () => {
+      try {
+        const result: { data: { session: Session | null } } = await supabase.auth.getSession();
+        syncSession(result.data.session);
+      } catch {
+        setUser(null);
+        setAuthReady(true);
+      }
+    };
+
+    void readSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+      syncSession(session);
     });
+
+    const refreshOnFocus = () => {
+      void readSession();
+    };
+    window.addEventListener("focus", refreshOnFocus);
+
+    return () => {
+      listener.subscription.unsubscribe();
+      window.removeEventListener("focus", refreshOnFocus);
+    };
   }, []);
 
-  const appHref = user ? "/projects" : "/login";
+  const appHref = authReady && user ? "/projects" : "/login";
 
   function focusComposer() {
     promptRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -83,10 +113,10 @@ export default function Home() {
             >
               {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
             </button>
-            {!user && <Link href="/login" className="media-nav-link hidden rounded-full px-4 py-2.5 text-sm font-medium md:inline-flex">Đăng nhập</Link>}
+            {authReady && !user && <Link href="/login" className="media-nav-link hidden rounded-full px-4 py-2.5 text-sm font-medium md:inline-flex">Đăng nhập</Link>}
             <Link href={appHref} className="media-primary-button ml-1 inline-flex h-11 items-center gap-2 rounded-[11px] px-4 text-sm font-semibold text-white sm:px-5">
-              <span className="hidden sm:inline">{user ? "Mở Studio" : "Bắt đầu miễn phí"}</span>
-              <span className="sm:hidden">Bắt đầu</span>
+              <span className="hidden sm:inline">{authReady && user ? "Mở Studio" : authReady ? "Bắt đầu miễn phí" : "Đang mở…"}</span>
+              <span className="sm:hidden">{authReady && user ? "Dự án" : "Bắt đầu"}</span>
               <ArrowRight size={17} weight="bold" />
             </Link>
           </div>
