@@ -74,7 +74,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       await getSupabaseAdmin().from("content_outputs").update({ status: "failed" }).eq("id", id);
       throw error;
     }
-    await getSupabaseAdmin().from("generation_jobs").update({ provider_request_id: prediction.id, provider_response: prediction, status: "running", started_at: new Date().toISOString(), lease_expires_at: new Date(Date.now() + 15 * 60_000).toISOString() }).eq("id", job.id);
+    // A prediction id is durable. Make it immediately claimable by Railway
+    // instead of holding a web-function lease for fifteen minutes.
+    await getSupabaseAdmin().from("generation_jobs").update({ provider_request_id: prediction.id, provider_response: prediction, status: "running", started_at: new Date().toISOString(), lease_expires_at: null }).eq("id", job.id);
     await getSupabaseAdmin().from("content_outputs").update({ status: "running" }).eq("id", id);
     return NextResponse.json({ jobId: job.id, outputId: id, quote }, { status: 202 });
   } catch (error) {

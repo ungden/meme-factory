@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from "@/lib/admin";
 import { getWaveSpeedPrediction } from "@/lib/wavespeed";
 
 export const maxDuration = 60;
+const MAX_RECONCILE_JOBS = 8;
+const MAX_CONCURRENT_RECONCILES = 2;
 
 function outputUrl(outputs: unknown[] | undefined) {
   const first = outputs?.[0];
@@ -26,30 +28,49 @@ async function persistVideo(sourceUrl: string, projectId: string, jobId: string)
   return path;
 }
 
+async function reconcileJob(job: { id: string; project_id: string; content_output_id: string | null; provider_request_id: string }) {
+  const admin = getSupabaseAdmin();
+  try {
+    const result = await getWaveSpeedPrediction(job.provider_request_id);
+    if (result.status === "completed") {
+      const url = outputUrl(result.outputs);
+      if (!url) throw new Error("Prediction completed without an MP4 URL.");
+      const path = await persistVideo(url, job.project_id, job.id);
+      const { error: jobError } = await admin.from("generation_jobs").update({ status: "completed", provider_response: result, checkpoint: {}, error: null, completed_at: new Date().toISOString(), lease_expires_at: null }).eq("id", job.id).eq("status", "running");
+      if (jobError) throw new Error(jobError.message);
+      if (job.content_output_id) {
+        const { error: outputError } = await admin.from("content_outputs").update({ status: "completed", media_url: path }).eq("id", job.content_output_id).in("status", ["queued", "running"]);
+        if (outputError) throw new Error(outputError.message);
+      }
+      return true;
+    }
+    if (["failed", "cancelled", "timeout", "deleted"].includes(result.status)) {
+      const { error: jobError } = await admin.from("generation_jobs").update({ status: "failed", provider_response: result, error: { provider: result.error ?? result.status }, completed_at: new Date().toISOString(), lease_expires_at: null }).eq("id", job.id).eq("status", "running");
+      if (jobError) throw new Error(jobError.message);
+      if (job.content_output_id) {
+        const { error: outputError } = await admin.from("content_outputs").update({ status: "failed" }).eq("id", job.content_output_id).in("status", ["queued", "running"]);
+        if (outputError) throw new Error(outputError.message);
+      }
+      return true;
+    }
+  } catch (jobError) {
+    console.error(`WaveSpeed reconcile failed for ${job.id}`, jobError);
+  }
+  return false;
+}
+
 export async function POST(request: NextRequest) {
   const token = process.env.VIDEO_WORKER_TOKEN;
   if (!token) return NextResponse.json({ error: "Worker credential is not configured." }, { status: 503 });
   if (request.headers.get("authorization") !== `Bearer ${token}`) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const admin = getSupabaseAdmin();
-  const { data: jobs, error } = await admin.from("generation_jobs").select("id, project_id, content_output_id, provider_request_id").eq("provider", "wavespeed").eq("status", "running").not("provider_request_id", "is", null).order("started_at", { ascending: true }).limit(24);
+  const { data: jobs, error } = await admin.from("generation_jobs").select("id, project_id, content_output_id, provider_request_id").eq("provider", "wavespeed").eq("status", "running").not("provider_request_id", "is", null).order("started_at", { ascending: true }).limit(MAX_RECONCILE_JOBS);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   let processed = 0;
-  for (const job of jobs ?? []) {
-    try {
-      const result = await getWaveSpeedPrediction(job.provider_request_id);
-      if (result.status === "completed") {
-        const url = outputUrl(result.outputs);
-        if (!url) throw new Error("Prediction completed without an MP4 URL.");
-        const path = await persistVideo(url, job.project_id, job.id);
-        await admin.from("generation_jobs").update({ status: "completed", provider_response: result, checkpoint: {}, error: null, completed_at: new Date().toISOString(), lease_expires_at: null }).eq("id", job.id);
-        if (job.content_output_id) await admin.from("content_outputs").update({ status: "completed", media_url: path }).eq("id", job.content_output_id);
-        processed++;
-      } else if (["failed", "cancelled", "timeout", "deleted"].includes(result.status)) {
-        await admin.from("generation_jobs").update({ status: "failed", provider_response: result, error: { provider: result.error ?? result.status }, completed_at: new Date().toISOString(), lease_expires_at: null }).eq("id", job.id);
-        if (job.content_output_id) await admin.from("content_outputs").update({ status: "failed" }).eq("id", job.content_output_id);
-        processed++;
-      }
-    } catch (jobError) { console.error(`WaveSpeed reconcile failed for ${job.id}`, jobError); }
+  for (let offset = 0; offset < (jobs?.length ?? 0); offset += MAX_CONCURRENT_RECONCILES) {
+    const batch = (jobs ?? []).slice(offset, offset + MAX_CONCURRENT_RECONCILES);
+    const results = await Promise.all(batch.map(reconcileJob));
+    processed += results.filter(Boolean).length;
   }
   return NextResponse.json({ processed });
 }

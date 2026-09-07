@@ -16,7 +16,9 @@ export async function POST(request: NextRequest) {
     if (event.status === "completed") {
       // WaveSpeed expects a quick 2xx acknowledgement. The worker downloads and
       // validates the MP4 so a slow storage write never causes duplicate callbacks.
-      await admin.from("generation_jobs").update({ provider_response: event, checkpoint: { callback_received_at: new Date().toISOString() }, lease_expires_at: new Date(Date.now() + 5 * 60_000).toISOString() }).eq("id", job.id);
+      // The callback only records provider evidence and wakes an already
+      // claimable job. It must not hold the worker back for five minutes.
+      await admin.from("generation_jobs").update({ provider_response: event, lease_expires_at: null }).eq("id", job.id);
       return NextResponse.json({ ok: true, queuedForStorage: true });
     }
     await admin.from("generation_jobs").update({ status: "failed", provider_response: event, error: { provider: event.error ?? event.status ?? "Video failed" }, completed_at: new Date().toISOString(), lease_expires_at: null }).eq("id", job.id);
