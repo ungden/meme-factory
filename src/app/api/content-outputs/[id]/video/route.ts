@@ -36,13 +36,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (existing) return NextResponse.json({ jobId: existing.id, outputId: id, duplicate: true }, { status: 202 });
       throw new Error(jobError?.message || "Không lưu được job video.");
     }
-    await getSupabaseAdmin().from("content_outputs").update({ generation_job_id: job.id, status: "queued", poster_url: video.image, script: video.prompt, duration_seconds: video.duration, attempt_count: (output.attempt_count ?? 0) + 1 }).eq("id", id);
     const { data: deduction, error: deductError } = await getSupabaseAdmin().rpc("atomic_deduct_project_points", { _project_id: projectId, _actor_user_id: user.id, _cost: quote.customerPoints, _description: `Tạo video Seedance 2.5 ${video.duration}s ${video.resolution} (-${quote.customerPoints} điểm)`, _request_id: requestId, _ai_action: "video", _metadata: { model: WAVESPEED_SEEDANCE_MODEL, duration: video.duration, resolution: video.resolution, content_output_id: id } });
     if (deductError || !deduction?.success) {
-      await getSupabaseAdmin().from("generation_jobs").update({ status: "failed", error: { billing: deductError?.message || deduction?.error || "Insufficient project points" }, completed_at: new Date().toISOString() }).eq("id", job.id);
-      await getSupabaseAdmin().from("content_outputs").update({ status: "failed" }).eq("id", id);
+      // A rejected charge never reached the provider. Remove the temporary
+      // concurrency lock so it cannot appear as a failed media generation.
+      await getSupabaseAdmin().from("generation_jobs").delete().eq("id", job.id);
       return NextResponse.json({ error: `Ví dự án không đủ điểm. Cần ${quote.customerPoints} điểm.`, required: quote.customerPoints, current: deduction?.points ?? 0 }, { status: 402 });
     }
+    await getSupabaseAdmin().from("content_outputs").update({ generation_job_id: job.id, status: "queued", poster_url: video.image, script: video.prompt, duration_seconds: video.duration, attempt_count: (output.attempt_count ?? 0) + 1 }).eq("id", id);
     let prediction;
     try {
       prediction = await submitSeedanceVideo(video, `${siteUrl}/api/webhooks/wavespeed`);

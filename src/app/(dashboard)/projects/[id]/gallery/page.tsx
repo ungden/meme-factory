@@ -69,7 +69,9 @@ export default function GalleryPage() {
     return () => { active = false; };
   }, [projectId]);
 
-  const videoOutputs = contentOutputs.filter((output) => output.kind === "video");
+  // A video draft exists only to hold the reviewed script and its quote. The
+  // library starts showing it once it has actually been submitted to a provider.
+  const videoOutputs = contentOutputs.filter((output) => output.kind === "video" && output.status !== "draft");
 
   const reviewOutput = useCallback(async (outputId: string, status: "approved" | "rejected") => {
     try {
