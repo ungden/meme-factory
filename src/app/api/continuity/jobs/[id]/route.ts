@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { data: job, error } = await supabase
     .from("generation_jobs")
     .select(
-      "id, project_id, creation_kind, source_entity_type, source_entity_id, workflow_version, provider, model, continuity_policy, status, compiled_prompt, reference_manifest, dropped_references, manifest_hash, requested_output, estimated_points, actual_points, estimated_cost_usd, actual_cost_usd, error, created_at, started_at, completed_at"
+      "id, project_id, content_output_id, creation_kind, source_entity_type, source_entity_id, workflow_version, provider, model, continuity_policy, status, compiled_prompt, reference_manifest, dropped_references, manifest_hash, requested_output, estimated_points, actual_points, estimated_cost_usd, actual_cost_usd, error, created_at, started_at, completed_at"
     )
     .eq("id", id)
     .maybeSingle();
@@ -52,6 +52,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .select("id, variant_index, object_url, review_status, metadata, created_at")
     .eq("generation_job_id", job.id)
     .order("variant_index");
+
+  const { data: contentOutput } = job.content_output_id
+    ? await supabase
+      .from("content_outputs")
+      .select("id, status, media_url, poster_url, duration_seconds")
+      .eq("id", job.content_output_id)
+      .maybeSingle()
+    : { data: null };
 
   const requestedOutput = (job.requested_output ?? {}) as Record<string, unknown>;
 
@@ -83,6 +91,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     actualCostUsd: job.actual_cost_usd === null ? undefined : Number(job.actual_cost_usd),
     error: job.error ?? undefined,
     outputs: outputs ?? [],
+    contentOutput,
     createdAt: job.created_at,
     startedAt: job.started_at,
     completedAt: job.completed_at,

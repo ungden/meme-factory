@@ -25,8 +25,9 @@ export default function VideoStudioPage() {
   const query = useSearchParams();
   const { project, loading: projectLoading } = useProject(projectRef);
   const { characters, loading: charactersLoading } = useCharacters(projectRef);
-  const { memes, loading: memesLoading } = useMemes(projectRef);
   const [mode, setMode] = useState<VideoMode>(query.get("image") ? "image" : "text");
+  const shouldLoadMedia = mode === "image" || Boolean(query.get("image"));
+  const { memes, loading: memesLoading } = useMemes(projectRef, shouldLoadMedia);
   const [prompt, setPrompt] = useState("");
   const [image, setImage] = useState(query.get("image") || "");
   const [lastImage, setLastImage] = useState("");
@@ -39,9 +40,15 @@ export default function VideoStudioPage() {
   const [output, setOutput] = useState<Output | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [draftId, setDraftId] = useState<string | null>(null);
-  const [draftVersion, setDraftVersion] = useState<number | null>(null);
-  const restoredDraft = useRef(false);
+  const [draftState, setDraftState] = useState<"loading" | "saved" | "saving" | "offline">("loading");
+  const [jobId, setJobId] = useState<string | null>(null);
+  const draftRef = useRef<{ id: string | null; version: number | null }>({ id: null, version: null });
+  const latestPayloadRef = useRef<Record<string, unknown>>({});
+  const lastSavedPayloadRef = useRef<string | null>(null);
+  const lastSavedOutputIdRef = useRef<string | null>(null);
+  const draftReadyRef = useRef(false);
+  const editedBeforeRestoreRef = useRef(false);
+  const saveInFlightRef = useRef(false);
 
   const candidateImages = useMemo(() => [
     ...memes.filter((m) => Boolean(m.image_url)).map((m) => ({ id: m.id, label: m.title || "Ảnh đã lưu", url: m.image_url! })),
@@ -51,48 +58,114 @@ export default function VideoStudioPage() {
     }),
   ], [characters, memes]);
 
+  const payload = useMemo(() => ({ mode, prompt, image, lastImage, references, duration, resolution, aspect, audio }), [mode, prompt, image, lastImage, references, duration, resolution, aspect, audio]);
+  const payloadKey = useMemo(() => JSON.stringify(payload), [payload]);
+  const hasDraftContent = prompt.trim().length > 0 || image.length > 0 || references.length > 0 || lastImage.length > 0;
+
+  const applyDraft = (draft: Record<string, unknown>) => {
+    setMode(draft.mode === "image" ? "image" : "text"); setPrompt(typeof draft.prompt === "string" ? draft.prompt : ""); setImage(typeof draft.image === "string" ? draft.image : ""); setLastImage(typeof draft.lastImage === "string" ? draft.lastImage : "");
+    setReferences(Array.isArray(draft.references) ? draft.references.filter((value): value is string => typeof value === "string") : []); setDuration(DURATIONS.includes(draft.duration as (typeof DURATIONS)[number]) ? draft.duration as (typeof DURATIONS)[number] : 5);
+    setResolution(RESOLUTIONS.includes(draft.resolution as (typeof RESOLUTIONS)[number]) ? draft.resolution as (typeof RESOLUTIONS)[number] : "720p"); setAspect(ASPECTS.includes(draft.aspect as (typeof ASPECTS)[number]) ? draft.aspect as (typeof ASPECTS)[number] : "9:16"); setAudio(draft.audio !== false);
+  };
+
+  const markEdited = () => { editedBeforeRestoreRef.current = true; };
+
   useEffect(() => {
     const stored = window.sessionStorage.getItem(`aida:video-draft:${projectRef}`);
-    if (!stored) return;
-    try {
-      const draft = JSON.parse(stored);
-      setMode(draft.mode === "image" ? "image" : "text"); setPrompt(draft.prompt || ""); setImage(draft.image || ""); setLastImage(draft.lastImage || "");
-      setReferences(Array.isArray(draft.references) ? draft.references : []); setDuration(DURATIONS.includes(draft.duration) ? draft.duration : 5);
-      setResolution(RESOLUTIONS.includes(draft.resolution) ? draft.resolution : "720p"); setAspect(ASPECTS.includes(draft.aspect) ? draft.aspect : "9:16"); setAudio(draft.audio !== false);
-    } catch { window.sessionStorage.removeItem(`aida:video-draft:${projectRef}`); }
+    if (stored) {
+      try { applyDraft(JSON.parse(stored) as Record<string, unknown>); } catch { window.sessionStorage.removeItem(`aida:video-draft:${projectRef}`); }
+    }
     let active = true;
     fetch(`/api/projects/${projectRef}/drafts?tool=video`).then(async (response) => response.ok ? response.json() : null).then((payload) => {
-      if (!active || !payload?.draft?.payload) return;
-      const draft = payload.draft.payload;
-      setDraftId(payload.draft.id); setDraftVersion(payload.draft.version);
-      setMode(draft.mode === "image" ? "image" : "text"); setPrompt(draft.prompt || ""); setImage(draft.image || ""); setLastImage(draft.lastImage || "");
-      setReferences(Array.isArray(draft.references) ? draft.references : []); setDuration(DURATIONS.includes(draft.duration) ? draft.duration : 5);
-      setResolution(RESOLUTIONS.includes(draft.resolution) ? draft.resolution : "720p"); setAspect(ASPECTS.includes(draft.aspect) ? draft.aspect : "9:16"); setAudio(draft.audio !== false); restoredDraft.current = true;
-    }).catch(() => undefined);
+      if (!active) return;
+      if (payload?.draft) {
+        const draft = payload.draft;
+        draftRef.current = { id: draft.id, version: draft.version };
+        if (payload.output) {
+          setOutput(payload.output);
+          lastSavedOutputIdRef.current = payload.output.id;
+          if (payload.output.generation_job_id && ["queued", "running"].includes(payload.output.status)) setJobId(payload.output.generation_job_id);
+        } else if (draft.content_output_id) {
+          setOutput({ id: draft.content_output_id });
+          lastSavedOutputIdRef.current = draft.content_output_id;
+        }
+        if (!editedBeforeRestoreRef.current && draft.payload) {
+          applyDraft(draft.payload);
+          lastSavedPayloadRef.current = JSON.stringify(draft.payload);
+        }
+      }
+    }).catch(() => { if (active) setDraftState("offline"); }).finally(() => {
+      if (active) { draftReadyRef.current = true; setDraftState((current) => current === "offline" ? current : "saved"); }
+    });
     return () => { active = false; };
   }, [projectRef]);
 
   useEffect(() => {
-    window.sessionStorage.setItem(`aida:video-draft:${projectRef}`, JSON.stringify({ mode, prompt, image, lastImage, references, duration, resolution, aspect, audio }));
+    latestPayloadRef.current = payload;
+    window.sessionStorage.setItem(`aida:video-draft:${projectRef}`, payloadKey);
     setQuote(null);
-  }, [projectRef, mode, prompt, image, lastImage, references, duration, resolution, aspect, audio]);
+  }, [projectRef, payload, payloadKey]);
 
   useEffect(() => {
-    const payload = { mode, prompt, image, lastImage, references, duration, resolution, aspect, audio };
-    const timer = window.setTimeout(async () => {
+    if (!draftReadyRef.current || !hasDraftContent || (payloadKey === lastSavedPayloadRef.current && output?.id === lastSavedOutputIdRef.current)) return;
+    const timer = window.setTimeout(() => {
+      if (saveInFlightRef.current) return;
+      const persist = async () => {
+        saveInFlightRef.current = true;
+        setDraftState("saving");
+        try {
+          while (hasDraftContent) {
+            const nextPayload = latestPayloadRef.current;
+            const nextKey = JSON.stringify(nextPayload);
+            if (nextKey === lastSavedPayloadRef.current) break;
+            const draft = draftRef.current;
+            const response = draft.id
+              ? await fetch(`/api/projects/${projectRef}/drafts/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expected_version: draft.version, payload: nextPayload, ...(output ? { content_output_id: output.id } : {}) }) })
+              : await fetch(`/api/projects/${projectRef}/drafts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tool: "video", payload: nextPayload, ...(output ? { content_output_id: output.id } : {}) }) });
+            const json = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(json.error || "Không thể lưu bản nháp.");
+            draftRef.current = { id: json.draft.id, version: json.draft.version };
+            lastSavedOutputIdRef.current = output?.id ?? null;
+            lastSavedPayloadRef.current = nextKey;
+          }
+          setDraftState("saved");
+        } catch { setDraftState("offline"); } finally { saveInFlightRef.current = false; }
+      };
+      void persist();
+    }, 750);
+    return () => window.clearTimeout(timer);
+  }, [projectRef, payloadKey, hasDraftContent, output]);
+
+  const outputId = output?.id;
+
+  useEffect(() => {
+    if (!jobId || !outputId) return;
+    let active = true;
+    let timer: number | undefined;
+    let attempts = 0;
+    const poll = async () => {
+      if (!active || document.visibilityState === "hidden" || !navigator.onLine) return;
       try {
-        if (!draftId) {
-          const response = await fetch(`/api/projects/${projectRef}/drafts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tool: "video", payload }) });
-          const json = await response.json(); if (response.ok) { setDraftId(json.draft.id); setDraftVersion(json.draft.version); }
+        const response = await fetch(`/api/continuity/jobs/${jobId}`, { cache: "no-store" });
+        const job = await response.json();
+        if (!response.ok) throw new Error(job.error || "Không đọc được tiến trình video.");
+        if (job.contentOutput) setOutput((current) => current ? { ...current, ...job.contentOutput } : job.contentOutput);
+        if (["completed", "failed", "cancelled"].includes(job.status)) {
+          setJobId(null);
           return;
         }
-        if (!draftVersion) return;
-        const response = await fetch(`/api/projects/${projectRef}/drafts/${draftId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expected_version: draftVersion, payload }) });
-        const json = await response.json(); if (response.ok) setDraftVersion(json.draft.version);
-      } catch { /* sessionStorage remains a local recovery copy */ }
-    }, restoredDraft.current ? 750 : 1200);
-    return () => window.clearTimeout(timer);
-  }, [projectRef, mode, prompt, image, lastImage, references, duration, resolution, aspect, audio, draftId, draftVersion]);
+        attempts += 1;
+      } catch {
+        attempts += 1;
+      }
+      timer = window.setTimeout(poll, attempts < 20 ? 3000 : 10000);
+    };
+    const onVisibility = () => { if (document.visibilityState === "visible") { window.clearTimeout(timer); void poll(); } };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("online", onVisibility);
+    void poll();
+    return () => { active = false; window.clearTimeout(timer); document.removeEventListener("visibilitychange", onVisibility); window.removeEventListener("online", onVisibility); };
+  }, [jobId, outputId]);
 
   const config = () => ({ mode, prompt: prompt.trim(), ...(image ? { image } : {}), ...(lastImage ? { last_image: lastImage } : {}), ...(references.length ? { reference_images: references } : {}), duration, resolution, aspect_ratio: aspect, generate_audio: audio });
 
@@ -125,29 +198,29 @@ export default function VideoStudioPage() {
       const response = await fetch(`/api/content-outputs/${output.id}/video`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...config(), request_id: requestId() }) });
       const json = await response.json(); if (!response.ok) throw new Error(json.error || "Không gửi được video.");
       setOutput((current) => current ? { ...current, status: "running" } : current);
+      setJobId(json.jobId || null);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Không gửi được video."); } finally { setBusy(false); }
   }
 
-  const loading = projectLoading || charactersLoading || memesLoading;
-  if (loading) return <div className="min-h-screen th-bg-primary" />;
-  if (!project) return <div className="min-h-screen th-bg-primary" />;
+  const loading = projectLoading || charactersLoading || (shouldLoadMedia && memesLoading);
+  if (!project && !projectLoading) return <div className="min-h-screen th-bg-primary" />;
 
-  return <div className="flex"><Sidebar projectId={projectRef} projectName={project.name} />
+  return <div className="flex"><Sidebar projectId={projectRef} projectName={project?.name} />
     <main className="ml-0 min-h-screen flex-1 p-4 pt-16 md:ml-64 md:p-8 lg:p-10">
       <div className="mx-auto max-w-7xl">
         <header className="mb-6 flex flex-wrap items-end justify-between gap-4"><div><p className="mb-2 text-xs font-semibold uppercase tracking-[.16em] text-blue-500">Seedance 2.5</p><h1 className="text-3xl font-semibold tracking-tight th-text-primary">Tạo video</h1><p className="mt-2 text-sm th-text-tertiary">Tạo trực tiếp từ mô tả hoặc ảnh trong dự án. Kịch bản chỉ là hỗ trợ, không phải bước bắt buộc.</p></div><Link className="rounded-xl border px-4 py-2 text-sm font-medium th-text-primary" href={`/projects/${projectRef}/gallery`}>Mở thư viện</Link></header>
         <div className="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(360px,1.08fr)]">
           <section className="rounded-2xl border p-5 md:p-6" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
             <div className="mb-6 grid grid-cols-2 rounded-xl p-1" style={{ background: "var(--bg-tertiary)" }}>
-              {([['text','Từ mô tả'],['image','Từ ảnh']] as const).map(([value,label]) => <button key={value} onClick={() => setMode(value)} className={`rounded-lg px-3 py-2.5 text-sm font-semibold ${mode === value ? "bg-blue-600 text-white shadow" : "th-text-muted"}`}>{label}</button>)}
+              {([['text','Từ mô tả'],['image','Từ ảnh']] as const).map(([value,label]) => <button key={value} onClick={() => { markEdited(); setMode(value); }} className={`rounded-lg px-3 py-2.5 text-sm font-semibold ${mode === value ? "bg-blue-600 text-white shadow" : "th-text-muted"}`}>{label}</button>)}
             </div>
-            <label className="block text-sm font-semibold th-text-primary">Mô tả video</label><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} className="mt-2 min-h-36 w-full rounded-xl border p-3 text-sm outline-none focus:border-blue-500 th-bg-primary th-text-primary" style={{ borderColor: "var(--border-primary)" }} placeholder="Mô tả nhân vật, hành động, bối cảnh, ánh sáng và chuyển động máy quay…" />
-            {mode === "image" ? <div className="mt-5"><p className="text-sm font-semibold th-text-primary">Ảnh đầu</p><p className="mt-1 text-xs th-text-tertiary">Tỷ lệ video sẽ theo ảnh đầu.</p><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">{candidateImages.slice(0, 9).map((item) => <button key={item.id} onClick={() => setImage(item.url)} className={`relative aspect-square overflow-hidden rounded-xl border ${image === item.url ? "border-blue-500 ring-2 ring-blue-500/30" : ""}`} style={{ borderColor: "var(--border-primary)" }}><Image src={item.url} alt={item.label} fill sizes="180px" className="object-cover" /><span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1.5 py-1 text-left text-[10px] text-white">{item.label}</span></button>)}</div>{candidateImages.length === 0 && <p className="mt-3 rounded-xl border border-dashed p-4 text-sm th-text-tertiary">Chưa có ảnh trong dự án. Tạo ảnh trước hoặc tải ảnh lên trong phiên bản tiếp theo.</p>}</div> : <div className="mt-5"><p className="text-sm font-semibold th-text-primary">Nhân vật tham chiếu <span className="font-normal th-text-tertiary">(tuỳ chọn)</span></p><div className="mt-3 flex flex-wrap gap-2">{characters.map((character) => { const url = character.avatar_url || character.poses?.[0]?.image_url; if (!url) return null; const active = references.includes(url); return <button key={character.id} onClick={() => setReferences(active ? references.filter((value) => value !== url) : [...references, url])} className={`flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-xs ${active ? "border-blue-500 bg-blue-50 text-blue-700" : "th-text-secondary"}`}><span className="relative h-7 w-7 overflow-hidden rounded-full"><Image src={url} alt="" fill sizes="28px" className="object-cover" /></span>{character.name}</button>; })}</div></div>}
-            <div className="mt-6 grid gap-5 sm:grid-cols-2"><div><p className="text-sm font-semibold th-text-primary">Thời lượng</p><div className="mt-2 flex gap-2">{DURATIONS.map((value) => <button key={value} onClick={() => setDuration(value)} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${duration === value ? "border-blue-500 bg-blue-50 text-blue-700" : "th-text-secondary"}`}>{value}s</button>)}</div></div><div><p className="text-sm font-semibold th-text-primary">Độ phân giải</p><div className="mt-2 flex gap-2">{RESOLUTIONS.map((value) => <button key={value} onClick={() => setResolution(value)} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${resolution === value ? "border-blue-500 bg-blue-50 text-blue-700" : "th-text-secondary"}`}>{value}</button>)}</div></div></div>
-            {mode === "text" && <div className="mt-5"><p className="text-sm font-semibold th-text-primary">Tỷ lệ</p><div className="mt-2 flex gap-2">{ASPECTS.map((value) => <button key={value} onClick={() => setAspect(value)} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${aspect === value ? "border-blue-500 bg-blue-50 text-blue-700" : "th-text-secondary"}`}>{value}</button>)}</div></div>}
-            <label className="mt-6 flex cursor-pointer items-center gap-3 text-sm th-text-primary"><input checked={audio} onChange={(event) => setAudio(event.target.checked)} type="checkbox" className="h-4 w-4 accent-blue-600" /><Volume2 size={16} /> Tạo âm thanh đồng bộ</label>
+            <label className="block text-sm font-semibold th-text-primary">Mô tả video</label><textarea value={prompt} onChange={(event) => { markEdited(); setPrompt(event.target.value); }} className="mt-2 min-h-36 w-full rounded-xl border p-3 text-sm outline-none focus:border-blue-500 th-bg-primary th-text-primary" style={{ borderColor: "var(--border-primary)" }} placeholder="Mô tả nhân vật, hành động, bối cảnh, ánh sáng và chuyển động máy quay…" />
+            {mode === "image" ? <div className="mt-5"><p className="text-sm font-semibold th-text-primary">Ảnh đầu</p><p className="mt-1 text-xs th-text-tertiary">Tỷ lệ video sẽ theo ảnh đầu.</p><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">{candidateImages.slice(0, 9).map((item) => <button key={item.id} onClick={() => { markEdited(); setImage(item.url); }} className={`relative aspect-square overflow-hidden rounded-xl border ${image === item.url ? "border-blue-500 ring-2 ring-blue-500/30" : ""}`} style={{ borderColor: "var(--border-primary)" }}><Image src={item.url} alt={item.label} fill sizes="180px" className="object-cover" /><span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1.5 py-1 text-left text-[10px] text-white">{item.label}</span></button>)}</div>{memesLoading ? <p className="mt-3 text-sm th-text-tertiary">Đang tải ảnh của dự án…</p> : candidateImages.length === 0 && <p className="mt-3 rounded-xl border border-dashed p-4 text-sm th-text-tertiary">Chưa có ảnh trong dự án. Tạo ảnh trước hoặc tải ảnh lên trong phiên bản tiếp theo.</p>}</div> : <div className="mt-5"><p className="text-sm font-semibold th-text-primary">Nhân vật tham chiếu <span className="font-normal th-text-tertiary">(tuỳ chọn)</span></p><div className="mt-3 flex flex-wrap gap-2">{characters.map((character) => { const url = character.avatar_url || character.poses?.[0]?.image_url; if (!url) return null; const active = references.includes(url); return <button key={character.id} onClick={() => { markEdited(); setReferences(active ? references.filter((value) => value !== url) : [...references, url]); }} className={`flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-xs ${active ? "border-blue-500 bg-blue-50 text-blue-700" : "th-text-secondary"}`}><span className="relative h-7 w-7 overflow-hidden rounded-full"><Image src={url} alt="" fill sizes="28px" className="object-cover" /></span>{character.name}</button>; })}</div></div>}
+            <div className="mt-6 grid gap-5 sm:grid-cols-2"><div><p className="text-sm font-semibold th-text-primary">Thời lượng</p><div className="mt-2 flex gap-2">{DURATIONS.map((value) => <button key={value} onClick={() => { markEdited(); setDuration(value); }} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${duration === value ? "border-blue-500 bg-blue-50 text-blue-700" : "th-text-secondary"}`}>{value}s</button>)}</div></div><div><p className="text-sm font-semibold th-text-primary">Độ phân giải</p><div className="mt-2 flex gap-2">{RESOLUTIONS.map((value) => <button key={value} onClick={() => { markEdited(); setResolution(value); }} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${resolution === value ? "border-blue-500 bg-blue-50 text-blue-700" : "th-text-secondary"}`}>{value}</button>)}</div></div></div>
+            {mode === "text" && <div className="mt-5"><p className="text-sm font-semibold th-text-primary">Tỷ lệ</p><div className="mt-2 flex gap-2">{ASPECTS.map((value) => <button key={value} onClick={() => { markEdited(); setAspect(value); }} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${aspect === value ? "border-blue-500 bg-blue-50 text-blue-700" : "th-text-secondary"}`}>{value}</button>)}</div></div>}
+            <label className="mt-6 flex cursor-pointer items-center gap-3 text-sm th-text-primary"><input checked={audio} onChange={(event) => { markEdited(); setAudio(event.target.checked); }} type="checkbox" className="h-4 w-4 accent-blue-600" /><Volume2 size={16} /> Tạo âm thanh đồng bộ</label>
             {error && <p role="alert" className="mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-            <div className="sticky bottom-3 mt-6 rounded-xl border p-3 backdrop-blur" style={{ background: "color-mix(in srgb, var(--bg-card) 92%, transparent)", borderColor: "var(--border-primary)" }}><button disabled={busy} onClick={quote ? generate : getQuote} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white disabled:opacity-60">{busy ? <LoaderCircle className="animate-spin" size={17} /> : <Clapperboard size={17} />}{quote ? `Tạo video · ${quote.customerPoints.toLocaleString("vi-VN")} điểm` : "Xem giá video"}</button><p className="mt-2 text-center text-xs th-text-tertiary">{quote ? `Giá đã khoá trong 5 phút · $${quote.providerCostUsd.toFixed(2)} provider` : "5 giây · 720p · có âm thanh là mặc định"}</p></div>
+            <div className="sticky bottom-3 mt-6 rounded-xl border p-3 backdrop-blur" style={{ background: "color-mix(in srgb, var(--bg-card) 92%, transparent)", borderColor: "var(--border-primary)" }}><button disabled={busy || loading} onClick={quote ? generate : getQuote} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white disabled:opacity-60">{busy ? <LoaderCircle className="animate-spin" size={17} /> : <Clapperboard size={17} />}{quote ? `Tạo video · ${quote.customerPoints.toLocaleString("vi-VN")} điểm` : "Xem giá video"}</button><p className="mt-2 text-center text-xs th-text-tertiary">{draftState === "saving" ? "Đang lưu bản nháp…" : draftState === "offline" ? "Chưa đồng bộ; vẫn giữ bản trên thiết bị này" : quote ? `Giá đã khoá trong 5 phút · $${quote.providerCostUsd.toFixed(2)} provider` : "5 giây · 720p · có âm thanh là mặc định"}</p></div>
           </section>
           <aside className="rounded-2xl border p-5 md:p-6" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}><div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-[.14em] text-blue-500">Kết quả</p><h2 className="mt-1 text-lg font-semibold th-text-primary">Video của dự án</h2></div><RefreshCw size={18} className="th-text-muted" /></div>{output?.media_url ? <video controls playsInline className="mt-5 aspect-video w-full rounded-xl bg-black" poster={output.poster_url || undefined} src={`/api/content-outputs/${output.id}/media`} /> : <div className="mt-5 flex aspect-[9/11] flex-col items-center justify-center rounded-2xl border border-dashed p-8 text-center" style={{ borderColor: "var(--border-primary)", background: "var(--bg-tertiary)" }}><span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white"><Play size={20} /></span><strong className="th-text-primary">Kết quả sẽ xuất hiện ở đây</strong><p className="mt-2 max-w-xs text-sm th-text-tertiary">Bạn có thể rời trang. Trạng thái job và video hoàn tất được giữ trong thư viện.</p></div>}<Link href={`/projects/${projectRef}/gallery`} className="mt-5 flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold th-text-primary"><ImagePlus size={16} /> Xem nội dung đã lưu</Link></aside>
         </div>

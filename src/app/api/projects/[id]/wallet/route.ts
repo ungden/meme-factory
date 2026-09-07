@@ -25,9 +25,9 @@ async function resolveProject(request: NextRequest, projectRef: string) {
   return { user, project, supabase };
 }
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const resolved = await resolveProject(_req, id);
+  const resolved = await resolveProject(request, id);
   if ("error" in resolved) return resolved.error;
 
   const { project, supabase } = resolved;
@@ -38,12 +38,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .eq("project_id", project.id)
     .maybeSingle();
 
-  const { data: transactions } = await supabase
-    .from("project_transactions")
-    .select("*")
-    .eq("project_id", project.id)
-    .order("created_at", { ascending: false })
-    .limit(30);
+  const includeTransactions = request.nextUrl.searchParams.get("include") === "transactions";
+  const { data: transactions } = includeTransactions
+    ? await supabase
+      .from("project_transactions")
+      .select("*")
+      .eq("project_id", project.id)
+      .order("created_at", { ascending: false })
+      .limit(30)
+    : { data: [] };
 
   return NextResponse.json({
     project_id: project.id,

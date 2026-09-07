@@ -18,7 +18,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!project) return NextResponse.json({ error: "Không tìm thấy dự án." }, { status: 404 });
   const { data, error } = await supabase.from("workspace_drafts").select("*").eq("project_id", project.id).eq("tool", tool).eq("created_by", user.id).eq("workspace_version", project.workspace_version).order("updated_at", { ascending: false }).limit(1).maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ draft: data ?? null, workspaceVersion: project.workspace_version });
+  const { data: output } = data?.content_output_id
+    ? await supabase
+      .from("content_outputs")
+      .select("id, generation_job_id, status, media_url, poster_url, duration_seconds")
+      .eq("id", data.content_output_id)
+      .maybeSingle()
+    : { data: null };
+  return NextResponse.json({ draft: data ?? null, output: output ?? null, workspaceVersion: project.workspace_version });
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

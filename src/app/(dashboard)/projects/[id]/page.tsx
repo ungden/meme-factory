@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import {
   ArrowRight,
   Images,
@@ -12,7 +12,7 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
-import { useProject, useCharacters, useMemes } from "@/lib/use-store";
+import { useProject } from "@/lib/use-store";
 import Sidebar from "@/components/layout/sidebar";
 
 export default function ProjectOverviewPage() {
@@ -20,33 +20,22 @@ export default function ProjectOverviewPage() {
   const projectId = params.id as string;
   const router = useRouter();
   const { project, loading: projectLoading } = useProject(projectId);
-  const { characters, loading: charactersLoading } = useCharacters(projectId);
-  const { memes, loading: memesLoading } = useMemes(projectId);
-  const loading = projectLoading || charactersLoading || memesLoading;
-  const [resetPreview, setResetPreview] = useState<{ projects: { project: { id: string }; counts: Record<string, number>; objectCount: number; totalBytes: number; activeJobCount: number }[] } | null>(null);
-  const [resetting, setResetting] = useState(false);
-  const [resetMessage, setResetMessage] = useState("");
+  const [overview, setOverview] = useState<{ characterCount: number; outputCount: number; weeklyOutputCount: number; characters: { id: string; name: string; avatar_url: string | null; poses: { id: string; image_url: string }[] }[]; recentOutputs: { id: string; title: string | null; original_idea: string; generated_content: { headline?: string }; image_url: string | null }[]; activeJobs: { id: string; status: string }[] } | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(true);
 
   useEffect(() => {
-    let active = true;
-    fetch("/api/projects/reset").then(async (response) => response.ok ? response.json() : null).then((data) => { if (active) setResetPreview(data); }).catch(() => undefined);
-    return () => { active = false; };
-  }, []);
+    const controller = new AbortController();
+    fetch(`/api/projects/${projectId}/overview`, { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((data) => { if (!controller.signal.aborted) setOverview(data); })
+      .catch(() => { if (!controller.signal.aborted) setOverview(null); })
+      .finally(() => { if (!controller.signal.aborted) setOverviewLoading(false); });
+    return () => controller.abort();
+  }, [projectId]);
 
-  const resetSummary = resetPreview?.projects.find((item) => item.project.id === project?.id);
-  const runReset = async () => {
-    if (!resetSummary || resetting) return;
-    setResetting(true); setResetMessage("");
-    try {
-      const emptyWorkspace = characters.length === 0 && memes.length === 0;
-      const response = await fetch(emptyWorkspace ? "/api/projects/orphan-media" : "/api/projects/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: emptyWorkspace ? undefined : JSON.stringify({ confirm: "RESET_OWNED_WORKSPACE", project_ids: [project?.id] }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Không thể reset workspace.");
-      setResetMessage(emptyWorkspace ? `Đã xoá ${data.deleted ?? 0} file media còn sót.` : "Đã sao lưu 30 ngày và làm trống nội dung cũ. Tải lại trang để bắt đầu tạo nhân vật 3D mới.");
-      window.setTimeout(() => window.location.reload(), 900);
-    } catch (error) { setResetMessage(error instanceof Error ? error.message : "Không thể reset workspace."); }
-    finally { setResetting(false); }
-  };
+  const characters = overview?.characters ?? [];
+  const recentOutputs = overview?.recentOutputs ?? [];
+  const loading = projectLoading || overviewLoading;
 
   if (loading) {
     return (
@@ -63,14 +52,10 @@ export default function ProjectOverviewPage() {
     return <div className="flex min-h-screen items-center justify-center" style={{ background: "var(--bg-primary)" }}><p className="th-text-tertiary">Không tìm thấy dự án</p></div>;
   }
 
-  const recentOutputs = memes.slice(0, 4);
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const weeklyOutputs = memes.filter((meme) => new Date(meme.created_at) > sevenDaysAgo).length;
   const stats = [
-    { label: "Tài nguyên nhân vật", value: characters.length, icon: Users },
-    { label: "Đầu ra đã lưu", value: memes.length, icon: Images },
-    { label: "Tạo trong 7 ngày", value: weeklyOutputs, icon: TrendingUp },
+    { label: "Tài nguyên nhân vật", value: overview?.characterCount ?? 0, icon: Users },
+    { label: "Đầu ra đã lưu", value: overview?.outputCount ?? 0, icon: Images },
+    { label: "Tạo trong 7 ngày", value: overview?.weeklyOutputCount ?? 0, icon: TrendingUp },
   ];
 
   return (
@@ -102,8 +87,6 @@ export default function ProjectOverviewPage() {
               </div>
             ))}
           </section>
-
-          {resetSummary && <section className="mb-8 rounded-2xl border p-5" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}><div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><div><h2 className="text-base font-semibold th-text-primary">Làm lại nội dung dự án</h2><p className="mt-1 text-sm th-text-tertiary">Sao lưu riêng trong 30 ngày rồi xoá nhân vật, ảnh, video, mẫu và bản nháp cũ. Thương hiệu, thành viên, điểm và giao dịch được giữ lại.</p><p className="mt-2 text-xs th-text-muted">Kiểm kê: {Object.values(resetSummary.counts).reduce((total, value) => total + value, 0)} bản ghi · {resetSummary.objectCount} file · {(resetSummary.totalBytes / 1024 / 1024).toFixed(1)} MB</p>{resetMessage && <p className="mt-2 text-sm text-blue-600">{resetMessage}</p>}</div><button disabled={resetting || resetSummary.activeJobCount > 0} onClick={runReset} className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 disabled:opacity-50">{resetting ? "Đang dọn media…" : characters.length === 0 && memes.length === 0 ? "Xoá media còn sót" : "Sao lưu & làm trống nội dung"}</button></div>{resetSummary.activeJobCount > 0 && <p className="mt-3 text-sm text-amber-700">Có {resetSummary.activeJobCount} job đang chạy. Hoàn tất job trước khi reset.</p>}</section>}
 
           <div className="grid gap-7 xl:grid-cols-[.8fr_1.2fr]">
             <section>

@@ -9,6 +9,7 @@ import { trackEvent } from "@/lib/analytics";
 import Sidebar from "@/components/layout/sidebar";
 import Card, { CardContent } from "@/components/ui/card";
 import Button from "@/components/ui/button";
+import { invalidateClientCache } from "@/lib/client-fetch";
 
 interface ProjectWalletTransaction {
   id: string;
@@ -34,7 +35,7 @@ export default function ProjectWalletPage() {
     if (!projectId) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/wallet`);
+      const res = await fetch(`/api/projects/${projectId}/wallet?include=transactions`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return;
       setProjectPoints(Number(data.points || 0));
@@ -66,6 +67,7 @@ export default function ProjectWalletPage() {
         });
         void fetchWallet();
         void refreshBalance();
+        invalidateClientCache(`/api/projects/${projectId}/wallet`);
       }
     } finally {
       setBusy(false);

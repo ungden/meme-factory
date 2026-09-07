@@ -32,6 +32,8 @@ function isSupabaseReady(): boolean {
 
 export const IS_MOCK_MODE = !isSupabaseReady();
 
+const projectIdCache = new Map<string, { value: string | null; expiresAt: number; pending?: Promise<string | null> }>();
+
 type CharWithPoses = Character & { poses: CharacterPose[] };
 
 // ============================================
@@ -60,6 +62,27 @@ function buildProjectSlug(name: string, id: string): string {
 
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+async function resolveProjectIdCached(projectRef: string): Promise<string | null> {
+  const cached = projectIdCache.get(projectRef);
+  if (cached?.expiresAt && cached.expiresAt > Date.now()) return cached.value;
+  if (cached?.pending) return cached.pending;
+  const pending = (async () => {
+    const supabase = createClient();
+    const query = supabase.from("projects").select("id").limit(1);
+    const { data } = isUuid(projectRef)
+      ? await query.eq("id", projectRef).maybeSingle()
+      : await query.eq("slug", projectRef).maybeSingle();
+    const value = data?.id ?? null;
+    projectIdCache.set(projectRef, { value, expiresAt: Date.now() + 60_000 });
+    return value;
+  })().catch((error) => {
+    projectIdCache.delete(projectRef);
+    throw error;
+  });
+  projectIdCache.set(projectRef, { value: null, expiresAt: 0, pending });
+  return pending;
 }
 
 // ============================================
@@ -203,20 +226,17 @@ export function useCharacters(projectRef: string) {
       setLoading(false);
       return;
     }
-    const supabase = createClient();
-    const projectQuery = supabase.from("projects").select("id").limit(1);
-    const { data: project } = isUuid(projectRef)
-      ? await projectQuery.eq("id", projectRef).maybeSingle()
-      : await projectQuery.eq("slug", projectRef).maybeSingle();
-    if (!project) {
+    const projectId = await resolveProjectIdCached(projectRef);
+    if (!projectId) {
       setCharacters([]);
       setLoading(false);
       return;
     }
+    const supabase = createClient();
     const { data, error } = await supabase
       .from("characters")
       .select("*, character_poses(*)")
-      .eq("project_id", project.id)
+      .eq("project_id", projectId)
       .order("created_at");
     if (error) console.error("Failed to load characters:", error.message);
     const result = (data || []).map((c: Record<string, unknown>) => ({
@@ -247,12 +267,9 @@ export function useCharacters(projectRef: string) {
       return newChar;
     }
     const supabase = createClient();
-    const projectQuery = supabase.from("projects").select("id").limit(1);
-    const { data: project } = isUuid(projectRef)
-      ? await projectQuery.eq("id", projectRef).maybeSingle()
-      : await projectQuery.eq("slug", projectRef).maybeSingle();
-    if (!project) return null;
-    const { data, error } = await supabase.from("characters").insert({ project_id: project.id, ...input }).select().single();
+    const projectId = await resolveProjectIdCached(projectRef);
+    if (!projectId) return null;
+    const { data, error } = await supabase.from("characters").insert({ project_id: projectId, ...input }).select().single();
     if (error) console.error("Failed to create character:", error.message);
     await load();
     return data ? { ...data, poses: [] } as CharWithPoses : null;
@@ -378,11 +395,16 @@ export function useCharacters(projectRef: string) {
 // ============================================
 // MEMES
 // ============================================
-export function useMemes(projectRef: string) {
+export function useMemes(projectRef: string, enabled = true) {
   const [memes, setMemes] = useState<Meme[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    if (!enabled) {
+      setMemes([]);
+      setLoading(false);
+      return;
+    }
     if (IS_MOCK_MODE) {
       const project = mockProjects.find((p) => p.id === projectRef || p.slug === projectRef);
       if (!project) {
@@ -394,25 +416,22 @@ export function useMemes(projectRef: string) {
       setLoading(false);
       return;
     }
-    const supabase = createClient();
-    const projectQuery = supabase.from("projects").select("id").limit(1);
-    const { data: project } = isUuid(projectRef)
-      ? await projectQuery.eq("id", projectRef).maybeSingle()
-      : await projectQuery.eq("slug", projectRef).maybeSingle();
-    if (!project) {
+    const projectId = await resolveProjectIdCached(projectRef);
+    if (!projectId) {
       setMemes([]);
       setLoading(false);
       return;
     }
+    const supabase = createClient();
     const { data, error } = await supabase
       .from("memes")
       .select("*")
-      .eq("project_id", project.id)
+      .eq("project_id", projectId)
       .order("created_at", { ascending: false });
     if (error) console.error("Failed to load memes:", error.message);
     setMemes(data || []);
     setLoading(false);
-  }, [projectRef]);
+  }, [projectRef, enabled]);
 
   useDeferredTask(load);
 
@@ -454,16 +473,12 @@ export function useMemes(projectRef: string) {
       await load();
       return newMeme;
     }
-    const supabase = createClient();
-    const projectQuery = supabase.from("projects").select("id").limit(1);
-    const { data: project } = isUuid(projectRef)
-      ? await projectQuery.eq("id", projectRef).maybeSingle()
-      : await projectQuery.eq("slug", projectRef).maybeSingle();
-    if (!project) throw new Error("Project not found");
+    const projectId = await resolveProjectIdCached(projectRef);
+    if (!projectId) throw new Error("Project not found");
     const res = await fetch("/api/meme/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ project_id: project.id, ...input }),
+      body: JSON.stringify({ project_id: projectId, ...input }),
     });
     const data = await res.json();
     if (!res.ok || !data?.meme) {

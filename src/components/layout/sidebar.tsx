@@ -25,6 +25,7 @@ import { useTheme } from "@/components/theme-provider";
 import { IS_MOCK_MODE } from "@/lib/use-store";
 import { useWallet } from "@/contexts/WalletContext";
 import { Coins, Shield } from "lucide-react";
+import { clearClientCache, fetchJsonCached } from "@/lib/client-fetch";
 
 interface SidebarProps {
   projectId?: string;
@@ -72,17 +73,14 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         return;
       }
       try {
-        const res = await fetch(`/api/projects/${projectId}/wallet`);
-        const data = await res.json().catch(() => ({}));
-        if (res.ok) {
-          setProjectPoints(Number(data.points || 0));
-        }
+        const data = await fetchJsonCached<{ points?: number }>(`/api/projects/${projectId}/wallet`, 15_000);
+        setProjectPoints(Number(data.points || 0));
       } catch {
         // ignore
       }
     };
     fetchProjectPoints();
-  }, [projectId, pathname]);
+  }, [projectId]);
 
   // Close sidebar on escape key
   useEffect(() => {
@@ -111,6 +109,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
       if (!IS_MOCK_MODE) {
         const supabase = createClient();
         await supabase.auth.signOut();
+        clearClientCache();
       }
     } catch {
       // Ignore and force navigation to login
