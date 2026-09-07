@@ -914,6 +914,10 @@ export default function GeneratePage() {
 
   const handleSave = async () => {
     if (!variations[selectedVariation]) return;
+    if (imageOutputId) {
+      toast.success("Ảnh này đã có trong thư viện.");
+      return;
+    }
     setSaving(true);
 
     if (!aiImageBase64) {
@@ -1664,9 +1668,9 @@ export default function GeneratePage() {
                   size="lg"
                   onClick={handleSave}
                   loading={saving}
-                  disabled={!aiImageBase64}
+                  disabled={!aiImageBase64 || Boolean(imageOutputId)}
                 >
-                  <Save size={18} /> Lưu vào thư viện
+                  <Save size={18} /> {imageOutputId ? "Đã lưu vào thư viện" : "Lưu vào thư viện"}
                 </Button>
                 <Button variant="outline" className="w-full" onClick={() => setStep(2)}>
                   Quay lại chọn phiên bản
