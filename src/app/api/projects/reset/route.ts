@@ -6,7 +6,7 @@ import { getRequestUser } from "@/lib/supabase/request-auth";
 const BUCKETS = ["character-poses", "memes", "base-images", "meme-templates", "content-media"] as const;
 type StoredObject = { bucket: (typeof BUCKETS)[number]; path: string; bytes: number };
 
-async function listPrefix(bucket: (typeof BUCKETS)[number], prefix: string): Promise<StoredObject[]> {
+export async function listPrefix(bucket: (typeof BUCKETS)[number], prefix: string): Promise<StoredObject[]> {
   const admin = getSupabaseAdmin();
   const out: StoredObject[] = [];
   const walk = async (path: string) => {
@@ -21,7 +21,7 @@ async function listPrefix(bucket: (typeof BUCKETS)[number], prefix: string): Pro
   return out;
 }
 
-async function projectInventory(project: { id: string; slug: string | null; name: string }) {
+export async function projectInventory(project: { id: string; slug: string | null; name: string }) {
   const admin = getSupabaseAdmin();
   const [characters, poses, baseImages, assets, versions, references, memes, collections, contentSets, outputs, jobs, drafts] = await Promise.all([
     admin.from("characters").select("*").eq("project_id", project.id),
