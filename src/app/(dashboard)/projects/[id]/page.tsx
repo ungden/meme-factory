@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowRight,
   Images,
+  Clapperboard,
   Sparkles,
   TrendingUp,
   Users,
@@ -58,15 +59,13 @@ export default function ProjectOverviewPage() {
               <h1 className="text-3xl font-semibold tracking-tight th-text-primary">{project.name}</h1>
               {project.description && <p className="mt-2 max-w-2xl th-text-tertiary">{project.description}</p>}
             </div>
-            <button onClick={() => router.push(`/projects/${projectId}/generate`)} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500">
-              <Sparkles size={17} /> Tạo nội dung
-            </button>
+            <div className="flex gap-2"><button onClick={() => router.push(`/projects/${projectId}/generate`)} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500"><Sparkles size={17} /> Tạo ảnh</button><button onClick={() => router.push(`/projects/${projectId}/video`)} className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border px-5 text-sm font-semibold th-text-primary" style={{ borderColor: "var(--border-primary)" }}><Clapperboard size={17} /> Tạo video</button></div>
           </header>
 
           <section className="mb-8">
             <div className="rounded-2xl border p-6 md:flex md:items-center md:justify-between" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
-              <div><h2 className="text-lg font-semibold th-text-primary">Bắt đầu một bộ nội dung</h2><p className="mt-1 max-w-2xl text-sm th-text-tertiary">Viết ý tưởng, chọn ảnh mới hoặc ảnh có sẵn, sau đó duyệt và tải từng đầu ra trong cùng một luồng.</p></div>
-              <button onClick={() => router.push(`/projects/${projectId}/generate`)} className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white md:mt-0"><Sparkles size={16} /> Tạo nội dung</button>
+              <div><h2 className="text-lg font-semibold th-text-primary">Bắt đầu tạo nội dung</h2><p className="mt-1 max-w-2xl text-sm th-text-tertiary">Tạo ảnh hoặc video trực tiếp. Cả hai tool dùng cùng nhân vật và thương hiệu của dự án.</p></div>
+              <div className="mt-4 flex gap-2 md:mt-0"><button onClick={() => router.push(`/projects/${projectId}/generate`)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white"><Sparkles size={16} /> Tạo ảnh</button><button onClick={() => router.push(`/projects/${projectId}/video`)} className="inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-sm font-semibold th-text-primary" style={{ borderColor: "var(--border-primary)" }}><Clapperboard size={16} /> Tạo video</button></div>
             </div>
           </section>
 

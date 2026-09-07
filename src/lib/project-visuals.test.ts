@@ -3,14 +3,14 @@ import { getProjectCover, getProjectRouteRef } from "./project-visuals";
 
 describe("project visuals", () => {
   it.each([
-    ["360 Độ Đẹp", "Về mỹ phẩm, làm đẹp", "/media-studio/project-beauty.webp"],
-    ["Sớm Thức Dậy Ở Một Nơi Xa", "Phượt, du lịch", "/media-studio/project-travel.webp"],
-    ["Tôi là người Sài Gòn", "Sài Gòn", "/media-studio/project-saigon.webp"],
-    ["Cậu Vàng Finance", "Chứng khoán, đầu tư", "/media-studio/project-bull-bear.png"],
-    ["Dev Memes", "Lập trình", "/media-studio/project-dev-memes.png"],
-    ["Ưng Đen", "Blog cá nhân", "/media-studio/project-creator-ungden.webp"],
-  ])("maps %s to a relevant cover", (name, description, expected) => {
-    expect(getProjectCover(name, description)).toBe(expected);
+    ["360 Độ Đẹp", "Về mỹ phẩm, làm đẹp"],
+    ["Sớm Thức Dậy Ở Một Nơi Xa", "Phượt, du lịch"],
+    ["Tôi là người Sài Gòn", "Sài Gòn"],
+    ["Cậu Vàng Finance", "Chứng khoán, đầu tư"],
+    ["Dev Memes", "Lập trình"],
+    ["Ưng Đen", "Blog cá nhân"],
+  ])("does not fabricate a cover from %s", (name, description) => {
+    expect(getProjectCover(name, description)).toBeNull();
   });
 
   it("uses an id when a legacy project has no slug", () => {

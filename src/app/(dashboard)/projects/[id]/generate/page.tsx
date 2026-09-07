@@ -1417,7 +1417,7 @@ export default function GeneratePage() {
                           <Button variant="outline" size="sm" onClick={handleAiGenerate}>
                             <RotateCcw size={14} /> Tạo lại ({POINT_COSTS.meme} pts)
                           </Button>
-                          <Button variant="outline" size="sm" onClick={() => { setVideoScript(variations[selectedVariation]?.caption || idea); setVideoQuote(null); setShowVideoModal(true); }} disabled={!imageOutputId || format !== "9:16"} title={format !== "9:16" ? "Hãy tạo ảnh đầu 9:16 trước" : undefined}>
+                          <Button variant="outline" size="sm" onClick={() => router.push(`/projects/${projectId}/video?image=${encodeURIComponent(imageSourceUrl || "")}`)} disabled={!imageSourceUrl} title={!imageSourceUrl ? "Tạo ảnh trước khi dùng ảnh làm khung hình đầu" : undefined}>
                             <Clapperboard size={14} /> Dùng ảnh này tạo video
                           </Button>
                           <span className="text-xs th-text-muted">Ví dự án: {projectPoints} pts</span>

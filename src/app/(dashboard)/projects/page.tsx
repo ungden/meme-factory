@@ -127,8 +127,8 @@ export default function ProjectsPage() {
                   style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
                 >
                   <button onClick={() => router.push(`/projects/${projectRef}${searchParams.toString() ? `/generate?${searchParams}` : ""}`)} className="block w-full text-left" aria-label={`Mở dự án ${project.name}`}>
-                    <div className="relative aspect-[16/8.6] overflow-hidden" style={{ background: "var(--bg-tertiary)" }}>
-                      <Image src={cover} alt={`Ảnh bìa dự án ${project.name}`} fill priority={index === 0} sizes="(max-width: 1280px) 50vw, 33vw" className="object-cover transition duration-500 group-hover:scale-[1.03]" />
+                    <div className="relative aspect-[16/8.6] overflow-hidden" style={{ background: "linear-gradient(135deg, var(--bg-tertiary), color-mix(in srgb, var(--accent-primary) 16%, var(--bg-tertiary)))" }}>
+                      {cover ? <Image src={cover} alt={`Ảnh bìa dự án ${project.name}`} fill priority={index === 0} sizes="(max-width: 1280px) 50vw, 33vw" className="object-cover transition duration-500 group-hover:scale-[1.03]" /> : <div className="absolute inset-0 flex items-center justify-center"><span className="rounded-2xl border px-4 py-3 text-center text-sm font-semibold th-text-secondary" style={{ borderColor: "var(--border-primary)", background: "color-mix(in srgb, var(--bg-card) 82%, transparent)" }}>Thiết lập nhân vật<br /><small className="font-normal th-text-tertiary">để bắt đầu dự án</small></span></div>}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
                       <div className="absolute bottom-3 left-3 flex gap-2">
                         <span className="rounded-full border border-white/25 bg-black/45 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-md">FANPAGE</span>
