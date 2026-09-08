@@ -15,9 +15,13 @@ import {
   ffmpeg,
   readFile,
   writeFile,
-  createReadStream,
   dimensions,
 } from "./media.mjs";
+import {
+  ensureDiskSpace,
+  uploadMedia,
+  VIDEO_MAX_BYTES,
+} from "./storage.mjs";
 const API = "https://api.wavespeed.ai/api/v3";
 class LostLease extends Error {}
 export function makeFilmWorker(db) {
@@ -53,15 +57,23 @@ export function makeFilmWorker(db) {
     return data.signedUrl;
   }
   async function upload(t, file, name, mime) {
-    const storagePath = `${t.project_id}/films/${t.id}/${t.lease_owner}/${name}`;
-    const { error } = await db.storage
-      .from("content-media")
-      .upload(storagePath, createReadStream(file), {
-        contentType: mime,
-        upsert: false,
-      });
-    if (error) throw error;
-    return storagePath;
+    const previous = t.checkpoint.uploads?.[name];
+    const saved = await uploadMedia({
+      db,
+      prefix: `${t.project_id}/films/${t.id}`,
+      file,
+      name,
+      mime,
+      previous,
+      onCheckpoint: async (state) => {
+        await checkpoint(t, {
+          checkpoint: {
+            uploads: { ...(t.checkpoint.uploads || {}), [name]: state },
+          },
+        });
+      },
+    });
+    return saved.storagePath;
   }
   async function getResult(t) {
     const r = await fetch(
@@ -230,6 +242,10 @@ export function makeFilmWorker(db) {
     return result;
   }
   async function render(t, dir) {
+    await ensureDiskSpace(
+      path.join(dir, "final.mp4"),
+      VIDEO_MAX_BYTES * 2 + 128 * 1024 * 1024,
+    );
     const clips = [],
       allSegments = [],
       editManifest = [];
@@ -241,7 +257,11 @@ export function makeFilmWorker(db) {
         throw new Error("Clip chưa được duyệt hoặc qua kiểm tra tự động.");
       const original = path.join(dir, `source-${n}.mp4`),
         normalized = path.join(dir, `clip-${n}.mp4`);
-      await download(await sign(clip.result.path, t.project_id), original);
+      await download(
+        await sign(clip.result.path, t.project_id),
+        original,
+        VIDEO_MAX_BYTES,
+      );
       const transcript = spec.transcriptTaskId
         ? await source(spec.transcriptTaskId, t.project_id)
         : null;
@@ -423,7 +443,11 @@ export function makeFilmWorker(db) {
           const clip = await source(t.input.videoTaskId, t.project_id);
           const file = path.join(dir, "clip.mp4"),
             frame = path.join(dir, "frame.png");
-          await download(await sign(clip.result.path, t.project_id), file);
+          await download(
+            await sign(clip.result.path, t.project_id),
+            file,
+            VIDEO_MAX_BYTES,
+          );
           await ffmpeg([
             "-sseof",
             "-0.12",
@@ -487,7 +511,11 @@ export function makeFilmWorker(db) {
             if (!url) throw new Error("Provider chưa trả URL kết quả.");
             const audio = t.kind === "tts",
               file = path.join(dir, audio ? "audio.wav" : "video.mp4");
-            await download(url, file);
+            await download(
+              url,
+              file,
+              audio ? 100 * 1024 * 1024 : VIDEO_MAX_BYTES,
+            );
             const inspection = await probe(file);
             if (audio) {
               if (!inspection.audio) throw new Error("TTS thiếu audio.");

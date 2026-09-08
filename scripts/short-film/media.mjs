@@ -7,6 +7,7 @@ import { isIP } from "node:net";
 import { request as httpsRequest } from "node:https";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { ensureDiskSpace } from "./storage.mjs";
 const exec = promisify(execFile);
 export async function ffmpeg(args) {
   return exec(
@@ -143,11 +144,10 @@ export async function safeFetch(url, limit = 100 * 1024 * 1024) {
   }
   throw new Error("Media chuyển hướng quá nhiều.");
 }
-export async function download(url, file, limit = 100 * 1024 * 1024) {
-  const r = await safeFetch(url, limit);
+export async function writeBodyWithLimit(body, file, limit) {
   let bytes = 0;
   await pipeline(
-    Readable.fromWeb(r.body),
+    Readable.fromWeb(body),
     new Transform({
       transform(chunk, encoding, cb) {
         bytes += chunk.length;
@@ -159,6 +159,17 @@ export async function download(url, file, limit = 100 * 1024 * 1024) {
     }),
     createWriteStream(file),
   );
+  return bytes;
+}
+export async function download(url, file, limit = 100 * 1024 * 1024) {
+  const r = await safeFetch(url, limit);
+  const declared = Number(r.headers.get("content-length"));
+  await ensureDiskSpace(
+    file,
+    (Number.isFinite(declared) && declared > 0 ? declared : limit) +
+      64 * 1024 * 1024,
+  );
+  await writeBodyWithLimit(r.body, file, limit);
   return (
     r.headers.get("content-type")?.split(";")[0] || "application/octet-stream"
   );

@@ -1,10 +1,13 @@
 import { makeFilmWorker } from "./short-film/worker.mjs";
+import { download as downloadMedia } from "./short-film/media.mjs";
+import {
+  ensureDiskSpace,
+  uploadMedia,
+  VIDEO_MAX_BYTES,
+} from "./short-film/storage.mjs";
 /* Durable Railway worker: polls provider jobs and renders completed multi-scene plans. */
 import { createClient } from "@supabase/supabase-js";
-import { createWriteStream, createReadStream } from "node:fs";
-import { unlink, stat, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { pipeline } from "node:stream/promises";
-import { Readable } from "node:stream";
+import { unlink, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { tmpdir } from "node:os";
@@ -22,7 +25,6 @@ const supabase = directMode
     })
   : null;
 const execFileAsync = promisify(execFile);
-const MAX_BYTES = 100 * 1024 * 1024;
 const LEASE_SECONDS = 90;
 const sleep = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -81,14 +83,33 @@ async function probeVideo(filePath) {
   };
 }
 async function streamUrlToFile(sourceUrl, filePath) {
-  const response = await fetch(sourceUrl);
-  if (!response.ok) throw new Error(`Không tải được MP4 (${response.status}).`);
-  if (Number(response.headers.get("content-length") || 0) > MAX_BYTES)
-    throw new Error("MP4 vượt giới hạn 100MB.");
-  if (!response.body) throw new Error("MP4 không có dữ liệu.");
-  await pipeline(Readable.fromWeb(response.body), createWriteStream(filePath));
-  if ((await stat(filePath)).size > MAX_BYTES)
-    throw new Error("MP4 vượt giới hạn 100MB.");
+  await downloadMedia(sourceUrl, filePath, VIDEO_MAX_BYTES);
+}
+async function saveUploadCheckpoint(job, name, state) {
+  const checkpoint = {
+    ...(job.checkpoint || {}),
+    uploads: { ...(job.checkpoint?.uploads || {}), [name]: state },
+  };
+  const { data, error } = await supabase
+    .from("generation_jobs")
+    .update({ checkpoint })
+    .eq("id", job.id)
+    .eq("lease_owner", job.lease_owner)
+    .eq("status", "running")
+    .select("id");
+  if (error || !data?.length) throw new Error("Worker đã mất lease upload.");
+  job.checkpoint = checkpoint;
+}
+async function persistMedia(job, file, name, mime) {
+  return uploadMedia({
+    db: supabase,
+    prefix: `${job.project_id}/${job.id}`,
+    file,
+    name,
+    mime,
+    previous: job.checkpoint?.uploads?.[name],
+    onCheckpoint: (state) => saveUploadCheckpoint(job, name, state),
+  });
 }
 async function downloadAndPersist(sourceUrl, job) {
   const filePath = `/tmp/${job.id}.mp4`;
@@ -105,16 +126,9 @@ async function downloadAndPersist(sourceUrl, job) {
       throw new Error(
         "Video được yêu cầu có âm thanh nhưng file trả về không có audio.",
       );
-    const storagePath = `${job.project_id}/${job.id}.mp4`;
-    const { error } = await supabase.storage
-      .from("content-media")
-      .upload(storagePath, createReadStream(filePath), {
-        contentType: "video/mp4",
-        upsert: true,
-      });
-    if (error) throw new Error(error.message);
+    const saved = await persistMedia(job, filePath, "video.mp4", "video/mp4");
     return {
-      storagePath,
+      storagePath: saved.storagePath,
       duration: Math.round(inspection.duration),
       hasAudio: inspection.hasAudio,
     };
@@ -272,6 +286,10 @@ async function renderPlan(job) {
     path.join(tmpdir(), `aida-render-${job.id}-`),
   );
   try {
+    await ensureDiskSpace(
+      path.join(directory, "final.mp4"),
+      VIDEO_MAX_BYTES * 2 + 128 * 1024 * 1024,
+    );
     const requested = job.requested_output ?? {};
     const sceneIds = Array.isArray(requested.sceneIds)
       ? requested.sceneIds
@@ -349,7 +367,7 @@ async function renderPlan(job) {
       : plan.projects;
     if (brand?.watermark_url) {
       const watermark = path.join(directory, "watermark");
-      await streamUrlToFile(brand.watermark_url, watermark);
+      await downloadMedia(brand.watermark_url, watermark, 10 * 1024 * 1024);
       const opacity = Math.min(
         1,
         Math.max(0.05, Number(brand.watermark_opacity ?? 0.8)),
@@ -400,14 +418,8 @@ async function renderPlan(job) {
       inspection.duration <= 0
     )
       throw new Error("Bản dựng MP4 không hợp lệ.");
-    const storagePath = `${job.project_id}/${job.id}.mp4`;
-    const { error: uploadError } = await supabase.storage
-      .from("content-media")
-      .upload(storagePath, createReadStream(finalPath), {
-        contentType: "video/mp4",
-        upsert: true,
-      });
-    if (uploadError) throw new Error(uploadError.message);
+    const saved = await persistMedia(job, finalPath, "final.mp4", "video/mp4");
+    const storagePath = saved.storagePath;
     if (lease.lost()) return false;
     const { error: outputError } = await supabase
       .from("content_outputs")

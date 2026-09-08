@@ -71,6 +71,10 @@ describe("generated image upload recovery", () => {
       }),
       storage: {
         from: () => ({
+          info: async () =>
+            uploads >= 2
+              ? { data: { size: Buffer.byteLength("generated-image") }, error: null }
+              : { data: null, error: new Error("missing") },
           upload: async (_path, stream) => {
             const chunks = [];
             for await (const chunk of stream) chunks.push(chunk);
