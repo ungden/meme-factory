@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { access, savePlan, fail } from "@/lib/short-film/server";
+import { fixedVoiceEnabled } from "@/lib/short-film/features";
 export async function GET(
   r: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -52,7 +53,7 @@ export async function GET(
       })),
       accountId: a.user.id,
       workspaceVersion: a.project.workspace_version,
-      fixedVoiceEnabled: process.env.SHORT_FILM_FIXED_VOICE_ENABLED === "true",
+      fixedVoiceEnabled: fixedVoiceEnabled(a.project.id),
     });
   } catch (e) {
     return fail(e);

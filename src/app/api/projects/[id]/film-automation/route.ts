@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { access, fail, FilmError } from "@/lib/short-film/server";
+import { fixedVoiceEnabled } from "@/lib/short-film/features";
 
 export async function GET(
   request: NextRequest,
@@ -58,7 +59,7 @@ export async function PUT(
         throw new FilmError("Hàng đợi có kịch bản không thuộc dự án.");
     }
     if (body.enabled) {
-      if (process.env.SHORT_FILM_FIXED_VOICE_ENABLED !== "true")
+      if (!fixedVoiceEnabled(a.project.id))
         throw new FilmError(
           "Nhánh giọng cố định chưa qua canary nên chưa thể bật lịch.",
           409,

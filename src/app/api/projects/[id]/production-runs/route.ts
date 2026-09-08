@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { access, fail, FilmError, readPlan } from "@/lib/short-film/server";
+import { fixedVoiceEnabled } from "@/lib/short-film/features";
 
 export async function GET(
   request: NextRequest,
@@ -42,7 +43,7 @@ export async function POST(
       throw new FilmError("Nhập trần điểm mỗi phim và mỗi ngày hợp lệ.");
     let plan = null;
     if (body.planId) plan = await readPlan(a, String(body.planId));
-    if (process.env.SHORT_FILM_FIXED_VOICE_ENABLED !== "true")
+    if (!fixedVoiceEnabled(a.project.id))
       throw new FilmError(
         "Nhánh giọng cố định chưa qua canary nên chưa thể tạo phim một nút.",
         409,

@@ -24,6 +24,7 @@ import {
   type QuotedTask,
   type FilmKind,
 } from "./contracts";
+import { fixedVoiceEnabled } from "./features";
 export const hash = (v: unknown) =>
   crypto.createHash("sha256").update(JSON.stringify(v)).digest("hex");
 export class FilmError extends Error {
@@ -542,10 +543,7 @@ export async function quotePlan(
       );
     }
   } else if (stage === "video") {
-    if (
-      plan.audio_mode === "fixed" &&
-      process.env.SHORT_FILM_FIXED_VOICE_ENABLED !== "true"
-    )
+    if (plan.audio_mode === "fixed" && !fixedVoiceEnabled(a.project.id))
       throw new FilmError(
         "Giọng cố định đang kiểm chứng. Bạn vẫn có thể chuẩn bị ảnh và nghe thử giọng.",
         409,
