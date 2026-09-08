@@ -140,6 +140,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           aliases: [`/projects/${projectId}/studio`, `/projects/${projectId}/editor`, `/projects/${projectId}/ai-meme`],
         },
         { href: `/projects/${projectId}/video`, label: "Tạo video", icon: Clapperboard },
+        { href: `/projects/${projectId}/video/multiscene`, label: "Tạo phim ngắn", icon: Clapperboard },
       ]
     : [];
 
