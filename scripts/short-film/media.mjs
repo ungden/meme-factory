@@ -278,12 +278,24 @@ export function captionSegments(segments) {
   }
   return out;
 }
-export async function normalizeClip(source, target, format, resolution) {
+export async function normalizeClip(source, target, format, resolution, range) {
   const [w, h] = dimensions(format, resolution);
   const p = await probe(source);
+  const start = range?.inSeconds ?? 0,
+    end = range?.outSeconds ?? p.duration;
+  if (
+    !Number.isFinite(start) ||
+    !Number.isFinite(end) ||
+    start < 0 ||
+    end <= start ||
+    end > p.duration + 0.05
+  )
+    throw new Error("INVALID_EDIT_RANGE");
   const args = ["-i", source];
   if (!p.audio) args.push("-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo");
   args.push(
+    "-ss",
+    String(start),
     "-map",
     "0:v:0",
     "-map",
@@ -303,7 +315,7 @@ export async function normalizeClip(source, target, format, resolution) {
     "-ac",
     "2",
     "-t",
-    String(p.duration),
+    String(end - start),
     "-movflags",
     "+faststart",
     target,

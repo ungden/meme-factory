@@ -8,7 +8,9 @@ export async function GET(
     const a = await access(r, (await params).id);
     const { data, error } = await a.admin
       .from("video_plans")
-      .select("*,video_plan_scenes(*)")
+      .select(
+        "*,video_plan_scenes(*),short_film_script_reviews(version,reviewed_at)",
+      )
       .eq("project_id", a.project.id)
       .eq("workspace_version", a.project.workspace_version)
       .order("updated_at", { ascending: false })
@@ -24,10 +26,23 @@ export async function GET(
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    const { data: channel } = await a.admin
+      .from("channel_profiles")
+      .select("profile")
+      .eq("project_id", a.project.id)
+      .eq("workspace_version", a.project.workspace_version)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
     return NextResponse.json({
+      channelProfile: channel?.profile || null,
       latestAssist: assist,
       plans: data?.map((p) => ({
         ...p,
+        script_review:
+          p.short_film_script_reviews?.find(
+            (r: { version: number }) => r.version === p.version,
+          ) || null,
         video_plan_scenes: p.video_plan_scenes
           .filter((s: { deleted_at: string | null }) => !s.deleted_at)
           .sort(

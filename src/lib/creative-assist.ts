@@ -1,3 +1,9 @@
+import {
+  validateStory,
+  STORY_SCHEMA,
+  type ChannelProfile,
+  type Story,
+} from "./family-catalogue";
 import { GoogleGenAI } from "@google/genai";
 import { getGeminiApiKey } from "@/lib/server-secrets";
 
@@ -28,6 +34,8 @@ export type CreativeCharacter = {
 
 export type CreativeContext = {
   projectName: string;
+  channelProfile?: ChannelProfile;
+  recentStories?: Story[];
   brandVoice?: string | null;
   audience?: string | null;
   guidelines?: string | null;
@@ -76,6 +84,8 @@ export type CreativeAssistResult =
       kind: "video_plan";
       title: string;
       summary: string;
+      caption?: string;
+      story?: Story;
       scenes: PlannedScene[];
     }
   | { kind: "scene_revision"; scenes: PlannedScene[]; summary: string };
@@ -85,7 +95,7 @@ export type CreativeAssistInput = {
   intent?: string;
   context: CreativeContext;
   selectedCharacterIds?: string[];
-  targetDurationSeconds?: 15 | 30 | 60;
+  targetDurationSeconds?: 15 | 30 | 35 | 40 | 60;
   imageMode?: "text" | "image";
   sourceImageDescription?: string;
   currentScenes?: PlannedScene[];
@@ -240,13 +250,16 @@ export function validateCreativeAssist(
       scenes.length < 3 ||
       scenes.length > 12 ||
       !targetDurationSeconds ||
-      Math.abs(sum - targetDurationSeconds) > 5
+      (context.channelProfile
+        ? sum > Math.max(targetDurationSeconds * 1.6, 48)
+        : Math.abs(sum - targetDurationSeconds) > 5)
     )
       throw new Error("CREATIVE_ASSIST_PLAN_INVALID");
     return {
       kind,
       title: text(result.title, 160) || "Video nhiều cảnh",
       summary: text(result.summary, 1000),
+      caption: text(result.caption, 1200),
       scenes,
     };
   }
@@ -258,7 +271,7 @@ function contextText(context: CreativeContext, selectedIds: string[]) {
   const selected = selectedIds.length
     ? context.characters.filter((item) => selectedIds.includes(item.id))
     : context.characters;
-  return `DỰ ÁN: ${context.projectName}\nGIỌNG VIẾT: ${context.brandVoice || "tự nhiên, rõ ràng"}\nĐỘC GIẢ: ${context.audience || "khán giả fanpage Việt Nam"}\nHƯỚNG DẪN: ${context.guidelines || ""}\nNHÂN VẬT ĐƯỢC PHÉP DÙNG (chỉ dùng ID trong danh sách):\n${selected.map((character) => `- ${character.name} | ID ${character.id} | ${character.description || "nhân vật 3D đã duyệt"}; ${character.personality || ""}`).join("\n") || "Không có nhân vật được chọn."}\nNỘI DUNG GẦN ĐÂY CẦN TRÁNH LẶP: ${context.recentContent.join(" | ") || "chưa có"}`;
+  return `${context.channelProfile ? "HỒ SƠ KÊNH (giữ vai trò và tính cách, không tự đổi ảnh chuẩn): " + JSON.stringify(context.channelProfile) + "\n20 TẬP GẦN NHẤT (tránh lặp tổ hợp tình huống–cơ chế–kết quả và cùng người luôn thua): " + JSON.stringify(context.recentStories || []) + "\n" : ""}DỰ ÁN: ${context.projectName}\nGIỌNG VIẾT: ${context.brandVoice || "tự nhiên, rõ ràng"}\nĐỘC GIẢ: ${context.audience || "khán giả fanpage Việt Nam"}\nHƯỚNG DẪN: ${context.guidelines || ""}\nNHÂN VẬT ĐƯỢC PHÉP DÙNG (chỉ dùng ID trong danh sách):\n${selected.map((character) => `- ${character.name} | ID ${character.id} | ${character.description || "nhân vật 3D đã duyệt"}; ${character.personality || ""}`).join("\n") || "Không có nhân vật được chọn."}\nNỘI DUNG GẦN ĐÂY CẦN TRÁNH LẶP: ${context.recentContent.join(" | ") || "chưa có"}`;
 }
 
 function schemaFor(kind: CreativeAssistKind) {
@@ -290,18 +303,20 @@ function instruction(input: CreativeAssistInput) {
 async function generateJson(prompt: string) {
   const ai = new GoogleGenAI({ apiKey: await getGeminiApiKey() });
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: process.env.CREATIVE_TEXT_MODEL || "gemini-3-flash-preview",
     contents: [{ text: prompt }],
     config: {
       responseMimeType: "application/json",
       temperature: 0.5,
-      httpOptions: { timeout: 45000 },
+      httpOptions: { timeout: 35000 },
     },
   });
   return JSON.parse(response.text || "{}") as unknown;
 }
 
 export async function generateCreativeAssist(input: CreativeAssistInput) {
+  if (input.kind === "video_plan" && input.context.channelProfile)
+    return generateFamilyFilm(input);
   const prompt = `${instruction(input)}\n\nTrả về JSON ĐÚNG schema, không markdown:\n${schemaFor(input.kind)}`;
   let candidate: unknown;
   try {
@@ -323,4 +338,71 @@ export async function generateCreativeAssist(input: CreativeAssistInput) {
       input.targetDurationSeconds,
     );
   }
+}
+
+/** Two semantic passes, one repair budget across the whole request. Never starts media. */
+async function generateFamilyFilm(input: CreativeAssistInput) {
+  const profile = input.context.channelProfile!;
+  const allowed = input.selectedCharacterIds?.length
+    ? input.selectedCharacterIds
+    : input.context.characters.map((c) => c.id);
+  const context = {
+    ...input.context,
+    characters: input.context.characters.filter((c) => allowed.includes(c.id)),
+  };
+  let repairs = 0;
+  async function checked<T>(
+    prompt: string,
+    validate: (v: unknown) => T,
+  ): Promise<T> {
+    let candidate: unknown;
+    try {
+      candidate = await generateJson(prompt);
+      return validate(candidate);
+    } catch (e) {
+      if (repairs++ >= 1) throw e;
+      candidate = await generateJson(
+        `${prompt}\nSửa bản vừa trả, không thay đề tài: ${JSON.stringify(candidate)}\nLỗi: ${e instanceof Error ? e.message : e}`,
+      );
+      return validate(candidate);
+    }
+  }
+  const story = await checked(
+    `${contextText(context, allowed)}
+Viết CÂU CHUYỆN trước khi chia shot. Ý tưởng: ${input.intent || "Một chuyện nhỏ mới của gia đình"}.
+6–10 lượt thoại, tổng 60–90 từ tiếng Việt. Hook là yêu cầu/hành động ngay đầu, không giới thiệu lại gia đình. Hai hoặc ba nhịp thay đổi tình thế; cú chốt được chuẩn bị từ setup; phản ứng cuối cụ thể, không cả nhà cùng cười. Hai người có mong muốn khác nhau. Hài mà thương nhau; không giảng đạo. So sánh cả tình huống, cơ chế và kết quả với 20 tập trước; viết cách kể mới, không chỉ đổi từ đồng nghĩa. Vai trò người thắng/liên minh cần thay đổi.
+Trả JSON: ${STORY_SCHEMA}`,
+    (v) => validateStory(v, profile, allowed, context.recentStories),
+  );
+  const result = await checked(
+    `${instruction({ ...input, context })}
+CÂU CHUYỆN ĐÃ SOẠN: ${JSON.stringify(story)}
+Chuyển thành shot sản xuất, GIỮ NGUYÊN từng câu thoại và người nói theo đúng thứ tự. Mỗi lượt thoại là một shot chỉ có người nói trong characterIds; tối đa 12 shot kể cả phản ứng. Không thêm lời. Hook bắt đầu ngay, không thêm cảnh mở đầu im lặng dài. Cuối có phản ứng cụ thể. Prompt ảnh có vị trí, đạo cụ, hướng nhìn và bối cảnh nhất quán. Giữ trục đối thoại qua các shot, không đưa người nghe vào shot lip-sync.
+Phân biệt clip sinh và thời lượng dựng: durationSeconds là thời lượng clip NGUYÊN 4–30 giây, đủ câu ở tốc độ tối đa 2.6 từ/giây, không bắt tổng clip đúng thời lượng tập. Tổng clip <= ${Math.max((input.targetDurationSeconds || 35) * 1.6, 48)} giây; thành phẩm tính sau từ audio thật. Không bịa mốc transcript.
+JSON: ${schemaFor("video_plan")}`,
+    (v) => {
+      const r = validateCreativeAssist(
+        "video_plan",
+        v,
+        context,
+        input.targetDurationSeconds || 35,
+      );
+      if (r.kind !== "video_plan") throw new Error("FAMILY_PLAN_INVALID");
+      const spoken = r.scenes.filter((s) => s.dialogue);
+      if (
+        spoken.length !== story.dialogue.length ||
+        spoken.some(
+          (s, i) =>
+            s.dialogue !== story.dialogue[i].text ||
+            s.speakerCharacterId !== story.dialogue[i].characterId ||
+            s.characterIds.length !== 1,
+        )
+      )
+        throw new Error(
+          "FAMILY_DIALOGUE_CHANGED: giữ nguyên thoại, thứ tự, người nói; chỉ một người trong shot thoại",
+        );
+      return r;
+    },
+  );
+  return { ...result, story, caption: story.caption };
 }

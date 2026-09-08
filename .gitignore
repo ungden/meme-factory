@@ -47,3 +47,7 @@ supabase/.temp/
 
 # local dev server config for the Claude Code browser preview
 .claude/
+
+# Private project editorial drafts: store in authenticated database, not Git.
+/content/family-catalogue/pilot.json
+/docs/family-catalogue/pilot-scripts.md

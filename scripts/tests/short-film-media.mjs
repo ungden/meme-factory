@@ -44,6 +44,14 @@ try {
     "yuv420p",
     silent,
   ]);
+  const trimmed = path.join(dir, "trimmed.mp4");
+  await normalizeClip(source, trimmed, "9:16", "720p", {
+    inSeconds: 0.2,
+    outSeconds: 1,
+  });
+  const trimmedProbe = await probe(trimmed);
+  assert.ok(Math.abs(trimmedProbe.duration - 0.8) < 0.1);
+  assert.equal(trimmedProbe.audio, true);
   await normalizeClip(source, a, "9:16", "1080p");
   await normalizeClip(silent, b, "9:16", "1080p");
   const list = path.join(dir, "list.txt");

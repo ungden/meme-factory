@@ -104,21 +104,48 @@ export async function POST(
         .filter((value: unknown): value is string => typeof value === "string")
         .slice(0, 4)
     : [];
-  const [{ data: characters, error: charactersError }, { data: recentSets }] =
-    await Promise.all([
-      supabase
-        .from("characters")
-        .select(
-          "id, name, description, personality, avatar_url, character_poses(image_url)",
-        )
-        .eq("project_id", project.id),
-      supabase
-        .from("content_sets")
-        .select("title, brief, updated_at")
-        .eq("project_id", project.id)
-        .order("updated_at", { ascending: false })
-        .limit(20),
-    ]);
+  const [
+    { data: characters, error: charactersError },
+    { data: recentSets },
+    { data: channel, error: channelError },
+    { data: recentPlans, error: recentPlansError },
+  ] = await Promise.all([
+    supabase
+      .from("characters")
+      .select(
+        "id, name, description, personality, avatar_url, character_poses(image_url)",
+      )
+      .eq("project_id", project.id),
+    supabase
+      .from("content_sets")
+      .select("title, brief, updated_at")
+      .eq("project_id", project.id)
+      .order("updated_at", { ascending: false })
+      .limit(20),
+    supabase
+      .from("channel_profiles")
+      .select("profile")
+      .eq("project_id", project.id)
+      .eq("workspace_version", project.workspace_version)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("video_plans")
+      .select("id,title,brief,story")
+      .eq("project_id", project.id)
+      .eq("workspace_version", project.workspace_version)
+      .order("updated_at", { ascending: false })
+      .limit(20),
+  ]);
+  if (channelError || recentPlansError)
+    return NextResponse.json(
+      {
+        error:
+          "Không tải được hồ sơ kênh và lịch sử; chưa gửi AI. Hãy thử lại.",
+      },
+      { status: 503 },
+    );
   if (charactersError)
     return NextResponse.json(
       { error: charactersError.message },
@@ -146,8 +173,10 @@ export async function POST(
   const inputSnapshot = {
     kind: body.kind,
     intent: typeof body.intent === "string" ? body.intent.slice(0, 4000) : "",
+    channelProfileVersion: channel?.profile?.version ?? null,
+    recentPlanIds: (recentPlans || []).map((p) => p.id),
     selectedCharacterIds: selectedIds,
-    targetDurationSeconds: body.targetDurationSeconds,
+    targetDurationSeconds: body.targetDurationSeconds || (channel ? 35 : 30),
     imageMode: body.imageMode,
     sourceImageDescription:
       typeof body.sourceImageDescription === "string"
@@ -189,6 +218,10 @@ export async function POST(
         kind: body.kind,
         context: {
           projectName: project.name,
+          channelProfile: channel?.profile,
+          recentStories: (recentPlans || [])
+            .map((p) => p.story)
+            .filter(Boolean),
           brandVoice: project.brand_voice,
           audience: project.audience,
           guidelines: project.content_guidelines,
@@ -204,7 +237,10 @@ export async function POST(
           status: "completed",
           result,
           completed_at: new Date().toISOString(),
-          usage: { duration_ms: Date.now() - startedAt },
+          usage: {
+            duration_ms: Date.now() - startedAt,
+            profile_version: channel?.profile?.version ?? null,
+          },
         })
         .eq("id", job.id);
     } catch (error) {
@@ -217,7 +253,10 @@ export async function POST(
               error instanceof Error ? error.message : "CREATIVE_ASSIST_FAILED",
           },
           completed_at: new Date().toISOString(),
-          usage: { duration_ms: Date.now() - startedAt },
+          usage: {
+            duration_ms: Date.now() - startedAt,
+            profile_version: channel?.profile?.version ?? null,
+          },
         })
         .eq("id", job.id);
     }

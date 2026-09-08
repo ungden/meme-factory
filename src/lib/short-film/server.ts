@@ -59,7 +59,9 @@ export type Access = Awaited<ReturnType<typeof access>>;
 export async function readPlan(a: Access, id: string) {
   const { data, error } = await a.admin
     .from("video_plans")
-    .select("*,video_plan_scenes(*)")
+    .select(
+      "*,video_plan_scenes(*),short_film_script_reviews(version,reviewed_at)",
+    )
     .eq("id", id)
     .eq("project_id", a.project.id)
     .eq("workspace_version", a.project.workspace_version)
@@ -68,6 +70,10 @@ export async function readPlan(a: Access, id: string) {
     throw new FilmError("Không tìm thấy phim trong workspace hiện tại.", 404);
   return {
     ...data,
+    script_review:
+      data.short_film_script_reviews?.find(
+        (r: { version: number }) => r.version === data.version,
+      ) || null,
     video_plan_scenes: data.video_plan_scenes
       .filter((s: FilmScene) => !s.deleted_at)
       .sort((x: FilmScene, y: FilmScene) => x.scene_index - y.scene_index),
@@ -200,7 +206,9 @@ export async function savePlan(
     resolution: body.resolution === "1080p" ? "1080p" : "720p",
     audio_mode: body.audioMode === "native" ? "native" : "fixed",
     subtitles: body.subtitles !== false,
-    target_duration_seconds: [15, 30, 60].includes(
+    story: body.story === undefined ? old?.story : body.story,
+    trim_speech: body.trimSpeech === true,
+    target_duration_seconds: [15, 30, 35, 40, 60].includes(
       Number(body.targetDurationSeconds),
     )
       ? Number(body.targetDurationSeconds)
@@ -373,6 +381,19 @@ export async function quotePlan(
 ) {
   checkVersion(a, body, plan);
   const stage = String(body.stage || "prepare");
+  if (["prepare", "video"].includes(stage)) {
+    const { count, error } = await a.admin
+      .from("channel_profiles")
+      .select("version", { head: true, count: "exact" })
+      .eq("project_id", a.project.id)
+      .eq("workspace_version", a.project.workspace_version);
+    if (error) throw error;
+    if (count && !plan.script_review)
+      throw new FilmError(
+        "Duyệt bản kịch bản hiện tại trước khi chuẩn bị media. Bản sửa cần duyệt lại.",
+        409,
+      );
+  }
   const selected = Array.isArray(body.sceneIds)
     ? body.sceneIds
     : plan.video_plan_scenes.map((s) => s.id);
@@ -606,6 +627,7 @@ export async function quotePlan(
         transcriptTaskId: transcript?.id,
         sceneId: s.id,
         version: s.version,
+        trimSpeech: !!plan.trim_speech && !!s.dialogue,
       };
     });
     tasks.push(

@@ -1,3 +1,4 @@
+import type { Story } from "../family-catalogue";
 export const FILM_MODELS = {
   image: "gemini-3.1-flash-image",
   tts: "minimax/speech-2.6-hd",
@@ -73,6 +74,9 @@ export type FilmPlan = {
   subtitles: boolean;
   status: string;
   target_duration_seconds: number;
+  story?: Story | null;
+  script_review?: { version: number; reviewed_at: string } | null;
+  trim_speech?: boolean;
   cast_snapshot: FilmCast[];
   video_plan_scenes: FilmScene[];
 };

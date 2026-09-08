@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import type { ChannelProfile, Story } from "@/lib/family-catalogue";
 import { notifyProjectBalanceChanged } from "@/lib/client-fetch";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
@@ -40,6 +41,8 @@ type DraftScene = {
   followsPrevious: boolean;
 };
 type Draft = {
+  story?: Story | null;
+  trimSpeech?: boolean;
   title: string;
   brief: string;
   caption: string;
@@ -100,6 +103,8 @@ const fromPlan = (p: FilmPlan): Draft => ({
   title: p.title,
   brief: p.brief,
   caption: p.caption,
+  story: p.story,
+  trimSpeech: p.trim_speech,
   targetDurationSeconds: p.target_duration_seconds || 30,
   format: p.format,
   resolution: p.resolution,
@@ -138,6 +143,10 @@ export default function ShortFilmPage() {
   const base = `/api/projects/${ref}`;
   const [draft, setDraft] = useState<Draft>(blank);
   const [plan, setPlan] = useState<FilmPlan | null>(null);
+  const [conflict, setConflict] = useState<Draft | null>(null);
+  const [channel, setChannel] = useState<ChannelProfile | null>(null);
+  const [plans, setPlans] = useState<FilmPlan[]>([]);
+  const [ideas, setIdeas] = useState<{ title: string; idea: string }[]>([]);
   const [tasks, setTasks] = useState<FilmTask[]>([]);
   const [voiceTasks, setVoiceTasks] = useState<FilmTask[]>([]);
   const [voices, setVoices] = useState<
@@ -191,6 +200,7 @@ export default function ShortFilmPage() {
     const g = ++generation.current;
     edited.current = false;
     setReady(false);
+    setConflict(null);
     setTasks([]);
     setVoiceTasks([]);
     setVoices([]);
@@ -206,14 +216,33 @@ export default function ShortFilmPage() {
     api(`${base}/video-plans`)
       .then((j) => {
         if (g !== generation.current) return;
-        const p = j.plans?.[0] as FilmPlan | undefined;
+        setPlans(j.plans || []);
+        setChannel(j.channelProfile);
+        const savedId = (() => {
+          try {
+            return JSON.parse(
+              localStorage.getItem(
+                `aida:film:${j.accountId}:${ref}:${j.workspaceVersion}`,
+              ) || "{}",
+            ).planId;
+          } catch {
+            return undefined;
+          }
+        })();
+        const p = (
+          savedId === null
+            ? undefined
+            : j.plans?.find((p: FilmPlan) => p.id === savedId) || j.plans?.[0]
+        ) as FilmPlan | undefined;
         const key = `aida:film:${j.accountId}:${ref}:${j.workspaceVersion}`;
         setStorageKey(key);
         setWorkspace(j.workspaceVersion);
         setEnabled(j.fixedVoiceEnabled);
         if (j.latestAssist?.status !== "failed")
           setAssistId(j.latestAssist?.id || null);
-        let initial = p ? fromPlan(p) : blank();
+        let initial = p
+          ? fromPlan(p)
+          : { ...blank(), targetDurationSeconds: j.channelProfile ? 35 : 30 };
         const raw = localStorage.getItem(key);
         if (raw) {
           try {
@@ -225,13 +254,24 @@ export default function ShortFilmPage() {
               initial = saved.draft;
               setDirty(saved.dirty);
               setCast(saved.cast || []);
-            } else
+            } else {
+              if (saved.dirty && saved.draft) {
+                setConflict(saved.draft);
+                localStorage.setItem(`${key}:conflict`, raw);
+              }
               setNote(
                 "Có bản cục bộ cũ; bản trên server được mở để tránh ghi đè.",
               );
+            }
           } catch {
             /* Ignore invalid local data. */
           }
+        }
+        const preservedConflict = localStorage.getItem(`${key}:conflict`);
+        if (preservedConflict) {
+          try {
+            setConflict(JSON.parse(preservedConflict).draft);
+          } catch {}
         }
         if (!edited.current) {
           setDraft(initial);
@@ -348,12 +388,57 @@ export default function ShortFilmPage() {
       plan ? "PUT" : "POST",
     );
     setPlan(j.plan);
+    setPlans((ps) => [j.plan, ...ps.filter((p) => p.id !== j.plan.id)]);
     setDraft(fromPlan(j.plan));
     setDirty(false);
     edited.current = false;
     setQuote(null);
     setNote("Đã lưu. Kết quả cũ vẫn giữ trong lịch sử.");
     return j.plan as FilmPlan;
+  }
+  async function openEpisode(id: string) {
+    if (dirty && draft.scenes.length) await save();
+    else if (dirty)
+      throw new Error(
+        "Bản ý tưởng chưa thành kịch bản vẫn được giữ. Hãy soạn hoặc lưu ý tưởng trước khi đổi tập.",
+      );
+    generation.current++;
+    const next = id ? await api(`${base}/video-plans/${id}`) : null;
+    setPlan(next?.plan || null);
+    setDraft(
+      next ? fromPlan(next.plan) : { ...blank(), targetDurationSeconds: 35 },
+    );
+    setTasks(next?.tasks || []);
+    setCast(
+      next?.plan.cast_snapshot.map(
+        (c: { characterId: string }) => c.characterId,
+      ) || [],
+    );
+    setQuote(null);
+    setSelected(0);
+    setDirty(false);
+    edited.current = false;
+    setAssistId(null);
+  }
+  async function suggest() {
+    const g = generation.current;
+    const j = await api(`${base}/creative-assists`, {
+      kind: "idea_suggestions",
+      workspaceVersion: workspace,
+      selectedCharacterIds: cast,
+    });
+    for (let n = 0; n < 110; n++) {
+      if (g !== generation.current) return;
+      const r = await api(`${base}/creative-assists/${j.jobId}`);
+      if (r.job.status === "failed")
+        throw new Error("Chưa lấy được gợi ý. Ý tưởng hiện tại vẫn giữ.");
+      if (r.job.status === "completed") {
+        setIdeas(r.job.result.ideas);
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    throw new Error("Gợi ý vẫn đang xử lý. Hãy thử lại sau.");
   }
   async function readAssist(jobId: string) {
     const g = generation.current;
@@ -369,6 +454,7 @@ export default function ShortFilmPage() {
         change({
           title: j.job.result.title || draft.title,
           caption: j.job.result.caption || draft.caption,
+          story: j.job.result.story || null,
           scenes: j.job.result.scenes.map((s: DraftScene) => ({
             ...sceneBlank(),
             ...s,
@@ -387,7 +473,7 @@ export default function ShortFilmPage() {
   }
   async function write() {
     if (!draft.brief.trim())
-      throw new Error("Nhập một ý tưởng để AI viết phim.");
+      throw new Error("Chọn Gợi ý cho dự án hoặc nhập một ý tưởng.");
     const start = await api(`${base}/creative-assists`, {
       kind: "video_plan",
       intent: draft.brief,
@@ -509,6 +595,94 @@ export default function ShortFilmPage() {
               Kịch bản, nhân vật, giọng nói và thành phẩm trong cùng một nơi.
             </p>
           </header>
+          <div className="mb-4 flex min-w-0 flex-wrap items-center gap-2">
+            <label className="min-w-0 flex-1 text-sm th-text-secondary">
+              Kịch bản đã lưu · {plans.length}
+              <select
+                aria-label="Chọn kịch bản"
+                className={control}
+                value={plan?.id || ""}
+                disabled={!!busy || !ready}
+                onChange={(e) =>
+                  act("Mở kịch bản", () => openEpisode(e.target.value))
+                }
+              >
+                <option value="">Tập mới</option>
+                {plans.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title} · bản {p.version}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              className="min-h-11 rounded-lg border th-border px-3 text-sm th-text-primary"
+              disabled={!!busy || !ready}
+              onClick={() => act("Tập mới", () => openEpisode(""))}
+            >
+              + Tập mới
+            </button>
+          </div>
+          {channel && (
+            <details className="mb-3 text-sm th-text-secondary">
+              <summary className="cursor-pointer">
+                Hồ sơ kênh · bản {channel.version}
+              </summary>
+              <p className="mt-2">{channel.positioning}</p>
+              <p>{channel.tone}</p>
+              <ul className="mt-2 space-y-1">
+                {channel.roles.map((r) => (
+                  <li key={r.characterId}>
+                    <strong>{r.name}:</strong> {r.personality}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {draft.story && (
+            <details className="mb-4 rounded-xl border th-border p-4 th-bg-card th-text-primary">
+              <summary className="cursor-pointer font-semibold">
+                {draft.story.series} · Câu chuyện của tập
+              </summary>
+              <p className="mt-2 text-sm">{draft.story.situation}</p>
+              <p className="mt-1 text-sm th-text-secondary">
+                {draft.story.mechanism} · {draft.story.outcome}
+              </p>
+              <ol className="mt-3 grid gap-2 text-sm md:grid-cols-2">
+                {draft.story.beats.map((b, i) => (
+                  <li key={i}>
+                    <strong>{i + 1}.</strong> {b.description}
+                  </li>
+                ))}
+              </ol>
+              <details className="mt-3 text-sm">
+                <summary className="cursor-pointer">
+                  Đọc liền mạch lời thoại
+                </summary>
+                <ol className="mt-2 space-y-2">
+                  {draft.scenes
+                    .filter((s) => s.dialogue)
+                    .map((s, i) => (
+                      <li key={i}>
+                        <strong>
+                          {
+                            characters.find(
+                              (c) => c.id === s.speakerCharacterId,
+                            )?.name
+                          }
+                          :
+                        </strong>{" "}
+                        {s.dialogue}
+                      </li>
+                    ))}
+                </ol>
+              </details>
+              <p className="mt-3 text-xs th-text-secondary">
+                Bản chữ chờ duyệt. Khi sửa thoại, kiểm tra lại nhịp truyện; thời
+                lượng cuối tính từ audio thật.
+              </p>
+            </details>
+          )}
           <div className="mb-4 flex gap-2 lg:hidden">
             {(["settings", "results"] as const).map((v) => (
               <button
@@ -527,6 +701,22 @@ export default function ShortFilmPage() {
             >
               {error}
             </p>
+          )}
+          {conflict && (
+            <div className="mb-3 rounded-lg border th-border p-3 text-sm th-text-primary">
+              Có bản chưa đồng bộ được giữ riêng.
+              <button
+                disabled={!!busy}
+                className="ml-2 min-h-11 th-text-accent"
+                onClick={() => {
+                  change(conflict);
+                  setConflict(null);
+                  localStorage.removeItem(`${storageKey}:conflict`);
+                }}
+              >
+                Khôi phục để đối chiếu
+              </button>
+            </div>
           )}
           {note && (
             <p role="status" className="mb-4 text-sm th-text-secondary">
@@ -548,6 +738,25 @@ export default function ShortFilmPage() {
                     placeholder="Cả nhà cùng làm bánh, nhưng Đậu Đỏ giấu mất phần nhân…"
                   />
                 </label>
+                <button
+                  className="mt-2 min-h-11 text-sm th-text-accent"
+                  disabled={!!busy}
+                  onClick={() => act("Gợi ý", suggest)}
+                >
+                  Gợi ý cho dự án
+                </button>
+                {ideas.map((idea, i) => (
+                  <button
+                    key={i}
+                    className="my-1 block w-full rounded-lg border th-border p-2 text-left text-sm th-text-primary"
+                    onClick={() => {
+                      change({ brief: idea.idea });
+                      setIdeas([]);
+                    }}
+                  >
+                    {idea.title}
+                  </button>
+                ))}
                 <div className="my-3 flex flex-wrap gap-2">
                   {characters.map((c) => (
                     <button
@@ -578,11 +787,13 @@ export default function ShortFilmPage() {
                       change({ targetDurationSeconds: Number(e.target.value) })
                     }
                   >
-                    {[15, 30, 60].map((n) => (
-                      <option key={n} value={n}>
-                        {n} giây dự kiến
-                      </option>
-                    ))}
+                    {(channel ? [30, 35, 40, 60] : [15, 30, 35, 40, 60]).map(
+                      (n) => (
+                        <option key={n} value={n}>
+                          {n} giây dự kiến
+                        </option>
+                      ),
+                    )}
                   </select>
                   <button
                     disabled={!ready || !!busy}
@@ -603,6 +814,16 @@ export default function ShortFilmPage() {
                     Lấy lại bản AI gần nhất
                   </button>
                 )}
+                <label className="mt-3 flex items-start gap-2 text-sm th-text-secondary">
+                  <input
+                    type="checkbox"
+                    checked={!!draft.trimSpeech}
+                    onChange={(e) => change({ trimSpeech: e.target.checked })}
+                    className="mt-1"
+                  />
+                  Rút phần đệm trước/sau thoại theo transcript, giữ 0,2 giây
+                  trước và 0,5 giây sau. Cảnh phản ứng giữ nguyên.
+                </label>
                 <details className="mt-4 border-t pt-3">
                   <summary className="cursor-pointer text-sm font-semibold th-text-primary">
                     Giọng nhân vật và định dạng
@@ -963,6 +1184,44 @@ export default function ShortFilmPage() {
                     onChange={(e) => change({ caption: e.target.value })}
                   />
                 </label>
+                {channel && plan && (
+                  <div className="mt-4 text-sm th-text-secondary">
+                    <p>
+                      {!dirty && plan.script_review
+                        ? `Đã duyệt kịch bản bản ${plan.version}`
+                        : "Kịch bản hiện tại chưa được duyệt."}
+                    </p>
+                    <button
+                      disabled={
+                        !!busy ||
+                        !draft.scenes.length ||
+                        (!dirty && !!plan.script_review)
+                      }
+                      className="mt-2 min-h-11 rounded-lg border th-border px-3 th-text-accent"
+                      onClick={() =>
+                        act("Duyệt kịch bản", async () => {
+                          const p = dirty ? await save() : plan;
+                          const r = await api(
+                            `${base}/video-plans/${p.id}/review`,
+                            {
+                              workspaceVersion: workspace,
+                              expectedVersion: p.version,
+                            },
+                          );
+                          setPlan(r.plan);
+                          setPlans((ps) =>
+                            ps.map((x) => (x.id === p.id ? r.plan : x)),
+                          );
+                          setNote(
+                            "Đã lưu người duyệt và bản kịch bản. Chưa sinh media.",
+                          );
+                        })
+                      }
+                    >
+                      Tôi đã đọc và duyệt kịch bản
+                    </button>
+                  </div>
+                )}
                 <div
                   className="sticky bottom-3 mt-5 rounded-xl border th-border p-3 th-bg-card"
                   style={{

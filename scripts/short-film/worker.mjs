@@ -1,3 +1,4 @@
+import { speechRange, shiftTranscript } from "./edit-range.mjs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -230,7 +231,8 @@ export function makeFilmWorker(db) {
   }
   async function render(t, dir) {
     const clips = [],
-      allSegments = [];
+      allSegments = [],
+      editManifest = [];
     let offset = 0;
     for (let n = 0; n < t.input.clips.length; n++) {
       const spec = t.input.clips[n],
@@ -239,26 +241,40 @@ export function makeFilmWorker(db) {
       const original = path.join(dir, `source-${n}.mp4`),
         normalized = path.join(dir, `clip-${n}.mp4`);
       await download(await sign(clip.result.path, t.project_id), original);
+      const transcript = spec.transcriptTaskId
+        ? await source(spec.transcriptTaskId, t.project_id)
+        : null;
+      if (
+        transcript &&
+        (transcript.input.videoTaskId !== clip.id ||
+          transcript.result.speechError > 0.2)
+      )
+        throw new Error("Lời thoại hoặc nguồn transcript chưa đạt để dựng.");
+      const originalReport = await probe(original);
+      const range = speechRange(
+        originalReport.duration,
+        transcript?.result.segments,
+        spec.trimSpeech === true,
+      );
       const report = await normalizeClip(
         original,
         normalized,
         t.input.format,
         t.input.resolution,
+        range,
       );
       clips.push(normalized);
-      if (spec.transcriptTaskId) {
-        const transcript = await source(spec.transcriptTaskId, t.project_id);
-        if (transcript.result.speechError > 0.2)
-          throw new Error(
-            "Lời thoại khác kịch bản, cần sửa hoặc duyệt bản thoại mới.",
-          );
-        for (const segment of transcript.result.segments)
-          allSegments.push({
-            ...segment,
-            start: segment.start + offset,
-            end: Math.min(segment.end, report.duration) + offset,
-          });
-      }
+      if (transcript)
+        allSegments.push(
+          ...shiftTranscript(transcript.result.segments, range, offset),
+        );
+      editManifest.push({
+        ...spec,
+        ...range,
+        sourceDuration: originalReport.duration,
+        usedDuration: report.duration,
+        timelineStart: offset,
+      });
       offset += report.duration;
     }
     const list = path.join(dir, "clips.txt");
@@ -341,7 +357,7 @@ export function makeFilmWorker(db) {
       poster: await upload(t, poster, "poster.jpg", "image/jpeg"),
       srt: await upload(t, srt, "subtitles.srt", "application/x-subrip"),
       ...report,
-      manifest: t.input.clips,
+      manifest: editManifest,
       review: "pending_final_review",
     };
     await checkpoint(t, { checkpoint: { persisted: result } });
