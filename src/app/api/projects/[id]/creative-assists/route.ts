@@ -6,7 +6,7 @@ import {
 } from "@/lib/creative-assist";
 import { getRequestUser } from "@/lib/supabase/request-auth";
 
-export const maxDuration = 120;
+export const maxDuration = 180;
 
 const KINDS: CreativeAssistKind[] = [
   "idea_suggestions",

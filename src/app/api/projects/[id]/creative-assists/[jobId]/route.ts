@@ -9,14 +9,19 @@ export async function GET(
     const a = await access(request, p.id);
     const { data: job, error } = await a.admin
       .from("creative_assists")
-      .select("id,kind,status,result,error,created_at,completed_at")
+      .select(
+        "id,kind,status,result,error,created_at,completed_at,input_snapshot",
+      )
       .eq("id", p.jobId)
       .eq("project_id", a.project.id)
       .eq("created_by", a.user.id)
       .eq("workspace_version", a.project.workspace_version)
       .maybeSingle();
     if (error || !job) throw new FilmError("Không tìm thấy lượt soạn AI.", 404);
-    return NextResponse.json({ job });
+    const { input_snapshot, ...safeJob } = job;
+    return NextResponse.json({
+      job: { ...safeJob, intent: input_snapshot?.intent || "" },
+    });
   } catch (e) {
     return fail(e);
   }

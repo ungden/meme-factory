@@ -139,7 +139,9 @@ export function validateStory(
     s.beats.filter((b) => b.purpose === "turn").length < 2 ||
     s.beats.some((b) => !b.description?.trim())
   )
-    throw new Error("STORY_BEATS_INVALID");
+    throw new Error(
+      `STORY_BEATS_INVALID: cần hook, 2–3 turn, payoff, reaction; nhận ${JSON.stringify(s.beats?.map((b) => b.purpose))}`,
+    );
   if (
     !Array.isArray(s.dialogue) ||
     s.dialogue.length < 6 ||
@@ -163,4 +165,4 @@ export function validateStory(
   return { ...s, profileVersion: profile.version };
 }
 export const STORY_SCHEMA =
-  '{"series":"", "situation":"", "mechanism":"", "outcome":"", "wants":[{"characterId":"uuid","want":""}], "beats":[{"purpose":"hook|turn|payoff|reaction","description":""}], "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid","text":"","action":""}]}';
+  '{"series":"", "situation":"", "mechanism":"", "outcome":"", "wants":[{"characterId":"uuid","want":""}], "beats":{"hook":"","turns":["",""],"payoff":"","reaction":""}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid","text":"","action":""}]}';

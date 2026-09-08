@@ -438,7 +438,10 @@ export async function quotePlan(
           prompt: [
             s.image_prompt,
             `Bối cảnh ${s.setting}. Hành động ${s.action}. Máy quay ${s.camera}.`,
-            "Dựng đúng một khung ảnh điện ảnh 3D, không chữ, không lưới ảnh. Đủ cast được đính kèm; giữ nhận diện và trang phục.",
+            "Dựng đúng một khung ảnh điện ảnh 3D, không chữ, không lưới ảnh. Chỉ cast được đính kèm xuất hiện; giữ nhận diện và trang phục. Không thêm người khác.",
+            s.dialogue
+              ? "Chỉ một người nói trong khung, mặt rõ; người nghe ngoài khung. Khung đầu là trước hành động, không phải kết quả sau chuyển động."
+              : "",
           ].join("\n"),
           cast: s.cast_snapshot,
           format: plan.format,

@@ -1,0 +1,18 @@
+# Family catalogue implementation
+
+Editorial context is stored as project/workspace-scoped, immutable `channel_profiles` versions. The short-film screen shows the current profile, a plan picker, a compact story outline and continuous dialogue readout. Review receipts bind actor, time and a full snapshot to the exact plan version. Browser roles cannot insert reviews or modify channel profiles.
+
+The family planner uses enforced JSON schemas for story then shot passes, sharing one repair budget. Shot prompts are generated separately; the server compiles dialogue, speakers and the single-face camera constraint from the accepted story. It preserves approved story dialogue and speakers in the shot pass. Recent context contains the last twenty saved plans' situation, mechanism, outcome, desires and payoff, rather than sending every old line. Deterministic checks reject exact repeated combinations; semantic novelty and comic quality still need editorial review.
+
+The story's intended shot time is distinct from the provider clip length. Before quotation, short/fractional beats round up to the provider minimum, and spoken clips get enough estimated capacity for the line. Actual TTS timing determines the later video quote. A generated clip's duration is not forced to equal an episode's intended duration.
+
+The optional speech trim uses independently transcribed audio from the exact approved source clip. It preserves all timed speech, internal pauses, 0.2 seconds before speech and 0.5 seconds after it. Silent acting/reaction clips remain whole. Render receipts include actual input/output ranges, source duration and used duration. Planned dialogue timings are never used as evidence for cutting. Changing the trim option keeps scene hashes and only creates a new render/plan revision.
+
+Private editorial drafts and the local review document are excluded from Git and Vercel uploads. The importer requires an explicit project ID, local JSON path and matching workspace; stable IDs prevent duplicate plans. It preserves existing plans unless an explicit untouched-draft correction is requested. The production scripts remain pending human review, and this import invokes no media provider.
+
+Validation: planner/validator unit tests, Node edit-range tests, a rolled-back database transaction testing review/version/privileges, and a Docker FFmpeg smoke test with silent/audio clips, 1080p composition, a 720p trimmed clip and Vietnamese SRT. Real production AI and browser checks are recorded separately from media canaries. No human voice/script approvals are inferred from successful tests.
+
+
+A production-context Gemini canary completed on 2026-09-08: seven spoken turns, eight shots, about twenty seconds for the two passes, with no media generation. The result is retained in the private creative-assist store. Initial live attempts exposed raw-duration/JSON schema issues and were fixed; these failed attempts retain their error receipts. A subsequent browser connection interruption limited final UI replay. Earlier browser checks covered the catalogue, draft refresh, 390/768/1024/1280/1440 widths and theme switching; these are not a full film canary.
+
+Google's [thinking controls](https://ai.google.dev/gemini-api/docs/generate-content/thinking) inform the LOW setting for structured Gemini 3 text calls. The image/video providers are unchanged. Each structured call has a 45-second deadline and an output token cap, and the asynchronous text endpoint has sufficient time for the bounded repair. No prompt text or signed media URLs are written to analytics.

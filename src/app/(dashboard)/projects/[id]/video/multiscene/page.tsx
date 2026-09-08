@@ -453,6 +453,7 @@ export default function ShortFilmPage() {
         if (g !== generation.current) return;
         change({
           title: j.job.result.title || draft.title,
+          brief: j.job.intent || draft.brief,
           caption: j.job.result.caption || draft.caption,
           story: j.job.result.story || null,
           scenes: j.job.result.scenes.map((s: DraftScene) => ({
