@@ -250,11 +250,11 @@ export function validateCreativeAssist(
       scenes.length < 3 ||
       scenes.length > 12 ||
       !targetDurationSeconds ||
-      (context.channelProfile
-        ? sum > Math.max(targetDurationSeconds * 1.6, 48)
-        : Math.abs(sum - targetDurationSeconds) > 5)
+      (!context.channelProfile && Math.abs(sum - targetDurationSeconds) > 5)
     )
-      throw new Error("CREATIVE_ASSIST_PLAN_INVALID");
+      throw new Error(
+        `CREATIVE_ASSIST_PLAN_INVALID: shots=${scenes.length}, rawSeconds=${sum}, target=${targetDurationSeconds}`,
+      );
     return {
       kind,
       title: text(result.title, 160) || "Video nhiều cảnh",
@@ -375,10 +375,10 @@ Trả JSON: ${STORY_SCHEMA}`,
     (v) => validateStory(v, profile, allowed, context.recentStories),
   );
   const result = await checked(
-    `${instruction({ ...input, context })}
+    `${contextText(context, allowed)}
 CÂU CHUYỆN ĐÃ SOẠN: ${JSON.stringify(story)}
-Chuyển thành shot sản xuất, GIỮ NGUYÊN từng câu thoại và người nói theo đúng thứ tự. Mỗi lượt thoại là một shot chỉ có người nói trong characterIds; tối đa 12 shot kể cả phản ứng. Không thêm lời. Hook bắt đầu ngay, không thêm cảnh mở đầu im lặng dài. Cuối có phản ứng cụ thể. Prompt ảnh có vị trí, đạo cụ, hướng nhìn và bối cảnh nhất quán. Giữ trục đối thoại qua các shot, không đưa người nghe vào shot lip-sync.
-Phân biệt clip sinh và thời lượng dựng: durationSeconds là thời lượng clip NGUYÊN 4–30 giây, đủ câu ở tốc độ tối đa 2.6 từ/giây, không bắt tổng clip đúng thời lượng tập. Tổng clip <= ${Math.max((input.targetDurationSeconds || 35) * 1.6, 48)} giây; thành phẩm tính sau từ audio thật. Không bịa mốc transcript.
+Chuyển thành shot sản xuất, GIỮ NGUYÊN từng câu thoại và người nói theo đúng thứ tự. Mỗi lượt thoại là một shot chỉ có người nói trong characterIds. Cảnh đầu là lời đầu, không mở bằng cảnh im lặng. Chỉ thêm đúng một shot phản ứng không thoại cuối; 7–11 shot tất cả. Không thêm lời. Hook bắt đầu ngay, không thêm cảnh mở đầu im lặng dài. Cuối có phản ứng cụ thể. Prompt ảnh có vị trí, đạo cụ, hướng nhìn và bối cảnh nhất quán. Giữ trục đối thoại qua các shot, không đưa người nghe vào shot lip-sync.
+Phân biệt clip sinh và thời lượng dựng: durationSeconds là thời lượng clip NGUYÊN 4–30 giây, đủ câu ở tốc độ tối đa 2.6 từ/giây, không bắt tổng clip đúng thời lượng tập. Thời lượng phim ${input.targetDurationSeconds || 35} giây chỉ là dự kiến. KHÔNG ràng buộc tổng clip gốc vào thời lượng phim; thành phẩm tính sau từ audio thật. Không bịa mốc transcript.
 JSON: ${schemaFor("video_plan")}`,
     (v) => {
       const r = validateCreativeAssist(

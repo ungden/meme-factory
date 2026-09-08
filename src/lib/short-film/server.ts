@@ -1,5 +1,6 @@
 import "server-only";
 import crypto from "node:crypto";
+import { validateStory, type Story } from "../family-catalogue";
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/supabase/request-auth";
 import { getSupabaseAdmin } from "@/lib/admin";
@@ -196,6 +197,27 @@ export async function savePlan(
     void scene_index;
     return { ...row, input_hash: hash(visual) };
   });
+  let story = body.story === undefined ? old?.story : body.story;
+  if (story != null) {
+    if (JSON.stringify(story).length > 25000)
+      throw new FilmError("Câu chuyện quá dài.");
+    const { data: profile, error } = await a.admin
+      .from("channel_profiles")
+      .select("profile")
+      .eq("project_id", a.project.id)
+      .eq("workspace_version", a.project.workspace_version)
+      .eq("version", (story as Story).profileVersion)
+      .maybeSingle();
+    if (error || !profile)
+      throw new FilmError("Không tìm thấy phiên bản hồ sơ kênh.");
+    try {
+      story = validateStory(story, profile.profile, ids);
+    } catch (e) {
+      throw new FilmError(
+        e instanceof Error ? e.message : "Câu chuyện không hợp lệ.",
+      );
+    }
+  }
   const plan = {
     title: String(body.title || "Phim ngắn").slice(0, 160),
     brief: String(body.brief || "").slice(0, 4000),
@@ -206,7 +228,7 @@ export async function savePlan(
     resolution: body.resolution === "1080p" ? "1080p" : "720p",
     audio_mode: body.audioMode === "native" ? "native" : "fixed",
     subtitles: body.subtitles !== false,
-    story: body.story === undefined ? old?.story : body.story,
+    story,
     trim_speech: body.trimSpeech === true,
     target_duration_seconds: [15, 30, 35, 40, 60].includes(
       Number(body.targetDurationSeconds),

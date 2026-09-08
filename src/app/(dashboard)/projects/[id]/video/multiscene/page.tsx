@@ -678,8 +678,11 @@ export default function ShortFilmPage() {
                 </ol>
               </details>
               <p className="mt-3 text-xs th-text-secondary">
-                Bản chữ chờ duyệt. Khi sửa thoại, kiểm tra lại nhịp truyện; thời
-                lượng cuối tính từ audio thật.
+                {!dirty && plan?.script_review
+                  ? "Bản chữ đã duyệt."
+                  : "Bản chữ chờ duyệt."}{" "}
+                Khi sửa thoại, kiểm tra lại nhịp truyện; thời lượng cuối tính từ
+                audio thật.
               </p>
             </details>
           )}

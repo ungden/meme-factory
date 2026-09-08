@@ -68,3 +68,18 @@ it("allows only one repair across both passes and never drops bad shots", async 
   );
   expect(calls.prompts).toHaveLength(3);
 });
+
+it("does not confuse generated clip duration with edited film duration", async () => {
+  calls.responses = [
+    plans[0].story,
+    {
+      ...plans[0],
+      scenes: plans[0].scenes.map((s) => ({ ...s, durationSeconds: 9 })),
+    },
+  ];
+  const result = await generateCreativeAssist(input);
+  expect(
+    result.kind === "video_plan" &&
+      result.scenes.reduce((n, s) => n + s.durationSeconds, 0),
+  ).toBe(63);
+});
