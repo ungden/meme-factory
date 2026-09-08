@@ -8,6 +8,27 @@ export async function POST(request: NextRequest) {
   if (!token || request.headers.get("authorization") !== `Bearer ${token}`)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const admin = getSupabaseAdmin();
+  const body = await request.json().catch(() => ({}));
+  if (typeof body.runId === "string" && typeof body.leaseOwner === "string") {
+    const { data: run, error } = await admin
+      .from("short_film_production_runs")
+      .select("*")
+      .eq("id", body.runId)
+      .eq("lease_owner", body.leaseOwner)
+      .in("status", ["queued", "scripting", "running"])
+      .gt("lease_expires_at", new Date().toISOString())
+      .maybeSingle();
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!run)
+      return NextResponse.json(
+        { error: "Production lease is no longer active." },
+        { status: 409 },
+      );
+    await advanceProductionRun(admin, run);
+    return NextResponse.json({ processed: 1 });
+  }
+  // Compatibility fallback for an older worker during a rolling deployment.
   const { error: scheduleError } = await admin.rpc(
     "schedule_due_film_automations",
   );

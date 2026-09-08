@@ -515,11 +515,31 @@ async function proxyTick() {
 }
 async function productionTick() {
   if (!appUrl || !workerToken) return;
+  let claimed = null;
+  if (directMode) {
+    const { error: scheduleError } = await supabase.rpc(
+      "schedule_due_film_automations",
+    );
+    if (scheduleError) throw scheduleError;
+    const { data: runs, error: claimError } = await supabase.rpc(
+      "claim_film_production_runs",
+      { p_limit: 1 },
+    );
+    if (claimError) throw claimError;
+    claimed = runs?.[0] || null;
+    if (!claimed) return;
+  }
   const response = await fetch(
     `${appUrl.replace(/\/$/, "")}/api/internal/short-film-production/advance`,
     {
       method: "POST",
-      headers: { Authorization: `Bearer ${workerToken}` },
+      headers: {
+        Authorization: `Bearer ${workerToken}`,
+        "Content-Type": "application/json",
+      },
+      body: claimed
+        ? JSON.stringify({ runId: claimed.id, leaseOwner: claimed.lease_owner })
+        : undefined,
       signal: AbortSignal.timeout(190000),
     },
   );
