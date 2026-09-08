@@ -5,30 +5,27 @@ import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import {
-  ArrowDown,
   ArrowRight,
   CaretDown,
   ImagesSquare,
   Moon,
   Sparkle,
   Sun,
-  TiktokLogo,
-  TrendUp,
 } from "@phosphor-icons/react";
 import { useTheme } from "@/components/theme-provider";
 import { createClient } from "@/lib/supabase/client";
 
 const formats = [
-  { icon: ImagesSquare, label: "Meme & bài đăng", note: "Nhanh, đúng giọng thương hiệu" },
-  { icon: TiktokLogo, label: "TikTok & Reels", note: "Hook, cảnh và caption" },
-  { icon: TrendUp, label: "Quảng cáo", note: "Một chiến dịch, nhiều tỷ lệ" },
-  { icon: Sparkle, label: "Bộ ảnh thương hiệu", note: "Giữ nhân vật xuyên suốt" },
+  { icon: Sparkle, label: "Nhân vật 3D", note: "Duyệt ảnh chuẩn trước khi dùng" },
+  { icon: ImagesSquare, label: "Tạo ảnh", note: "Ý tưởng, nhân vật và tỷ lệ" },
+  { icon: ImagesSquare, label: "Tạo video", note: "Một clip hoặc nhiều cảnh" },
+  { icon: Sparkle, label: "Thư viện", note: "Lưu ảnh và video đã tạo" },
 ];
 
 const steps = [
   ["01", "Chọn nhân vật", "Khoá diện mạo, cá tính và giọng nói để dùng lại mỗi ngày."],
   ["02", "Nói ý tưởng", "AIDA hỗ trợ viết mở đầu, chú thích và hướng dẫn dựng cảnh bằng tiếng Việt."],
-  ["03", "Nhận cả bộ nội dung", "Xuất meme, bài đăng, TikTok và quảng cáo từ cùng một ý tưởng."],
+  ["03", "Tạo và duyệt", "Tạo ảnh hoặc video, sau đó duyệt kết quả trước khi tải."],
 ];
 
 export default function Home() {
@@ -38,7 +35,7 @@ export default function Home() {
   const [idea, setIdea] = useState("");
   const [character, setCharacter] = useState("Foxy");
   const [voice, setVoice] = useState("Thân thiện, dí dỏm");
-  const [output, setOutput] = useState("Bộ 4 định dạng");
+  const [output, setOutput] = useState("Tạo ảnh");
   const promptRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -137,14 +134,14 @@ export default function Home() {
                   để đăng.
                 </h1>
                 <p className="media-copy mt-6 max-w-[500px] text-[16px] leading-[1.72] sm:text-[18px]">
-                  Giữ nguyên nhân vật, đổi format linh hoạt — từ meme đến TikTok, quảng cáo và bài viết mỗi ngày.
+                  Xây nhân vật một lần, rồi dùng cùng phiên bản đã duyệt cho ảnh và video của dự án.
                 </p>
                 <div className="mt-8 flex flex-wrap items-center gap-4">
                   <button type="button" onClick={focusComposer} className="media-primary-button inline-flex h-[54px] items-center gap-3 rounded-xl px-6 text-[16px] font-semibold text-white">
                     Tạo content ngay <ArrowRight size={20} weight="bold" />
                   </button>
                   <a href="#formats" className="media-text-link inline-flex items-center gap-2 px-2 py-3 text-sm font-semibold">
-                    Xem các format <ArrowDown size={16} weight="bold" />
+                    Xem cách hoạt động <ArrowRight size={16} weight="bold" />
                   </a>
                 </div>
               </div>
@@ -152,7 +149,7 @@ export default function Home() {
               <div className="media-collage relative -mr-5 min-h-[430px] sm:-mr-8 sm:min-h-[560px] lg:-mr-12 lg:min-h-[650px]">
                 <Image
                   src="/media-studio/foxy-media-collage.png"
-                  alt="Cùng nhân vật cáo Foxy trong meme, TikTok, quảng cáo cà phê và bài đăng fanpage"
+                  alt="Foxy là nhân vật minh hoạ cho cách AIDA giữ nhân vật nhất quán"
                   fill
                   priority
                   sizes="(max-width: 1024px) 100vw, 62vw"
@@ -187,9 +184,9 @@ export default function Home() {
                     <CaretDown size={14} />
                   </label>
                   <label className="media-select flex min-w-[178px] cursor-pointer items-center gap-2 rounded-[15px] px-3 py-2">
-                    <span className="media-select-icon">4:5</span>
-                    <span className="min-w-0 flex-1"><small>Đầu ra</small><strong>Bộ 4 định dạng</strong></span>
-                    <select aria-label="Chọn định dạng" value={output} onChange={(event) => setOutput(event.target.value)}><option>Bộ 4 định dạng</option><option>Meme</option><option>TikTok / Reels</option><option>Quảng cáo</option><option>Bài fanpage</option></select>
+                    <span className="media-select-icon">AI</span>
+                    <span className="min-w-0 flex-1"><small>Công cụ</small><strong>{output}</strong></span>
+                    <select aria-label="Chọn công cụ" value={output} onChange={(event) => setOutput(event.target.value)}><option>Tạo ảnh</option><option>Tạo video</option></select>
                     <CaretDown size={14} />
                   </label>
                 </div>
@@ -204,15 +201,15 @@ export default function Home() {
         <section id="formats" className="media-formats mx-auto max-w-[1320px] px-5 py-24 sm:px-8 lg:px-12 lg:py-28">
           <div className="grid gap-7 lg:grid-cols-[.7fr_1.3fr] lg:items-end lg:gap-10">
             <div>
-              <span className="media-kicker">Một nhân vật. Nhiều định dạng.</span>
-              <h2 className="mt-4 max-w-[520px] text-[36px] font-bold leading-[1.08] tracking-[-0.03em] sm:text-[50px]">Đúng định dạng, vẫn đúng chất của bạn.</h2>
+              <span className="media-kicker">Một project. Một nguồn sự thật.</span>
+              <h2 className="mt-4 max-w-[520px] text-[36px] font-bold leading-[1.08] tracking-[-0.03em] sm:text-[50px]">Nhân vật, ảnh và video đi cùng nhau.</h2>
             </div>
-            <p className="media-copy max-w-[590px] text-[16px] leading-7 lg:ml-auto">AIDA ghi nhớ diện mạo, cá tính và giọng thương hiệu. Bạn chỉ cần đổi ý tưởng — nhân vật vẫn nhất quán từ bài đăng đầu tiên đến chiến dịch thứ một trăm.</p>
+            <p className="media-copy max-w-[590px] text-[16px] leading-7 lg:ml-auto">Foxy chỉ là ví dụ minh hoạ. Mỗi project dùng nhân vật và thương hiệu riêng mà bạn đã duyệt.</p>
           </div>
           <div className="mt-10 grid grid-cols-2 gap-px overflow-hidden rounded-[22px] border lg:mt-12 lg:grid-cols-4 lg:rounded-[25px]">
             {formats.map((format) => (
               <article key={format.label} className="media-format-item min-h-[150px] p-4 sm:p-5 lg:min-h-[180px] lg:p-6">
-                <format.icon size={27} weight="duotone" className="text-blue-600" />
+                <format.icon size={27} weight="duotone" className="th-text-accent" />
                 <h3 className="mt-7 text-[16px] font-bold tracking-[-0.01em] sm:text-[17px] lg:mt-10 lg:text-[18px]">{format.label}</h3>
                 <p className="media-copy mt-1 text-sm">{format.note}</p>
               </article>
@@ -224,7 +221,7 @@ export default function Home() {
           <div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-8 sm:py-20 lg:px-12 lg:py-24">
             <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
               <div>
-                <span className="media-kicker">Nhẹ đầu từ ý tưởng đến lịch đăng</span>
+                <span className="media-kicker">Từ nhân vật đến nội dung đã duyệt</span>
                 <h2 className="mt-4 max-w-[680px] text-[36px] font-bold leading-[1.08] tracking-[-0.03em] sm:text-[50px]">Làm nội dung như có cả đội ngũ media bên cạnh.</h2>
               </div>
               <Link href={appHref} className="media-text-link inline-flex items-center gap-2 py-3 text-sm font-semibold">Khám phá Studio <ArrowRight size={17} weight="bold" /></Link>
@@ -245,9 +242,9 @@ export default function Home() {
           <div className="media-final-cta relative grid overflow-hidden rounded-[28px] px-6 py-10 sm:px-10 sm:py-12 lg:grid-cols-[1fr_300px] lg:items-center lg:px-14 lg:py-10">
             <div className="relative z-10 text-center lg:text-left">
               <span className="media-hand-note text-[24px] text-[#f05a32] sm:text-[26px]">nội dung đều hơn, thương hiệu có chất hơn</span>
-              <h2 className="mt-3 max-w-[720px] text-[38px] font-extrabold leading-[1.05] tracking-[-0.035em] sm:text-[54px]">Một nhân vật. Nhiều nội dung. Vẫn đúng chất.</h2>
-              <p className="mx-auto mt-4 max-w-[590px] text-[15px] leading-6 text-black/65 lg:mx-0">Bắt đầu từ một ý tưởng, AIDA giúp bạn phát triển thành bộ nội dung sẵn sàng cho nhiều kênh.</p>
-              <button type="button" onClick={focusComposer} className="media-primary-button mt-7 inline-flex h-[52px] items-center gap-3 rounded-xl px-6 text-[15px] font-semibold text-white">Tạo bộ nội dung đầu tiên <ArrowRight size={19} weight="bold" /></button>
+              <h2 className="mt-3 max-w-[720px] text-[38px] font-extrabold leading-[1.05] tracking-[-0.035em] sm:text-[54px]">Một nhân vật. Ảnh và video đúng chất.</h2>
+              <p className="mx-auto mt-4 max-w-[590px] text-[15px] leading-6 text-black/65 lg:mx-0">Bắt đầu bằng một ý tưởng hoặc tạo nhân vật đầu tiên cho project của bạn.</p>
+              <button type="button" onClick={focusComposer} className="media-primary-button mt-7 inline-flex h-[52px] items-center gap-3 rounded-xl px-6 text-[15px] font-semibold text-white">Bắt đầu tạo <ArrowRight size={19} weight="bold" /></button>
             </div>
             <div className="relative mx-auto mt-6 h-[170px] w-[170px] rotate-[2deg] overflow-hidden rounded-[24px] border-[7px] border-white/75 bg-white/70 shadow-[0_18px_50px_rgba(86,56,3,.18)] sm:h-[210px] sm:w-[210px] lg:mt-0 lg:h-[280px] lg:w-[280px] lg:rounded-[30px]">
               <Image src="/media-studio/foxy-master.png" alt="Nhân vật Foxy của AIDA" fill sizes="280px" className="object-cover" />
@@ -258,7 +255,7 @@ export default function Home() {
 
       <footer className="media-footer border-t">
         <div className="mx-auto flex max-w-[1320px] flex-col gap-4 px-5 py-7 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">
-          <div className="flex items-center gap-2 font-bold"><Sparkle size={16} weight="fill" className="text-blue-600" /> AIDA Media Studio</div>
+          <div className="flex items-center gap-2 font-bold"><Sparkle size={16} weight="fill" className="th-text-accent" /> AIDA Media Studio</div>
           <p className="media-copy">Một nhân vật. Mọi nội dung.</p>
         </div>
       </footer>

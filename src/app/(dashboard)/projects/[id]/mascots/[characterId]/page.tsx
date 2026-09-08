@@ -135,7 +135,7 @@ export default function MascotDetailPage() {
     return (
       <div className="flex">
         <Sidebar projectId={projectRef} projectName={project?.name} />
-        <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
+        <main className="ml-0 lg:ml-56 flex-1 p-4 pt-16 md:p-8">
           <p className="th-text-tertiary">Đang tải mascot…</p>
         </main>
       </div>
@@ -145,7 +145,7 @@ export default function MascotDetailPage() {
   return (
     <div className="flex">
       <Sidebar projectId={projectRef} projectName={project?.name} />
-      <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
+      <main className="ml-0 lg:ml-56 flex-1 p-4 pt-16 md:p-8">
         <Link href={`/projects/${projectRef}/mascots`} className="mb-4 inline-flex items-center gap-1 text-sm th-text-tertiary hover:th-text-primary">
           <ChevronLeft size={15} /> Tất cả mascot
         </Link>

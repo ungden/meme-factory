@@ -171,7 +171,7 @@ export default function AiMemePage() {
   return (
     <div className="flex">
       <Sidebar projectId={projectRef} projectName={project?.name} />
-      <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
+      <main className="ml-0 lg:ml-56 flex-1 p-4 pt-16 md:p-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold th-text-primary">AI Meme</h1>
           <p className="th-text-tertiary mt-1">

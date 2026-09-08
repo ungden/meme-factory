@@ -10,7 +10,7 @@ import Input from "@/components/ui/input";
 import Textarea from "@/components/ui/textarea";
 import Modal from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
-import { Zap, Sparkles, Download, Save, RotateCcw, ChevronRight, Check, Wand2, ImageIcon, Loader2, Upload, X, Tags, Plus, Clapperboard } from "lucide-react";
+import { Zap, Sparkles, Download, Save, RotateCcw, ChevronRight, Wand2, ImageIcon, Loader2, Upload, X, Tags, Plus, Clapperboard } from "lucide-react";
 import type { MemeContent, MemeFormat, SelectedCharacter, EmotionTag, ImageGenResponse } from "@/types/database";
 import { FORMAT_DIMENSIONS } from "@/types/database";
 import { POINT_COSTS } from "@/lib/point-pricing";
@@ -973,7 +973,7 @@ export default function GeneratePage() {
     return (
       <div className="flex">
         <Sidebar projectId={projectId} />
-        <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
+        <main className="ml-0 lg:ml-56 flex-1 p-4 pt-16 md:p-8">
         <div
           className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3"
           style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
@@ -996,14 +996,11 @@ export default function GeneratePage() {
   return (
     <div className="flex">
       <Sidebar projectId={projectId} projectName={project?.name} />
-      <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
-        <div className="flex items-center justify-between mb-8">
+      <main className="ml-0 lg:ml-56 flex-1 p-4 pt-16 md:p-8">
+        <div className="mb-6 flex items-center justify-between gap-4">
           <div>
-            <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-blue-500">
-              <Sparkles size={13} /> AIDA Studio · Bộ nội dung
-            </div>
-            <h1 className="text-2xl font-bold th-text-primary">Tạo bộ nội dung</h1>
-            <p className="th-text-tertiary mt-1">Một brief, cast và thương hiệu xuyên suốt từ bài ảnh đến video.</p>
+            <h1 className="text-2xl font-semibold tracking-tight th-text-primary">Tạo ảnh</h1>
+            <p className="mt-1 text-sm th-text-tertiary">Ý tưởng, nhân vật và ảnh tham khảo của dự án này.</p>
           </div>
           {step > 1 && (
             <Button variant="outline" onClick={handleReset}>
@@ -1024,35 +1021,14 @@ export default function GeneratePage() {
           </div>
         )}
 
-        {/* Steps indicator */}
-        <div className="flex items-center gap-3 mb-8">
-          {[
-            { num: 1, label: "Brief & cast" },
-            { num: 2, label: "Kịch bản & đầu ra" },
-            { num: 3, label: "Duyệt & tải" },
-          ].map((s, i) => (
-            <div key={s.num} className="flex items-center gap-3">
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-                step === s.num ? "th-border-accent th-bg-accent-light th-text-accent"
-                : step > s.num ? "th-border-success th-bg-success-light th-text-success"
-                : "th-bg-tertiary th-text-tertiary th-border"
-              }`}>
-                {step > s.num ? <Check size={14} /> : <span>{s.num}</span>}
-                {s.label}
-              </div>
-              {i < 2 && <ChevronRight size={16} className="th-text-muted" />}
-            </div>
-          ))}
-        </div>
-
         {/* Step 1: Input */}
         {step === 1 && (
-          <div className="max-w-2xl">
-            <Card>
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(360px,400px)_minmax(0,1fr)]">
+            <Card className="min-w-0">
               <CardHeader>
                 <h2 className="text-lg font-semibold th-text-primary flex items-center gap-2">
                   <Sparkles size={20} style={{ color: "var(--accent)" }} />
-                  Brief cho bài đăng này
+                  Ý tưởng
                 </h2>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1061,7 +1037,7 @@ export default function GeneratePage() {
                   placeholder='VD: "Khi team dev nói deploy xong rồi nhưng bug vẫn còn nguyên", "Thị trường chứng khoán hôm nay đỏ lửa, anh em ôm nhau khóc"...'
                   value={idea}
                   onChange={(e) => setIdea(e.target.value)}
-                  rows={4}
+                  rows={5}
                   className="text-base"
                 />
                 {/* Reference image upload */}
@@ -1278,6 +1254,13 @@ export default function GeneratePage() {
                 </div>
               </CardContent>
             </Card>
+            <aside className="sticky top-6 min-h-[440px] overflow-hidden rounded-xl border p-5 lg:p-6" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] th-text-accent">Xem trước</p>
+              <h2 className="mt-1 text-lg font-semibold th-text-primary">Ảnh của bạn sẽ hiện ở đây</h2>
+              <div className="mt-5 flex aspect-[4/5] max-h-[620px] items-center justify-center rounded-xl border border-dashed p-7 text-center th-bg-secondary" style={{ borderColor: "var(--border-primary)" }}>
+                <div><span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl th-bg-accent-light th-text-accent"><ImageIcon size={21} /></span><p className="mt-4 text-sm font-medium th-text-primary">Bắt đầu bằng một ý tưởng</p><p className="mt-2 max-w-xs text-sm leading-6 th-text-tertiary">Chọn nhân vật hoặc thêm ảnh tham khảo khi bạn cần giữ chủ thể và bối cảnh.</p></div>
+              </div>
+            </aside>
           </div>
         )}
 

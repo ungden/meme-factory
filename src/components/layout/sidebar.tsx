@@ -18,6 +18,7 @@ import {
   UserPlus,
   Palette,
   Clapperboard,
+  ChevronDown,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -40,6 +41,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [managementOpen, setManagementOpen] = useState(false);
 
   // Check admin role
   useEffect(() => {
@@ -159,13 +161,13 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
   const sidebarContent = (
     <>
       {/* Logo */}
-      <div className="p-5 border-b" style={{ borderColor: "var(--border-primary)" }}>
+      <div className="border-b px-4 py-4" style={{ borderColor: "var(--border-primary)" }}>
         <Link href="/projects" className="flex items-center gap-2.5">
-          <div className="w-10 h-10 bg-blue-600 rounded-[13px] flex items-center justify-center shadow-lg shadow-blue-600/20">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl text-white th-shadow-sm" style={{ background: "var(--accent)" }}>
             <Sparkles size={18} className="text-white" />
           </div>
           <div className="min-w-0">
-            <span className="block text-[19px] font-extrabold leading-none tracking-[-0.04em] th-text-primary">AIDA</span>
+            <span className="block text-[18px] font-extrabold leading-none tracking-[-0.04em] th-text-primary">AIDA</span>
             <span className="mt-1 block text-[8px] font-bold uppercase tracking-[0.2em] th-text-muted">Media Studio</span>
           </div>
         </Link>
@@ -174,12 +176,12 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
       {/* Point Balance */}
       <Link
         href={projectId ? `/projects/${projectId}/wallet` : "/wallet"}
-        className="mx-3 mt-3 flex items-center justify-between px-3 py-2.5 rounded-xl transition-all th-bg-hover"
-        style={{ background: "var(--bg-tertiary)" }}
+        className="mx-3 mt-3 flex items-center justify-between rounded-lg px-3 py-2 transition-colors th-bg-hover"
+        style={{ background: "var(--bg-secondary)" }}
       >
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}>
-            <Coins size={14} className="text-white" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg th-bg-accent-light th-text-accent">
+            <Coins size={14} />
           </div>
           <span className="text-sm font-medium th-text-secondary">{projectId ? "Điểm dự án" : "Điểm"}</span>
         </div>
@@ -189,7 +191,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
       </Link>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto" aria-label="Điều hướng chính">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Điều hướng chính">
         {projectId && (
           <>
             <Link
@@ -244,8 +246,15 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
 
         {projectId && (
           <>
-            <div className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] th-text-muted">Quản lý</div>
-            {projectManagementNav.map((item) => (
+            <button
+              type="button"
+              aria-expanded={managementOpen}
+              onClick={() => setManagementOpen((open) => !open)}
+              className="mt-3 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.16em] th-text-muted th-bg-hover"
+            >
+              Quản lý <ChevronDown size={14} className={managementOpen ? "rotate-180 transition-transform" : "transition-transform"} />
+            </button>
+            {managementOpen && projectManagementNav.map((item) => (
               <NavItem key={item.href} {...item} active={pathname === item.href || pathname.startsWith(`${item.href}/`)} />
             ))}
           </>
@@ -261,12 +270,11 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="p-3 border-t space-y-1" style={{ borderColor: "var(--border-primary)" }}>
+      <div className="space-y-1 border-t p-3" style={{ borderColor: "var(--border-primary)" }}>
         {isAdmin && (
           <Link
             href="/admin"
-            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl transition-all th-bg-hover"
-            style={{ color: "#ef4444" }}
+            className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all th-text-danger th-bg-hover"
           >
             <Shield size={18} />
             Quản trị
@@ -275,7 +283,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         <button
           onClick={toggleTheme}
           aria-label={theme === "light" ? "Chuyển giao diện tối" : "Chuyển giao diện sáng"}
-          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm th-text-secondary rounded-xl transition-all cursor-pointer th-bg-hover"
+          className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm th-text-secondary transition-all cursor-pointer th-bg-hover"
         >
           {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
           {theme === "light" ? "Giao diện tối" : "Giao diện sáng"}
@@ -285,7 +293,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           onClick={handleSignOut}
           aria-label="Đăng xuất"
           disabled={signingOut}
-          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl transition-all cursor-pointer th-text-danger th-bg-hover"
+          className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all cursor-pointer th-text-danger th-bg-hover"
         >
           <LogOut size={18} />
           {signingOut ? "Đang đăng xuất..." : "Đăng xuất"}
@@ -300,7 +308,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
       <button
         onClick={() => setMobileOpen(true)}
         aria-label="Mở menu"
-        className="fixed top-4 left-4 z-50 p-2.5 rounded-xl md:hidden transition-all"
+        className="fixed top-4 left-4 z-50 rounded-lg p-2.5 lg:hidden transition-all"
         style={{ background: "var(--bg-card)", border: "1px solid var(--border-primary)" }}
       >
         <Menu size={20} className="th-text-primary" />
@@ -309,7 +317,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 md:hidden"
+          className="fixed inset-0 z-50 bg-black/50 lg:hidden"
           onClick={() => setMobileOpen(false)}
           aria-hidden="true"
         />
@@ -317,7 +325,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
 
       {/* Mobile sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-72 border-r flex flex-col z-50 transition-transform duration-300 md:hidden ${
+        className={`fixed left-0 top-0 h-[100dvh] w-72 border-r flex flex-col z-50 transition-transform duration-300 lg:hidden ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         style={{ background: "var(--bg-sidebar)", borderColor: "var(--border-primary)" }}
@@ -336,7 +344,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
 
       {/* Desktop sidebar */}
       <aside
-        className="hidden md:flex fixed left-0 top-0 h-screen w-64 border-r flex-col z-40 transition-colors duration-200"
+        className="fixed left-0 top-0 z-40 hidden h-[100dvh] w-56 flex-col border-r transition-colors duration-200 lg:flex"
         style={{ background: "var(--bg-sidebar)", borderColor: "var(--border-primary)" }}
         aria-label="Menu điều hướng"
       >
@@ -368,7 +376,7 @@ function NavItem({
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl transition-all ${
+      className={`flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all ${
         active
           ? "font-medium th-bg-accent-light th-text-accent"
           : "th-text-secondary th-bg-hover"

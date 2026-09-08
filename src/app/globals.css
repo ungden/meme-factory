@@ -7,29 +7,29 @@
 :root,
 .light {
   color-scheme: light;
-  --bg-primary: #fbfaf6;
-  --bg-secondary: #f8f3e9;
-  --bg-tertiary: #f1eadc;
-  --bg-card: #fffdf8;
-  --bg-sidebar: #f7f1e7;
-  --bg-input: #f5efe4;
-  --bg-hover: #eee6d8;
+  --bg-primary: #f6f8fa;
+  --bg-secondary: #f1f4f6;
+  --bg-tertiary: #eef2f5;
+  --bg-card: #ffffff;
+  --bg-sidebar: #fbfcfd;
+  --bg-input: #ffffff;
+  --bg-hover: #e6f4f1;
   --bg-overlay: rgba(0, 0, 0, 0.4);
 
-  --border-primary: #e4ddcf;
-  --border-secondary: #d5ccbd;
-  --border-active: rgba(38, 94, 232, 0.42);
+  --border-primary: #d9e1e7;
+  --border-secondary: #c7d3dc;
+  --border-active: rgba(15, 118, 110, 0.42);
 
-  --text-primary: #191a17;
-  --text-secondary: #575950;
-  --text-tertiary: #7c7d74;
-  --text-muted: #aaa79d;
+  --text-primary: #17212b;
+  --text-secondary: #526170;
+  --text-tertiary: #718091;
+  --text-muted: #9aa7b4;
   --text-on-primary: #ffffff;
 
-  --accent: #265ee8;
-  --accent-light: rgba(38, 94, 232, 0.09);
-  --accent-border: rgba(38, 94, 232, 0.3);
-  --accent-shadow: rgba(38, 94, 232, 0.16);
+  --accent: #0f766e;
+  --accent-light: #e6f4f1;
+  --accent-border: rgba(15, 118, 110, 0.3);
+  --accent-shadow: rgba(15, 118, 110, 0.18);
 
   --danger: #e03131;
   --danger-light: rgba(224, 49, 49, 0.08);
@@ -38,9 +38,9 @@
   --warning: #e67700;
   --warning-light: rgba(230, 119, 0, 0.08);
 
-  --shadow-sm: 0 1px 2px rgba(70, 52, 20, 0.05);
-  --shadow-md: 0 8px 24px rgba(70, 52, 20, 0.08);
-  --shadow-lg: 0 18px 50px rgba(70, 52, 20, 0.12);
+  --shadow-sm: 0 1px 2px rgba(23, 33, 43, 0.05);
+  --shadow-md: 0 8px 24px rgba(23, 33, 43, 0.08);
+  --shadow-lg: 0 18px 50px rgba(23, 33, 43, 0.12);
 
   --scrollbar-thumb: #d0d5dc;
   --scrollbar-hover: #adb5bd;
@@ -48,29 +48,29 @@
 
 .dark {
   color-scheme: dark;
-  --bg-primary: #121310;
-  --bg-secondary: #171814;
-  --bg-tertiary: #22231e;
-  --bg-card: #1b1c18;
-  --bg-sidebar: #0f100d;
-  --bg-input: #24251f;
-  --bg-hover: #2e3029;
+  --bg-primary: #111827;
+  --bg-secondary: #17202c;
+  --bg-tertiary: #1e2936;
+  --bg-card: #18212d;
+  --bg-sidebar: #111827;
+  --bg-input: #1d2936;
+  --bg-hover: #223140;
   --bg-overlay: rgba(0, 0, 0, 0.6);
 
-  --border-primary: #2c2e27;
-  --border-secondary: #3a3c34;
-  --border-active: rgba(77, 124, 240, 0.52);
+  --border-primary: #314154;
+  --border-secondary: #405166;
+  --border-active: rgba(45, 212, 191, 0.52);
 
-  --text-primary: #f7f2e6;
-  --text-secondary: #c2beb3;
-  --text-tertiary: #99968c;
-  --text-muted: #716f68;
+  --text-primary: #f3f7f8;
+  --text-secondary: #c1ced4;
+  --text-tertiary: #94a3b0;
+  --text-muted: #718092;
   --text-on-primary: #ffffff;
 
-  --accent: #4d7cf0;
-  --accent-light: rgba(77, 124, 240, 0.14);
-  --accent-border: rgba(77, 124, 240, 0.32);
-  --accent-shadow: rgba(77, 124, 240, 0.24);
+  --accent: #2dd4bf;
+  --accent-light: rgba(45, 212, 191, 0.14);
+  --accent-border: rgba(45, 212, 191, 0.34);
+  --accent-shadow: rgba(45, 212, 191, 0.22);
 
   --danger: #f03e3e;
   --danger-light: rgba(240, 62, 62, 0.1);
@@ -121,7 +121,7 @@ body {
   --home-text: #17191f;
   --home-text-secondary: #525b68;
   --home-text-muted: #747e8d;
-  --home-blue-soft: #edf3ff;
+  --home-blue-soft: #e6f4f1;
   --home-shadow: 0 28px 70px rgba(16, 24, 40, 0.13), 0 3px 12px rgba(16, 24, 40, 0.06);
   background: var(--home-bg);
   color: var(--home-text);
@@ -137,7 +137,7 @@ body {
   --home-text: #f3f5f7;
   --home-text-secondary: #b7bec8;
   --home-text-muted: #8f98a7;
-  --home-blue-soft: rgba(59, 130, 246, 0.13);
+  --home-blue-soft: rgba(45, 212, 191, 0.13);
   --home-shadow: 0 28px 80px rgba(0, 0, 0, 0.42), 0 3px 12px rgba(0, 0, 0, 0.3);
 }
 
@@ -180,26 +180,26 @@ body {
 .home-hero {
   border-color: var(--home-line);
   background:
-    radial-gradient(circle at 78% 10%, rgba(59, 130, 246, 0.1), transparent 34%),
-    radial-gradient(circle at 16% 42%, rgba(99, 102, 241, 0.055), transparent 32%),
+    radial-gradient(circle at 78% 10%, rgba(15, 118, 110, 0.11), transparent 34%),
+    radial-gradient(circle at 16% 42%, rgba(45, 212, 191, 0.07), transparent 32%),
     var(--home-bg);
 }
 
 .dark .home-hero {
   background:
-    radial-gradient(circle at 78% 10%, rgba(59, 130, 246, 0.12), transparent 35%),
-    radial-gradient(circle at 16% 42%, rgba(99, 102, 241, 0.07), transparent 32%),
+    radial-gradient(circle at 78% 10%, rgba(45, 212, 191, 0.12), transparent 35%),
+    radial-gradient(circle at 16% 42%, rgba(15, 118, 110, 0.09), transparent 32%),
     var(--home-bg);
 }
 
 .home-gradient-text {
-  background: linear-gradient(100deg, #2563eb 4%, #6d5ce8 56%, #8b5cf6 100%);
+  background: linear-gradient(100deg, #0f766e 4%, #0d9488 56%, #14b8a6 100%);
   background-clip: text;
   color: transparent;
 }
 
 .dark .home-gradient-text {
-  background-image: linear-gradient(100deg, #60a5fa 4%, #8b82f6 56%, #a78bfa 100%);
+  background-image: linear-gradient(100deg, #5eead4 4%, #2dd4bf 56%, #14b8a6 100%);
 }
 
 .home-body-copy {
@@ -248,11 +248,11 @@ body {
 }
 
 .home-section-label {
-  color: #3577e5;
+  color: #0f766e;
 }
 
 .dark .home-section-label {
-  color: #71a7ff;
+  color: #5eead4;
 }
 
 .home-card {
@@ -355,6 +355,15 @@ body {
 .th-bg-hover:hover { background-color: var(--bg-hover); }
 .th-border-accent-hover:hover { border-color: var(--accent-border); }
 
+/* Legacy dashboard utilities still used by older tools. Keep their visual meaning
+   on the shared teal scale while those screens are progressively simplified. */
+.bg-blue-600, .bg-blue-500 { background-color: var(--accent) !important; }
+.hover\:bg-blue-500:hover, .hover\:bg-blue-600:hover { background-color: color-mix(in srgb, var(--accent) 88%, #000) !important; }
+.bg-blue-50, .bg-blue-600\/10 { background-color: var(--accent-light) !important; }
+.text-blue-500, .text-blue-600, .text-blue-700 { color: var(--accent) !important; }
+.border-blue-500, .border-blue-600 { border-color: var(--accent) !important; }
+.ring-blue-500\/30 { --tw-ring-color: color-mix(in srgb, var(--accent) 30%, transparent) !important; }
+
 /* ============================================
    Animations
    ============================================ */
@@ -429,34 +438,34 @@ body {
    ============================================ */
 
 .media-home {
-  --media-bg: #fbf6e9;
-  --media-bg-deep: #f4eddd;
-  --media-surface: #fffdf7;
+  --media-bg: #f6f8fa;
+  --media-bg-deep: #eef2f5;
+  --media-surface: #ffffff;
   --media-surface-solid: #ffffff;
-  --media-text: #171818;
-  --media-copy: #555850;
-  --media-muted: #7c7d75;
-  --media-line: rgba(30, 31, 28, 0.13);
-  --media-blue: #265ee8;
-  --media-blue-hover: #194ed3;
-  --media-yellow: #ffd749;
-  --media-shadow: 0 24px 60px rgba(80, 58, 18, 0.12), 0 4px 14px rgba(55, 41, 14, 0.06);
+  --media-text: #17212b;
+  --media-copy: #526170;
+  --media-muted: #718091;
+  --media-line: #d9e1e7;
+  --media-blue: #0f766e;
+  --media-blue-hover: #115e59;
+  --media-yellow: #e6f4f1;
+  --media-shadow: 0 24px 60px rgba(23, 33, 43, 0.1), 0 4px 14px rgba(23, 33, 43, 0.05);
   background: var(--media-bg);
   color: var(--media-text);
 }
 
 .dark .media-home {
-  --media-bg: #121310;
-  --media-bg-deep: #191a16;
-  --media-surface: #1b1c18;
-  --media-surface-solid: #22231e;
-  --media-text: #f7f2e6;
-  --media-copy: #bdb9ae;
-  --media-muted: #979489;
-  --media-line: rgba(248, 242, 225, 0.13);
-  --media-blue: #4d7cf0;
-  --media-blue-hover: #628bf3;
-  --media-yellow: #d5ad2c;
+  --media-bg: #111827;
+  --media-bg-deep: #17202c;
+  --media-surface: #18212d;
+  --media-surface-solid: #1e2936;
+  --media-text: #f3f7f8;
+  --media-copy: #c1ced4;
+  --media-muted: #94a3b0;
+  --media-line: #314154;
+  --media-blue: #2dd4bf;
+  --media-blue-hover: #5eead4;
+  --media-yellow: rgba(45, 212, 191, 0.18);
   --media-shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
 }
 
@@ -469,15 +478,15 @@ body {
 .media-logo,
 .media-primary-button,
 .media-submit {
-  background: linear-gradient(145deg, #3a71f4, #1f55df);
-  box-shadow: 0 10px 28px rgba(38, 94, 232, 0.23);
+  background: var(--media-blue);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--media-blue) 23%, transparent);
   transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
 }
 
 .media-primary-button:hover,
 .media-submit:hover {
-  background: linear-gradient(145deg, #4a7cf4, #194dce);
-  box-shadow: 0 13px 32px rgba(38, 94, 232, 0.28);
+  background: var(--media-blue-hover);
+  box-shadow: 0 13px 32px color-mix(in srgb, var(--media-blue) 28%, transparent);
   transform: translateY(-2px);
 }
 

@@ -11,7 +11,7 @@ export default function Card({ children, className = "", onClick, hover = false 
   return (
     <div
       onClick={onClick}
-      className={`th-bg-card border th-border rounded-2xl th-shadow-sm ${
+      className={`th-bg-card border th-border rounded-xl th-shadow-sm ${
         hover ? "hover:th-shadow-md cursor-pointer transition-all duration-200" : ""
       } ${onClick ? "cursor-pointer" : ""} ${className}`}
       style={{

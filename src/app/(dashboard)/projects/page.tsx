@@ -62,7 +62,8 @@ export default function ProjectsPage() {
       setNewProject({ name: "", description: "", style_prompt: "" });
       toast.success(`Đã tạo dự án "${project.name}"`);
       const query = searchParams.toString();
-      router.push(`/projects/${project.slug}${query ? `/generate?${query}` : ""}`);
+      const destination = searchParams.get("output") === "Tạo video" ? "video" : "generate";
+      router.push(`/projects/${project.slug}/${destination}${query ? `?${query}` : ""}`);
     } else {
       toast.error("Không thể tạo dự án. Vui lòng thử lại.");
     }
@@ -81,7 +82,7 @@ export default function ProjectsPage() {
   return (
     <div className="flex">
       <Sidebar />
-      <main className="ml-0 min-h-screen flex-1 p-4 pt-16 md:ml-64 md:p-8 lg:p-10">
+      <main className="ml-0 min-h-screen flex-1 p-4 pt-16 lg:ml-56 md:p-8 lg:p-10">
         <div className="mx-auto max-w-7xl">
           {IS_MOCK_MODE && (
             <div className="mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 th-border-accent th-bg-accent-light">
@@ -128,7 +129,7 @@ export default function ProjectsPage() {
                   className="group overflow-hidden rounded-2xl border transition hover:-translate-y-1 hover:shadow-2xl"
                   style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
                 >
-                  <button onClick={() => router.push(`/projects/${projectRef}${searchParams.toString() ? `/generate?${searchParams}` : ""}`)} className="block w-full text-left" aria-label={`Mở dự án ${project.name}`}>
+                  <button onClick={() => { const query = searchParams.toString(); const destination = searchParams.get("output") === "Tạo video" ? "video" : "generate"; router.push(`/projects/${projectRef}/${destination}${query ? `?${query}` : ""}`); }} className="block w-full text-left" aria-label={`Mở dự án ${project.name}`}>
                     <div className="relative aspect-[16/8.6] overflow-hidden" style={{ background: "linear-gradient(135deg, var(--bg-tertiary), color-mix(in srgb, var(--accent-primary) 16%, var(--bg-tertiary)))" }}>
                       {cover ? <Image src={cover} alt={`Ảnh bìa dự án ${project.name}`} fill priority={index === 0} sizes="(max-width: 1280px) 50vw, 33vw" className="object-cover transition duration-500 group-hover:scale-[1.03]" /> : <div className="absolute inset-0 flex items-center justify-center"><span className="rounded-2xl border px-4 py-3 text-center text-sm font-semibold th-text-secondary" style={{ borderColor: "var(--border-primary)", background: "color-mix(in srgb, var(--bg-card) 82%, transparent)" }}>Thiết lập nhân vật<br /><small className="font-normal th-text-tertiary">để bắt đầu dự án</small></span></div>}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />

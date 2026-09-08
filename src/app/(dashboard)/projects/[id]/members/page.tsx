@@ -120,7 +120,7 @@ export default function ProjectMembersPage() {
     return (
       <div className="flex">
         <Sidebar projectId={projectId} />
-        <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
+        <main className="ml-0 lg:ml-56 flex-1 p-4 pt-16 md:p-8">
           <div className="animate-pulse space-y-4">
             <div className="h-8 w-72 th-bg-tertiary rounded-lg" />
             <div className="h-40 th-bg-card rounded-2xl" />
@@ -133,7 +133,7 @@ export default function ProjectMembersPage() {
   return (
     <div className="flex">
       <Sidebar projectId={projectId} projectName={project?.name} />
-      <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
+      <main className="ml-0 lg:ml-56 flex-1 p-4 pt-16 md:p-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold th-text-primary">Thành viên dự án</h1>
           <p className="th-text-tertiary mt-1">Mời thành viên và quản lý quyền truy cập</p>
