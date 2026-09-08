@@ -179,3 +179,17 @@ export function currentSceneTask(
   }
   return candidates[0];
 }
+
+/** The first lip-sync adapter cannot select a face in a multi-person frame. */
+export function assertFixedVoiceShot(
+  scene: Pick<FilmScene, "dialogue" | "cast_snapshot" | "speaker_character_id">,
+) {
+  if (
+    scene.dialogue &&
+    (scene.cast_snapshot.length !== 1 ||
+      scene.cast_snapshot[0].characterId !== scene.speaker_character_id)
+  )
+    throw new Error(
+      "Cảnh có giọng riêng cần chỉ một nhân vật là người nói. Tách cảnh cả gia đình thành cảnh không thoại và các cận cảnh người nói trước khi tạo.",
+    );
+}

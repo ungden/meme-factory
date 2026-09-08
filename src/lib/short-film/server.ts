@@ -12,6 +12,7 @@ import {
 } from "@/lib/ai-pricing";
 import {
   FILM_MODELS,
+  assertFixedVoiceShot,
   currentSceneTask,
   compileFilmMotion,
   shotDuration,
@@ -377,6 +378,8 @@ export async function quotePlan(
     : plan.video_plan_scenes.map((s) => s.id);
   const scenes = plan.video_plan_scenes.filter((s) => selected.includes(s.id));
   if (!scenes.length) throw new FilmError("Chọn cảnh cần tạo.");
+  if (plan.audio_mode === "fixed" && ["prepare", "video"].includes(stage))
+    scenes.forEach(assertFixedVoiceShot);
   const existing = await tasksForPlan(a, plan.id);
   const tasks: QuotedTask[] = [];
   const latest = (s: FilmScene, kind: FilmKind) =>

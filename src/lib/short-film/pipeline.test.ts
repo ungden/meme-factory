@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { shotDuration, compileFilmMotion, type FilmScene } from "./contracts";
+import {
+  assertFixedVoiceShot,
+  shotDuration,
+  compileFilmMotion,
+  type FilmScene,
+} from "./contracts";
 import {
   dimensions,
   parseTranscript,
@@ -111,4 +116,23 @@ describe("stale media dependency handling", () => {
     expect(currentSceneTask(rows, s, "video", "fixed")).toBeUndefined();
     expect(currentSceneTask(rows, s, "image", "fixed")?.id).toBe("new-image");
   });
+});
+
+it("requires one visible speaker for fixed-voice lip sync, but permits family establishing shots", () => {
+  const scene = {
+    dialogue: "Cả nhà cùng làm bánh",
+    speaker_character_id: "a",
+    cast_snapshot: [{ characterId: "a" }, { characterId: "b" }],
+  } as FilmScene;
+  expect(() => assertFixedVoiceShot(scene)).toThrow("chỉ một nhân vật");
+  expect(() =>
+    assertFixedVoiceShot({
+      ...scene,
+      dialogue: "",
+      speaker_character_id: null,
+    }),
+  ).not.toThrow();
+  expect(() =>
+    assertFixedVoiceShot({ ...scene, cast_snapshot: [scene.cast_snapshot[0]] }),
+  ).not.toThrow();
 });
