@@ -615,6 +615,38 @@ export default function GeneratePage() {
     setGenerating(false);
   };
 
+  const handleAssistImage = async () => {
+    if (!idea.trim()) return;
+    setGenerating(true);
+    try {
+      const response = await fetch(`/api/projects/${projectId}/creative-assists`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "image_plan", intent: idea.trim(), selectedCharacterIds: noCharacters ? [] : [...selectedCharacterIds] }),
+      });
+      const accepted = await response.json();
+      if (!response.ok) throw new Error(accepted.error || "Không thể bắt đầu soạn ảnh.");
+      let result: Record<string, unknown> | null = null;
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        const jobResponse = await fetch(`/api/projects/${projectId}/creative-assists/${accepted.jobId}`, { cache: "no-store" });
+        const job = await jobResponse.json();
+        if (!jobResponse.ok) throw new Error(job.error || "Không đọc được kết quả AI.");
+        if (job.job.status === "completed") { result = job.job.result; break; }
+        if (job.job.status === "failed") throw new Error(job.job.error?.code || "AI chưa soạn được ảnh.");
+        await new Promise((resolve) => window.setTimeout(resolve, 500));
+      }
+      if (!result) throw new Error("AI đang xử lý lâu hơn bình thường.");
+      const characterIds = Array.isArray(result.characterIds) ? result.characterIds.filter((value): value is string => typeof value === "string") : [];
+      const textPosition = ["top", "bottom", "center", "split"].includes(String(result.textPosition)) ? result.textPosition as "top" | "bottom" | "center" | "split" : "bottom";
+      const variation: ContentVariation = {
+        content: { headline: typeof result.headline === "string" ? result.headline : "", subtext: typeof result.subtext === "string" ? result.subtext : undefined, caption: typeof result.caption === "string" ? result.caption : undefined, image_prompt: typeof result.imagePrompt === "string" ? result.imagePrompt : undefined, layout_suggestion: { text_position: textPosition, character_positions: [] }, tone: "natural" },
+        suggested_characters: characterIds.map((characterId) => ({ character_id: characterId, character_name: characters.find((item) => item.id === characterId)?.name || "", emotion: "neutral" as EmotionTag, pose_id: "", pose_name: "", suggested_emotion: "", reasoning: "Nhân vật được chọn cho cảnh này." })),
+        headline: typeof result.headline === "string" ? result.headline : "", subtext: typeof result.subtext === "string" ? result.subtext : undefined, caption: typeof result.caption === "string" ? result.caption : undefined, image_prompt: typeof result.imagePrompt === "string" ? result.imagePrompt : undefined, tone: "natural", text_position: textPosition, visual_direction: { scene: typeof result.visualDirection === "string" ? result.visualDirection : "" },
+      };
+      setVariations([variation]); setSelectedVariation(0); setHasPickedVariation(true); setTaggedCharacterIds(new Set(characterIds)); setStep(3);
+      toast.success("AI đã soạn ảnh, caption và prompt. Duyệt rồi mới tạo ảnh.");
+    } catch (reason) { toast.error(reason instanceof Error ? reason.message : "AI chưa soạn được ảnh."); } finally { setGenerating(false); }
+  };
+
   const handleDirectFlow = async () => {
     const normalizedIdea = idea.trim();
     if (!normalizedIdea) return;
@@ -1243,13 +1275,13 @@ export default function GeneratePage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <Button size="lg" className="w-full" onClick={handleGenerate} loading={generating} disabled={!idea.trim()}>
+                  <Button size="lg" className="w-full" onClick={handleAssistImage} loading={generating} disabled={!idea.trim()}>
                     <Zap size={18} />
-                    {generating ? "AI đang xử lý..." : "Tạo các phương án nội dung"}
+                    {generating ? "AI đang soạn..." : "AI soạn ảnh"}
                   </Button>
                   <Button size="lg" variant="outline" className="w-full" onClick={handleDirectFlow} disabled={!idea.trim()}>
                     <Wand2 size={18} />
-                    Dùng prompt hiện tại, tạo ảnh luôn
+                    Tự viết prompt
                   </Button>
                 </div>
               </CardContent>

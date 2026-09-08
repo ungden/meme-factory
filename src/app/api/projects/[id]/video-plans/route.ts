@@ -50,14 +50,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { data: plan, error } = await supabase.from("video_plans").insert({
     project_id: project.id, title: typeof body.title === "string" ? body.title.trim().slice(0, 160) || "Video nhiều cảnh" : "Video nhiều cảnh",
     brief: typeof body.brief === "string" ? body.brief.trim().slice(0, 4000) : "", format, resolution, generate_audio: body.generateAudio !== false,
-    cast_snapshot: castSnapshot, created_by: user.id,
+    cast_snapshot: castSnapshot, target_duration_seconds: [15, 30, 60].includes(Number(body.targetDurationSeconds)) ? Number(body.targetDurationSeconds) : null, created_by: user.id,
   }).select().single();
   if (error || !plan) return NextResponse.json({ error: error?.message || "Không tạo được kế hoạch video." }, { status: 500 });
   const sceneRows = sceneInput.map((source: SceneInput, sceneIndex: number) => {
     const scene = normalizeScene(source);
     const sceneCast = castSnapshot.filter((character) => scene.characterIds.includes(character.characterId));
     return { video_plan_id: plan.id, scene_index: sceneIndex, cast_snapshot: sceneCast, speaker_character_id: scene.speakerCharacterId,
-      dialogue: scene.dialogue, action: scene.action, setting: scene.setting, duration_seconds: scene.durationSeconds, start_image_url: scene.startImageUrl, end_image_url: scene.endImageUrl, follows_previous: scene.followsPrevious };
+      dialogue: scene.dialogue, action: scene.action, setting: scene.setting, duration_seconds: scene.durationSeconds, start_image_url: scene.startImageUrl, end_image_url: scene.endImageUrl, follows_previous: scene.followsPrevious,
+      image_prompt: scene.imagePrompt, motion_prompt: scene.motionPrompt, source_mode: scene.sourceMode };
   });
   const { data: scenes, error: sceneError } = await supabase.from("video_plan_scenes").insert(sceneRows).select();
   if (sceneError) { await supabase.from("video_plans").delete().eq("id", plan.id); return NextResponse.json({ error: sceneError.message }, { status: 500 }); }

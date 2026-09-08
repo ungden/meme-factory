@@ -18,6 +18,9 @@ export type SceneInput = {
   startImageUrl?: string | null;
   endImageUrl?: string | null;
   followsPrevious?: boolean;
+  imagePrompt?: string;
+  motionPrompt?: string;
+  sourceMode?: "manual" | "ai";
 };
 
 export type SceneCast = {
@@ -44,6 +47,9 @@ export function normalizeScene(scene: SceneInput): Required<Omit<SceneInput, "id
     startImageUrl: typeof scene.startImageUrl === "string" && scene.startImageUrl ? scene.startImageUrl : null,
     endImageUrl: typeof scene.endImageUrl === "string" && scene.endImageUrl ? scene.endImageUrl : null,
     followsPrevious: scene.followsPrevious === true,
+    imagePrompt: typeof scene.imagePrompt === "string" ? scene.imagePrompt.trim().slice(0, 1600) : "",
+    motionPrompt: typeof scene.motionPrompt === "string" ? scene.motionPrompt.trim().slice(0, 1600) : "",
+    sourceMode: scene.sourceMode === "ai" ? "ai" : "manual",
   };
 }
 

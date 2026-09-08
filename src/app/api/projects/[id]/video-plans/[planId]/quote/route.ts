@@ -29,13 +29,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (Number(body.expectedVersion) !== plan.version) return NextResponse.json({ error: "Kế hoạch đã thay đổi. Hãy tải lại trước khi báo giá.", code: "VERSION_CONFLICT" }, { status: 409 });
   const scenes = [...(plan.video_plan_scenes ?? [])].sort((a, b) => a.scene_index - b.scene_index);
   if (!scenes.length) return NextResponse.json({ error: "Kế hoạch chưa có cảnh." }, { status: 400 });
+  const missingStartImages = scenes.filter((scene) => !scene.start_image_url).map((scene) => ({ sceneId: scene.id, sceneIndex: scene.scene_index, imagePrompt: scene.image_prompt || "" }));
+  if (missingStartImages.length) return NextResponse.json({ error: "Hãy duyệt và tạo hoặc chọn ảnh đầu cho các cảnh còn thiếu trước khi báo giá video.", code: "START_IMAGES_REQUIRED", missingStartImages }, { status: 409 });
   const permittedUrls = await projectMediaUrls(supabase, plan.project_id);
   const cast = (plan.cast_snapshot ?? []) as SceneCast[];
   const resolution = plan.resolution as "720p" | "1080p";
   const configHash = JSON.stringify({ planId: plan.id, version: plan.version, resolution, audio: plan.generate_audio, scenes: scenes.map((scene) => [scene.id, scene.start_image_url, scene.end_image_url, scene.duration_seconds, scene.dialogue, scene.action, scene.setting, scene.cast_snapshot, scene.speaker_character_id]) });
   try {
     const quoted = await Promise.all(scenes.map(async (scene) => {
-      if (!scene.start_image_url) throw new Error(`Cảnh ${scene.scene_index + 1} chưa có ảnh đầu.`);
       if (!permittedUrls.has(scene.start_image_url) || (scene.end_image_url && !permittedUrls.has(scene.end_image_url))) throw new Error(`Ảnh của cảnh ${scene.scene_index + 1} không thuộc dự án.`);
       const sceneCast = Array.isArray(scene.cast_snapshot) ? scene.cast_snapshot as SceneCast[] : cast;
       const prompt = buildScenePrompt({ dialogue: scene.dialogue, action: scene.action, setting: scene.setting }, sceneCast, scene.speaker_character_id);

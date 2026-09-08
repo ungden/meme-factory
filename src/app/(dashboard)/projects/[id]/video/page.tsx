@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { Clapperboard, ImagePlus, LoaderCircle, Play, RefreshCw, Volume2 } from "lucide-react";
+import { Clapperboard, ImagePlus, LoaderCircle, Play, RefreshCw, Volume2, Wand2 } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import { useCharacters, useMemes, useProject } from "@/lib/use-store";
 
@@ -29,6 +29,8 @@ export default function VideoStudioPage() {
   const shouldLoadMedia = mode === "image" || Boolean(query.get("image"));
   const { memes, loading: memesLoading } = useMemes(projectRef, shouldLoadMedia);
   const [prompt, setPrompt] = useState("");
+  const [caption, setCaption] = useState("");
+  const [assisting, setAssisting] = useState(false);
   const [image, setImage] = useState(query.get("image") || "");
   const [lastImage, setLastImage] = useState("");
   const [references, setReferences] = useState<string[]>([]);
@@ -58,17 +60,29 @@ export default function VideoStudioPage() {
     }),
   ], [characters, memes]);
 
-  const payload = useMemo(() => ({ mode, prompt, image, lastImage, references, duration, resolution, aspect, audio }), [mode, prompt, image, lastImage, references, duration, resolution, aspect, audio]);
+  const payload = useMemo(() => ({ mode, prompt, caption, image, lastImage, references, duration, resolution, aspect, audio }), [mode, prompt, caption, image, lastImage, references, duration, resolution, aspect, audio]);
   const payloadKey = useMemo(() => JSON.stringify(payload), [payload]);
   const hasDraftContent = prompt.trim().length > 0 || image.length > 0 || references.length > 0 || lastImage.length > 0;
 
   const applyDraft = (draft: Record<string, unknown>) => {
-    setMode(draft.mode === "image" ? "image" : "text"); setPrompt(typeof draft.prompt === "string" ? draft.prompt : ""); setImage(typeof draft.image === "string" ? draft.image : ""); setLastImage(typeof draft.lastImage === "string" ? draft.lastImage : "");
+    setMode(draft.mode === "image" ? "image" : "text"); setPrompt(typeof draft.prompt === "string" ? draft.prompt : ""); setCaption(typeof draft.caption === "string" ? draft.caption : ""); setImage(typeof draft.image === "string" ? draft.image : ""); setLastImage(typeof draft.lastImage === "string" ? draft.lastImage : "");
     setReferences(Array.isArray(draft.references) ? draft.references.filter((value): value is string => typeof value === "string") : []); setDuration(DURATIONS.includes(draft.duration as (typeof DURATIONS)[number]) ? draft.duration as (typeof DURATIONS)[number] : 5);
     setResolution(RESOLUTIONS.includes(draft.resolution as (typeof RESOLUTIONS)[number]) ? draft.resolution as (typeof RESOLUTIONS)[number] : "720p"); setAspect(ASPECTS.includes(draft.aspect as (typeof ASPECTS)[number]) ? draft.aspect as (typeof ASPECTS)[number] : "9:16"); setAudio(draft.audio !== false);
   };
 
   const markEdited = () => { editedBeforeRestoreRef.current = true; };
+
+  async function assistVideo() {
+    if (!prompt.trim()) { setError("Nhập ý tưởng trước để AI soạn video."); return; }
+    setError(""); setAssisting(true);
+    try {
+      const selectedCharacterIds = characters.filter((character) => references.includes(character.avatar_url || character.poses?.[0]?.image_url || "")).map((character) => character.id);
+      const response = await fetch(`/api/projects/${projectRef}/creative-assists`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "video_clip_plan", intent: prompt, selectedCharacterIds, imageMode: mode, sourceImageDescription: image ? "Người dùng đã chọn ảnh đầu trong dự án." : undefined }) });
+      const json = await response.json(); if (!response.ok) throw new Error(json.error || "Không thể bắt đầu soạn video.");
+      for (let attempt = 0; attempt < 30; attempt += 1) { const resultResponse = await fetch(`/api/projects/${projectRef}/creative-assists/${json.jobId}`, { cache: "no-store" }); const result = await resultResponse.json(); if (!resultResponse.ok) throw new Error(result.error || "Không đọc được kết quả AI."); if (result.job.status === "completed") { setPrompt(result.job.result.prompt); setCaption(result.job.result.caption || ""); markEdited(); return; } if (result.job.status === "failed") throw new Error(result.job.error?.code || "AI chưa soạn được video."); await new Promise((resolve) => window.setTimeout(resolve, 500)); }
+      throw new Error("AI đang xử lý lâu hơn bình thường.");
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "AI chưa soạn được video."); } finally { setAssisting(false); }
+  }
 
   useEffect(() => {
     if (query.get("output") !== "Tạo video" && !query.get("idea")) return;
@@ -191,7 +205,7 @@ export default function VideoStudioPage() {
     const setResponse = await fetch("/api/content-sets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project_id: project.id, title: "Video", brief: prompt.trim(), selected_character_ids: characters.filter((c) => references.includes(c.avatar_url || c.poses?.[0]?.image_url || "")).map((c) => c.id) }) });
     const setJson = await setResponse.json();
     if (!setResponse.ok) throw new Error(setJson.error || "Không tạo được bản nháp video.");
-    const outputResponse = await fetch(`/api/content-sets/${setJson.contentSet.id}/outputs`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "video", format: mode === "text" ? aspect : "9:16", poster_url: image || null, script: prompt.trim(), duration_seconds: duration, source_snapshot: { mode, image: image || null, lastImage: lastImage || null, referenceImages: references } }) });
+    const outputResponse = await fetch(`/api/content-sets/${setJson.contentSet.id}/outputs`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "video", format: mode === "text" ? aspect : "9:16", poster_url: image || null, script: prompt.trim(), caption: caption.trim() || null, duration_seconds: duration, source_snapshot: { mode, image: image || null, lastImage: lastImage || null, referenceImages: references } }) });
     const outputJson = await outputResponse.json();
     if (!outputResponse.ok) throw new Error(outputJson.error || "Không tạo được đầu ra video.");
     return outputJson.output as Output;
@@ -231,7 +245,7 @@ export default function VideoStudioPage() {
             <div className="mb-6 grid grid-cols-2 rounded-xl p-1" style={{ background: "var(--bg-tertiary)" }}>
               {([['text','Từ mô tả'],['image','Từ ảnh']] as const).map(([value,label]) => <button key={value} onClick={() => { markEdited(); setMode(value); }} className={`rounded-lg px-3 py-2.5 text-sm font-semibold ${mode === value ? "text-white shadow-sm" : "th-text-muted th-bg-hover"}`} style={mode === value ? { background: "var(--accent)" } : undefined}>{label}</button>)}
             </div>
-            <label className="block text-sm font-semibold th-text-primary">Mô tả video</label><textarea value={prompt} onChange={(event) => { markEdited(); setPrompt(event.target.value); }} className="mt-2 min-h-36 w-full rounded-lg border p-3 text-sm outline-none th-bg-input th-text-primary th-ring-accent focus:ring-2" style={{ borderColor: "var(--border-primary)" }} placeholder="Mô tả nhân vật, hành động, bối cảnh, ánh sáng và chuyển động máy quay…" />
+            <div className="flex items-center justify-between gap-3"><label className="block text-sm font-semibold th-text-primary">Bạn muốn làm nội dung gì?</label><button onClick={assistVideo} disabled={assisting || !prompt.trim()} className="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold th-text-accent th-bg-accent-light disabled:opacity-50"><Wand2 size={15} />{assisting ? "AI đang soạn…" : "AI soạn video"}</button></div><textarea value={prompt} onChange={(event) => { markEdited(); setPrompt(event.target.value); }} className="mt-2 min-h-36 w-full rounded-lg border p-3 text-sm outline-none th-bg-input th-text-primary th-ring-accent focus:ring-2" style={{ borderColor: "var(--border-primary)" }} placeholder="Ví dụ: Bánh Bao cố giấu chiếc bánh cuối cùng, Đậu Đỏ phát hiện ra và cả hai kết thúc bằng một câu đùa…" /><label className="mt-3 block text-xs font-semibold th-text-secondary">Caption bài đăng <span className="font-normal th-text-tertiary">· tách riêng khỏi lời thoại/video</span><textarea value={caption} onChange={(event) => { markEdited(); setCaption(event.target.value); }} className="mt-1.5 min-h-16 w-full rounded-lg border p-2 text-sm th-bg-input th-text-primary" style={{ borderColor: "var(--border-primary)" }} placeholder="AI sẽ đề xuất caption khi bạn bấm soạn video." /></label>
             {mode === "image" ? <div className="mt-5"><p className="text-sm font-semibold th-text-primary">Ảnh đầu</p><p className="mt-1 text-xs th-text-tertiary">Tỷ lệ video sẽ theo ảnh đầu.</p><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">{candidateImages.slice(0, 9).map((item) => <button key={item.id} onClick={() => { markEdited(); setImage(item.url); }} className={`relative aspect-square overflow-hidden rounded-xl border ${image === item.url ? "border-blue-500 ring-2 ring-blue-500/30" : ""}`} style={{ borderColor: "var(--border-primary)" }}><Image src={item.url} alt={item.label} fill sizes="180px" className="object-cover" /><span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1.5 py-1 text-left text-[10px] text-white">{item.label}</span></button>)}</div>{memesLoading ? <p className="mt-3 text-sm th-text-tertiary">Đang tải ảnh của dự án…</p> : candidateImages.length === 0 && <p className="mt-3 rounded-xl border border-dashed p-4 text-sm th-text-tertiary">Chưa có ảnh trong dự án. Tạo ảnh trước hoặc tải ảnh lên trong phiên bản tiếp theo.</p>}</div> : <div className="mt-5"><p className="text-sm font-semibold th-text-primary">Nhân vật tham chiếu <span className="font-normal th-text-tertiary">(tuỳ chọn)</span></p><div className="mt-3 flex flex-wrap gap-2">{characters.map((character) => { const url = character.avatar_url || character.poses?.[0]?.image_url; if (!url) return null; const active = references.includes(url); return <button key={character.id} onClick={() => { markEdited(); setReferences(active ? references.filter((value) => value !== url) : [...references, url]); }} className={`flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-xs ${active ? "border-blue-500 bg-blue-50 text-blue-700" : "th-text-secondary"}`}><span className="relative h-7 w-7 overflow-hidden rounded-full"><Image src={url} alt="" fill sizes="28px" className="object-cover" /></span>{character.name}</button>; })}</div></div>}
             <div className="mt-6 grid gap-5 sm:grid-cols-2"><div><p className="text-sm font-semibold th-text-primary">Thời lượng</p><div className="mt-2 flex gap-2">{DURATIONS.map((value) => <button key={value} onClick={() => { markEdited(); setDuration(value); }} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${duration === value ? "border-blue-500 bg-blue-50 text-blue-700" : "th-text-secondary"}`}>{value}s</button>)}</div></div><div><p className="text-sm font-semibold th-text-primary">Độ phân giải</p><div className="mt-2 flex gap-2">{RESOLUTIONS.map((value) => <button key={value} onClick={() => { markEdited(); setResolution(value); }} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${resolution === value ? "border-blue-500 bg-blue-50 text-blue-700" : "th-text-secondary"}`}>{value}</button>)}</div></div></div>
             {mode === "text" && <div className="mt-5"><p className="text-sm font-semibold th-text-primary">Tỷ lệ</p><div className="mt-2 flex gap-2">{ASPECTS.map((value) => <button key={value} onClick={() => { markEdited(); setAspect(value); }} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${aspect === value ? "border-blue-500 bg-blue-50 text-blue-700" : "th-text-secondary"}`}>{value}</button>)}</div></div>}

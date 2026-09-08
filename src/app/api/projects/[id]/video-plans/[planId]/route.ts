@@ -29,13 +29,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const rows = inputs.map((raw, scene_index) => {
     const scene = normalizeScene(raw);
     if (scene.characterIds.some((characterId) => !castIds.has(characterId)) || (scene.speakerCharacterId && !castIds.has(scene.speakerCharacterId))) throw new Error("Cảnh dùng nhân vật không có trong cast đã duyệt.");
-    return { video_plan_id: plan.id, scene_index, version: plan.version + 1, cast_snapshot: cast.filter((character) => scene.characterIds.includes(character.characterId)), speaker_character_id: scene.speakerCharacterId, dialogue: scene.dialogue, action: scene.action, setting: scene.setting, duration_seconds: scene.durationSeconds, start_image_url: scene.startImageUrl, end_image_url: scene.endImageUrl, follows_previous: scene.followsPrevious };
+    return { video_plan_id: plan.id, scene_index, version: plan.version + 1, cast_snapshot: cast.filter((character) => scene.characterIds.includes(character.characterId)), speaker_character_id: scene.speakerCharacterId, dialogue: scene.dialogue, action: scene.action, setting: scene.setting, duration_seconds: scene.durationSeconds, start_image_url: scene.startImageUrl, end_image_url: scene.endImageUrl, follows_previous: scene.followsPrevious, image_prompt: scene.imagePrompt, motion_prompt: scene.motionPrompt, source_mode: scene.sourceMode };
   });
   try {
     await supabase.from("video_plan_scenes").delete().eq("video_plan_id", plan.id);
     const { error: sceneError } = await supabase.from("video_plan_scenes").insert(rows);
     if (sceneError) throw new Error(sceneError.message);
-    const { data: updated, error } = await supabase.from("video_plans").update({ title: typeof body.title === "string" ? body.title.trim().slice(0, 160) || plan.title : plan.title, brief: typeof body.brief === "string" ? body.brief.trim().slice(0, 4000) : plan.brief, version: plan.version + 1, status: "draft", quote_snapshot: null, quote_expires_at: null }).eq("id", plan.id).eq("version", plan.version).select("*, video_plan_scenes(*)").single();
+    const { data: updated, error } = await supabase.from("video_plans").update({ title: typeof body.title === "string" ? body.title.trim().slice(0, 160) || plan.title : plan.title, brief: typeof body.brief === "string" ? body.brief.trim().slice(0, 4000) : plan.brief, target_duration_seconds: [15, 30, 60].includes(Number(body.targetDurationSeconds)) ? Number(body.targetDurationSeconds) : plan.target_duration_seconds, version: plan.version + 1, status: "draft", quote_snapshot: null, quote_expires_at: null }).eq("id", plan.id).eq("version", plan.version).select("*, video_plan_scenes(*)").single();
     if (error || !updated) throw new Error(error?.message || "Không lưu được phiên bản kế hoạch mới.");
     return NextResponse.json({ plan: { ...updated, video_plan_scenes: [...(updated.video_plan_scenes ?? [])].sort((a, b) => a.scene_index - b.scene_index) } });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Không lưu được kế hoạch." }, { status: 400 }); }
