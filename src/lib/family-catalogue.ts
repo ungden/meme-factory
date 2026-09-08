@@ -17,7 +17,12 @@ export type ChannelProfile = {
   avoid: string[];
   references: Array<{ source: string; mechanism: string; lesson: string }>;
 };
+export type RecentStory = Pick<
+  Story,
+  "series" | "situation" | "mechanism" | "outcome" | "wants" | "payoff"
+>;
 export type Story = {
+  intendedShotSeconds?: number[];
   profileVersion: number;
   series: string;
   situation: string;
@@ -109,7 +114,7 @@ export function validateStory(
   value: unknown,
   profile: ChannelProfile,
   allowed: string[],
-  recent: Story[] = [],
+  recent: Pick<Story, "situation" | "mechanism" | "outcome">[] = [],
 ): Story {
   const s = value as Story;
   if (

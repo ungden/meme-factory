@@ -3,6 +3,7 @@ import {
   STORY_SCHEMA,
   type ChannelProfile,
   type Story,
+  type RecentStory,
 } from "./family-catalogue";
 import { GoogleGenAI } from "@google/genai";
 import { getGeminiApiKey } from "@/lib/server-secrets";
@@ -35,7 +36,7 @@ export type CreativeCharacter = {
 export type CreativeContext = {
   projectName: string;
   channelProfile?: ChannelProfile;
-  recentStories?: Story[];
+  recentStories?: RecentStory[];
   brandVoice?: string | null;
   audience?: string | null;
   guidelines?: string | null;
@@ -51,6 +52,7 @@ export type PlannedScene = {
   setting: string;
   camera: string;
   durationSeconds: number;
+  intendedDurationSeconds?: number;
   imagePrompt: string;
   motionPrompt: string;
   followsPrevious: boolean;
@@ -131,10 +133,22 @@ function plannedScene(
     ids.includes(item.speakerCharacterId)
       ? item.speakerCharacterId
       : null;
-  const duration = Number(item.durationSeconds);
+  const intendedDuration = Number(item.durationSeconds);
   const dialogue = text(item.dialogue, 700);
+  // Editorial shot length is not a provider contract. Round UP before quoting,
+  // without inventing an edit boundary or clipping a spoken sentence.
+  const duration =
+    context.channelProfile &&
+    Number.isFinite(intendedDuration) &&
+    intendedDuration > 0
+      ? Math.max(
+          4,
+          Math.ceil(intendedDuration),
+          Math.ceil(dialogue.split(/\s+/).filter(Boolean).length / 2.6),
+        )
+      : intendedDuration;
   if (
-    !ids.length ||
+    (!ids.length && (!context.channelProfile || !!dialogue)) ||
     !text(item.action, 900) ||
     !text(item.setting, 700) ||
     !text(item.imagePrompt, 1600) ||
@@ -158,6 +172,9 @@ function plannedScene(
     setting: text(item.setting, 700),
     camera: text(item.camera, 400),
     durationSeconds: duration as PlannedScene["durationSeconds"],
+    ...(context.channelProfile
+      ? { intendedDurationSeconds: intendedDuration }
+      : {}),
     imagePrompt: text(item.imagePrompt, 1600),
     motionPrompt: text(item.motionPrompt, 1600),
     followsPrevious: item.followsPrevious === true,
@@ -238,7 +255,7 @@ export function validateCreativeAssist(
   const invalid = parsedScenes.findIndex((s) => !s);
   if (invalid >= 0)
     throw new Error(
-      `CREATIVE_ASSIST_SCENE_${invalid + 1}_INVALID: use valid cast IDs, action, setting, imagePrompt, motionPrompt; durationSeconds integer 4-30; dialogue <= 2.6 words/second with speaker in cast`,
+      `CREATIVE_ASSIST_SCENE_${invalid + 1}_INVALID: ${JSON.stringify({ duration: (source[invalid] as Record<string, unknown>)?.durationSeconds, cast: (source[invalid] as Record<string, unknown>)?.characterIds, missing: ["action", "setting", "imagePrompt", "motionPrompt"].filter((k) => !(source[invalid] as Record<string, unknown>)?.[k]) })}; use valid project cast, speaker in cast, concrete action/setting/prompts and <=30 seconds`,
     );
   const scenes = parsedScenes as PlannedScene[];
   if (kind === "video_plan") {
@@ -404,5 +421,14 @@ JSON: ${schemaFor("video_plan")}`,
       return r;
     },
   );
-  return { ...result, story, caption: story.caption };
+  return {
+    ...result,
+    story: {
+      ...story,
+      intendedShotSeconds: result.scenes.map(
+        (s) => s.intendedDurationSeconds || s.durationSeconds,
+      ),
+    },
+    caption: story.caption,
+  };
 }

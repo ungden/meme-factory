@@ -221,7 +221,15 @@ export async function POST(
           channelProfile: channel?.profile,
           recentStories: (recentPlans || [])
             .map((p) => p.story)
-            .filter(Boolean),
+            .filter(Boolean)
+            .map((s) => ({
+              series: s.series,
+              situation: s.situation,
+              mechanism: s.mechanism,
+              outcome: s.outcome,
+              wants: s.wants,
+              payoff: s.payoff,
+            })),
           brandVoice: project.brand_voice,
           audience: project.audience,
           guidelines: project.content_guidelines,

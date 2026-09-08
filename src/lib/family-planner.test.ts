@@ -83,3 +83,16 @@ it("does not confuse generated clip duration with edited film duration", async (
       result.scenes.reduce((n, s) => n + s.durationSeconds, 0),
   ).toBe(63);
 });
+
+it("normalizes short acting beats to provider minimum without changing the editorial timing", async () => {
+  const shots = plans[0].scenes.map((s) => ({ ...s, durationSeconds: 1.5 }));
+  calls.responses = [plans[0].story, { ...plans[0], scenes: shots }];
+  const result = await generateCreativeAssist(input);
+  expect(
+    result.kind === "video_plan" &&
+      result.scenes.every((s) => s.durationSeconds >= 4),
+  ).toBe(true);
+  expect(
+    result.kind === "video_plan" && result.story?.intendedShotSeconds?.at(-1),
+  ).toBe(1.5);
+});

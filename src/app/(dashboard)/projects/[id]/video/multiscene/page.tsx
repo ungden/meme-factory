@@ -1066,7 +1066,7 @@ export default function ShortFilmPage() {
                       ),
                     )}
                     <label className="block text-xs th-text-secondary">
-                      Thời lượng cảnh (giây)
+                      Thời lượng clip gốc (giây)
                       <input
                         className={`${control} mt-1`}
                         type="number"
