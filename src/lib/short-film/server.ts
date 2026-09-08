@@ -46,7 +46,7 @@ export async function access(request: NextRequest, ref: string) {
   const q = supabase
     .from("projects")
     .select(
-      "id,workspace_version,watermark_url,watermark_position,watermark_opacity",
+      "id,user_id,name,brand_voice,audience,content_guidelines,workspace_version,watermark_url,watermark_position,watermark_opacity",
     )
     .limit(1);
   const { data: project, error } = await (
@@ -302,6 +302,8 @@ export async function publicTasks(a: Access, tasks: FilmTask[]) {
       status: t.status,
       error: t.error,
       approved_at: t.approved_at,
+      auto_accepted_at: t.auto_accepted_at,
+      production_run_id: t.production_run_id,
       created_at: t.created_at,
       input: {
         imageTaskId: t.input.imageTaskId,
@@ -345,10 +347,13 @@ export async function modelPrice(
     ),
   );
 }
+const accepted = (task?: FilmTask) =>
+  !!(task?.approved_at || task?.auto_accepted_at);
 export async function storeQuote(
   a: Access,
   tasks: QuotedTask[],
   plan?: FilmPlan,
+  productionRunId?: string,
 ) {
   if (!tasks.length) throw new FilmError("Không có bước mới cần tạo.");
   const points = tasks.reduce((s, t) => s + t.points, 0);
@@ -360,6 +365,7 @@ export async function storeQuote(
       plan_version: plan?.version,
       workspace_version: a.project.workspace_version,
       created_by: a.user.id,
+      production_run_id: productionRunId || null,
       tasks,
       points,
     })
@@ -410,7 +416,19 @@ export async function quotePlan(
       .eq("project_id", a.project.id)
       .eq("workspace_version", a.project.workspace_version);
     if (error) throw error;
-    if (count && !plan.script_review)
+    let automaticScriptPassed = false;
+    if (body.productionRunId) {
+      const { data: run } = await a.admin
+        .from("short_film_production_runs")
+        .select("id,snapshot")
+        .eq("id", String(body.productionRunId))
+        .eq("project_id", a.project.id)
+        .eq("plan_id", plan.id)
+        .eq("plan_version", plan.version)
+        .maybeSingle();
+      automaticScriptPassed = run?.snapshot?.scriptCheck === "passed";
+    }
+    if (count && !plan.script_review && !automaticScriptPassed)
       throw new FilmError(
         "Duyệt bản kịch bản hiện tại trước khi chuẩn bị media. Bản sửa cần duyệt lại.",
         409,
@@ -424,13 +442,25 @@ export async function quotePlan(
   if (plan.audio_mode === "fixed" && ["prepare", "video"].includes(stage))
     scenes.forEach(assertFixedVoiceShot);
   const existing = await tasksForPlan(a, plan.id);
+  // An automatic run may only continue from work created by that run. Human
+  // approved media can be reused deliberately; an unreviewed result from an
+  // older attempt must never be pulled into a new production implicitly.
+  const productionRunId =
+    typeof body.productionRunId === "string" ? body.productionRunId : null;
+  const eligible = productionRunId
+    ? existing.filter(
+        (candidate) =>
+          candidate.production_run_id === productionRunId ||
+          Boolean(candidate.approved_at),
+      )
+    : existing;
   const tasks: QuotedTask[] = [];
   const latest = (s: FilmScene, kind: FilmKind) =>
-    currentSceneTask(existing, s, kind, plan.audio_mode);
+    currentSceneTask(eligible, s, kind, plan.audio_mode);
   if (stage === "prepare")
     for (const s of scenes) {
       if (
-        (!latest(s, "image") || body.regenerate === true) &&
+        (!accepted(latest(s, "image")) || body.regenerate === true) &&
         !s.follows_previous
       ) {
         const input = {
@@ -444,6 +474,8 @@ export async function quotePlan(
               : "",
           ].join("\n"),
           cast: s.cast_snapshot,
+          dialogue: s.dialogue,
+          speakerCharacterId: s.speaker_character_id,
           format: plan.format,
         };
         const p = estimateImageGenerationPrice({
@@ -457,7 +489,7 @@ export async function quotePlan(
       if (
         s.dialogue &&
         plan.audio_mode === "fixed" &&
-        (!latest(s, "tts") || body.regenerate === true)
+        (!accepted(latest(s, "tts")) || body.regenerate === true)
       ) {
         const c = s.cast_snapshot.find(
           (c) => c.characterId === s.speaker_character_id,
@@ -498,7 +530,7 @@ export async function quotePlan(
           prev,
           plan.audio_mode === "fixed" && prev.dialogue ? "lip_sync" : "video",
         );
-      if (!clip?.approved_at)
+      if (!clip || !accepted(clip))
         throw new FilmError("Duyệt clip cảnh trước để lấy khung nối tiếp.");
       tasks.push(
         task(
@@ -521,6 +553,7 @@ export async function quotePlan(
     for (const s of scenes) {
       const image = latest(s, "image"),
         audio = latest(s, "tts");
+      if (latest(s, "video") && body.regenerate !== true) continue;
       if (s.follows_previous) {
         const prev = plan.video_plan_scenes[s.scene_index - 1];
         const clip =
@@ -538,9 +571,9 @@ export async function quotePlan(
             "Lấy và duyệt khung cuối từ clip mới nhất của cảnh trước.",
           );
       }
-      if (!image?.approved_at)
+      if (!image || !accepted(image))
         throw new FilmError(`Duyệt ảnh đầu cảnh ${s.scene_index + 1} trước.`);
-      if (plan.audio_mode === "fixed" && s.dialogue && !audio?.approved_at)
+      if (plan.audio_mode === "fixed" && s.dialogue && !accepted(audio))
         throw new FilmError(
           `Nghe và duyệt thoại cảnh ${s.scene_index + 1} trước.`,
         );
@@ -606,6 +639,7 @@ export async function quotePlan(
               audioTaskId: audio.id,
               duration: video.result.duration,
               dialogue: s.dialogue,
+              cast: s.cast_snapshot,
             },
             await modelPrice(FILM_MODELS.lip_sync, inputs),
             s,
@@ -641,7 +675,7 @@ export async function quotePlan(
         plan.audio_mode === "fixed" && s.dialogue ? "lip_sync" : "video",
       );
       const transcript = latest(s, "transcribe");
-      if (!clip || !clip.approved_at)
+      if (!clip || !accepted(clip))
         throw new FilmError(
           `Duyệt clip cảnh ${s.scene_index + 1} trước khi ghép.`,
         );
@@ -672,5 +706,5 @@ export async function quotePlan(
       ),
     );
   } else throw new FilmError("Bước sản xuất không hợp lệ.");
-  return storeQuote(a, tasks, plan);
+  return storeQuote(a, tasks, plan, productionRunId || undefined);
 }

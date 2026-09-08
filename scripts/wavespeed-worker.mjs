@@ -513,6 +513,24 @@ async function proxyTick() {
     `WaveSpeed fallback reconcile complete: ${result.processed ?? 0} job(s) processed.`,
   );
 }
+async function productionTick() {
+  if (!appUrl || !workerToken) return;
+  const response = await fetch(
+    `${appUrl.replace(/\/$/, "")}/api/internal/short-film-production/advance`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${workerToken}` },
+      signal: AbortSignal.timeout(190000),
+    },
+  );
+  if (!response.ok)
+    throw new Error(
+      `Production advance ${response.status}: ${await response.text()}`,
+    );
+  const result = await response.json();
+  if (Number(result.processed || 0) > 0)
+    console.log(`Short-film production advanced: ${result.processed} run(s).`);
+}
 async function loop(work, delay) {
   while (true) {
     try {
@@ -529,6 +547,7 @@ async function loop(work, delay) {
 const film = directMode ? makeFilmWorker(supabase) : null;
 await Promise.all([
   loop(directMode ? directTick : proxyTick, 10000),
+  loop(productionTick, 5000),
   ...(film
     ? [loop(() => film.tick(false), 3000), loop(() => film.tick(true), 3000)]
     : []),

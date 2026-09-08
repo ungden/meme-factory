@@ -237,7 +237,8 @@ export function makeFilmWorker(db) {
     for (let n = 0; n < t.input.clips.length; n++) {
       const spec = t.input.clips[n],
         clip = await source(spec.taskId, t.project_id);
-      if (!clip.approved_at) throw new Error("Clip chưa được duyệt.");
+      if (!clip.approved_at && !clip.auto_accepted_at)
+        throw new Error("Clip chưa được duyệt hoặc qua kiểm tra tự động.");
       const original = path.join(dir, `source-${n}.mp4`),
         normalized = path.join(dir, `clip-${n}.mp4`);
       await download(await sign(clip.result.path, t.project_id), original);
@@ -363,6 +364,41 @@ export function makeFilmWorker(db) {
     await checkpoint(t, { checkpoint: { persisted: result } });
     return result;
   }
+  async function qaContactSheet(t, video, dir, duration) {
+    const frames = [];
+    for (const [index, fraction] of [0.15, 0.5, 0.85].entries()) {
+      const frame = path.join(dir, `qa-${index}.jpg`);
+      await ffmpeg([
+        "-ss",
+        String(Math.max(0, Number(duration) * fraction)),
+        "-i",
+        video,
+        "-frames:v",
+        "1",
+        "-vf",
+        "scale=360:-2",
+        frame,
+      ]);
+      frames.push(frame);
+    }
+    const sheet = path.join(dir, "qa-contact-sheet.jpg");
+    await ffmpeg([
+      "-i",
+      frames[0],
+      "-i",
+      frames[1],
+      "-i",
+      frames[2],
+      "-filter_complex",
+      "[0:v][1:v][2:v]hstack=inputs=3[out]",
+      "-map",
+      "[out]",
+      "-frames:v",
+      "1",
+      sheet,
+    ]);
+    return upload(t, sheet, "qa-contact-sheet.jpg", "image/jpeg");
+  }
   async function processTask(t) {
     const dir = await mkdtemp(path.join(tmpdir(), "aida-film-"));
     let heartbeatBusy = false,
@@ -473,6 +509,9 @@ export function makeFilmWorker(db) {
                   );
               }
             }
+            const qaFramePath = audio
+              ? undefined
+              : await qaContactSheet(t, file, dir, inspection.duration);
             result = {
               path: await upload(
                 t,
@@ -481,6 +520,7 @@ export function makeFilmWorker(db) {
                 audio ? "audio/wav" : "video/mp4",
               ),
               ...inspection,
+              ...(qaFramePath ? { qaFramePath } : {}),
               review: "pending_review",
             };
           }

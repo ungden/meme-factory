@@ -38,6 +38,16 @@ export type Story = {
   caption: string;
   dialogue: Array<{ characterId: string; text: string; action: string }>;
 };
+export function compactStory(story: Story): RecentStory {
+  return {
+    series: story.series,
+    situation: story.situation,
+    mechanism: story.mechanism,
+    outcome: story.outcome,
+    wants: story.wants,
+    payoff: story.payoff,
+  };
+}
 export const referenceMechanisms: ChannelProfile["references"] = [
   {
     source: "1 · Đấu giá việc rửa bát",

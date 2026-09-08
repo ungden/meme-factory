@@ -59,6 +59,17 @@ type Quote = {
   expires_at: string;
   items: { kind: string; points: number; sceneId?: string }[];
 };
+type ProductionRun = {
+  id: string;
+  plan_id: string | null;
+  source: "manual" | "scheduled";
+  status: string;
+  phase: string;
+  points_committed: number;
+  max_points_per_film: number;
+  error: string | null;
+  created_at: string;
+};
 const blank = (): Draft => ({
   title: "Phim ngắn",
   brief: "",
@@ -166,6 +177,13 @@ export default function ShortFilmPage() {
   const [assistId, setAssistId] = useState<string | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [voiceQuote, setVoiceQuote] = useState<Quote | null>(null);
+  const [productionRuns, setProductionRuns] = useState<ProductionRun[]>([]);
+  const [maxFilm, setMaxFilm] = useState("");
+  const [maxDay, setMaxDay] = useState("");
+  const [autoEnabled, setAutoEnabled] = useState(false);
+  const [autoTime, setAutoTime] = useState("09:00");
+  const [queuedPlanIds, setQueuedPlanIds] = useState<string[]>([]);
+  const [automationOwner, setAutomationOwner] = useState(false);
   const lock = useRef(false),
     edited = useRef(false),
     generation = useRef(0);
@@ -195,6 +213,27 @@ export default function ShortFilmPage() {
     if (g !== generation.current) return;
     setVoices(j.voices || []);
     setVoiceTasks(j.tasks || []);
+  }, [base]);
+  const refreshProduction = useCallback(async () => {
+    const [runs, automation] = await Promise.all([
+      api(`${base}/production-runs`),
+      api(`${base}/film-automation`),
+    ]);
+    setProductionRuns(runs.runs || []);
+    setAutomationOwner(automation.owner === true);
+    if (automation.automation) {
+      setAutoEnabled(automation.automation.enabled === true);
+      setAutoTime(
+        String(automation.automation.local_time || "09:00").slice(0, 5),
+      );
+      setMaxFilm(String(automation.automation.max_points_per_film));
+      setMaxDay(String(automation.automation.max_points_per_day));
+      setQueuedPlanIds(
+        Array.isArray(automation.automation.queued_plan_ids)
+          ? automation.automation.queued_plan_ids
+          : [],
+      );
+    }
   }, [base]);
   useEffect(() => {
     const g = ++generation.current;
@@ -279,6 +318,7 @@ export default function ShortFilmPage() {
           if (!raw) setCast(p?.cast_snapshot.map((c) => c.characterId) || []);
         }
         setReady(true);
+        void refreshProduction().catch(() => {});
       })
       .catch((e) => {
         if (g === generation.current) setError(e.message);
@@ -286,7 +326,7 @@ export default function ShortFilmPage() {
     return () => {
       generation.current = g + 1;
     };
-  }, [base, ref]);
+  }, [base, ref, refreshProduction]);
   useEffect(() => {
     if (!ready || !storageKey) return;
     const timer = setTimeout(
@@ -321,6 +361,10 @@ export default function ShortFilmPage() {
     .map((t) => `${t.id}:${t.status}`)
     .sort()
     .join(",");
+  const productionPollingKey = productionRuns
+    .filter((r) => ["queued", "scripting", "running"].includes(r.status))
+    .map((r) => `${r.id}:${r.phase}`)
+    .join(",");
   useEffect(() => {
     if (ready && terminalKey) notifyProjectBalanceChanged();
   }, [ready, terminalKey]);
@@ -340,13 +384,13 @@ export default function ShortFilmPage() {
         return;
       inFlight = true;
       try {
-        await Promise.all([refresh(), refreshVoices()]);
+        await Promise.all([refresh(), refreshVoices(), refreshProduction()]);
       } catch {
         /* Keep prior results. */
       } finally {
         inFlight = false;
       }
-      if (active && pollingKey) {
+      if (active && (pollingKey || productionPollingKey)) {
         timer = setTimeout(
           poll,
           Date.now() - newestRunning < 60000 ? 3000 : 10000,
@@ -365,7 +409,15 @@ export default function ShortFilmPage() {
       document.removeEventListener("visibilitychange", visible);
       window.removeEventListener("online", visible);
     };
-  }, [ready, refresh, refreshVoices, pollingKey, newestRunning]);
+  }, [
+    ready,
+    refresh,
+    refreshVoices,
+    refreshProduction,
+    pollingKey,
+    newestRunning,
+    productionPollingKey,
+  ]);
 
   async function act(name: string, work: () => Promise<void>) {
     if (lock.current) return;
@@ -484,6 +536,77 @@ export default function ShortFilmPage() {
     });
     setAssistId(start.jobId);
     await readAssist(start.jobId);
+  }
+  async function createFilm() {
+    const filmCap = Number(maxFilm),
+      dayCap = Number(maxDay);
+    if (
+      !Number.isInteger(filmCap) ||
+      !Number.isInteger(dayCap) ||
+      filmCap <= 0 ||
+      dayCap < filmCap
+    )
+      throw new Error("Nhập trần điểm mỗi phim và mỗi ngày trước khi chạy.");
+    let selectedPlan = plan;
+    if (draft.scenes.length && (dirty || !plan)) selectedPlan = await save();
+    const storage = `film-production-key:${ref}:${selectedPlan?.id || "new"}:${selectedPlan?.version || draft.brief}`;
+    const key = localStorage.getItem(storage) || crypto.randomUUID();
+    localStorage.setItem(storage, key);
+    const response = await api(`${base}/production-runs`, {
+      planId: selectedPlan?.id || null,
+      intent: selectedPlan ? "" : draft.brief,
+      maxPointsPerFilm: filmCap,
+      maxPointsPerDay: dayCap,
+      idempotencyKey: key,
+    });
+    setNote(`Đã nhận lượt sản xuất ${response.runId}. Có thể rời trang.`);
+    await refreshProduction();
+    setTab("results");
+  }
+  async function saveAutomation(nextEnabled = autoEnabled) {
+    const filmCap = Number(maxFilm),
+      dayCap = Number(maxDay);
+    if (
+      !Number.isInteger(filmCap) ||
+      !Number.isInteger(dayCap) ||
+      filmCap <= 0 ||
+      dayCap < filmCap
+    )
+      throw new Error(
+        "Nhập trần điểm mỗi phim và mỗi ngày trước khi lưu tự động.",
+      );
+    const j = await api(
+      `${base}/film-automation`,
+      {
+        enabled: nextEnabled,
+        localTime: autoTime,
+        maxPointsPerFilm: filmCap,
+        maxPointsPerDay: dayCap,
+        queuedPlanIds,
+      },
+      "PUT",
+    );
+    setAutoEnabled(j.automation.enabled);
+    setNote(
+      j.automation.enabled
+        ? "Đã bật: mỗi ngày một phim, ưu tiên hàng đợi kịch bản."
+        : "Đã tắt lịch mới; lượt đã nhận vẫn tiếp tục.",
+    );
+  }
+  async function controlProduction(
+    run: ProductionRun,
+    action: "pause" | "resume" | "cancel",
+  ) {
+    await api(
+      `${base}/production-runs/${run.id}`,
+      {
+        action,
+        maxPointsPerFilm: Number(maxFilm),
+        maxPointsPerDay: Number(maxDay),
+      },
+      "PATCH",
+    );
+    await refreshProduction();
   }
   async function getQuote(
     stage: string,
@@ -727,6 +850,207 @@ export default function ShortFilmPage() {
               {note}
             </p>
           )}
+          <section className="mb-5 rounded-xl border th-border p-4 th-bg-card">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="font-semibold th-text-primary">
+                  Tạo phim một lần
+                </h2>
+                <p className="mt-1 text-sm th-text-secondary">
+                  Dùng kịch bản đang chọn. Ở “Tập mới”, ý tưởng có thể để trống
+                  để AI tự đề xuất.
+                </p>
+              </div>
+              <button
+                disabled={
+                  !!busy ||
+                  !ready ||
+                  !enabled ||
+                  productionPollingKey.length > 0
+                }
+                onClick={() => act("Tạo phim", createFilm)}
+                className="min-h-11 rounded-lg bg-[var(--accent)] px-5 font-semibold text-[var(--text-on-accent)] disabled:opacity-60"
+              >
+                {productionPollingKey
+                  ? "Đang sản xuất"
+                  : enabled
+                    ? `Tạo phim · tối đa ${maxFilm || "…"} điểm`
+                    : "Chờ duyệt giọng và canary"}
+              </button>
+            </div>
+            {automationOwner && plans.length > 0 && (
+              <details className="mt-3 rounded-lg border th-border p-3">
+                <summary className="cursor-pointer text-sm font-medium th-text-primary">
+                  Hàng đợi kịch bản · {queuedPlanIds.length} tập
+                </summary>
+                <p className="mt-2 text-xs th-text-secondary">
+                  Lịch dùng kịch bản theo thứ tự này; hết hàng đợi AI mới tự
+                  viết tập mới.
+                </p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {plans
+                    .filter(
+                      (candidate) =>
+                        !["completed", "approved", "cancelled"].includes(
+                          candidate.status,
+                        ),
+                    )
+                    .map((candidate) => (
+                      <label
+                        key={candidate.id}
+                        className="flex min-h-11 items-center gap-2 rounded-lg th-bg-secondary px-3 text-sm th-text-primary"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={queuedPlanIds.includes(candidate.id)}
+                          onChange={(event) =>
+                            setQueuedPlanIds((current) =>
+                              event.target.checked
+                                ? [...current, candidate.id]
+                                : current.filter((id) => id !== candidate.id),
+                            )
+                          }
+                        />
+                        <span className="truncate">{candidate.title}</span>
+                      </label>
+                    ))}
+                </div>
+                <button
+                  type="button"
+                  disabled={!!busy}
+                  onClick={() => act("Lưu hàng đợi", () => saveAutomation())}
+                  className="mt-3 min-h-10 rounded-lg border th-border px-3 text-sm th-text-accent"
+                >
+                  Lưu giờ, ngân sách và hàng đợi
+                </button>
+              </details>
+            )}
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="text-xs th-text-secondary">
+                Trần điểm / phim
+                <input
+                  aria-label="Trần điểm mỗi phim"
+                  inputMode="numeric"
+                  value={maxFilm}
+                  onChange={(e) =>
+                    setMaxFilm(e.target.value.replace(/\D/g, ""))
+                  }
+                  placeholder="Bắt buộc"
+                  className={`${control} mt-1`}
+                />
+              </label>
+              <label className="text-xs th-text-secondary">
+                Trần điểm / ngày
+                <input
+                  aria-label="Trần điểm mỗi ngày"
+                  inputMode="numeric"
+                  value={maxDay}
+                  onChange={(e) => setMaxDay(e.target.value.replace(/\D/g, ""))}
+                  placeholder="Bắt buộc"
+                  className={`${control} mt-1`}
+                />
+              </label>
+              {automationOwner && (
+                <label className="text-xs th-text-secondary">
+                  Giờ tự chạy
+                  <input
+                    aria-label="Giờ tự chạy"
+                    type="time"
+                    value={autoTime}
+                    onChange={(e) => setAutoTime(e.target.value)}
+                    className={`${control} mt-1`}
+                  />
+                </label>
+              )}
+              {automationOwner && (
+                <label className="flex min-h-11 items-center gap-2 self-end text-sm th-text-primary">
+                  <input
+                    type="checkbox"
+                    disabled={!enabled}
+                    checked={autoEnabled}
+                    onChange={(e) =>
+                      act("Lưu tự động", () => saveAutomation(e.target.checked))
+                    }
+                  />
+                  Tự sản xuất hằng ngày
+                </label>
+              )}
+            </div>
+            {productionRuns[0] && (
+              <div className="mt-3 rounded-lg th-bg-secondary p-3 text-sm th-text-primary">
+                <strong>
+                  {productionRuns[0].source === "scheduled"
+                    ? "Tự động"
+                    : "Tạo ngay"}
+                </strong>
+                {" · "}
+                {(
+                  {
+                    script: "Viết kịch bản",
+                    script_check: "Kiểm tra kịch bản",
+                    prepare: "Chuẩn bị hình và tiếng",
+                    video: "Tạo cảnh",
+                    finish: "Đồng bộ môi",
+                    transcript: "Kiểm tra lời",
+                    render: "Ghép phim",
+                    ready_review: "Sẵn sàng duyệt",
+                  } as Record<string, string>
+                )[productionRuns[0].phase] || productionRuns[0].phase}
+                {" · "}
+                {productionRuns[0].points_committed}/
+                {productionRuns[0].max_points_per_film} điểm tối đa
+                {productionRuns[0].error && (
+                  <p className="mt-1 th-text-danger">
+                    {productionRuns[0].error}
+                  </p>
+                )}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {["queued", "scripting", "running"].includes(
+                    productionRuns[0].status,
+                  ) && (
+                    <button
+                      className="min-h-10 rounded-lg border th-border px-3"
+                      onClick={() =>
+                        act("Tạm dừng", () =>
+                          controlProduction(productionRuns[0], "pause"),
+                        )
+                      }
+                    >
+                      Tạm dừng
+                    </button>
+                  )}
+                  {["paused", "needs_review", "budget_blocked"].includes(
+                    productionRuns[0].status,
+                  ) && (
+                    <button
+                      className="min-h-10 rounded-lg border th-border px-3 th-text-accent"
+                      onClick={() =>
+                        act("Tiếp tục", () =>
+                          controlProduction(productionRuns[0], "resume"),
+                        )
+                      }
+                    >
+                      Tiếp tục
+                    </button>
+                  )}
+                  {!["completed", "cancelled"].includes(
+                    productionRuns[0].status,
+                  ) && (
+                    <button
+                      className="min-h-10 rounded-lg border th-border px-3 th-text-danger"
+                      onClick={() =>
+                        act("Hủy lượt", () =>
+                          controlProduction(productionRuns[0], "cancel"),
+                        )
+                      }
+                    >
+                      Hủy phần chưa gửi
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
           <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(340px,420px)_minmax(0,1fr)]">
             <section
               className={`${tab === "settings" ? "" : "hidden lg:block"} min-w-0 rounded-xl border th-border p-4 th-bg-card`}

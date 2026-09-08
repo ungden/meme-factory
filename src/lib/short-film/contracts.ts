@@ -73,6 +73,7 @@ export type FilmPlan = {
   audio_mode: "native" | "fixed";
   subtitles: boolean;
   status: string;
+  latest_content_output_id?: string | null;
   target_duration_seconds: number;
   story?: Story | null;
   script_review?: { version: number; reviewed_at: string } | null;
@@ -92,6 +93,8 @@ export type FilmTask = {
   result: Record<string, unknown> | null;
   error: string | null;
   approved_at: string | null;
+  auto_accepted_at?: string | null;
+  production_run_id?: string | null;
   url?: string;
   posterUrl?: string;
   srtUrl?: string;
