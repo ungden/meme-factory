@@ -18,3 +18,12 @@ describe("creative assist validator", () => {
     expect(() => validateCreativeAssist("video_plan", { title: "", scenes: [{ characterIds: ["a"], speakerCharacterId: "a", dialogue: "một hai ba bốn năm sáu bảy tám chín mười mười một mười hai mười ba mười bốn mười lăm", action: "nói", setting: "nhà", durationSeconds: 5, imagePrompt: "x", motionPrompt: "x" }] }, context, 15)).toThrow();
   });
 });
+
+it("accepts five six-second shots without silently dropping an invalid shot", () => {
+  const scene = { characterIds:["a"],speakerCharacterId:"a",dialogue:"Cả nhà cùng làm bánh nhé!",action:"Nói với cả nhà",setting:"Bếp",camera:"cận cảnh",durationSeconds:6,imagePrompt:"Một người nói trong bếp",motionPrompt:"Mỉm cười và nói" };
+  const scenes = Array.from({length:5},()=>({...scene}));
+  const result = validateCreativeAssist("video_plan",{title:"Cả nhà",scenes},context,30);
+  expect(result.kind === "video_plan" && result.scenes.length).toBe(5);
+  scenes[2].imagePrompt = "";
+  expect(()=>validateCreativeAssist("video_plan",{title:"Cả nhà",scenes},context,30)).toThrow("SCENE_3_INVALID");
+});

@@ -49,11 +49,19 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
     const checkAdmin = async () => {
       try {
         const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (!user) return;
-        const { data } = await supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
+        const { data } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .maybeSingle();
         setIsAdmin(data?.role === "admin");
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     };
     checkAdmin();
   }, []);
@@ -65,6 +73,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
 
   // Load project wallet points when inside a project
   useEffect(() => {
+    let active = true;
     const fetchProjectPoints = async () => {
       if (!projectId) {
         setProjectPoints(null);
@@ -75,13 +84,24 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         return;
       }
       try {
-        const data = await fetchJsonCached<{ points?: number }>(`/api/projects/${projectId}/wallet`, 15_000);
-        setProjectPoints(Number(data.points || 0));
+        const data = await fetchJsonCached<{ points?: number }>(
+          `/api/projects/${projectId}/wallet`,
+          15_000,
+        );
+        if (active) setProjectPoints(Number(data.points || 0));
       } catch {
         // ignore
       }
     };
-    fetchProjectPoints();
+    void fetchProjectPoints();
+    const changed = () => {
+      void fetchProjectPoints();
+    };
+    window.addEventListener("aida:project-balance-changed", changed);
+    return () => {
+      active = false;
+      window.removeEventListener("aida:project-balance-changed", changed);
+    };
   }, [projectId]);
 
   // Close sidebar on escape key
@@ -137,39 +157,84 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           href: `/projects/${projectId}/generate`,
           label: "Tạo ảnh",
           icon: Sparkles,
-          aliases: [`/projects/${projectId}/studio`, `/projects/${projectId}/editor`, `/projects/${projectId}/ai-meme`],
+          aliases: [
+            `/projects/${projectId}/studio`,
+            `/projects/${projectId}/editor`,
+            `/projects/${projectId}/ai-meme`,
+          ],
         },
-        { href: `/projects/${projectId}/video`, label: "Tạo video", icon: Clapperboard },
-        { href: `/projects/${projectId}/short-films`, label: "Tạo phim ngắn", icon: Clapperboard, aliases: [`/projects/${projectId}/video/multiscene`] },
+        {
+          href: `/projects/${projectId}/video`,
+          label: "Tạo video",
+          icon: Clapperboard,
+        },
+        {
+          href: `/projects/${projectId}/short-films`,
+          label: "Tạo phim ngắn",
+          icon: Clapperboard,
+          aliases: [`/projects/${projectId}/video/multiscene`],
+        },
       ]
     : [];
 
   const projectLibraryNav = projectId
     ? [
-        { href: `/projects/${projectId}/gallery`, label: "Nội dung đã lưu", icon: Image, aliases: [`/projects/${projectId}/templates`] },
-        { href: `/projects/${projectId}/mascots`, label: "Nhân vật", icon: Users, aliases: [`/projects/${projectId}/characters`] },
+        {
+          href: `/projects/${projectId}/gallery`,
+          label: "Nội dung đã lưu",
+          icon: Image,
+          aliases: [`/projects/${projectId}/templates`],
+        },
+        {
+          href: `/projects/${projectId}/mascots`,
+          label: "Nhân vật",
+          icon: Users,
+          aliases: [`/projects/${projectId}/characters`],
+        },
       ]
     : [];
 
   const projectManagementNav = projectId
     ? [
-        { href: `/projects/${projectId}/brand`, label: "Thương hiệu", icon: Palette },
-        { href: `/projects/${projectId}/members`, label: "Thành viên", icon: UserPlus },
-        { href: `/projects/${projectId}/wallet`, label: "Điểm dự án", icon: Coins },
+        {
+          href: `/projects/${projectId}/brand`,
+          label: "Thương hiệu",
+          icon: Palette,
+        },
+        {
+          href: `/projects/${projectId}/members`,
+          label: "Thành viên",
+          icon: UserPlus,
+        },
+        {
+          href: `/projects/${projectId}/wallet`,
+          label: "Điểm dự án",
+          icon: Coins,
+        },
       ]
     : [];
 
   const sidebarContent = (
     <>
       {/* Logo */}
-      <div className="border-b px-4 py-4" style={{ borderColor: "var(--border-primary)" }}>
+      <div
+        className="border-b px-4 py-4"
+        style={{ borderColor: "var(--border-primary)" }}
+      >
         <Link href="/projects" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl text-white th-shadow-sm" style={{ background: "var(--accent)" }}>
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-white th-shadow-sm"
+            style={{ background: "var(--accent)" }}
+          >
             <Sparkles size={18} className="text-white" />
           </div>
           <div className="min-w-0">
-            <span className="block text-[18px] font-extrabold leading-none tracking-[-0.04em] th-text-primary">AIDA</span>
-            <span className="mt-1 block text-[8px] font-bold uppercase tracking-[0.2em] th-text-muted">Media Studio</span>
+            <span className="block text-[18px] font-extrabold leading-none tracking-[-0.04em] th-text-primary">
+              AIDA
+            </span>
+            <span className="mt-1 block text-[8px] font-bold uppercase tracking-[0.2em] th-text-muted">
+              Media Studio
+            </span>
           </div>
         </Link>
       </div>
@@ -184,15 +249,26 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           <div className="flex h-7 w-7 items-center justify-center rounded-lg th-bg-accent-light th-text-accent">
             <Coins size={14} />
           </div>
-          <span className="text-sm font-medium th-text-secondary">{projectId ? "Điểm dự án" : "Điểm"}</span>
+          <span className="text-sm font-medium th-text-secondary">
+            {projectId ? "Điểm dự án" : "Điểm"}
+          </span>
         </div>
         <span className="text-sm font-bold th-text-primary">
-          {projectId ? (projectPoints === null ? "..." : projectPoints.toLocaleString("vi-VN")) : (walletLoading ? "..." : points.toLocaleString("vi-VN"))}
+          {projectId
+            ? projectPoints === null
+              ? "..."
+              : projectPoints.toLocaleString("vi-VN")
+            : walletLoading
+              ? "..."
+              : points.toLocaleString("vi-VN")}
         </span>
       </Link>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Điều hướng chính">
+      <nav
+        className="flex-1 space-y-1 overflow-y-auto p-3"
+        aria-label="Điều hướng chính"
+      >
         {projectId && (
           <>
             <Link
@@ -203,25 +279,44 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
               Tất cả dự án
             </Link>
             <div className="px-3 py-2">
-              <p className="text-xs th-text-muted uppercase tracking-wider">Dự án</p>
-              <p className="text-sm font-medium th-text-primary truncate mt-0.5">{projectName || "..."}</p>
+              <p className="text-xs th-text-muted uppercase tracking-wider">
+                Dự án
+              </p>
+              <p className="text-sm font-medium th-text-primary truncate mt-0.5">
+                {projectName || "..."}
+              </p>
             </div>
-            <div className="h-px my-2" style={{ background: "var(--border-primary)" }} />
+            <div
+              className="h-px my-2"
+              style={{ background: "var(--border-primary)" }}
+            />
           </>
         )}
 
         {!projectId &&
           mainNav.map((item) => (
-            <NavItem key={item.href} {...item} active={pathname === item.href} />
+            <NavItem
+              key={item.href}
+              {...item}
+              active={pathname === item.href}
+            />
           ))}
 
         {projectPrimaryNav.map((item) => (
-          <NavItem key={item.href} href={item.href} label={item.label} icon={item.icon} active={pathname === item.href} />
+          <NavItem
+            key={item.href}
+            href={item.href}
+            label={item.label}
+            icon={item.icon}
+            active={pathname === item.href}
+          />
         ))}
 
         {projectId && (
           <>
-            <div className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] th-text-muted">Tạo</div>
+            <div className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] th-text-muted">
+              Tạo
+            </div>
             {projectCreateNav.map((item) => (
               <NavItem
                 key={item.href}
@@ -232,7 +327,9 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
               />
             ))}
 
-            <div className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] th-text-muted">Thư viện</div>
+            <div className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] th-text-muted">
+              Thư viện
+            </div>
             {projectLibraryNav.map((item) => (
               <NavItem
                 key={item.href}
@@ -253,25 +350,52 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
               onClick={() => setManagementOpen((open) => !open)}
               className="mt-3 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.16em] th-text-muted th-bg-hover"
             >
-              Quản lý <ChevronDown size={14} className={managementOpen ? "rotate-180 transition-transform" : "transition-transform"} />
+              Quản lý{" "}
+              <ChevronDown
+                size={14}
+                className={
+                  managementOpen
+                    ? "rotate-180 transition-transform"
+                    : "transition-transform"
+                }
+              />
             </button>
-            {managementOpen && projectManagementNav.map((item) => (
-              <NavItem key={item.href} {...item} active={pathname === item.href || pathname.startsWith(`${item.href}/`)} />
-            ))}
+            {managementOpen &&
+              projectManagementNav.map((item) => (
+                <NavItem
+                  key={item.href}
+                  {...item}
+                  active={
+                    pathname === item.href ||
+                    pathname.startsWith(`${item.href}/`)
+                  }
+                />
+              ))}
           </>
         )}
 
         {/* Ví tiền — luôn hiển thị */}
         {projectId && (
           <>
-            <div className="h-px my-2" style={{ background: "var(--border-primary)" }} />
-            <NavItem href="/wallet" label="Ví tiền" icon={Wallet} active={pathname === "/wallet"} />
+            <div
+              className="h-px my-2"
+              style={{ background: "var(--border-primary)" }}
+            />
+            <NavItem
+              href="/wallet"
+              label="Ví tiền"
+              icon={Wallet}
+              active={pathname === "/wallet"}
+            />
           </>
         )}
       </nav>
 
       {/* Footer */}
-      <div className="space-y-1 border-t p-3" style={{ borderColor: "var(--border-primary)" }}>
+      <div
+        className="space-y-1 border-t p-3"
+        style={{ borderColor: "var(--border-primary)" }}
+      >
         {isAdmin && (
           <Link
             href="/admin"
@@ -283,7 +407,9 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         )}
         <button
           onClick={toggleTheme}
-          aria-label={theme === "light" ? "Chuyển giao diện tối" : "Chuyển giao diện sáng"}
+          aria-label={
+            theme === "light" ? "Chuyển giao diện tối" : "Chuyển giao diện sáng"
+          }
           className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm th-text-secondary transition-all cursor-pointer th-bg-hover"
         >
           {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
@@ -310,7 +436,10 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         onClick={() => setMobileOpen(true)}
         aria-label="Mở menu"
         className="fixed top-4 left-4 z-50 rounded-lg p-2.5 lg:hidden transition-all"
-        style={{ background: "var(--bg-card)", border: "1px solid var(--border-primary)" }}
+        style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--border-primary)",
+        }}
       >
         <Menu size={20} className="th-text-primary" />
       </button>
@@ -329,7 +458,10 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         className={`fixed left-0 top-0 h-[100dvh] w-72 border-r flex flex-col z-50 transition-transform duration-300 lg:hidden ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
-        style={{ background: "var(--bg-sidebar)", borderColor: "var(--border-primary)" }}
+        style={{
+          background: "var(--bg-sidebar)",
+          borderColor: "var(--border-primary)",
+        }}
         aria-label="Menu điều hướng"
       >
         {/* Close button */}
@@ -346,7 +478,10 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
       {/* Desktop sidebar */}
       <aside
         className="fixed left-0 top-0 z-40 hidden h-[100dvh] w-56 flex-col border-r transition-colors duration-200 lg:flex"
-        style={{ background: "var(--bg-sidebar)", borderColor: "var(--border-primary)" }}
+        style={{
+          background: "var(--bg-sidebar)",
+          borderColor: "var(--border-primary)",
+        }}
         aria-label="Menu điều hướng"
       >
         {sidebarContent}
@@ -357,7 +492,11 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
 
 function isNavActive(pathname: string, href: string, aliases?: string[]) {
   if (pathname === href || pathname.startsWith(`${href}/`)) return true;
-  return aliases?.some((alias) => pathname === alias || pathname.startsWith(`${alias}/`)) ?? false;
+  return (
+    aliases?.some(
+      (alias) => pathname === alias || pathname.startsWith(`${alias}/`),
+    ) ?? false
+  );
 }
 
 function NavItem({
@@ -386,7 +525,9 @@ function NavItem({
       <Icon size={18} className={active ? "th-text-accent" : ""} />
       <span className="flex-1 truncate">{label}</span>
       {badge && (
-        <span className="rounded-full px-1.5 py-0.5 text-[10px] th-bg-tertiary th-text-tertiary">{badge}</span>
+        <span className="rounded-full px-1.5 py-0.5 text-[10px] th-bg-tertiary th-text-tertiary">
+          {badge}
+        </span>
       )}
     </Link>
   );

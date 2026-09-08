@@ -1,48 +1,1149 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { notifyProjectBalanceChanged } from "@/lib/client-fetch";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { Clapperboard, LoaderCircle, Plus, Trash2, Wand2 } from "lucide-react";
+import {
+  Clapperboard,
+  LoaderCircle,
+  Plus,
+  Trash2,
+  Wand2,
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import { useCharacters, useProject } from "@/lib/use-store";
+import {
+  VOICES,
+  currentSceneTask,
+  type FilmKind,
+  type FilmPlan,
+  type FilmScene,
+  type FilmTask,
+} from "@/lib/short-film/contracts";
 
-type Scene = { characterIds: string[]; speakerCharacterId: string | null; dialogue: string; action: string; setting: string; camera: string; imagePrompt: string; motionPrompt: string; durationSeconds: 5 | 10 | 15 | 30; startImageUrl: string | null; endImageUrl: string | null; followsPrevious: boolean; sourceMode?: "manual" | "ai" };
-type Plan = { id: string; version: number; status: string; quote_snapshot?: { totals?: { customerPoints?: number } } | null; video_plan_scenes?: Array<Record<string, unknown>>; cast_snapshot?: Array<{ characterId?: string; imageUrl?: string; referenceImages?: string[] }> };
-const durations = [5, 10, 15, 30] as const;
-const emptyScene = (): Scene => ({ characterIds: [], speakerCharacterId: null, dialogue: "", action: "", setting: "", camera: "", imagePrompt: "", motionPrompt: "", durationSeconds: 5, startImageUrl: null, endImageUrl: null, followsPrevious: false, sourceMode: "manual" });
-
-function fromRecord(value: Record<string, unknown>): Scene {
-  const duration = Number(value.duration_seconds);
-  return { characterIds: Array.isArray(value.cast_snapshot) ? value.cast_snapshot.map((item) => (item as { characterId?: string }).characterId).filter((id): id is string => Boolean(id)) : [], speakerCharacterId: typeof value.speaker_character_id === "string" ? value.speaker_character_id : null, dialogue: typeof value.dialogue === "string" ? value.dialogue : "", action: typeof value.action === "string" ? value.action : "", setting: typeof value.setting === "string" ? value.setting : "", camera: typeof value.camera === "string" ? value.camera : "", imagePrompt: typeof value.image_prompt === "string" ? value.image_prompt : "", motionPrompt: typeof value.motion_prompt === "string" ? value.motion_prompt : "", durationSeconds: (durations.includes(duration as Scene["durationSeconds"]) ? duration : 5) as Scene["durationSeconds"], startImageUrl: typeof value.start_image_url === "string" ? value.start_image_url : null, endImageUrl: typeof value.end_image_url === "string" ? value.end_image_url : null, followsPrevious: value.follows_previous === true, sourceMode: value.source_mode === "ai" ? "ai" : "manual" };
+type DraftScene = {
+  id?: string;
+  characterIds: string[];
+  speakerCharacterId: string | null;
+  dialogue: string;
+  action: string;
+  setting: string;
+  camera: string;
+  imagePrompt: string;
+  motionPrompt: string;
+  durationSeconds: number;
+  startImageUrl: string | null;
+  endImageUrl: string | null;
+  followsPrevious: boolean;
+};
+type Draft = {
+  title: string;
+  brief: string;
+  caption: string;
+  targetDurationSeconds: number;
+  format: string;
+  resolution: string;
+  audioMode: "native" | "fixed";
+  subtitles: boolean;
+  scenes: DraftScene[];
+};
+type Quote = {
+  id: string;
+  points: number;
+  expires_at: string;
+  items: { kind: string; points: number; sceneId?: string }[];
+};
+const blank = (): Draft => ({
+  title: "Phim ngắn",
+  brief: "",
+  caption: "",
+  targetDurationSeconds: 30,
+  format: "9:16",
+  resolution: "720p",
+  audioMode: "fixed",
+  subtitles: true,
+  scenes: [],
+});
+const sceneBlank = (): DraftScene => ({
+  characterIds: [],
+  speakerCharacterId: null,
+  dialogue: "",
+  action: "",
+  setting: "",
+  camera: "",
+  imagePrompt: "",
+  motionPrompt: "",
+  durationSeconds: 5,
+  startImageUrl: null,
+  endImageUrl: null,
+  followsPrevious: false,
+});
+const fromScene = (s: FilmScene): DraftScene => ({
+  id: s.id,
+  characterIds: s.cast_snapshot.map((c) => c.characterId),
+  speakerCharacterId: s.speaker_character_id,
+  dialogue: s.dialogue,
+  action: s.action,
+  setting: s.setting,
+  camera: s.camera,
+  imagePrompt: s.image_prompt,
+  motionPrompt: s.motion_prompt,
+  durationSeconds: s.duration_seconds,
+  startImageUrl: s.start_image_url,
+  endImageUrl: s.end_image_url,
+  followsPrevious: s.follows_previous,
+});
+const fromPlan = (p: FilmPlan): Draft => ({
+  title: p.title,
+  brief: p.brief,
+  caption: p.caption,
+  targetDurationSeconds: p.target_duration_seconds || 30,
+  format: p.format,
+  resolution: p.resolution,
+  audioMode: p.audio_mode,
+  subtitles: p.subtitles,
+  scenes: p.video_plan_scenes.map(fromScene),
+});
+const labels: Record<string, string> = {
+  image: "Ảnh đầu",
+  frame: "Khung nối tiếp",
+  tts: "Giọng nói",
+  video: "Chuyển động",
+  lip_sync: "Đồng bộ môi",
+  transcribe: "Kiểm tra lời",
+  render: "Phim hoàn chỉnh",
+};
+async function api(url: string, body?: unknown, method = "POST") {
+  const r = await fetch(url, {
+    method: body === undefined ? "GET" : method,
+    headers:
+      body === undefined ? undefined : { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    cache: "no-store",
+    signal: AbortSignal.timeout(20000),
+  });
+  const j = await r.json();
+  if (!r.ok)
+    throw new Error(j.error || "Không kết nối được. Nội dung vẫn được giữ.");
+  return j;
 }
 
-export default function MultiSceneVideoPage() {
-  const { id: projectRef } = useParams<{ id: string }>();
-  const { project } = useProject(projectRef); const { characters } = useCharacters(projectRef);
-  const [title, setTitle] = useState("Phim ngắn"); const [brief, setBrief] = useState(""); const [targetDuration, setTargetDuration] = useState<15 | 30 | 60>(30); const [castIds, setCastIds] = useState<string[]>([]); const [scenes, setScenes] = useState<Scene[]>([]); const [selectedScene, setSelectedScene] = useState(0); const [plan, setPlan] = useState<Plan | null>(null); const [busy, setBusy] = useState<"write" | "save" | "quote" | "run" | null>(null); const [error, setError] = useState(""); const [note, setNote] = useState("");
-  const total = scenes.reduce((sum, item) => sum + item.durationSeconds, 0); const scene = scenes[selectedScene];
-  const imageChoices = useMemo(() => characters.filter((character) => castIds.includes(character.id)).flatMap((character) => { const frozen = plan?.cast_snapshot?.find((item) => item.characterId === character.id); const url = frozen?.imageUrl || character.avatar_url || character.poses?.[0]?.image_url; return url ? [{ id: `character-${character.id}`, url, label: `${character.name} · ảnh chuẩn đã khoá` }] : []; }), [characters, castIds, plan?.cast_snapshot]);
-  const updateScene = (index: number, next: Partial<Scene>) => setScenes((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, ...next, sourceMode: "manual" } : item));
-  const toggleCast = (id: string) => setCastIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id].slice(0, 4));
+export default function ShortFilmPage() {
+  const { id: ref } = useParams<{ id: string }>();
+  const { project } = useProject(ref);
+  const { characters } = useCharacters(ref);
+  const base = `/api/projects/${ref}`;
+  const [draft, setDraft] = useState<Draft>(blank);
+  const [plan, setPlan] = useState<FilmPlan | null>(null);
+  const [tasks, setTasks] = useState<FilmTask[]>([]);
+  const [voiceTasks, setVoiceTasks] = useState<FilmTask[]>([]);
+  const [voices, setVoices] = useState<
+    { character_id: string; voice_id: string; approved_at: string | null }[]
+  >([]);
+  const [cast, setCast] = useState<string[]>([]),
+    [selected, setSelected] = useState(0),
+    [tab, setTab] = useState<"settings" | "results">("settings");
+  const [workspace, setWorkspace] = useState(0),
+    [storageKey, setStorageKey] = useState("");
+  const [enabled, setEnabled] = useState(false),
+    [ready, setReady] = useState(false),
+    [dirty, setDirty] = useState(false);
+  const [busy, setBusy] = useState(""),
+    [error, setError] = useState(""),
+    [note, setNote] = useState("");
+  const [assistId, setAssistId] = useState<string | null>(null);
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [voiceQuote, setVoiceQuote] = useState<Quote | null>(null);
+  const lock = useRef(false),
+    edited = useRef(false),
+    generation = useRef(0);
+  const requestKeys = useRef<Record<string, string>>({});
+  const change = (patch: Partial<Draft>) => {
+    edited.current = true;
+    setDirty(true);
+    setQuote(null);
+    setDraft((d) => ({ ...d, ...patch }));
+  };
+  const editScene = (patch: Partial<DraftScene>) =>
+    change({
+      scenes: draft.scenes.map((s, i) =>
+        i === selected ? { ...s, ...patch } : s,
+      ),
+    });
+  const refresh = useCallback(async () => {
+    if (!plan) return;
+    const g = generation.current;
+    const j = await api(`${base}/video-plans/${plan.id}`);
+    if (g !== generation.current) return;
+    setTasks(j.tasks || []);
+  }, [base, plan]);
+  const refreshVoices = useCallback(async () => {
+    const g = generation.current;
+    const j = await api(`${base}/voices`);
+    if (g !== generation.current) return;
+    setVoices(j.voices || []);
+    setVoiceTasks(j.tasks || []);
+  }, [base]);
+  useEffect(() => {
+    const g = ++generation.current;
+    edited.current = false;
+    setReady(false);
+    setTasks([]);
+    setVoiceTasks([]);
+    setVoices([]);
+    setVoiceQuote(null);
+    setAssistId(null);
+    setCast([]);
+    setDraft(blank());
+    setDirty(false);
+    setNote("");
+    setPlan(null);
+    setQuote(null);
+    setError("");
+    api(`${base}/video-plans`)
+      .then((j) => {
+        if (g !== generation.current) return;
+        const p = j.plans?.[0] as FilmPlan | undefined;
+        const key = `aida:film:${j.accountId}:${ref}:${j.workspaceVersion}`;
+        setStorageKey(key);
+        setWorkspace(j.workspaceVersion);
+        setEnabled(j.fixedVoiceEnabled);
+        if (j.latestAssist?.status !== "failed")
+          setAssistId(j.latestAssist?.id || null);
+        let initial = p ? fromPlan(p) : blank();
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          try {
+            const saved = JSON.parse(raw);
+            if (
+              saved.planId === (p?.id || null) &&
+              saved.version === (p?.version || null)
+            ) {
+              initial = saved.draft;
+              setDirty(saved.dirty);
+              setCast(saved.cast || []);
+            } else
+              setNote(
+                "Có bản cục bộ cũ; bản trên server được mở để tránh ghi đè.",
+              );
+          } catch {
+            /* Ignore invalid local data. */
+          }
+        }
+        if (!edited.current) {
+          setDraft(initial);
+          setPlan(p || null);
+          if (!raw) setCast(p?.cast_snapshot.map((c) => c.characterId) || []);
+        }
+        setReady(true);
+      })
+      .catch((e) => {
+        if (g === generation.current) setError(e.message);
+      });
+    return () => {
+      generation.current = g + 1;
+    };
+  }, [base, ref]);
+  useEffect(() => {
+    if (!ready || !storageKey) return;
+    const timer = setTimeout(
+      () =>
+        localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            draft,
+            cast,
+            dirty,
+            planId: plan?.id || null,
+            version: plan?.version || null,
+          }),
+        ),
+      300,
+    );
+    return () => clearTimeout(timer);
+  }, [ready, storageKey, draft, cast, dirty, plan]);
+  const runningTasks = [...tasks, ...voiceTasks].filter((t) =>
+    ["queued", "running", "reconciling"].includes(t.status),
+  );
+  const newestRunning = Math.max(
+    0,
+    ...runningTasks.map((t) => Date.parse(t.created_at)),
+  );
+  const pollingKey = runningTasks
+    .map((t) => t.id)
+    .sort()
+    .join(",");
+  const terminalKey = [...tasks, ...voiceTasks]
+    .filter((t) => ["completed", "failed", "cancelled"].includes(t.status))
+    .map((t) => `${t.id}:${t.status}`)
+    .sort()
+    .join(",");
+  useEffect(() => {
+    if (ready && terminalKey) notifyProjectBalanceChanged();
+  }, [ready, terminalKey]);
+  useEffect(() => {
+    if (!ready) return;
+    let active = true,
+      inFlight = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      clearTimeout(timer);
+      if (
+        !active ||
+        inFlight ||
+        document.visibilityState !== "visible" ||
+        !navigator.onLine
+      )
+        return;
+      inFlight = true;
+      try {
+        await Promise.all([refresh(), refreshVoices()]);
+      } catch {
+        /* Keep prior results. */
+      } finally {
+        inFlight = false;
+      }
+      if (active && pollingKey) {
+        timer = setTimeout(
+          poll,
+          Date.now() - newestRunning < 60000 ? 3000 : 10000,
+        );
+      }
+    };
+    void poll();
+    const visible = () => {
+      if (document.visibilityState === "visible") void poll();
+    };
+    document.addEventListener("visibilitychange", visible);
+    window.addEventListener("online", visible);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", visible);
+      window.removeEventListener("online", visible);
+    };
+  }, [ready, refresh, refreshVoices, pollingKey, newestRunning]);
 
-  useEffect(() => { setSelectedScene((current) => Math.min(current, Math.max(0, scenes.length - 1))); }, [scenes.length]);
-  useEffect(() => { let active = true; fetch(`/api/projects/${projectRef}/video-plans`).then((response) => response.ok ? response.json() : null).then((payload) => { const latest = payload?.plans?.find((item: Plan) => ["draft", "quoted", "running"].includes(item.status)); if (!active || !latest) return; setPlan(latest); setTitle((latest as Plan & { title?: string }).title || "Phim ngắn"); setBrief((latest as Plan & { brief?: string }).brief || ""); setScenes((latest.video_plan_scenes || []).map(fromRecord)); setCastIds((latest.cast_snapshot || []).map((item: { characterId?: string }) => item.characterId).filter((id: unknown): id is string => typeof id === "string")); }).catch(() => {}); return () => { active = false; }; }, [projectRef]);
-  async function waitForAssist(jobId: string) { for (let i = 0; i < 30; i += 1) { const response = await fetch(`/api/projects/${projectRef}/creative-assists/${jobId}`, { cache: "no-store" }); const json = await response.json(); if (!response.ok) throw new Error(json.error || "Không đọc được kết quả AI."); if (json.job.status === "completed") return json.job.result; if (json.job.status === "failed") throw new Error(json.job.error?.code || "AI chưa soạn được kịch bản."); await new Promise((resolve) => window.setTimeout(resolve, 500)); } throw new Error("AI đang xử lý lâu hơn bình thường. Nội dung của bạn vẫn được giữ nguyên."); }
-  async function writeScript() { if (!brief.trim()) { setError("Nhập ý tưởng trước để AI viết kịch bản."); return; } setError(""); setNote(""); setBusy("write"); try { const response = await fetch(`/api/projects/${projectRef}/creative-assists`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "video_plan", intent: brief, selectedCharacterIds: castIds, targetDurationSeconds: targetDuration }) }); const json = await response.json(); if (!response.ok) throw new Error(json.error || "Không thể bắt đầu soạn kịch bản."); const result = await waitForAssist(json.jobId); setTitle(result.title || "Phim ngắn"); setScenes(result.scenes.map((item: Scene) => ({ ...item, startImageUrl: null, endImageUrl: null, sourceMode: "ai" }))); setSelectedScene(0); setNote("AI đã viết kịch bản. Bạn có thể sửa từng cảnh trước khi lưu và báo giá."); } catch (reason) { setError(reason instanceof Error ? reason.message : "AI chưa soạn được kịch bản."); } finally { setBusy(null); } }
-  async function savePlan() { if (!scenes.length) { setError("Hãy để AI viết kịch bản hoặc thêm ít nhất một cảnh."); return; } setError(""); setBusy("save"); try { const response = await fetch(plan ? `/api/projects/${projectRef}/video-plans/${plan.id}` : `/api/projects/${projectRef}/video-plans`, { method: plan ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, brief, targetDurationSeconds: targetDuration, format: "9:16", resolution: "720p", generateAudio: true, selectedCharacterIds: castIds, expectedVersion: plan?.version, scenes }) }); const json = await response.json(); if (!response.ok) throw new Error(json.error || "Không lưu được kịch bản."); setPlan(json.plan); setNote("Đã lưu bản nháp. Bạn vẫn có thể chỉnh rồi lưu lại."); } catch (reason) { setError(reason instanceof Error ? reason.message : "Không lưu được kịch bản."); } finally { setBusy(null); } }
-  async function quotePlan() { if (!plan) return savePlan(); setError(""); setBusy("quote"); try { const response = await fetch(`/api/projects/${projectRef}/video-plans/${plan.id}/quote`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expectedVersion: plan.version }) }); const json = await response.json(); if (!response.ok) throw new Error(json.error || "Không lấy được báo giá."); setPlan((current) => current ? { ...current, status: "quoted", quote_snapshot: { totals: json.quote } } : current); } catch (reason) { setError(reason instanceof Error ? reason.message : "Không lấy được báo giá."); } finally { setBusy(null); } }
-  async function runPlan() { if (!plan) return quotePlan(); setError(""); setBusy("run"); try { const response = await fetch(`/api/projects/${projectRef}/video-plans/${plan.id}/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expectedVersion: plan.version }) }); const json = await response.json(); if (!response.ok) throw new Error(json.error || "Không gửi được video."); setPlan((current) => current ? { ...current, status: "running" } : current); } catch (reason) { setError(reason instanceof Error ? reason.message : "Không gửi được video."); } finally { setBusy(null); } }
-  const points = plan?.quote_snapshot?.totals?.customerPoints;
-  return <div className="flex"><Sidebar projectId={projectRef} projectName={project?.name} /><main className="ml-0 min-h-screen min-w-0 flex-1 p-4 pt-16 lg:ml-56 md:p-8 lg:p-10"><div className="mx-auto max-w-[1360px]">
-    <header className="mb-6"><h1 className="text-2xl font-semibold tracking-tight th-text-primary">Tạo phim ngắn</h1><p className="mt-1 text-sm th-text-tertiary">Một ý tưởng thành câu chuyện hoàn chỉnh: AI viết kịch bản, ảnh đầu, các cảnh và bản dựng.</p></header>
-    <section className="rounded-xl border p-4 sm:p-5" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}><div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]"><label className="text-sm font-semibold th-text-primary">Bạn muốn làm nội dung gì?<textarea value={brief} onChange={(event) => setBrief(event.target.value)} className="mt-2 min-h-24 w-full rounded-lg border p-3 text-sm th-bg-input th-text-primary" style={{ borderColor: "var(--border-primary)" }} placeholder="Ví dụ: Bánh Bao và Đậu Đỏ tranh nhau chiếc bánh cuối cùng, kết thúc hài…" /></label><div><p className="text-sm font-semibold th-text-primary">Thời lượng</p><div className="mt-2 flex gap-2">{([15, 30, 60] as const).map((value) => <button key={value} onClick={() => setTargetDuration(value)} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${targetDuration === value ? "th-bg-accent-light th-text-accent th-border-accent" : "th-text-secondary"}`}>{value}s</button>)}</div><button onClick={writeScript} disabled={busy === "write"} className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60" style={{ background: "var(--accent)" }}>{busy === "write" ? <LoaderCircle className="animate-spin" size={17} /> : <Wand2 size={17} />}{busy === "write" ? "AI đang viết…" : "AI viết kịch bản"}</button></div></div>
-    <div className="mt-5 border-t pt-4" style={{ borderColor: "var(--border-primary)" }}><p className="text-sm font-semibold th-text-primary">Nhân vật <span className="font-normal th-text-tertiary">· AI chỉ dùng các nhân vật bạn chọn</span></p><div className="mt-2 flex flex-wrap gap-2">{characters.map((character) => <button key={character.id} onClick={() => toggleCast(character.id)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${castIds.includes(character.id) ? "th-border-accent th-bg-accent-light th-text-accent" : "th-text-secondary"}`}>{character.name}</button>)}</div></div>
-    {note && <p className="mt-4 rounded-lg p-3 text-sm th-bg-accent-light th-text-accent">{note}</p>}{error && <p role="alert" className="mt-4 rounded-lg p-3 text-sm th-bg-danger-light th-text-danger">{error}</p>}
-    {scenes.length > 0 && <div className="mt-5 grid gap-5 border-t pt-5 lg:grid-cols-[300px_minmax(0,1fr)]" style={{ borderColor: "var(--border-primary)" }}><aside className="rounded-lg border p-2" style={{ borderColor: "var(--border-primary)", background: "var(--bg-secondary)" }}>{scenes.map((item, index) => <button key={index} onClick={() => setSelectedScene(index)} className={`mb-1 flex w-full items-center gap-3 rounded-lg p-2 text-left ${selectedScene === index ? "th-bg-accent-light th-text-accent" : "th-bg-hover th-text-secondary"}`}><span className="flex h-10 w-10 items-center justify-center rounded-md th-bg-card text-xs font-bold">{item.startImageUrl ? <Image src={item.startImageUrl} alt="" width={40} height={40} className="h-10 w-10 rounded-md object-cover" /> : index + 1}</span><span className="min-w-0"><strong className="block truncate text-sm th-text-primary">Cảnh {index + 1}</strong><small className="block truncate">{characters.find((character) => character.id === item.speakerCharacterId)?.name || "Không thoại"} · {item.durationSeconds}s</small></span></button>)}<button onClick={() => { setScenes((current) => [...current, emptyScene()]); setSelectedScene(scenes.length); }} className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border py-2 text-sm font-semibold th-text-primary"><Plus size={15} /> Thêm cảnh</button></aside>
-      {scene && <article><div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-[.14em] th-text-accent">Cảnh {selectedScene + 1} · {scene.sourceMode === "ai" ? "AI soạn" : "chỉnh tay"}</p><h2 className="mt-1 text-lg font-semibold th-text-primary">Chỉnh cảnh đang chọn</h2></div><button disabled={scenes.length < 2} onClick={() => setScenes((current) => current.filter((_, index) => index !== selectedScene))} className="rounded-lg p-2 th-text-danger th-bg-hover"><Trash2 size={16} /></button></div><div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="text-xs font-semibold th-text-secondary">Người nói<select value={scene.speakerCharacterId || ""} onChange={(event) => updateScene(selectedScene, { speakerCharacterId: event.target.value || null })} className="mt-1.5 h-10 w-full rounded-lg border px-2 th-bg-input th-text-primary"><option value="">Không có lời thoại</option>{scene.characterIds.map((id) => <option key={id} value={id}>{characters.find((character) => character.id === id)?.name}</option>)}</select></label><label className="text-xs font-semibold th-text-secondary">Thời lượng<select value={scene.durationSeconds} onChange={(event) => updateScene(selectedScene, { durationSeconds: Number(event.target.value) as Scene["durationSeconds"] })} className="mt-1.5 h-10 w-full rounded-lg border px-2 th-bg-input th-text-primary">{durations.map((value) => <option key={value}>{value}</option>)}</select></label></div><div className="mt-4 grid gap-3 md:grid-cols-3"><Field label="Lời thoại" value={scene.dialogue} onChange={(value) => updateScene(selectedScene, { dialogue: value })} /><Field label="Hành động" value={scene.action} onChange={(value) => updateScene(selectedScene, { action: value })} /><Field label="Bối cảnh" value={scene.setting} onChange={(value) => updateScene(selectedScene, { setting: value })} /></div><details className="mt-4 rounded-lg border p-3"><summary className="cursor-pointer text-sm font-semibold th-text-primary">Xem prompt AI của cảnh</summary><p className="mt-2 text-xs th-text-secondary">Ảnh đầu: {scene.imagePrompt || "Chưa có"}</p><p className="mt-2 text-xs th-text-secondary">Chuyển động: {scene.motionPrompt || "Chưa có"}</p></details><div className="mt-4"><p className="text-sm font-semibold th-text-primary">Ảnh đầu <span className="font-normal th-text-tertiary">· chỉ dùng ảnh chuẩn đã khoá của cast để giữ đúng nhân vật</span></p><div className="mt-2 flex gap-2 overflow-x-auto">{imageChoices.filter((item) => scene.characterIds.some((id) => item.id === `character-${id}`)).map((item) => <button key={item.id} onClick={() => updateScene(selectedScene, { startImageUrl: item.url })} className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border ${scene.startImageUrl === item.url ? "th-border-accent" : ""}`}><Image src={item.url} alt={item.label} fill sizes="56px" className="object-cover" /></button>)}</div></div></article>}</div>}
-    <div className="sticky bottom-3 mt-6 rounded-xl border p-3" style={{ background: "color-mix(in srgb, var(--bg-card) 94%, transparent)", borderColor: "var(--border-primary)" }}><button disabled={Boolean(busy)} onClick={points ? runPlan : plan ? quotePlan : savePlan} className="flex h-12 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60" style={{ background: "var(--accent)" }}>{busy ? <LoaderCircle className="animate-spin" size={17} /> : <Clapperboard size={17} />}{points ? `Tạo ${scenes.length} cảnh · ${points.toLocaleString("vi-VN")} điểm` : plan ? "Xem giá video" : scenes.length ? "Lưu kịch bản" : "AI viết kịch bản trước"}</button><p className="mt-2 text-center text-xs th-text-tertiary">{scenes.length ? `${scenes.length} cảnh · ${total}s dự kiến · 720p · âm thanh native` : "Chưa có cảnh nào — AI sẽ soạn bản đầu để bạn duyệt."}</p></div></section>
-  </div></main></div>;
+  async function act(name: string, work: () => Promise<void>) {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(name);
+    setError("");
+    try {
+      await work();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Thao tác chưa hoàn tất.");
+    } finally {
+      setBusy("");
+      lock.current = false;
+    }
+  }
+  async function save() {
+    const j = await api(
+      `${base}/video-plans${plan ? "/" + plan.id : ""}`,
+      { ...draft, workspaceVersion: workspace, expectedVersion: plan?.version },
+      plan ? "PUT" : "POST",
+    );
+    setPlan(j.plan);
+    setDraft(fromPlan(j.plan));
+    setDirty(false);
+    edited.current = false;
+    setQuote(null);
+    setNote("Đã lưu. Kết quả cũ vẫn giữ trong lịch sử.");
+    return j.plan as FilmPlan;
+  }
+  async function readAssist(jobId: string) {
+    const g = generation.current;
+    for (let n = 0; n < 110; n++) {
+      if (g !== generation.current) throw new Error("Đã chuyển dự án.");
+      const j = await api(`${base}/creative-assists/${jobId}`);
+      if (j.job.status === "failed")
+        throw new Error(
+          "AI chưa soạn được; bản trước vẫn giữ. Hãy thử hướng đơn giản hơn.",
+        );
+      if (j.job.status === "completed") {
+        if (g !== generation.current) return;
+        change({
+          title: j.job.result.title || draft.title,
+          caption: j.job.result.caption || draft.caption,
+          scenes: j.job.result.scenes.map((s: DraftScene) => ({
+            ...sceneBlank(),
+            ...s,
+            id: undefined,
+          })),
+        });
+        setSelected(0);
+        setAssistId(null);
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    throw new Error(
+      "AI vẫn đang xử lý. Có thể lấy lại kết quả bằng nút khôi phục.",
+    );
+  }
+  async function write() {
+    if (!draft.brief.trim())
+      throw new Error("Nhập một ý tưởng để AI viết phim.");
+    const start = await api(`${base}/creative-assists`, {
+      kind: "video_plan",
+      intent: draft.brief,
+      selectedCharacterIds: cast,
+      targetDurationSeconds: draft.targetDurationSeconds,
+      workspaceVersion: workspace,
+    });
+    setAssistId(start.jobId);
+    await readAssist(start.jobId);
+  }
+  async function getQuote(
+    stage: string,
+    sceneIds?: string[],
+    regenerate = false,
+  ) {
+    const p = dirty || !plan ? await save() : plan;
+    const j = await api(`${base}/video-plans/${p.id}/quote`, {
+      workspaceVersion: workspace,
+      expectedVersion: p.version,
+      stage,
+      sceneIds,
+      regenerate,
+    });
+    setQuote(j.quote);
+  }
+  async function run(q: Quote, voice = false) {
+    const key =
+      requestKeys.current[q.id] ||
+      localStorage.getItem(`film-request:${q.id}`) ||
+      crypto.randomUUID();
+    requestKeys.current[q.id] = key;
+    localStorage.setItem(`film-request:${q.id}`, key);
+    await api(
+      voice ? `${base}/voices` : `${base}/video-plans/${plan!.id}/run`,
+      { quoteId: q.id, idempotencyKey: key, workspaceVersion: workspace },
+    );
+    notifyProjectBalanceChanged();
+    if (voice) setVoiceQuote(null);
+    else setQuote(null);
+    setNote("Đã nhận việc. Có thể rời trang và quay lại.");
+    await Promise.all([refresh(), refreshVoices()]);
+    setTab("results");
+  }
+  async function approve(t: FilmTask) {
+    await api(`${base}/film-tasks/${t.id}`, {
+      action: "approve",
+      workspaceVersion: workspace,
+    });
+    await Promise.all([refresh(), refreshVoices()]);
+    if (!t.scene_id && t.kind === "tts") {
+      setDirty(true);
+      setNote(
+        "Đã duyệt giọng. Lưu kịch bản để dùng giọng này trong phiên bản mới.",
+      );
+    }
+  }
+  const scene = draft.scenes[selected];
+  const currentTasks = tasks.filter(
+    (t) =>
+      !t.scene_id ||
+      plan?.video_plan_scenes.some(
+        (s) => s.id === t.scene_id && s.version === t.scene_version,
+      ),
+  );
+  const hasRunning = [...currentTasks, ...voiceTasks].some((t) =>
+    ["queued", "running", "reconciling"].includes(t.status),
+  );
+  const latest = (s: FilmScene, k: FilmKind) =>
+    currentSceneTask(currentTasks, s, k, draft.audioMode);
+  let stage = "prepare";
+  if (plan?.video_plan_scenes.length && !dirty) {
+    const ss = plan.video_plan_scenes;
+    const prepared = ss.every(
+      (s) =>
+        latest(s, "image")?.approved_at &&
+        (!s.dialogue ||
+          draft.audioMode === "native" ||
+          latest(s, "tts")?.approved_at),
+    );
+    if (prepared) stage = "video";
+    if (prepared && ss.every((s) => latest(s, "video"))) stage = "finish";
+    if (
+      stage === "finish" &&
+      draft.audioMode === "fixed" &&
+      ss.every((s) => !s.dialogue || latest(s, "lip_sync"))
+    )
+      stage = "transcript";
+    if (
+      ss.every(
+        (s) =>
+          latest(
+            s,
+            draft.audioMode === "fixed" && s.dialogue ? "lip_sync" : "video",
+          )?.approved_at &&
+          (!s.dialogue || latest(s, "transcribe")),
+      )
+    )
+      stage = "render";
+  }
+  const stageNames: Record<string, string> = {
+    prepare: "Chuẩn bị ảnh và thoại",
+    video: "Tạo chuyển động",
+    finish: draft.audioMode === "fixed" ? "Đồng bộ môi" : "Kiểm tra lời thoại",
+    transcript: "Kiểm tra lời thoại",
+    render: "Ghép phim",
+  };
+  const control =
+    "w-full rounded-lg border th-border px-3 py-2 th-bg-input th-text-primary text-sm";
+  return (
+    <div className="flex">
+      <Sidebar projectId={ref} projectName={project?.name} />
+      <main className="min-h-dvh min-w-0 flex-1 px-4 pb-24 pt-20 lg:ml-56 lg:p-6">
+        <div className="mx-auto max-w-[1440px]">
+          <header className="mb-5">
+            <h1 className="text-2xl font-semibold th-text-primary">
+              Tạo phim ngắn
+            </h1>
+            <p className="mt-1 text-sm th-text-secondary">
+              Kịch bản, nhân vật, giọng nói và thành phẩm trong cùng một nơi.
+            </p>
+          </header>
+          <div className="mb-4 flex gap-2 lg:hidden">
+            {(["settings", "results"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setTab(v)}
+                className="min-h-11 rounded-lg border th-border px-4 th-text-primary"
+              >
+                {v === "settings" ? "Thiết lập" : "Kết quả"}
+              </button>
+            ))}
+          </div>
+          {error && (
+            <p
+              role="alert"
+              className="mb-4 rounded-lg p-3 th-bg-danger-light th-text-danger"
+            >
+              {error}
+            </p>
+          )}
+          {note && (
+            <p role="status" className="mb-4 text-sm th-text-secondary">
+              {note}
+            </p>
+          )}
+          <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(340px,420px)_minmax(0,1fr)]">
+            <section
+              className={`${tab === "settings" ? "" : "hidden lg:block"} min-w-0 rounded-xl border th-border p-4 th-bg-card`}
+            >
+              <fieldset disabled={!!busy || !ready}>
+                <label className="text-sm font-semibold th-text-primary">
+                  Bạn muốn kể câu chuyện gì?
+                  <textarea
+                    disabled={!ready || !!busy}
+                    className={`${control} mt-2 min-h-24`}
+                    value={draft.brief}
+                    onChange={(e) => change({ brief: e.target.value })}
+                    placeholder="Cả nhà cùng làm bánh, nhưng Đậu Đỏ giấu mất phần nhân…"
+                  />
+                </label>
+                <div className="my-3 flex flex-wrap gap-2">
+                  {characters.map((c) => (
+                    <button
+                      key={c.id}
+                      disabled={!!busy}
+                      onClick={() => {
+                        edited.current = true;
+                        setDirty(true);
+                        setQuote(null);
+                        setCast((v) =>
+                          v.includes(c.id)
+                            ? v.filter((id) => id !== c.id)
+                            : [...v, c.id].slice(0, 4),
+                        );
+                      }}
+                      className={`min-h-11 rounded-lg border th-border px-3 text-sm ${cast.includes(c.id) ? "th-bg-accent-light th-text-accent" : "th-text-secondary"}`}
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    aria-label="Thời lượng phim"
+                    value={draft.targetDurationSeconds}
+                    className={control}
+                    onChange={(e) =>
+                      change({ targetDurationSeconds: Number(e.target.value) })
+                    }
+                  >
+                    {[15, 30, 60].map((n) => (
+                      <option key={n} value={n}>
+                        {n} giây dự kiến
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    disabled={!ready || !!busy}
+                    onClick={() => act("AI viết", write)}
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[var(--accent)] text-[var(--text-on-accent)]"
+                  >
+                    <Wand2 size={17} /> AI viết phim
+                  </button>
+                </div>
+                {assistId && (
+                  <button
+                    disabled={!!busy}
+                    className="mt-3 min-h-11 rounded-lg border th-border px-3 text-sm th-text-accent"
+                    onClick={() =>
+                      act("Lấy bản AI", () => readAssist(assistId))
+                    }
+                  >
+                    Lấy lại bản AI gần nhất
+                  </button>
+                )}
+                <details className="mt-4 border-t pt-3">
+                  <summary className="cursor-pointer text-sm font-semibold th-text-primary">
+                    Giọng nhân vật và định dạng
+                  </summary>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <select
+                      aria-label="Âm thanh"
+                      className={control}
+                      value={draft.audioMode}
+                      onChange={(e) =>
+                        change({
+                          audioMode: e.target.value as Draft["audioMode"],
+                        })
+                      }
+                    >
+                      <option value="fixed">Giọng riêng · thử nghiệm</option>
+                      <option value="native">Âm thanh native</option>
+                    </select>
+                    <select
+                      aria-label="Độ phân giải"
+                      className={control}
+                      value={draft.resolution}
+                      onChange={(e) => change({ resolution: e.target.value })}
+                    >
+                      <option>720p</option>
+                      <option>1080p</option>
+                    </select>
+                    <select
+                      aria-label="Tỷ lệ"
+                      className={control}
+                      value={draft.format}
+                      onChange={(e) => change({ format: e.target.value })}
+                    >
+                      {["9:16", "16:9", "1:1", "4:5"].map((v) => (
+                        <option key={v}>{v}</option>
+                      ))}
+                    </select>
+                    <label className="flex items-center gap-2 text-sm th-text-primary">
+                      <input
+                        type="checkbox"
+                        checked={draft.subtitles}
+                        onChange={(e) =>
+                          change({ subtitles: e.target.checked })
+                        }
+                      />
+                      Gắn phụ đề
+                    </label>
+                  </div>
+                  {draft.audioMode === "fixed" && !enabled && (
+                    <p className="mt-3 text-xs th-text-secondary">
+                      Có thể chuẩn bị và duyệt giọng; tạo clip bằng giọng riêng
+                      chỉ mở sau bài kiểm chứng.
+                    </p>
+                  )}
+                  {characters
+                    .filter((c) => cast.includes(c.id))
+                    .map((c) => (
+                      <div key={c.id} className="mt-3 border-t pt-3">
+                        <p className="text-sm th-text-primary">
+                          {c.name}{" "}
+                          {voices.find(
+                            (v) => v.character_id === c.id && v.approved_at,
+                          )
+                            ? "· đã có giọng duyệt"
+                            : "· chưa duyệt giọng"}
+                        </p>
+                        <select
+                          aria-label={`Giọng ${c.name}`}
+                          className={`${control} mt-2`}
+                          disabled={!!busy}
+                          defaultValue=""
+                          onChange={(e) => {
+                            if (e.target.value)
+                              void act("Báo giá giọng", async () => {
+                                const j = await api(`${base}/voices`, {
+                                  workspaceVersion: workspace,
+                                  characterId: c.id,
+                                  voiceId: e.target.value,
+                                });
+                                setVoiceQuote(j.quote);
+                              });
+                          }}
+                        >
+                          <option value="">Chọn giọng để nghe thử</option>
+                          {VOICES.map((v) => (
+                            <option key={v}>{v}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  {voiceQuote && (
+                    <button
+                      disabled={!!busy}
+                      onClick={() =>
+                        act("Tạo giọng mẫu", () => run(voiceQuote, true))
+                      }
+                      className="mt-3 min-h-11 w-full rounded-lg border th-border px-3 th-text-accent"
+                    >
+                      Tạo giọng mẫu · {voiceQuote.points} điểm
+                    </button>
+                  )}
+                </details>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {draft.scenes.map((s, i) => (
+                    <button
+                      key={s.id || i}
+                      onClick={() => setSelected(i)}
+                      className={`min-h-11 rounded-lg border th-border px-3 text-sm ${selected === i ? "th-bg-accent-light th-text-accent" : "th-text-primary"}`}
+                    >
+                      Cảnh {i + 1}
+                    </button>
+                  ))}
+                  <button
+                    aria-label="Thêm cảnh"
+                    disabled={draft.scenes.length >= 12}
+                    onClick={() => {
+                      change({ scenes: [...draft.scenes, sceneBlank()] });
+                      setSelected(draft.scenes.length);
+                    }}
+                    className="min-h-11 rounded-lg border th-border px-3 th-text-primary"
+                  >
+                    <Plus size={17} />
+                  </button>
+                </div>
+                {scene && (
+                  <div className="mt-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <strong className="text-sm th-text-primary">
+                        Cảnh {selected + 1}
+                      </strong>
+                      <div className="flex">
+                        <button
+                          aria-label="Đưa cảnh lên"
+                          disabled={selected === 0}
+                          onClick={() => {
+                            const s = [...draft.scenes];
+                            [s[selected - 1], s[selected]] = [
+                              s[selected],
+                              s[selected - 1],
+                            ];
+                            change({ scenes: s });
+                            setSelected(selected - 1);
+                          }}
+                          className="p-3 th-text-primary"
+                        >
+                          <ArrowUp size={15} />
+                        </button>
+                        <button
+                          aria-label="Đưa cảnh xuống"
+                          disabled={selected === draft.scenes.length - 1}
+                          onClick={() => {
+                            const s = [...draft.scenes];
+                            [s[selected + 1], s[selected]] = [
+                              s[selected],
+                              s[selected + 1],
+                            ];
+                            change({ scenes: s });
+                            setSelected(selected + 1);
+                          }}
+                          className="p-3 th-text-primary"
+                        >
+                          <ArrowDown size={15} />
+                        </button>
+                        <button
+                          aria-label="Xóa cảnh"
+                          onClick={() => {
+                            change({
+                              scenes: draft.scenes.filter(
+                                (_, i) => i !== selected,
+                              ),
+                            });
+                            setSelected(Math.max(0, selected - 1));
+                          }}
+                          className="p-3 th-text-danger"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {characters.map((c) => (
+                        <label
+                          key={c.id}
+                          className="flex min-h-10 items-center gap-1 text-xs th-text-primary"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={scene.characterIds.includes(c.id)}
+                            onChange={(e) =>
+                              editScene({
+                                characterIds: e.target.checked
+                                  ? [...scene.characterIds, c.id]
+                                  : scene.characterIds.filter(
+                                      (id) => id !== c.id,
+                                    ),
+                              })
+                            }
+                          />
+                          {c.name}
+                        </label>
+                      ))}
+                    </div>
+                    <select
+                      aria-label="Người nói"
+                      className={control}
+                      value={scene.speakerCharacterId || ""}
+                      onChange={(e) =>
+                        editScene({
+                          speakerCharacterId: e.target.value || null,
+                        })
+                      }
+                    >
+                      <option value="">Không thoại</option>
+                      {characters
+                        .filter((c) => scene.characterIds.includes(c.id))
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} nói
+                          </option>
+                        ))}
+                    </select>
+                    {(["dialogue", "action", "setting", "camera"] as const).map(
+                      (field, i) => (
+                        <label
+                          key={field}
+                          className="block text-xs font-semibold th-text-secondary"
+                        >
+                          {["Lời thoại", "Hành động", "Bối cảnh", "Góc máy"][i]}
+                          <textarea
+                            className={`${control} mt-1 min-h-16`}
+                            value={scene[field]}
+                            onChange={(e) =>
+                              editScene({ [field]: e.target.value })
+                            }
+                          />
+                        </label>
+                      ),
+                    )}
+                    <label className="block text-xs th-text-secondary">
+                      Thời lượng cảnh (giây)
+                      <input
+                        className={`${control} mt-1`}
+                        type="number"
+                        min={4}
+                        max={30}
+                        value={scene.durationSeconds}
+                        onChange={(e) =>
+                          editScene({ durationSeconds: Number(e.target.value) })
+                        }
+                      />
+                    </label>
+                    <label className="flex items-center gap-2 text-sm th-text-secondary">
+                      <input
+                        type="checkbox"
+                        checked={scene.followsPrevious}
+                        disabled={selected === 0}
+                        onChange={(e) =>
+                          editScene({ followsPrevious: e.target.checked })
+                        }
+                      />
+                      Nối hành động từ cảnh trước
+                    </label>
+                    {plan && !dirty && scene.id && (
+                      <div className="flex flex-wrap gap-2">
+                        {scene.followsPrevious && (
+                          <button
+                            disabled={!!busy}
+                            onClick={() =>
+                              act("Lấy khung cuối", () =>
+                                getQuote("frame", [scene.id!]),
+                              )
+                            }
+                            className="min-h-11 rounded-lg border th-border px-3 text-sm th-text-accent"
+                          >
+                            Lấy khung cuối cảnh trước
+                          </button>
+                        )}
+                        <button
+                          disabled={!!busy}
+                          onClick={() =>
+                            act("Báo giá", () =>
+                              getQuote("prepare", [scene.id!], true),
+                            )
+                          }
+                          className="min-h-11 rounded-lg border th-border px-3 text-sm th-text-secondary"
+                        >
+                          Tạo lại ảnh / thoại cảnh này
+                        </button>
+                        <button
+                          disabled={!!busy}
+                          onClick={() =>
+                            act("Báo giá", () =>
+                              getQuote("video", [scene.id!], true),
+                            )
+                          }
+                          className="min-h-11 rounded-lg border th-border px-3 text-sm th-text-secondary"
+                        >
+                          Tạo lại clip cảnh này
+                        </button>
+                      </div>
+                    )}
+                    <details>
+                      <summary className="cursor-pointer text-sm th-text-secondary">
+                        Prompt ảnh và chuyển động
+                      </summary>
+                      {(["imagePrompt", "motionPrompt"] as const).map((f) => (
+                        <textarea
+                          aria-label={
+                            f === "imagePrompt"
+                              ? "Prompt ảnh"
+                              : "Prompt chuyển động"
+                          }
+                          key={f}
+                          className={`${control} mt-2`}
+                          value={scene[f]}
+                          onChange={(e) => editScene({ [f]: e.target.value })}
+                        />
+                      ))}
+                    </details>
+                    {plan && !dirty && scene.id && (
+                      <label className="block cursor-pointer rounded-lg border th-border p-3 text-center text-sm th-text-accent">
+                        Dùng ảnh đầu có sẵn
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="sr-only"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file)
+                              void act("Tải ảnh", async () => {
+                                const form = new FormData();
+                                form.set("file", file);
+                                form.set("sceneId", scene.id!);
+                                form.set("workspaceVersion", String(workspace));
+                                form.set(
+                                  "expectedVersion",
+                                  String(plan.version),
+                                );
+                                const r = await fetch(
+                                  `${base}/video-plans/${plan.id}/frames`,
+                                  { method: "POST", body: form },
+                                );
+                                const j = await r.json();
+                                if (!r.ok) throw new Error(j.error);
+                                setQuote(j.quote);
+                              });
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                )}
+                <label className="mt-4 block text-xs th-text-secondary">
+                  Caption bài đăng
+                  <textarea
+                    className={`${control} mt-1`}
+                    value={draft.caption}
+                    onChange={(e) => change({ caption: e.target.value })}
+                  />
+                </label>
+                <div
+                  className="sticky bottom-3 mt-5 rounded-xl border th-border p-3 th-bg-card"
+                  style={{
+                    paddingBottom: "max(12px,env(safe-area-inset-bottom))",
+                  }}
+                >
+                  {quote && (
+                    <p className="mb-2 text-sm th-text-primary">
+                      {quote.items
+                        .map((i) => `${labels[i.kind]}: ${i.points} điểm`)
+                        .join(" · ")}
+                    </p>
+                  )}
+                  <button
+                    disabled={
+                      !!busy || !ready || !draft.scenes.length || hasRunning
+                    }
+                    onClick={() =>
+                      act("Xử lý", async () => {
+                        if (quote) await run(quote);
+                        else if (dirty || !plan) await save();
+                        else await getQuote(stage);
+                      })
+                    }
+                    className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-3 font-semibold text-[var(--text-on-accent)] disabled:opacity-60"
+                    style={{ background: "var(--accent)" }}
+                  >
+                    {busy ? (
+                      <LoaderCircle className="animate-spin" size={17} />
+                    ) : (
+                      <Clapperboard size={17} />
+                    )}
+                    <span>
+                      {busy ||
+                        (hasRunning
+                          ? "Đang xử lý · xem kết quả"
+                          : quote
+                            ? `Duyệt và tạo · ${quote.points} điểm`
+                            : dirty || !plan
+                              ? "Lưu kịch bản"
+                              : `Xem giá · ${stageNames[stage]}`)}
+                    </span>
+                  </button>
+                </div>
+              </fieldset>
+            </section>
+            <section
+              className={`${tab === "results" ? "" : "hidden lg:block"} min-w-0`}
+            >
+              <h2 className="mb-3 text-lg font-semibold th-text-primary">
+                Kết quả và duyệt
+              </h2>
+              {![...tasks, ...voiceTasks].length && (
+                <div className="rounded-xl border th-border p-8 text-center th-text-secondary">
+                  Ảnh cảnh, bản nghe thử và phim sẽ xuất hiện ở đây.
+                </div>
+              )}
+              <div className="grid gap-4 xl:grid-cols-2">
+                {[...voiceTasks, ...tasks].map((t) => (
+                  <article
+                    key={t.id}
+                    className={`min-w-0 rounded-xl border th-border p-3 th-bg-card ${t.kind === "render" ? "xl:col-span-2" : ""}`}
+                  >
+                    <p className="mb-2 text-sm font-semibold th-text-primary">
+                      {t.displayName ? `${t.displayName} · ` : ""}
+                      {labels[t.kind]}{" "}
+                      {t.scene_id
+                        ? `· cảnh ${plan?.video_plan_scenes.find((s) => s.id === t.scene_id)?.scene_index !== undefined ? plan.video_plan_scenes.find((s) => s.id === t.scene_id)!.scene_index + 1 : "cũ"}`
+                        : ""}{" "}
+                      ·{" "}
+                      {t.status === "completed"
+                        ? t.approved_at
+                          ? "Đã duyệt"
+                          : "Chờ duyệt"
+                        : t.status === "reconciling"
+                          ? "Đang đối soát"
+                          : t.status === "cancelled"
+                            ? "Đã hủy"
+                            : t.status === "failed"
+                              ? "Lỗi"
+                              : "Đang xử lý"}
+                    </p>
+                    {t.url && (t.kind === "image" || t.kind === "frame") ? (
+                      <Image
+                        unoptimized
+                        width={720}
+                        height={1280}
+                        src={t.url}
+                        alt="Ảnh đầu cần duyệt nhân vật và bố cục"
+                        className="max-h-96 w-full rounded-lg object-contain"
+                      />
+                    ) : t.url && t.kind === "tts" ? (
+                      <audio
+                        controls
+                        preload="none"
+                        src={t.url}
+                        className="w-full"
+                      />
+                    ) : t.url ? (
+                      <video
+                        controls
+                        preload="none"
+                        poster={t.posterUrl}
+                        src={t.url}
+                        className="max-h-[560px] w-full rounded-lg"
+                      />
+                    ) : null}
+                    {t.kind === "transcribe" && (
+                      <p className="text-sm th-text-primary">
+                        {String(t.result?.text || "Đang chép lời thực tế…")}{" "}
+                        {Number(t.result?.speechError) > 0.2
+                          ? "· Lời khác kịch bản, cần kiểm tra."
+                          : ""}
+                      </p>
+                    )}
+                    {t.error && (
+                      <p className="mt-2 text-xs th-text-danger">{t.error}</p>
+                    )}
+                    {t.status === "failed" && (
+                      <button
+                        disabled={!!busy}
+                        className="mt-2 min-h-11 rounded-lg border th-border px-3 text-sm th-text-accent"
+                        onClick={() =>
+                          act("Thử lại lưu", async () => {
+                            await api(`${base}/film-tasks/${t.id}/retry`, {
+                              workspaceVersion: workspace,
+                            });
+                            await refresh();
+                          })
+                        }
+                      >
+                        Thử lại lưu / xử lý
+                      </button>
+                    )}
+                    {t.status === "completed" && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {t.kind !== "transcribe" && !t.approved_at && (
+                          <button
+                            disabled={!!busy}
+                            onClick={() => act("Duyệt", () => approve(t))}
+                            className="min-h-11 rounded-lg border th-border px-3 text-sm th-text-accent"
+                          >
+                            {t.kind === "tts"
+                              ? "Đã nghe · duyệt"
+                              : t.kind === "render"
+                                ? "Duyệt phim"
+                                : "Đã xem · duyệt"}
+                          </button>
+                        )}
+                        {t.url && (
+                          <a
+                            href={t.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-lg border th-border px-3 py-3 text-sm th-text-secondary"
+                          >
+                            Tải{" "}
+                            {t.kind === "tts"
+                              ? "WAV"
+                              : t.kind === "image" || t.kind === "frame"
+                                ? "ảnh"
+                                : "MP4"}
+                          </a>
+                        )}
+                        {t.srtUrl && (
+                          <a
+                            href={t.srtUrl}
+                            className="rounded-lg border th-border px-3 py-3 text-sm th-text-secondary"
+                          >
+                            Tải SRT
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </article>
+                ))}
+              </div>
+            </section>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
 }
-
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) { return <label className="text-xs font-semibold th-text-secondary">{label}<textarea value={value} onChange={(event) => onChange(event.target.value)} className="mt-1.5 min-h-24 w-full rounded-lg border p-2 text-sm th-bg-input th-text-primary" /></label>; }

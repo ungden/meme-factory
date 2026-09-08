@@ -1,56 +1,229 @@
-import { NextRequest, NextResponse } from "next/server";
-import { generateCreativeAssist, type CreativeAssistInput, type CreativeAssistKind } from "@/lib/creative-assist";
+import { after, NextRequest, NextResponse } from "next/server";
+import {
+  generateCreativeAssist,
+  type CreativeAssistInput,
+  type CreativeAssistKind,
+} from "@/lib/creative-assist";
 import { getRequestUser } from "@/lib/supabase/request-auth";
 
-const KINDS: CreativeAssistKind[] = ["idea_suggestions", "image_plan", "video_clip_plan", "video_plan", "scene_revision"];
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export const maxDuration = 120;
 
-async function projectForRef(supabase: Awaited<ReturnType<typeof getRequestUser>>["supabase"], ref: string) {
-  const query = supabase.from("projects").select("id, name, brand_voice, audience, content_guidelines, workspace_version").limit(1);
-  return UUID.test(ref) ? query.eq("id", ref).maybeSingle() : query.eq("slug", ref).maybeSingle();
+const KINDS: CreativeAssistKind[] = [
+  "idea_suggestions",
+  "image_plan",
+  "video_clip_plan",
+  "video_plan",
+  "scene_revision",
+];
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function projectForRef(
+  supabase: Awaited<ReturnType<typeof getRequestUser>>["supabase"],
+  ref: string,
+) {
+  const query = supabase
+    .from("projects")
+    .select(
+      "id, name, brand_voice, audience, content_guidelines, workspace_version",
+    )
+    .limit(1);
+  return UUID.test(ref)
+    ? query.eq("id", ref).maybeSingle()
+    : query.eq("slug", ref).maybeSingle();
 }
 
-export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const { id } = await params;
   const { supabase, user } = await getRequestUser(request);
-  if (!user) return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
+  if (!user)
+    return NextResponse.json(
+      { error: "Phiên đăng nhập đã hết hạn." },
+      { status: 401 },
+    );
   const body = await request.json().catch(() => ({}));
-  if (!KINDS.includes(body.kind)) return NextResponse.json({ error: "Loại hỗ trợ AI không hợp lệ." }, { status: 400 });
+  if (!KINDS.includes(body.kind))
+    return NextResponse.json(
+      { error: "Loại hỗ trợ AI không hợp lệ." },
+      { status: 400 },
+    );
   const { data: project } = await projectForRef(supabase, id);
-  if (!project) return NextResponse.json({ error: "Không tìm thấy dự án hoặc bạn không có quyền." }, { status: 404 });
-  if (Number.isInteger(body.workspaceVersion) && body.workspaceVersion !== project.workspace_version) return NextResponse.json({ error: "Dự án đã được làm mới. Hãy tải lại trang trước khi soạn.", code: "WORKSPACE_VERSION_CONFLICT" }, { status: 409 });
+  if (!project)
+    return NextResponse.json(
+      { error: "Không tìm thấy dự án hoặc bạn không có quyền." },
+      { status: 404 },
+    );
+  if (
+    Number.isInteger(body.workspaceVersion) &&
+    body.workspaceVersion !== project.workspace_version
+  )
+    return NextResponse.json(
+      {
+        error: "Dự án đã được làm mới. Hãy tải lại trang trước khi soạn.",
+        code: "WORKSPACE_VERSION_CONFLICT",
+      },
+      { status: 409 },
+    );
 
   const now = Date.now();
   const [{ count: minuteCount }, { count: dayCount }] = await Promise.all([
-    supabase.from("creative_assists").select("id", { count: "exact", head: true }).eq("created_by", user.id).gte("created_at", new Date(now - 60_000).toISOString()),
-    supabase.from("creative_assists").select("id", { count: "exact", head: true }).eq("created_by", user.id).gte("created_at", new Date(now - 86_400_000).toISOString()),
+    supabase
+      .from("creative_assists")
+      .select("id", { count: "exact", head: true })
+      .eq("created_by", user.id)
+      .gte("created_at", new Date(now - 60_000).toISOString()),
+    supabase
+      .from("creative_assists")
+      .select("id", { count: "exact", head: true })
+      .eq("created_by", user.id)
+      .gte("created_at", new Date(now - 86_400_000).toISOString()),
   ]);
-  if ((minuteCount ?? 0) >= 5) return NextResponse.json({ error: "Bạn đã dùng 5 lượt soạn trong một phút. Hãy thử lại sau ít phút.", code: "RATE_LIMIT_MINUTE" }, { status: 429 });
-  if ((dayCount ?? 0) >= 30) return NextResponse.json({ error: "Đã đạt giới hạn 30 lượt soạn hôm nay.", code: "RATE_LIMIT_DAY" }, { status: 429 });
+  if ((minuteCount ?? 0) >= 5)
+    return NextResponse.json(
+      {
+        error:
+          "Bạn đã dùng 5 lượt soạn trong một phút. Hãy thử lại sau ít phút.",
+        code: "RATE_LIMIT_MINUTE",
+      },
+      { status: 429 },
+    );
+  if ((dayCount ?? 0) >= 30)
+    return NextResponse.json(
+      {
+        error: "Đã đạt giới hạn 30 lượt soạn hôm nay.",
+        code: "RATE_LIMIT_DAY",
+      },
+      { status: 429 },
+    );
 
-  const selectedIds: string[] = Array.isArray(body.selectedCharacterIds) ? body.selectedCharacterIds.filter((value: unknown): value is string => typeof value === "string").slice(0, 4) : [];
-  const [{ data: characters, error: charactersError }, { data: recentSets }] = await Promise.all([
-    supabase.from("characters").select("id, name, description, personality, avatar_url, character_poses(image_url)").eq("project_id", project.id),
-    supabase.from("content_sets").select("title, brief, updated_at").eq("project_id", project.id).order("updated_at", { ascending: false }).limit(20),
-  ]);
-  if (charactersError) return NextResponse.json({ error: charactersError.message }, { status: 500 });
-  const allowedCharacters = (characters ?? []).map((character) => ({ id: character.id, name: character.name, description: character.description, personality: character.personality, imageUrl: character.avatar_url || character.character_poses?.[0]?.image_url || null }));
-  if (selectedIds.some((characterId) => !allowedCharacters.some((character) => character.id === characterId))) return NextResponse.json({ error: "Nhân vật được chọn không thuộc dự án này." }, { status: 400 });
+  const selectedIds: string[] = Array.isArray(body.selectedCharacterIds)
+    ? body.selectedCharacterIds
+        .filter((value: unknown): value is string => typeof value === "string")
+        .slice(0, 4)
+    : [];
+  const [{ data: characters, error: charactersError }, { data: recentSets }] =
+    await Promise.all([
+      supabase
+        .from("characters")
+        .select(
+          "id, name, description, personality, avatar_url, character_poses(image_url)",
+        )
+        .eq("project_id", project.id),
+      supabase
+        .from("content_sets")
+        .select("title, brief, updated_at")
+        .eq("project_id", project.id)
+        .order("updated_at", { ascending: false })
+        .limit(20),
+    ]);
+  if (charactersError)
+    return NextResponse.json(
+      { error: charactersError.message },
+      { status: 500 },
+    );
+  const allowedCharacters = (characters ?? []).map((character) => ({
+    id: character.id,
+    name: character.name,
+    description: character.description,
+    personality: character.personality,
+    imageUrl:
+      character.avatar_url || character.character_poses?.[0]?.image_url || null,
+  }));
+  if (
+    selectedIds.some(
+      (characterId) =>
+        !allowedCharacters.some((character) => character.id === characterId),
+    )
+  )
+    return NextResponse.json(
+      { error: "Nhân vật được chọn không thuộc dự án này." },
+      { status: 400 },
+    );
 
   const inputSnapshot = {
-    kind: body.kind, intent: typeof body.intent === "string" ? body.intent.slice(0, 4000) : "", selectedCharacterIds: selectedIds,
-    targetDurationSeconds: body.targetDurationSeconds, imageMode: body.imageMode, sourceImageDescription: typeof body.sourceImageDescription === "string" ? body.sourceImageDescription.slice(0, 1000) : undefined,
-    currentScenes: Array.isArray(body.currentScenes) ? body.currentScenes : undefined, lockedSceneIndexes: Array.isArray(body.lockedSceneIndexes) ? body.lockedSceneIndexes : undefined,
+    kind: body.kind,
+    intent: typeof body.intent === "string" ? body.intent.slice(0, 4000) : "",
+    selectedCharacterIds: selectedIds,
+    targetDurationSeconds: body.targetDurationSeconds,
+    imageMode: body.imageMode,
+    sourceImageDescription:
+      typeof body.sourceImageDescription === "string"
+        ? body.sourceImageDescription.slice(0, 1000)
+        : undefined,
+    currentScenes: Array.isArray(body.currentScenes)
+      ? body.currentScenes
+      : undefined,
+    lockedSceneIndexes: Array.isArray(body.lockedSceneIndexes)
+      ? body.lockedSceneIndexes
+      : undefined,
   };
-  const { data: job, error: insertError } = await supabase.from("creative_assists").insert({ project_id: project.id, draft_key: typeof body.draftKey === "string" ? body.draftKey.slice(0, 120) : null, kind: body.kind, input_snapshot: inputSnapshot, status: "running", model: "gemini-3-flash-preview", workspace_version: project.workspace_version, created_by: user.id }).select("id, status").single();
-  if (insertError || !job) return NextResponse.json({ error: insertError?.message || "Không thể tạo lượt soạn AI." }, { status: 500 });
+  const { data: job, error: insertError } = await supabase
+    .from("creative_assists")
+    .insert({
+      project_id: project.id,
+      draft_key:
+        typeof body.draftKey === "string" ? body.draftKey.slice(0, 120) : null,
+      kind: body.kind,
+      input_snapshot: inputSnapshot,
+      status: "running",
+      model: "gemini-3-flash-preview",
+      workspace_version: project.workspace_version,
+      created_by: user.id,
+    })
+    .select("id, status")
+    .single();
+  if (insertError || !job)
+    return NextResponse.json(
+      { error: insertError?.message || "Không thể tạo lượt soạn AI." },
+      { status: 500 },
+    );
 
-  const startedAt = Date.now();
-  try {
-    const result = await generateCreativeAssist({ ...inputSnapshot, kind: body.kind, context: { projectName: project.name, brandVoice: project.brand_voice, audience: project.audience, guidelines: project.content_guidelines, characters: allowedCharacters, recentContent: (recentSets ?? []).map((item) => `${item.title || ""} ${item.brief || ""}`.trim()).filter(Boolean) } } as CreativeAssistInput);
-    await supabase.from("creative_assists").update({ status: "completed", result, completed_at: new Date().toISOString(), usage: { duration_ms: Date.now() - startedAt } }).eq("id", job.id);
-  } catch (error) {
-    await supabase.from("creative_assists").update({ status: "failed", error: { code: error instanceof Error ? error.message : "CREATIVE_ASSIST_FAILED" }, completed_at: new Date().toISOString(), usage: { duration_ms: Date.now() - startedAt } }).eq("id", job.id);
-  }
-  return NextResponse.json({ jobId: job.id, status: "accepted" }, { status: 202 });
+  after(async () => {
+    const startedAt = Date.now();
+    try {
+      const result = await generateCreativeAssist({
+        ...inputSnapshot,
+        kind: body.kind,
+        context: {
+          projectName: project.name,
+          brandVoice: project.brand_voice,
+          audience: project.audience,
+          guidelines: project.content_guidelines,
+          characters: allowedCharacters,
+          recentContent: (recentSets ?? [])
+            .map((item) => `${item.title || ""} ${item.brief || ""}`.trim())
+            .filter(Boolean),
+        },
+      } as CreativeAssistInput);
+      await supabase
+        .from("creative_assists")
+        .update({
+          status: "completed",
+          result,
+          completed_at: new Date().toISOString(),
+          usage: { duration_ms: Date.now() - startedAt },
+        })
+        .eq("id", job.id);
+    } catch (error) {
+      await supabase
+        .from("creative_assists")
+        .update({
+          status: "failed",
+          error: {
+            code:
+              error instanceof Error ? error.message : "CREATIVE_ASSIST_FAILED",
+          },
+          completed_at: new Date().toISOString(),
+          usage: { duration_ms: Date.now() - startedAt },
+        })
+        .eq("id", job.id);
+    }
+  });
+  return NextResponse.json(
+    { jobId: job.id, status: "accepted" },
+    { status: 202 },
+  );
 }

@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRequestUser } from "@/lib/supabase/request-auth";
-
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string; jobId: string }> }) {
-  const { jobId } = await params;
-  const { supabase, user } = await getRequestUser(request);
-  if (!user) return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
-  const { data: job, error } = await supabase.from("creative_assists").select("id, kind, status, result, error, created_at, completed_at").eq("id", jobId).maybeSingle();
-  if (error || !job) return NextResponse.json({ error: "Không tìm thấy lượt soạn AI." }, { status: 404 });
-  return NextResponse.json({ job });
+import { access, fail, FilmError } from "@/lib/short-film/server";
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; jobId: string }> },
+) {
+  try {
+    const p = await params;
+    const a = await access(request, p.id);
+    const { data: job, error } = await a.admin
+      .from("creative_assists")
+      .select("id,kind,status,result,error,created_at,completed_at")
+      .eq("id", p.jobId)
+      .eq("project_id", a.project.id)
+      .eq("created_by", a.user.id)
+      .eq("workspace_version", a.project.workspace_version)
+      .maybeSingle();
+    if (error || !job) throw new FilmError("Không tìm thấy lượt soạn AI.", 404);
+    return NextResponse.json({ job });
+  } catch (e) {
+    return fail(e);
+  }
 }
