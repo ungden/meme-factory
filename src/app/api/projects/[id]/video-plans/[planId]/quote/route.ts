@@ -37,8 +37,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const configHash = JSON.stringify({ planId: plan.id, version: plan.version, resolution, audio: plan.generate_audio, scenes: scenes.map((scene) => [scene.id, scene.start_image_url, scene.end_image_url, scene.duration_seconds, scene.dialogue, scene.action, scene.setting, scene.cast_snapshot, scene.speaker_character_id]) });
   try {
     const quoted = await Promise.all(scenes.map(async (scene) => {
-      if (!permittedUrls.has(scene.start_image_url) || (scene.end_image_url && !permittedUrls.has(scene.end_image_url))) throw new Error(`Ảnh của cảnh ${scene.scene_index + 1} không thuộc dự án.`);
       const sceneCast = Array.isArray(scene.cast_snapshot) ? scene.cast_snapshot as SceneCast[] : cast;
+      const castImages = new Set(sceneCast.flatMap((character) => [character.imageUrl, ...(character.referenceImages ?? [])]).filter((url): url is string => Boolean(url)));
+      if (!permittedUrls.has(scene.start_image_url) || !castImages.has(scene.start_image_url) || (scene.end_image_url && (!permittedUrls.has(scene.end_image_url) || !castImages.has(scene.end_image_url)))) throw new Error(`Ảnh đầu/cuối cảnh ${scene.scene_index + 1} phải là ảnh chuẩn đã khoá của cast trong cảnh.`);
       const prompt = buildScenePrompt({ dialogue: scene.dialogue, action: scene.action, setting: scene.setting }, sceneCast, scene.speaker_character_id);
       const requestInput = sceneVideoRequest({ prompt, startImageUrl: scene.start_image_url, endImageUrl: scene.end_image_url, durationSeconds: scene.duration_seconds }, resolution, plan.generate_audio);
       const quote = await quoteSeedanceVideo(requestInput);

@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/supabase/request-auth";
-import { DEFAULT_SCENE_COUNT, MAX_SCENES, MULTISCENE_FORMATS, MULTISCENE_RESOLUTIONS, normalizeScene, type SceneInput } from "@/lib/multiscene-video";
+import { MAX_SCENES, MULTISCENE_FORMATS, MULTISCENE_RESOLUTIONS, normalizeScene, type SceneInput } from "@/lib/multiscene-video";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 async function projectForRef(supabase: Awaited<ReturnType<typeof getRequestUser>>["supabase"], ref: string) {
   const query = supabase.from("projects").select("id, workspace_version").limit(1);
   return UUID.test(ref) ? query.eq("id", ref).maybeSingle() : query.eq("slug", ref).maybeSingle();
-}
-
-function defaultScenes(): SceneInput[] {
-  return Array.from({ length: DEFAULT_SCENE_COUNT }, (_, index) => ({ action: index === 0 ? "Mở đầu tình huống" : "Diễn biến câu chuyện", durationSeconds: 5 }));
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -32,19 +28,29 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { data: project } = await projectForRef(supabase, id);
   if (!project) return NextResponse.json({ error: "Không tìm thấy dự án." }, { status: 404 });
   const body = await request.json().catch(() => ({}));
-  const sceneInput = Array.isArray(body.scenes) && body.scenes.length ? body.scenes : defaultScenes();
-  if (sceneInput.length > MAX_SCENES) return NextResponse.json({ error: `Tối đa ${MAX_SCENES} cảnh cho một video.` }, { status: 400 });
+  const sceneInput = Array.isArray(body.scenes) ? body.scenes as SceneInput[] : [];
+  if (!sceneInput.length || sceneInput.length > MAX_SCENES) return NextResponse.json({ error: `Phim ngắn cần từ 1 đến ${MAX_SCENES} cảnh đã được duyệt.` }, { status: 400 });
   const castIds = [...new Set(sceneInput.flatMap((scene: SceneInput) => normalizeScene(scene).characterIds))];
   if (castIds.length > 4) return NextResponse.json({ error: "Mỗi video dùng tối đa bốn nhân vật." }, { status: 400 });
   const { data: characters, error: characterError } = castIds.length
     ? await supabase.from("characters").select("id, name, description, personality, avatar_url, continuity_asset_id, character_poses(image_url)").eq("project_id", project.id).in("id", castIds)
     : { data: [], error: null };
   if (characterError || (characters ?? []).length !== castIds.length) return NextResponse.json({ error: "Một hoặc nhiều nhân vật không thuộc dự án này." }, { status: 400 });
-  const castSnapshot = (characters ?? []).map((character) => ({
-    characterId: character.id, name: character.name, description: character.description, personality: character.personality,
-    imageUrl: character.avatar_url || character.character_poses?.[0]?.image_url || null, assetVersionId: character.continuity_asset_id ?? null,
-  }));
-  if (castSnapshot.some((character) => !character.imageUrl)) return NextResponse.json({ error: "Mỗi nhân vật trong video cần một ảnh chuẩn đã duyệt." }, { status: 400 });
+  const assetIds = [...new Set((characters ?? []).map((character) => character.continuity_asset_id).filter((assetId): assetId is string => typeof assetId === "string"))];
+  const { data: versions, error: versionError } = assetIds.length
+    ? await supabase.from("asset_versions").select("id, asset_id, version, reference_images(image_url, role, is_primary, priority)").in("asset_id", assetIds).eq("status", "locked").order("version", { ascending: false })
+    : { data: [], error: null };
+  if (versionError) return NextResponse.json({ error: versionError.message }, { status: 500 });
+  const latestVersionByAsset = new Map<string, { id: string; asset_id: string; version: number; reference_images: Array<{ image_url: string | null; role: string; is_primary: boolean; priority: number | null }> }>();
+  for (const version of versions ?? []) if (!latestVersionByAsset.has(version.asset_id)) latestVersionByAsset.set(version.asset_id, version);
+  const castSnapshot = (characters ?? []).map((character) => {
+    const lockedVersion = character.continuity_asset_id ? latestVersionByAsset.get(character.continuity_asset_id) : null;
+    const refs = lockedVersion?.reference_images ?? [];
+    const referenceImages = [...new Set([...refs.sort((left, right) => Number(right.is_primary) - Number(left.is_primary) || Number(right.priority ?? 0) - Number(left.priority ?? 0)).map((ref) => ref.image_url), character.avatar_url, ...(character.character_poses ?? []).map((pose) => pose.image_url)].filter((url): url is string => typeof url === "string"))];
+    const imageUrl = referenceImages[0] || character.avatar_url || character.character_poses?.[0]?.image_url || null;
+    return { characterId: character.id, name: character.name, description: character.description, personality: character.personality, imageUrl, referenceImages, assetVersionId: lockedVersion?.id ?? null, assetVersion: lockedVersion?.version ?? null };
+  });
+  if (castSnapshot.some((character) => !character.assetVersionId || !character.imageUrl)) return NextResponse.json({ error: "Mỗi nhân vật trong phim ngắn cần phiên bản ảnh chuẩn đã khoá trước khi dùng." }, { status: 400 });
   const format = MULTISCENE_FORMATS.includes(body.format) ? body.format : "9:16";
   const resolution = MULTISCENE_RESOLUTIONS.includes(body.resolution) ? body.resolution : "720p";
   const { data: plan, error } = await supabase.from("video_plans").insert({
@@ -55,6 +61,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (error || !plan) return NextResponse.json({ error: error?.message || "Không tạo được kế hoạch video." }, { status: 500 });
   const sceneRows = sceneInput.map((source: SceneInput, sceneIndex: number) => {
     const scene = normalizeScene(source);
+    if (!scene.characterIds.length || (scene.speakerCharacterId && !scene.characterIds.includes(scene.speakerCharacterId))) throw new Error("Mỗi cảnh cần cast hợp lệ; người nói phải xuất hiện trong chính cảnh đó.");
     const sceneCast = castSnapshot.filter((character) => scene.characterIds.includes(character.characterId));
     return { video_plan_id: plan.id, scene_index: sceneIndex, cast_snapshot: sceneCast, speaker_character_id: scene.speakerCharacterId,
       dialogue: scene.dialogue, action: scene.action, setting: scene.setting, duration_seconds: scene.durationSeconds, start_image_url: scene.startImageUrl, end_image_url: scene.endImageUrl, follows_previous: scene.followsPrevious,

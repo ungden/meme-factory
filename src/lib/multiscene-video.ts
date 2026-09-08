@@ -29,6 +29,8 @@ export type SceneCast = {
   description: string;
   personality: string;
   imageUrl: string;
+  referenceImages?: string[];
+  assetVersion?: number | null;
   assetVersionId?: string | null;
 };
 
@@ -55,9 +57,9 @@ export function normalizeScene(scene: SceneInput): Required<Omit<SceneInput, "id
 
 export function buildScenePrompt(scene: Pick<SceneInput, "dialogue" | "action" | "setting">, cast: SceneCast[], speakerId?: string | null) {
   const speaking = cast.find((item) => item.characterId === speakerId);
-  const identities = cast.map((item) => `${item.name}: ${item.description || item.personality || "nhân vật 3D đã duyệt"}`).join("; ");
+  const identities = cast.map((item) => `${item.name} [phiên bản đã khoá ${item.assetVersionId ?? "legacy"}]: ${item.description || item.personality || "nhân vật 3D đã duyệt"}`).join("; ");
   return [
-    "Video dọc nhân vật 3D điện ảnh, giữ chính xác diện mạo, trang phục, chất liệu và phong cách của các nhân vật tham chiếu.",
+    "Video dọc nhân vật 3D điện ảnh. Ảnh chuẩn của cast là nhận diện bắt buộc: giữ chính xác gương mặt, tỷ lệ cơ thể, trang phục, chất liệu và phong cách; không thay nhân vật hoặc trộn nhận diện.",
     identities && `Cast: ${identities}.`,
     scene.setting && `Bối cảnh: ${scene.setting}.`,
     scene.action && `Hành động: ${scene.action}.`,

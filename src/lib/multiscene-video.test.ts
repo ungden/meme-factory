@@ -1,21 +1,29 @@
 import { describe, expect, it } from "vitest";
 import { buildScenePrompt, normalizeScene, sceneVideoRequest, totalSceneDuration } from "./multiscene-video";
 
-describe("multi-scene video", () => {
-  it("creates a single-speaker native-audio prompt from a frozen cast", () => {
-    const prompt = buildScenePrompt({ dialogue: "Chào mọi người!", action: "vẫy tay", setting: "quán cà phê" }, [{ characterId: "a", name: "AIDA", description: "mascot 3D xanh", personality: "vui", imageUrl: "https://example.com/a.png" }], "a");
-    expect(prompt).toContain("AIDA là người nói duy nhất");
-    expect(prompt).toContain("Không thêm chữ");
+describe("short-film continuity", () => {
+  const cast = [{ characterId: "bao", name: "Bánh Bao", description: "mascot 3D áo vàng", personality: "tinh nghịch", imageUrl: "https://media.example/bao.png", referenceImages: ["https://media.example/bao.png"], assetVersionId: "asset-version-7", assetVersion: 7 }];
+
+  it("pins the approved character version into every scene prompt", () => {
+    const prompt = buildScenePrompt({ action: "Bánh Bao giấu chiếc bánh", setting: "căn bếp", dialogue: "Đây là của tớ!" }, cast, "bao");
+    expect(prompt).toContain("phiên bản đã khoá asset-version-7");
+    expect(prompt).toContain("không thay nhân vật hoặc trộn nhận diện");
   });
 
-  it("keeps only supported provider durations", () => {
-    const scene = normalizeScene({ durationSeconds: 7, characterIds: ["a", "a"] });
+  it("normalizes duplicate cast and rejects unsupported provider durations", () => {
+    const scene = normalizeScene({ durationSeconds: 7, characterIds: ["bao", "bao"] });
     expect(scene.durationSeconds).toBe(5);
-    expect(scene.characterIds).toEqual(["a"]);
-    expect(() => sceneVideoRequest({ prompt: "x", startImageUrl: "https://example.com/x.jpg", durationSeconds: 7 }, "720p", true)).toThrow();
+    expect(scene.characterIds).toEqual(["bao"]);
+    expect(() => sceneVideoRequest({ prompt: "x", startImageUrl: cast[0].imageUrl, durationSeconds: 7 }, "720p", true)).toThrow();
   });
 
   it("adds actual scene durations without stretching clips", () => {
     expect(totalSceneDuration([{ duration_seconds: 5 }, { durationSeconds: 10 }])).toBe(15);
+  });
+
+  it("keeps image-to-video requests tied to the approved first frame", () => {
+    const request = sceneVideoRequest({ prompt: "scene", startImageUrl: cast[0].imageUrl, durationSeconds: 5 }, "720p", true);
+    expect(request).toMatchObject({ mode: "image", image: cast[0].imageUrl, generateAudio: true });
+    expect(request).not.toHaveProperty("aspectRatio");
   });
 });

@@ -28,7 +28,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const castIds = new Set(cast.map((item) => item.characterId));
   const rows = inputs.map((raw, scene_index) => {
     const scene = normalizeScene(raw);
-    if (scene.characterIds.some((characterId) => !castIds.has(characterId)) || (scene.speakerCharacterId && !castIds.has(scene.speakerCharacterId))) throw new Error("Cảnh dùng nhân vật không có trong cast đã duyệt.");
+    if (!scene.characterIds.length || scene.characterIds.some((characterId) => !castIds.has(characterId)) || (scene.speakerCharacterId && (!castIds.has(scene.speakerCharacterId) || !scene.characterIds.includes(scene.speakerCharacterId)))) throw new Error("Mỗi cảnh chỉ dùng cast đã khoá; người nói phải xuất hiện trong chính cảnh đó.");
     return { video_plan_id: plan.id, scene_index, version: plan.version + 1, cast_snapshot: cast.filter((character) => scene.characterIds.includes(character.characterId)), speaker_character_id: scene.speakerCharacterId, dialogue: scene.dialogue, action: scene.action, setting: scene.setting, duration_seconds: scene.durationSeconds, start_image_url: scene.startImageUrl, end_image_url: scene.endImageUrl, follows_previous: scene.followsPrevious, image_prompt: scene.imagePrompt, motion_prompt: scene.motionPrompt, source_mode: scene.sourceMode };
   });
   try {
