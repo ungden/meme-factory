@@ -421,7 +421,7 @@ export default function ShortFilmPage() {
     productionPollingKey,
   ]);
 
-  async function act(name: string, work: () => Promise<void>) {
+  async function act(name: string, work: () => Promise<unknown>) {
     if (lock.current) return;
     lock.current = true;
     setBusy(name);
@@ -435,11 +435,16 @@ export default function ShortFilmPage() {
       lock.current = false;
     }
   }
-  async function save() {
+  async function save(nextDraft: Draft = draft) {
+    const currentPlan = plan;
     const j = await api(
-      `${base}/video-plans${plan ? "/" + plan.id : ""}`,
-      { ...draft, workspaceVersion: workspace, expectedVersion: plan?.version },
-      plan ? "PUT" : "POST",
+      `${base}/video-plans${currentPlan ? "/" + currentPlan.id : ""}`,
+      {
+        ...nextDraft,
+        workspaceVersion: workspace,
+        expectedVersion: currentPlan?.version,
+      },
+      currentPlan ? "PUT" : "POST",
     );
     setPlan(j.plan);
     setPlans((ps) => [j.plan, ...ps.filter((p) => p.id !== j.plan.id)]);
@@ -447,32 +452,61 @@ export default function ShortFilmPage() {
     setDirty(false);
     edited.current = false;
     setQuote(null);
+    if (!currentPlan && storageKey)
+      localStorage.removeItem(`${storageKey}:new-draft`);
     setNote("Đã lưu. Kết quả cũ vẫn giữ trong lịch sử.");
     return j.plan as FilmPlan;
   }
   async function openEpisode(id: string) {
-    if (dirty && draft.scenes.length) await save();
-    else if (dirty)
-      throw new Error(
-        "Bản ý tưởng chưa thành kịch bản vẫn được giữ. Hãy soạn hoặc lưu ý tưởng trước khi đổi tập.",
+    if (id === (plan?.id || "")) return;
+    if (dirty && plan && draft.scenes.length) await save();
+    else if (dirty && plan)
+      throw new Error("Kịch bản đang sửa cần ít nhất một cảnh trước khi đổi tập.");
+    else if (dirty && storageKey)
+      localStorage.setItem(
+        `${storageKey}:new-draft`,
+        JSON.stringify({ draft, cast, savedAt: new Date().toISOString() }),
       );
     generation.current++;
     const next = id ? await api(`${base}/video-plans/${id}`) : null;
-    setPlan(next?.plan || null);
-    setDraft(
-      next ? fromPlan(next.plan) : { ...blank(), targetDurationSeconds: 35 },
-    );
-    setTasks(next?.tasks || []);
-    setCast(
+    let nextDraft = next
+      ? fromPlan(next.plan)
+      : { ...blank(), targetDurationSeconds: 35 };
+    let nextCast =
       next?.plan.cast_snapshot.map(
         (c: { characterId: string }) => c.characterId,
-      ) || [],
-    );
+      ) || [];
+    let nextDirty = false;
+    if (!next && storageKey) {
+      try {
+        const saved = JSON.parse(
+          localStorage.getItem(`${storageKey}:new-draft`) || "null",
+        );
+        if (saved?.draft) {
+          nextDraft = saved.draft;
+          nextCast = Array.isArray(saved.cast) ? saved.cast : [];
+          nextDirty = true;
+        }
+      } catch {
+        localStorage.removeItem(`${storageKey}:new-draft`);
+      }
+    }
+    setPlan(next?.plan || null);
+    setDraft(nextDraft);
+    setTasks(next?.tasks || []);
+    setCast(nextCast);
     setQuote(null);
     setSelected(0);
-    setDirty(false);
-    edited.current = false;
+    setDirty(nextDirty);
+    edited.current = nextDirty;
     setAssistId(null);
+    setNote(
+      next
+        ? ""
+        : nextDirty
+          ? "Đã khôi phục ý tưởng của Tập mới."
+          : "",
+    );
   }
   async function suggest() {
     const g = generation.current;
@@ -494,7 +528,7 @@ export default function ShortFilmPage() {
     }
     throw new Error("Gợi ý vẫn đang xử lý. Hãy thử lại sau.");
   }
-  async function readAssist(jobId: string) {
+  async function readAssist(jobId: string): Promise<Draft> {
     const g = generation.current;
     for (let n = 0; n < 110; n++) {
       if (g !== generation.current) throw new Error("Đã chuyển dự án.");
@@ -504,8 +538,9 @@ export default function ShortFilmPage() {
           "AI chưa soạn được; bản trước vẫn giữ. Hãy thử hướng đơn giản hơn.",
         );
       if (j.job.status === "completed") {
-        if (g !== generation.current) return;
-        change({
+        if (g !== generation.current) throw new Error("Đã chuyển dự án.");
+        const generated = {
+          ...draft,
           title: j.job.result.title || draft.title,
           brief: j.job.intent || draft.brief,
           caption: j.job.result.caption || draft.caption,
@@ -515,10 +550,14 @@ export default function ShortFilmPage() {
             ...s,
             id: undefined,
           })),
-        });
+        } as Draft;
+        edited.current = true;
+        setDirty(true);
+        setQuote(null);
+        setDraft(generated);
         setSelected(0);
         setAssistId(null);
-        return;
+        return generated;
       }
       await new Promise((r) => setTimeout(r, 1000));
     }
@@ -526,7 +565,7 @@ export default function ShortFilmPage() {
       "AI vẫn đang xử lý. Có thể lấy lại kết quả bằng nút khôi phục.",
     );
   }
-  async function write() {
+  async function write(): Promise<Draft> {
     if (!draft.brief.trim())
       throw new Error("Chọn Gợi ý cho dự án hoặc nhập một ý tưởng.");
     const start = await api(`${base}/creative-assists`, {
@@ -537,7 +576,7 @@ export default function ShortFilmPage() {
       workspaceVersion: workspace,
     });
     setAssistId(start.jobId);
-    await readAssist(start.jobId);
+    return readAssist(start.jobId);
   }
   async function createFilm() {
     const filmCap = Number(maxFilm),
@@ -1593,11 +1632,18 @@ export default function ShortFilmPage() {
                   )}
                   <button
                     disabled={
-                      !!busy || !ready || !draft.scenes.length || hasRunning
+                      !!busy ||
+                      !ready ||
+                      (!draft.scenes.length && !draft.brief.trim()) ||
+                      hasRunning
                     }
                     onClick={() =>
                       act("Xử lý", async () => {
                         if (quote) await run(quote);
+                        else if (!draft.scenes.length) {
+                          const generated = await write();
+                          await save(generated);
+                        }
                         else if (dirty || !plan) await save();
                         else await getQuote(stage);
                       })
@@ -1616,7 +1662,9 @@ export default function ShortFilmPage() {
                           ? "Đang xử lý · xem kết quả"
                           : quote
                             ? `Duyệt và tạo · ${quote.points} điểm`
-                            : dirty || !plan
+                            : !draft.scenes.length
+                              ? "AI viết và lưu kịch bản"
+                              : dirty || !plan
                               ? "Lưu kịch bản"
                               : `Xem giá · ${stageNames[stage]}`)}
                     </span>
