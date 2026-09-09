@@ -17,8 +17,8 @@ import {
 import Sidebar from "@/components/layout/sidebar";
 import { useCharacters, useProject } from "@/lib/use-store";
 import {
-  DESIGNED_CHILD_VOICES,
-  VOICES,
+  GEMINI_TTS_MODELS,
+  GEMINI_VOICE_PRESETS,
   currentSceneTask,
   type FilmKind,
   type FilmPlan,
@@ -78,7 +78,7 @@ const blank = (): Draft => ({
   targetDurationSeconds: 30,
   format: "9:16",
   resolution: "720p",
-  audioMode: "fixed",
+  audioMode: "native",
   subtitles: true,
   scenes: [],
 });
@@ -718,7 +718,8 @@ export default function ShortFilmPage() {
               Tạo phim ngắn
             </h1>
             <p className="mt-1 text-sm th-text-secondary">
-              Kịch bản, nhân vật, giọng nói và thành phẩm trong cùng một nơi.
+              Seedance tạo hình, chuyển động và lời thoại; AIDA chép lại audio
+              thật để làm phụ đề và ghép phim.
             </p>
           </header>
           <div className="mb-4 flex min-w-0 flex-wrap items-center gap-2">
@@ -867,7 +868,7 @@ export default function ShortFilmPage() {
                 disabled={
                   !!busy ||
                   !ready ||
-                  !enabled ||
+                  (draft.audioMode === "fixed" && !enabled) ||
                   productionPollingKey.length > 0
                 }
                 onClick={() => act("Tạo phim", createFilm)}
@@ -875,9 +876,9 @@ export default function ShortFilmPage() {
               >
                 {productionPollingKey
                   ? "Đang sản xuất"
-                  : enabled
-                    ? `Tạo phim · tối đa ${maxFilm || "…"} điểm`
-                    : "Chờ duyệt giọng và canary"}
+                  : draft.audioMode === "fixed" && !enabled
+                    ? "Lồng tiếng đang thử nghiệm"
+                    : `Tạo phim · tối đa ${maxFilm || "…"} điểm`}
               </button>
             </div>
             {automationOwner && plans.length > 0 && (
@@ -968,7 +969,6 @@ export default function ShortFilmPage() {
                 <label className="flex min-h-11 items-center gap-2 self-end text-sm th-text-primary">
                   <input
                     type="checkbox"
-                    disabled={!enabled}
                     checked={autoEnabled}
                     onChange={(e) =>
                       act("Lưu tự động", () => saveAutomation(e.target.checked))
@@ -992,7 +992,7 @@ export default function ShortFilmPage() {
                     script_check: "Kiểm tra kịch bản",
                     prepare: "Chuẩn bị hình và tiếng",
                     video: "Tạo cảnh",
-                    finish: "Đồng bộ môi",
+                    finish: "Chép lời và làm phụ đề",
                     transcript: "Kiểm tra lời",
                     render: "Ghép phim",
                     ready_review: "Sẵn sàng duyệt",
@@ -1156,7 +1156,7 @@ export default function ShortFilmPage() {
                 </label>
                 <details className="mt-4 border-t pt-3">
                   <summary className="cursor-pointer text-sm font-semibold th-text-primary">
-                    Giọng nhân vật và định dạng
+                    Âm thanh, phụ đề và định dạng
                   </summary>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <select
@@ -1169,8 +1169,8 @@ export default function ShortFilmPage() {
                         })
                       }
                     >
-                      <option value="fixed">Giọng riêng · thử nghiệm</option>
-                      <option value="native">Âm thanh native</option>
+                      <option value="native">Audio native Seedance · mặc định</option>
+                      <option value="fixed">Lồng tiếng Gemini · nâng cao</option>
                     </select>
                     <select
                       aria-label="Độ phân giải"
@@ -1202,13 +1202,19 @@ export default function ShortFilmPage() {
                       Gắn phụ đề
                     </label>
                   </div>
-                  {draft.audioMode === "fixed" && !enabled && (
+                  {draft.audioMode === "native" && (
                     <p className="mt-3 text-xs th-text-secondary">
-                      Có thể chuẩn bị và duyệt giọng; tạo clip bằng giọng riêng
-                      chỉ mở sau bài kiểm chứng.
+                      Seedance nói trực tiếp theo thoại của từng cảnh. AIDA chép
+                      lại chính audio trong clip, tạo SRT và gắn phụ đề khi ghép.
                     </p>
                   )}
-                  {characters
+                  {draft.audioMode === "fixed" && !enabled && (
+                    <p className="mt-3 text-xs th-text-secondary">
+                      Có thể nghe và duyệt mẫu Gemini; nhánh lồng tiếng và
+                      lip-sync chỉ mở sau bài kiểm chứng.
+                    </p>
+                  )}
+                  {draft.audioMode === "fixed" && characters
                     .filter((c) => cast.includes(c.id))
                     .map((c) => (
                       <div key={c.id} className="mt-3 border-t pt-3">
@@ -1228,36 +1234,40 @@ export default function ShortFilmPage() {
                           onChange={(e) => {
                             if (e.target.value)
                               void act("Báo giá giọng", async () => {
-                                const designedProfile = e.target.value.startsWith("designed:")
-                                  ? e.target.value.slice("designed:".length)
-                                  : undefined;
+                                const [provider, geminiModel, geminiVoicePreset] =
+                                  e.target.value.split("|");
+                                if (provider !== "gemini")
+                                  throw new Error("Lựa chọn giọng không hợp lệ.");
                                 const j = await api(`${base}/voices`, {
                                   workspaceVersion: workspace,
                                   characterId: c.id,
-                                  ...(designedProfile
-                                    ? { designedProfile }
-                                    : { voiceId: e.target.value }),
+                                  geminiModel,
+                                  geminiVoicePreset,
                                 });
                                 setVoiceQuote(j.quote);
                               });
                           }}
                         >
                           <option value="">Chọn giọng để nghe thử</option>
-                          <optgroup label="Giọng trẻ em tổng hợp">
-                            {Object.entries(DESIGNED_CHILD_VOICES).map(
-                              ([id, voice]) => (
-                                <option key={id} value={`designed:${id}`}>
-                                  {voice.label}
-                                </option>
-                              ),
-                            )}
-                          </optgroup>
-                          <optgroup label="Giọng hệ thống">
-                          {VOICES.map((v) => (
-                            <option key={v}>{v}</option>
+                          {GEMINI_TTS_MODELS.map((model) => (
+                            <optgroup key={model.id} label={model.label}>
+                              {Object.entries(GEMINI_VOICE_PRESETS).map(
+                                ([id, voice]) => (
+                                  <option
+                                    key={`${model.id}:${id}`}
+                                    value={`gemini|${model.id}|${id}`}
+                                  >
+                                    {voice.label} · {voice.voice}
+                                  </option>
+                                ),
+                              )}
+                            </optgroup>
                           ))}
-                          </optgroup>
                         </select>
+                        <p className="mt-1 text-xs th-text-secondary">
+                          Gemini không có preset “trẻ em” chính thức. AIDA điều
+                          khiển tuổi và giới tính bằng chỉ dẫn; cần nghe rồi duyệt.
+                        </p>
                       </div>
                     ))}
                   {voiceQuote && (

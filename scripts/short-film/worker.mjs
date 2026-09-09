@@ -22,6 +22,11 @@ import {
   uploadMedia,
   VIDEO_MAX_BYTES,
 } from "./storage.mjs";
+import {
+  createGeminiSpeech,
+  GEMINI_TTS_MODEL_IDS,
+  readGeminiSpeech,
+} from "./gemini-tts.mjs";
 const API = "https://api.wavespeed.ai/api/v3";
 class LostLease extends Error {}
 export function makeFilmWorker(db) {
@@ -241,6 +246,61 @@ export function makeFilmWorker(db) {
     });
     return result;
   }
+
+  async function geminiTts(t, dir) {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    let audio;
+    if (t.provider_id) {
+      const recovered = await readGeminiSpeech({
+        apiKey,
+        interactionId: t.provider_id,
+      });
+      if (recovered.pending) {
+        await checkpoint(t, { release: true });
+        return null;
+      }
+      audio = recovered.audio;
+    } else {
+      if (t.checkpoint.submitting) {
+        await checkpoint(t, {
+          status: "reconciling",
+          error:
+            "Lượt Gemini TTS bị gián đoạn sau khi gửi; không tự tạo lại để tránh tính phí trùng.",
+          release: true,
+        });
+        return null;
+      }
+      await checkpoint(t, { checkpoint: { submitting: true } });
+      const created = await createGeminiSpeech({
+        apiKey,
+        model: t.input.model,
+        voice: t.input.providerInputs.voice,
+        direction: t.input.providerInputs.direction,
+        text: t.input.providerInputs.text,
+      });
+      if (created.interactionId)
+        await checkpoint(t, {
+          provider_id: created.interactionId,
+          checkpoint: { interactionId: created.interactionId },
+        });
+      audio = created.audio;
+    }
+    if (!audio) throw new Error("Gemini TTS chưa trả audio.");
+    const file = path.join(dir, "audio.wav");
+    await writeFile(file, audio);
+    const inspection = await probe(file);
+    if (!inspection.audio || !Number.isFinite(inspection.duration))
+      throw new Error("Gemini TTS trả file audio không hợp lệ.");
+    const result = {
+      path: await upload(t, file, "audio.wav", "audio/wav"),
+      ...inspection,
+      model: t.input.model,
+      voice: t.input.providerInputs.voice,
+      review: "pending_human_voice_review",
+    };
+    await checkpoint(t, { checkpoint: { persisted: result } });
+    return result;
+  }
   async function render(t, dir) {
     await ensureDiskSpace(
       path.join(dir, "final.mp4"),
@@ -438,6 +498,11 @@ export function makeFilmWorker(db) {
       let result = t.checkpoint.persisted;
       if (!result) {
         if (t.kind === "image") result = await image(t, dir);
+        else if (
+          t.kind === "tts" &&
+          GEMINI_TTS_MODEL_IDS.has(t.input.model)
+        )
+          result = await geminiTts(t, dir);
         else if (t.kind === "render") result = await render(t, dir);
         else if (t.kind === "frame") {
           const clip = await source(t.input.videoTaskId, t.project_id);

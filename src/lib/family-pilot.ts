@@ -122,7 +122,7 @@ export function buildFamilyPilot(cast: FilmCast[], pilot: PilotEpisode[]) {
       targetDurationSeconds: 35,
       format: "9:16",
       resolution: "720p",
-      audioMode: "fixed",
+      audioMode: "native",
       subtitles: true,
       trimSpeech: false,
       scenes,

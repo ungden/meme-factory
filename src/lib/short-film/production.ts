@@ -161,7 +161,7 @@ async function createAutomaticPlan(a: Access, run: Run) {
     targetDurationSeconds: 35,
     format: "9:16",
     resolution: "720p",
-    audioMode: "fixed",
+    audioMode: "native",
     subtitles: true,
     scenes: result.scenes.map((s) => ({
       ...s,

@@ -3,11 +3,29 @@ import {
   AI_PRICE_MARKUP_MULTIPLIER,
   BILLING_POINT_FLOOR_VND,
   calculateGoogleImageActualCost,
+  estimateGeminiTtsPrice,
   estimateImageGenerationPrice,
 } from "./ai-pricing";
 import { POINT_COSTS, POINT_PACKAGES } from "./point-pricing";
 
 describe("AI image pricing", () => {
+  it("prices Gemini TTS by text and reserved audio duration", () => {
+    const latest = estimateGeminiTtsPrice({
+      model: "gemini-3.1-flash-tts-preview",
+      text: "Xin chào, mình là Bánh Bao.",
+      requestedSeconds: 6,
+    });
+    const fast = estimateGeminiTtsPrice({
+      model: "gemini-2.5-flash-preview-tts",
+      text: "Xin chào, mình là Bánh Bao.",
+      requestedSeconds: 6,
+    });
+    expect(latest.provider).toBe("google");
+    expect(latest.audioTokens).toBe(150);
+    expect(latest.customerPoints).toBeGreaterThanOrEqual(1);
+    expect(fast.providerCostUsd).toBeLessThan(latest.providerCostUsd);
+  });
+
   it("uses the current official Standard output prices", () => {
     expect(estimateImageGenerationPrice({
       model: "gemini-3.1-flash-image",

@@ -16,6 +16,51 @@ export const AI_PRICING_SOURCES = {
   openai: "https://developers.openai.com/api/docs/guides/image-generation#calculating-costs",
 } as const;
 
+export type GeminiTtsPricingModel =
+  | "gemini-3.1-flash-tts-preview"
+  | "gemini-2.5-pro-preview-tts"
+  | "gemini-2.5-flash-preview-tts";
+
+const GEMINI_TTS_USD_PER_MILLION = {
+  "gemini-3.1-flash-tts-preview": { input: 1, audio: 20 },
+  "gemini-2.5-pro-preview-tts": { input: 1, audio: 20 },
+  "gemini-2.5-flash-preview-tts": { input: 0.5, audio: 10 },
+} as const;
+
+export function estimateGeminiTtsPrice(input: {
+  model: GeminiTtsPricingModel;
+  text: string;
+  requestedSeconds?: number;
+}) {
+  const rates = GEMINI_TTS_USD_PER_MILLION[input.model];
+  const inputTokens = estimatePromptTokens(input.text);
+  // Google documents audio output at 25 tokens/second. Before synthesis we
+  // reserve against the larger of requested duration and a conservative
+  // Vietnamese reading estimate, then settle the task through the existing
+  // AIDA point ledger.
+  const estimatedSeconds = Math.max(
+    1,
+    input.requestedSeconds || 0,
+    Math.ceil(input.text.trim().length / 10),
+  );
+  const audioTokens = estimatedSeconds * 25;
+  const providerCostUsd = roundUsd(
+    (inputTokens * rates.input + audioTokens * rates.audio) / 1_000_000,
+  );
+  return {
+    provider: "google" as const,
+    model: input.model,
+    inputTokens,
+    audioTokens,
+    estimatedSeconds,
+    providerCostUsd,
+    ...customerQuote(providerCostUsd),
+    markupMultiplier: AI_PRICE_MARKUP_MULTIPLIER,
+    effectiveDate: "2026-08-18",
+    sourceUrl: AI_PRICING_SOURCES.google,
+  };
+}
+
 export type ImagePricingModel =
   | "gemini-3.1-flash-lite-image"
   | "gemini-3.1-flash-image"

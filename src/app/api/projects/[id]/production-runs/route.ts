@@ -43,38 +43,11 @@ export async function POST(
       throw new FilmError("Nhập trần điểm mỗi phim và mỗi ngày hợp lệ.");
     let plan = null;
     if (body.planId) plan = await readPlan(a, String(body.planId));
-    if (!fixedVoiceEnabled(a.project.id))
+    if (plan?.audio_mode === "fixed" && !fixedVoiceEnabled(a.project.id))
       throw new FilmError(
-        "Nhánh giọng cố định chưa qua canary nên chưa thể tạo phim một nút.",
+        "Nhánh lồng tiếng riêng chưa qua canary. Hãy dùng audio native Seedance hoặc bật canary cho dự án.",
         409,
       );
-    if (!plan) {
-      const [{ data: channel }, { data: approved }] = await Promise.all([
-        a.admin
-          .from("channel_profiles")
-          .select("profile")
-          .eq("project_id", a.project.id)
-          .eq("workspace_version", a.project.workspace_version)
-          .order("version", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        a.admin
-          .from("character_voice_versions")
-          .select("character_id")
-          .eq("project_id", a.project.id)
-          .eq("workspace_version", a.project.workspace_version)
-          .not("approved_at", "is", null),
-      ]);
-      const required = (channel?.profile?.roles || []).map(
-        (r: { characterId: string }) => r.characterId,
-      );
-      const have = new Set((approved || []).map((v) => v.character_id));
-      if (!required.length || required.some((id: string) => !have.has(id)))
-        throw new FilmError(
-          "Duyệt giọng của tất cả nhân vật trước khi để AI tự chọn kịch bản.",
-          409,
-        );
-    }
     if (
       plan?.audio_mode === "fixed" &&
       plan.video_plan_scenes.some(

@@ -7,6 +7,7 @@ import { getSupabaseAdmin } from "@/lib/admin";
 import { normalizeScene, type SceneInput } from "@/lib/multiscene-video";
 import {
   estimateImageGenerationPrice,
+  estimateGeminiTtsPrice,
   AI_PRICE_MARKUP_MULTIPLIER,
   AI_PRICING_USD_VND,
   BILLING_POINT_FLOOR_VND,
@@ -23,6 +24,7 @@ import {
   type FilmTask,
   type QuotedTask,
   type FilmKind,
+  isGeminiTtsModel,
 } from "./contracts";
 import { fixedVoiceEnabled } from "./features";
 export const hash = (v: unknown) =>
@@ -499,27 +501,47 @@ export async function quotePlan(
           throw new FilmError(
             `Duyệt giọng của ${c?.name || "người nói"} trước.`,
           );
-        const { designedProfile: _designedProfile, ...voiceSettings } =
-          c.voice.settings || {};
+        const voiceSettings = { ...(c.voice.settings || {}) };
+        const direction = voiceSettings.direction;
+        delete voiceSettings.designedProfile;
+        delete voiceSettings.provider;
+        delete voiceSettings.voicePreset;
+        delete voiceSettings.voiceName;
+        delete voiceSettings.direction;
         const voiceModel = c.voice.model || FILM_MODELS.tts;
-        const inputs = {
-          text: s.dialogue,
-          voice_id: c.voice.voice_id,
-          ...voiceSettings,
-          format: "wav",
-          sample_rate: 44100,
-          channel: "1",
-          language_boost: "Vietnamese",
-        };
+        const inputs = isGeminiTtsModel(voiceModel)
+          ? {
+              text: s.dialogue,
+              voice: c.voice.voice_id,
+              direction: String(direction || "Nói tiếng Việt tự nhiên."),
+              language: "vi",
+            }
+          : {
+              text: s.dialogue,
+              voice_id: c.voice.voice_id,
+              ...voiceSettings,
+              format: "wav",
+              sample_rate: 44100,
+              channel: "1",
+              language_boost: "Vietnamese",
+            };
+        const points = isGeminiTtsModel(voiceModel)
+          ? estimateGeminiTtsPrice({
+              model: voiceModel,
+              text: s.dialogue,
+              requestedSeconds: s.duration_seconds,
+            }).customerPoints
+          : await modelPrice(voiceModel, inputs);
         tasks.push(
           task(
             "tts",
             {
               model: voiceModel,
+              provider: isGeminiTtsModel(voiceModel) ? "google" : "wavespeed",
               providerInputs: inputs,
               voiceProfileVersion: c.voice.id,
             },
-            await modelPrice(voiceModel, inputs),
+            points,
             s,
           ),
         );

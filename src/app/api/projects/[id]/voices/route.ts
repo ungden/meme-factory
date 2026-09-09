@@ -12,11 +12,16 @@ import {
 } from "@/lib/short-film/server";
 import {
   DESIGNED_CHILD_VOICES,
+  GEMINI_TTS_MODELS,
+  GEMINI_VOICE_PRESETS,
   VOICES,
   FILM_MODELS,
   type DesignedChildVoice,
   type FilmTask,
+  type GeminiVoicePreset,
+  isGeminiTtsModel,
 } from "@/lib/short-film/contracts";
+import { estimateGeminiTtsPrice } from "@/lib/ai-pricing";
 export async function GET(
   r: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -42,6 +47,8 @@ export async function GET(
     return NextResponse.json({
       voices,
       options: VOICES,
+      geminiModels: GEMINI_TTS_MODELS,
+      geminiVoices: GEMINI_VOICE_PRESETS,
       tasks: await publicTasks(
         a,
         ((tasks as FilmTask[]) || []).map((t) => ({
@@ -88,7 +95,22 @@ export async function POST(
       body.designedProfile in DESIGNED_CHILD_VOICES
         ? (body.designedProfile as DesignedChildVoice)
         : null;
-    if (!designedProfile && !VOICES.includes(body.voiceId))
+    const geminiModel =
+      typeof body.geminiModel === "string" && isGeminiTtsModel(body.geminiModel)
+        ? body.geminiModel
+        : null;
+    const geminiPreset =
+      typeof body.geminiVoicePreset === "string" &&
+      body.geminiVoicePreset in GEMINI_VOICE_PRESETS
+        ? (body.geminiVoicePreset as GeminiVoicePreset)
+        : null;
+    if ((geminiModel && !geminiPreset) || (!geminiModel && geminiPreset))
+      throw new FilmError("Chọn đủ model và kiểu giọng Gemini.");
+    if (
+      !geminiModel &&
+      !designedProfile &&
+      !VOICES.includes(body.voiceId)
+    )
       throw new FilmError("Giọng không có trong danh sách.");
     const { data: c } = await a.admin
       .from("characters")
@@ -109,26 +131,53 @@ export async function POST(
     const designed = designedProfile
       ? DESIGNED_CHILD_VOICES[designedProfile]
       : null;
-    const voiceId = designed
+    const gemini = geminiPreset ? GEMINI_VOICE_PRESETS[geminiPreset] : null;
+    const voiceId = gemini
+      ? gemini.voice
+      : designed
       ? `Aida${designedProfile === "child_girl" ? "BanhBao" : "DauDo"}${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`
       : body.voiceId;
-    const speechSettings = designed
+    const speechSettings = gemini
+      ? {}
+      : designed
       ? { ...designed.settings }
       : { speed: 1, pitch: 0, volume: 1 };
-    const settings = designed
+    const settings = gemini
+      ? {
+          provider: "google",
+          voicePreset: geminiPreset,
+          voiceName: gemini.voice,
+          direction: gemini.direction,
+        }
+      : designed
       ? { ...designed.settings, designedProfile }
       : speechSettings;
-    const model = designed ? designed.model : FILM_MODELS.tts;
-    const inputs = {
-      text: sampleText,
-      voice_id: voiceId,
-      ...speechSettings,
-      language_boost: "Vietnamese",
-      format: "wav",
-      sample_rate: 44100,
-      channel: "1",
-    };
-    const points = designed ? null : await modelPrice(model, inputs);
+    const model = geminiModel || (designed ? designed.model : FILM_MODELS.tts);
+    const inputs = gemini
+      ? {
+          text: sampleText,
+          voice: gemini.voice,
+          direction: gemini.direction,
+          language: "vi",
+        }
+      : {
+          text: sampleText,
+          voice_id: voiceId,
+          ...speechSettings,
+          language_boost: "Vietnamese",
+          format: "wav",
+          sample_rate: 44100,
+          channel: "1",
+        };
+    const points = designed
+      ? null
+      : geminiModel
+        ? estimateGeminiTtsPrice({
+            model: geminiModel,
+            text: sampleText,
+            requestedSeconds: 6,
+          }).customerPoints
+        : await modelPrice(model, inputs);
     const { error } = await a.admin.from("character_voice_versions").insert({
       id,
       project_id: a.project.id,
@@ -178,6 +227,7 @@ export async function POST(
           "tts",
           {
             model,
+            provider: geminiModel ? "google" : "wavespeed",
             providerInputs: inputs,
             voiceVersionId: id,
             displayName: c.name,

@@ -9,6 +9,83 @@ export const FILM_MODELS = {
   transcribe: "wavespeed-ai/openai-whisper-with-video",
 } as const;
 
+export const GEMINI_TTS_MODELS = [
+  {
+    id: "gemini-3.1-flash-tts-preview",
+    label: "Gemini 3.1 Flash TTS · mới nhất",
+  },
+  {
+    id: "gemini-2.5-pro-preview-tts",
+    label: "Gemini 2.5 Pro TTS · ưu tiên chất lượng",
+  },
+  {
+    id: "gemini-2.5-flash-preview-tts",
+    label: "Gemini 2.5 Flash TTS · nhanh, tiết kiệm",
+  },
+] as const;
+export type GeminiTtsModel = (typeof GEMINI_TTS_MODELS)[number]["id"];
+
+/**
+ * Gemini publishes named base voices and speaking styles, not guaranteed child
+ * voices. These AIDA presets add an explicit Vietnamese age/gender direction;
+ * every generated sample still has to be heard and approved by a person.
+ */
+export const GEMINI_VOICE_PRESETS = {
+  girl_leda: {
+    label: "Bé gái · trong trẻo, tự nhiên",
+    voice: "Leda",
+    direction:
+      "Giọng bé gái Việt Nam khoảng 6 đến 8 tuổi, trong trẻo, tự nhiên, tinh nghịch, nói rõ dấu tiếng Việt; tuyệt đối không giống phụ nữ trưởng thành hoặc phát thanh viên.",
+  },
+  girl_aoede: {
+    label: "Bé gái · nhẹ nhàng, đáng yêu",
+    voice: "Aoede",
+    direction:
+      "Giọng bé gái Việt Nam khoảng 6 đến 8 tuổi, nhẹ nhàng, đáng yêu, nhịp nói hồn nhiên, rõ tiếng Việt; không có chất giọng người lớn.",
+  },
+  girl_zephyr: {
+    label: "Bé gái · sáng, lanh lợi",
+    voice: "Zephyr",
+    direction:
+      "Giọng bé gái Việt Nam khoảng 7 đến 9 tuổi, sáng, lanh lợi, phản ứng nhanh và vui; giữ âm sắc trẻ em, không đọc quảng cáo.",
+  },
+  girl_sadachbia: {
+    label: "Bé gái · hoạt bát, lém lỉnh",
+    voice: "Sadachbia",
+    direction:
+      "Giọng bé gái Việt Nam khoảng 6 đến 8 tuổi, hoạt bát, lém lỉnh và giàu biểu cảm; phát âm tự nhiên, không lên giọng kiểu MC.",
+  },
+  boy_puck: {
+    label: "Bé trai · vui, tinh nghịch",
+    voice: "Puck",
+    direction:
+      "Giọng bé trai Việt Nam khoảng 4 đến 6 tuổi, vui, tinh nghịch, hồn nhiên và rõ lời; tuyệt đối không giống đàn ông trưởng thành.",
+  },
+  boy_fenrir: {
+    label: "Bé trai · hào hứng, nhiều năng lượng",
+    voice: "Fenrir",
+    direction:
+      "Giọng bé trai Việt Nam khoảng 5 đến 7 tuổi, hào hứng, nhiều năng lượng, nhịp tự nhiên; giữ âm sắc trẻ em và không gằn giọng người lớn.",
+  },
+  boy_achird: {
+    label: "Bé trai · thân thiện, ấm",
+    voice: "Achird",
+    direction:
+      "Giọng bé trai Việt Nam khoảng 5 đến 7 tuổi, thân thiện, ấm và tò mò; nói rõ tiếng Việt, không có chất giọng người dẫn chương trình.",
+  },
+  boy_enceladus: {
+    label: "Bé trai · nhỏ nhẹ, ngây thơ",
+    voice: "Enceladus",
+    direction:
+      "Giọng bé trai Việt Nam khoảng 4 đến 6 tuổi, nhỏ nhẹ, ngây thơ, có nhịp thở tự nhiên; không trầm hoặc già dặn.",
+  },
+} as const;
+export type GeminiVoicePreset = keyof typeof GEMINI_VOICE_PRESETS;
+
+export function isGeminiTtsModel(model: string): model is GeminiTtsModel {
+  return GEMINI_TTS_MODELS.some((candidate) => candidate.id === model);
+}
+
 /**
  * The provider's built-in voices are adult/general-purpose voices.  Do not
  * present them as child voices just because their pitch is higher.  Designed

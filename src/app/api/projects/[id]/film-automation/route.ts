@@ -48,45 +48,25 @@ export async function PUT(
           .filter((x: unknown): x is string => typeof x === "string")
           .slice(0, 24)
       : [];
+    let queuedPlans: Array<{ id: string; audio_mode: string }> = [];
     if (ids.length) {
-      const { count } = await a.admin
+      const { data, count } = await a.admin
         .from("video_plans")
-        .select("id", { count: "exact", head: true })
+        .select("id,audio_mode", { count: "exact" })
         .eq("project_id", a.project.id)
         .eq("workspace_version", a.project.workspace_version)
         .in("id", ids);
       if (count !== ids.length)
         throw new FilmError("Hàng đợi có kịch bản không thuộc dự án.");
+      queuedPlans = data || [];
     }
     if (body.enabled) {
-      if (!fixedVoiceEnabled(a.project.id))
+      if (
+        queuedPlans.some((plan) => plan.audio_mode === "fixed") &&
+        !fixedVoiceEnabled(a.project.id)
+      )
         throw new FilmError(
-          "Nhánh giọng cố định chưa qua canary nên chưa thể bật lịch.",
-          409,
-        );
-      const [{ data: channel }, { data: approved }] = await Promise.all([
-        a.admin
-          .from("channel_profiles")
-          .select("profile")
-          .eq("project_id", a.project.id)
-          .eq("workspace_version", a.project.workspace_version)
-          .order("version", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        a.admin
-          .from("character_voice_versions")
-          .select("character_id")
-          .eq("project_id", a.project.id)
-          .eq("workspace_version", a.project.workspace_version)
-          .not("approved_at", "is", null),
-      ]);
-      const required = (channel?.profile?.roles || []).map(
-        (r: { characterId: string }) => r.characterId,
-      );
-      const have = new Set((approved || []).map((v) => v.character_id));
-      if (!required.length || required.some((id: string) => !have.has(id)))
-        throw new FilmError(
-          "Duyệt giọng của tất cả nhân vật trong hồ sơ kênh trước khi bật tự sản xuất.",
+          "Hàng đợi có phim lồng tiếng chưa qua canary. Chuyển phim đó sang audio native Seedance trước.",
           409,
         );
     }
