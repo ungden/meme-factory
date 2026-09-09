@@ -3,6 +3,8 @@ import { describe, it, expect } from "vitest";
 import { buildFamilyPilot, familyPersonalities } from "./family-pilot";
 import {
   validateStory,
+  validateGeneratedFamilyStory,
+  compactStory,
   fingerprint,
 } from "./family-catalogue";
 import type { FilmCast } from "./short-film/contracts";
@@ -104,4 +106,18 @@ describe("family catalogue", () => {
     expect(() => validateStory(story, profile, cast.map(c => c.characterId))).toThrow("STORY_SHOT_LIMIT");
     expect(validateStory({ ...story, beats: story.beats.filter(b => b.purpose !== "reaction") }, profile, cast.map(c => c.characterId)).dialogue).toHaveLength(12);
   });
+});
+
+it("keeps legacy plans readable but requires a concrete inversion in new AI drafts", () => {
+  const ids = cast.map(c => c.characterId);
+  expect(validateStory(plans[0].story, profile, ids).comicPremise).toBeUndefined();
+  expect(() => validateGeneratedFamilyStory(plans[0].story, profile, ids)).toThrow("STORY_COMIC_PREMISE_REQUIRED");
+  const premise = {
+    normalExpectation: "Cha mẹ chuẩn bị đồ cho con đi học",
+    invertedReality: "Hai bé chuẩn bị đồ cho bố đi làm",
+    visibleContrast: "Bé kiểm bình nước của bố còn bố đòi nằm thêm",
+  };
+  const story = validateGeneratedFamilyStory({ ...plans[0].story, comicPremise: premise }, profile, ids);
+  expect(compactStory(story).comicPremise).toEqual(premise);
+  expect(() => validateGeneratedFamilyStory({ ...story, comicPremise: { ...premise, visibleContrast: "" } }, profile, ids)).toThrow("STORY_COMIC_PREMISE_INVALID");
 });

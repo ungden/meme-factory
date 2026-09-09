@@ -7,6 +7,8 @@ export const FAMILY_SERIES = [
   "Hai người lớn tí hon",
   "Hôm nay đổi phe",
   "Bố mẹ bị bắt bài",
+  "Hai con lo hết",
+  "Bố mẹ chưa chịu lớn",
 ] as const;
 export type ChannelProfile = {
   version: number;
@@ -26,12 +28,17 @@ export type ChannelProfile = {
 };
 export type RecentStory = Pick<
   Story,
-  "series" | "situation" | "mechanism" | "outcome" | "wants" | "payoff"
+  "series" | "situation" | "mechanism" | "outcome" | "wants" | "payoff" | "comicPremise"
 >;
 export type Story = {
   intendedShotSeconds?: number[];
   writingPolicyVersion?: string;
   profileVersion: number;
+  comicPremise?: {
+    normalExpectation: string;
+    invertedReality: string;
+    visibleContrast: string;
+  };
   editorialEvidence?: Record<string, string>;
   series: string;
   situation: string;
@@ -50,6 +57,7 @@ export type Story = {
 export function compactStory(story: Story): RecentStory {
   return {
     series: story.series,
+    ...(story.comicPremise ? { comicPremise: story.comicPremise } : {}),
     situation: story.situation,
     mechanism: story.mechanism,
     outcome: story.outcome,
@@ -87,7 +95,7 @@ export const referenceMechanisms: ChannelProfile["references"] = [
   {
     source: "6 · Bố mẹ nhờ mua đồ",
     mechanism: "Đảo vai người lớn và trẻ con",
-    lesson: "Bố mẹ muốn nằm tiếp, hai bé muốn đi; đặt món, từ chối, nài nỉ rồi đổi cách thuyết phục. Lời cảm ơn cuối thuộc giao dịch đang diễn ra, không phải bài học gắn thêm. Bố mẹ có thể chủ động bày trò.",
+    lesson: "Hình chính đã đảo thường thức: hai bé đeo cặp chuẩn bị đi học nhưng còn phải lo đồ ăn cho bố mẹ đang nằm trên giường. Người lớn dặn món, mè nheo; trẻ thở dài như người phải chăm lo. Đây là tương phản dáng vẻ/vai trò và mọi việc đến tay con, không chỉ là mặc cả hay thua lý. Nhượng bộ để được yên, lời cảm ơn và lời hứa trả tiền đều tự nhiên. File được gửi lại là cùng reference, không tính thành mẫu độc lập mới.",
   },
   {
     source: "7 · Cuộc gọi đáng ngờ",
@@ -95,15 +103,35 @@ export const referenceMechanisms: ChannelProfile["references"] = [
     lesson:
       "Phản ứng người chứng kiến là một nhịp; sáng tác tình huống Việt mới.",
   },
+  {
+    source: "8 · Phỏng vấn chủ xe đồ chơi",
+    mechanism: "Đóng vai người thành đạt, kể chuyện nhỏ bằng phong thái lớn",
+    lesson: "Người hỏi giúp người trả lời thể hiện vai; chức danh to tát được giải thích bằng việc vặt gia đình. Các câu hỏi dẫn không cần gây cười riêng. Giữ mặt nghiêm túc; không ép ai bị lộ/thua, không dựng flashback cho mọi lời kể. Không sao chép chuỗi hỏi nghề–ưu điểm–khuyên người trẻ hay câu triết lý cuối.",
+  },
+  {
+    source: "9 · Bé thương lượng với bố",
+    mechanism: "Tương phản tỷ lệ, thương lượng rồi khoe ngược để giữ thể diện",
+    lesson: "Chênh lệch giữa điều mong đợi và phần nhận được tạo nhịp; bé vẫn nói như mình rất giỏi dù đang lép vế. Lời nói và biểu cảm cố ý lệch nhau, không cần sửa thành nhận thua. Chỉ lấy cơ chế cho chuyện nhẹ nhàng khác; không bê sính lễ, đùa bạo hành hoặc lời thoại nguồn.",
+  },
+  {
+    source: "10a · Hai chiếc bánh, hai phản ứng",
+    mechanism: "Cùng một lời mời, một người ăn ngay, một người nghĩ tới người mời",
+    lesson: "Sự chậm lại ban đầu được giải thích bằng quan tâm cho mẹ; đẩy bánh và lời mời mẹ là điểm chốt. Không tự suy ra đang giả hiếu thảo để trục lợi, không thêm cú lật ích kỷ hay bài học. Đây là một mẩu độc lập trong file tổng hợp.",
+  },
+  {
+    source: "10b · Chọn tiền khi thăm ông",
+    mechanism: "Người lớn nhìn giá tiền, bé trả lời bằng mục đích đến thăm",
+    lesson: "Một lựa chọn bị hiểu nhầm được giải thích bằng câu nói khéo/thân tình. Cho phép kết ở phản ứng nhận ra, không bắt có quà hay giao dịch chứng minh. Không suy động cơ diễn đạo đức chỉ từ câu trả lời; không cố định em ham lợi để chị luôn hơn. Tách khỏi mẩu hai chiếc bánh.",
+  },
 ];
 export function familyProfile(roles: ChannelProfile["roles"]): ChannelProfile {
   return {
-    version: 3,
+    version: 4,
     writingPolicyVersion: FAMILY_WRITING_POLICY_VERSION,
     positioning:
-      "Một gia đình cố định, nhiều chuyện nhỏ nối tiếp; Bánh Bao và Đậu Đỏ dẫn chuyện. Mỗi tập độc lập, quan hệ tích luỹ qua các tập. Làm bánh chỉ là một bối cảnh nhận diện.",
+      "Gia đình đảo vai chăm lo: hai đứa con nít Bánh Bao & Đậu Đỏ phải lo/nhắc/tổ chức như phụ huynh, còn Bố Mẹ có lúc mè nheo, chậm chạp, đòi hỏi như trẻ con. Sự tương phản vui vẻ giữa dáng vẻ và vai trò là trục hài. Mỗi tập là một việc đời thường khác; không bắt mọi chuyện về bánh.",
     audience: "Người lớn, đặc biệt cha mẹ Việt Nam",
-    tone: "Hài gia đình cho người lớn: trẻ con có thể lý sự, tính toán như người lớn vì mong muốn của mình. Đối đáp nghiêm túc trong tình huống buồn cười; giữ tính cách, đổi chiến thuật, người thắng và liên minh. Tình cảm nằm trong quan hệ, không bắt buộc lời kết dễ thương.",
+    tone: "Hài tương phản vui vẻ, đời thường: cha mẹ thường giục con, ở đây hai bé giục cha mẹ. Hình con nít, vai chăm lo của người lớn; người lớn được chăm thì mè nheo như con nít. Lời nói bình thường, phản ứng quen thuộc trong vai bị đảo; không cần câu đố, thu phí hay cú lật thông minh. Có tình cảm, không chế giễu hoặc giảng đạo.",
     roles,
     series: FAMILY_SERIES,
     references: referenceMechanisms,
@@ -111,12 +139,12 @@ export function familyProfile(roles: ChannelProfile["roles"]): ChannelProfile {
       "Không sao chép lời thoại hay thay tên trong video nguồn",
       "Không cố định chị luôn khôn, em luôn thua, bố vụng, mẹ phạt",
       "Không chê ngoại hình/tiền bạc hoặc làm nhục thành viên",
-      "Không kết bằng bài học, cả nhà cùng cười hoặc cú lật không được chuẩn bị",
+      "Không gắn bài học tổng kết hoặc cả nhà cùng cười vào cuối; cho phép tình cảm là chính câu chuyện khi có lựa chọn/lời nói cụ thể",
       "Không kéo thoại cho đủ thời lượng",
       "Không ép tất cả tập về bánh",
-      "Không chữa mâu thuẫn bằng một câu chia sẻ, hợp tác hoặc bài học ở cuối",
+      "Không ép mọi tập có tranh giành, bẫy hoặc người thua; sự quan tâm hay muốn giữ thể diện cũng là động cơ",
       "Không viết câu chỉ nhằm khoe chơi chữ; ngôn ngữ người lớn được dùng khi phục vụ ý đồ của nhân vật, không cấm theo danh sách từ",
-      "Không bắt nhân vật làm trái điều vừa hiểu chỉ để tạo cú lật",
+      "Phân biệt lỗi sự kiện/nhân quả của tác giả với lời nói ngược, khoe quá hoặc diễn ngầu có chủ ý của nhân vật",
     ],
   };
 }
@@ -140,6 +168,10 @@ export function validateStory(
   recent: Pick<Story, "situation" | "mechanism" | "outcome">[] = [],
 ): Story {
   const s = value as Story;
+  if (s?.comicPremise !== undefined && (!s.comicPremise ||
+    ![s.comicPremise.normalExpectation, s.comicPremise.invertedReality, s.comicPremise.visibleContrast]
+      .every(v => typeof v === "string" && v.trim().length >= 8 && v.length <= 1000)))
+    throw new Error("STORY_COMIC_PREMISE_INVALID");
   if (
     !s ||
     !profile.series.includes(s.series) ||
@@ -210,5 +242,13 @@ export type FamilyEditorialIssue = {
   reason: string;
 };
 
+/** New AI drafts declare the ordinary expectation and its reversal; historic saved stories remain readable without one. */
+export function validateGeneratedFamilyStory(
+  value: unknown, profile: ChannelProfile, allowed: string[], recent: RecentStory[] = [],
+): Story {
+  const story = validateStory(value, profile, allowed, recent);
+  if (!story.comicPremise) throw new Error("STORY_COMIC_PREMISE_REQUIRED");
+  return story;
+}
 export const STORY_SCHEMA =
-  '{"series":"", "situation":"", "mechanism":"", "outcome":"", "wants":[{"characterId":"uuid","want":""}], "beats":{"hook":"","turns":[],"payoff":"","reaction":""}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid","text":"","action":""}]}';
+  '{"comicPremise":{"normalExpectation":"","invertedReality":"","visibleContrast":""}, "series":"", "situation":"", "mechanism":"", "outcome":"", "wants":[{"characterId":"uuid","want":""}], "beats":{"hook":"","turns":[],"payoff":"","reaction":""}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid","text":"","action":""}]}';

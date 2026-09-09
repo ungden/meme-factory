@@ -10,7 +10,7 @@ import {
   compileStoryShots,
 } from "./family-ai-contract";
 import {
-  validateStory,
+  validateGeneratedFamilyStory,
   STORY_SCHEMA,
   type ChannelProfile,
   type FamilyEditorialIssue,
@@ -300,7 +300,7 @@ function contextText(context: CreativeContext, selectedIds: string[]) {
   const selected = selectedIds.length
     ? context.characters.filter((item) => selectedIds.includes(item.id))
     : context.characters;
-  return `${context.channelProfile ? "HỒ SƠ KÊNH (giữ vai trò và tính cách, không tự đổi ảnh chuẩn): " + JSON.stringify(context.channelProfile) + "\n20 TẬP GẦN NHẤT (tránh lặp tổ hợp tình huống–cơ chế–kết quả và cùng người luôn thua): " + JSON.stringify(context.recentStories || []) + "\n" : ""}DỰ ÁN: ${context.projectName}\nGIỌNG VIẾT: ${context.channelProfile?.tone || context.brandVoice || "tự nhiên, rõ ràng"}\nĐỘC GIẢ: ${context.channelProfile?.audience || context.audience || "khán giả fanpage Việt Nam"}\nHƯỚNG DẪN: ${context.guidelines || ""}\nNHÂN VẬT ĐƯỢC PHÉP DÙNG (chỉ dùng ID trong danh sách):\n${selected.map((character) => `- ${character.name} | ID ${character.id} | ${character.description || "nhân vật 3D đã duyệt"}; ${character.personality || ""}`).join("\n") || "Không có nhân vật được chọn."}\nNỘI DUNG GẦN ĐÂY CẦN TRÁNH LẶP: ${context.recentContent.join(" | ") || "chưa có"}${context.channelProfile ? "\n\n" + FAMILY_WRITING_POLICY : ""}`;
+  return `${context.channelProfile ? "HỒ SƠ KÊNH (giữ vai trò và tính cách, không tự đổi ảnh chuẩn): " + JSON.stringify(context.channelProfile) + "\n20 TẬP GẦN NHẤT (tránh lặp việc phải lo–phép đảo vai–phản ứng/kết quả; không mặc định mọi tập có người thua): " + JSON.stringify(context.recentStories || []) + "\n" : ""}DỰ ÁN: ${context.projectName}\nGIỌNG VIẾT: ${context.channelProfile?.tone || context.brandVoice || "tự nhiên, rõ ràng"}\nĐỘC GIẢ: ${context.channelProfile?.audience || context.audience || "khán giả fanpage Việt Nam"}\nHƯỚNG DẪN: ${context.guidelines || ""}\nNHÂN VẬT ĐƯỢC PHÉP DÙNG (chỉ dùng ID trong danh sách):\n${selected.map((character) => `- ${character.name} | ID ${character.id} | ${character.description || "nhân vật 3D đã duyệt"}; ${context.channelProfile?.roles.find((role) => role.characterId === character.id)?.personality || character.personality || ""}`).join("\n") || "Không có nhân vật được chọn."}\nNỘI DUNG GẦN ĐÂY CẦN TRÁNH LẶP: ${context.recentContent.join(" | ") || "chưa có"}${context.channelProfile ? "\n\n" + FAMILY_WRITING_POLICY : ""}`;
 }
 
 function schemaFor(kind: CreativeAssistKind) {
@@ -375,8 +375,8 @@ const familyEditorialReviewSchema = {
     passed: { type: "boolean" },
     evidence: {
       type: "object",
-      properties: Object.fromEntries(["motivation", "development", "ending", "originality"].map((key) => [key, { type: "string" }])),
-      required: ["motivation", "development", "ending", "originality"],
+      properties: Object.fromEntries(["contrast", "motivation", "development", "ending", "originality"].map((key) => [key, { type: "string" }])),
+      required: ["contrast", "motivation", "development", "ending", "originality"],
       additionalProperties: false,
     },
     issues: {
@@ -407,7 +407,7 @@ function unpackEditorialReview(value: unknown) {
   if (
     typeof review?.passed !== "boolean" ||
     !Array.isArray(review.issues) ||
-    !["motivation", "development", "ending", "originality"].every(
+    !["contrast", "motivation", "development", "ending", "originality"].every(
       (key) => typeof review.evidence?.[key] === "string" &&
         (review.evidence[key] as string).trim().length > 10,
     )
@@ -506,22 +506,22 @@ async function generateFamilyFilm(input: CreativeAssistInput) {
   const draftStory = await checked(
     `${contextText(context, allowed)}
 Viết CÂU CHUYỆN trước khi chia shot. Ý tưởng: ${input.intent || "Một chuyện nhỏ mới của gia đình"}.
-Tự cân nhắc vài tình huống khác nhau rồi chọn một chuyện có xung đột đời thường và động cơ rõ nhất, không xuất danh sách ý tưởng. Thời lượng dự kiến ${input.targetDurationSeconds || 35} giây; thường 8–12 lượt đối đáp cho khoảng 35 giây, nhưng được ít hơn nếu chuyện đã đủ. Tổng 15–120 đơn vị lời thoại (tách bằng khoảng trắng), mỗi lượt tối đa 35; thay đổi độ dài câu theo mục đích nói. Không cắt màn mặc cả hoặc giải thích có tác dụng để làm bản ngắn nhất.
-Ghi wants cụ thể, setup là việc đang xảy ra, turns là những thay đổi chiến thuật/hệ quả, payoff là kết quả cuối. Kế hoạch thành công vẫn là payoff, không bắt buộc ai thua. Mở ngay bằng yêu cầu/hành động, không giới thiệu gia đình.
+Tự cân nhắc vài tình huống khác nhau rồi chọn một việc đời thường có phép đảo vai chăm lo rõ nhất; không bắt buộc xung đột hoặc gài bẫy, không xuất danh sách ý tưởng. Thời lượng dự kiến ${input.targetDurationSeconds || 35} giây; thường 8–12 lượt đối đáp cho khoảng 35 giây, nhưng được ít hơn nếu chuyện đã đủ. Tổng 15–120 đơn vị lời thoại (tách bằng khoảng trắng), mỗi lượt tối đa 35; thay đổi độ dài câu theo mục đích nói. Không cắt màn mặc cả hoặc giải thích có tác dụng để làm bản ngắn nhất.
+Ghi comicPremise trước: normalExpectation là thường thức vốn quen, invertedReality là việc đảo sang hai bé/người lớn, visibleContrast là lời/hành động sẽ cho thấy điều ngược đời trên màn hình. Không chỉ đặt nhãn đảo vai; phần thoại phải thật sự diễn nó. Ghi wants cụ thể (có thể cùng muốn hoặc quan tâm nhau), setup là việc đang xảy ra, turns là tiến triển trong đối đáp/hiểu biết/quan hệ, payoff là điểm rơi cuối. Điểm rơi có thể là nhìn ra điều thương nhau, giữ thể diện hoặc nhận xét hóm hỉnh; không bắt buộc ai thua hay có cú lật. Mở ngay bằng yêu cầu/hành động, không giới thiệu gia đình.
 Tối đa 12 lượt thoại; nếu cần reaction riêng thì tối đa 11 lượt thoại + 1 reaction. Reaction để trống khi đã dừng đúng chỗ. Chỉ mô tả hành động nhìn thấy; không dùng nhãn cảm xúc thay việc diễn ra.
 Trả JSON: ${STORY_SCHEMA}`,
     (v) =>
-      validateStory(unpackStory(v), profile, allowed, context.recentStories),
+      validateGeneratedFamilyStory(unpackStory(v), profile, allowed, context.recentStories),
     storyResponseSchema(profile, allowed),
   );
   let story = await checked(
     `${contextText(context, allowed)}
 Bạn là biên tập thoại cuối, không phải người viết quảng cáo. Đọc bản nháp sau thành tiếng và sửa trực tiếp: ${JSON.stringify(draftStory)}
-Giữ đề tài và cast, biên tập theo mục đích từng người và cách họ đáp lại nhau. Giữ những màn lý sự, giải thích, thăm dò và mặc cả đang có tác dụng; không rút mọi câu thành vài từ. Nếu vấn đề là tình huống không có gì để tranh, sửa động cơ/setup/chiến thuật thay vì thêm câu chơi chữ. Không luôn cho Bố chống chế, Mẹ bắt bài hay Đậu Đỏ chỉ hiểu nghĩa đen.
-Chỉ sửa phần làm gãy nhân quả hoặc khiến nhân vật nói hộ tác giả. Được sửa setup, mechanism, outcome, payoff và beats cho khớp thoại, giữ chi tiết đã gieo. Không đổi kết thành chia sẻ hay hối lỗi. Không viết tiếp sau điểm dừng có ý nghĩa. Dùng toàn bộ QUY TẮC BIÊN KỊCH ở trên; sự tự nhiên không được suy từ tuổi.
+Giữ đề tài và cast, biên tập theo mục đích từng người và cách họ đáp lại nhau. Giữ những màn lý sự, giải thích, thăm dò và mặc cả đang có tác dụng; không rút mọi câu thành vài từ. Giữ phép đảo thường thức trong comicPremise. Nếu đoạn chưa có sức sống, làm rõ công việc hai bé phải lo và phản ứng quen thuộc của người lớn, không tự thêm mặc cả, xưng sếp, thu phí hoặc câu chốt triết lý. Giữ ý tưởng của người dùng. Không luôn cho Bố chống chế, Mẹ bắt bài hay Đậu Đỏ chỉ hiểu nghĩa đen.
+Chỉ sửa phần làm gãy nhân quả hoặc khiến nhân vật nói hộ tác giả. Được sửa setup, mechanism, outcome, payoff và beats cho khớp thoại, giữ chi tiết đã gieo. Giữ điểm chốt quan tâm/nói khéo nếu đã được chuẩn bị; không tự đổi thành ích kỷ hoặc thêm đạo lý/hối lỗi. Không viết tiếp sau điểm dừng có ý nghĩa. Dùng toàn bộ QUY TẮC BIÊN KỊCH ở trên; sự tự nhiên không được suy từ tuổi.
 Trả toàn bộ JSON theo schema: ${STORY_SCHEMA}`,
     (v) =>
-      validateStory(unpackStory(v), profile, allowed, context.recentStories),
+      validateGeneratedFamilyStory(unpackStory(v), profile, allowed, context.recentStories),
     storyResponseSchema(profile, allowed),
   );
   let editorialEvidence: Record<string, string> | undefined;
@@ -543,7 +543,7 @@ NHẬN XÉT BẮT BUỘC SỬA (lượt ${editorialAttempt + 1}/2): ${JSON.strin
 
 Sửa đúng nguyên nhân được chỉ ra: động cơ, chiến thuật, nhân quả hoặc câu nói thiếu lý do. Giữ phần đối đáp đang hiệu quả, kể cả lời giải thích và cách nói người lớn có chủ ý. Không giải quyết mọi nhận xét bằng rút ngắn thoại. Được cắt reaction, câu thắng cuộc hoặc cả một lượt thoại nếu payoff đã rõ. Hành động chỉ mô tả cử chỉ nhìn thấy được. Không giảng đạo và không làm người bị hớ phải hối lỗi. Trả toàn bộ JSON theo schema: ${STORY_SCHEMA}`,
       (v) =>
-        validateStory(unpackStory(v), profile, allowed, context.recentStories),
+        validateGeneratedFamilyStory(unpackStory(v), profile, allowed, context.recentStories),
       storyResponseSchema(profile, allowed),
     );
   }

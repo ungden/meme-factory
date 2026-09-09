@@ -227,6 +227,7 @@ export async function POST(
             .filter(Boolean)
             .map((s) => ({
               series: s.series,
+              comicPremise: s.comicPremise,
               situation: s.situation,
               mechanism: s.mechanism,
               outcome: s.outcome,

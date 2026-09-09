@@ -9,6 +9,7 @@ const object = (properties: Record<string, unknown>) => ({
 export function storyResponseSchema(profile: ChannelProfile, ids: string[]) {
   const characterId = { type: "string", enum: ids };
   return object({
+    comicPremise: object({ normalExpectation: string, invertedReality: string, visibleContrast: string }),
     series: { type: "string", enum: profile.series },
     situation: string,
     mechanism: string,

@@ -1,29 +1,38 @@
-/** Shared by ideation, writing, revision and review; independent of media settings. */
-export const FAMILY_WRITING_POLICY_VERSION = "family-dialogue-3";
+/** The family's comic world rule is shared by drafting, editing and review. */
+export const FAMILY_WRITING_POLICY_VERSION = "family-dialogue-4";
 
-export const FAMILY_WRITING_POLICY = `QUY TẮC BIÊN KỊCH ${FAMILY_WRITING_POLICY_VERSION}
-Đây là hài gia đình cho người lớn xem: các bé mang dáng vẻ trẻ con nhưng có thể tính toán, mặc cả, phân tích và lý sự như người lớn để đạt một mong muốn rất trẻ con. Tuổi trong hồ sơ cố định hình dáng/quan hệ/giọng, KHÔNG phải giới hạn khả năng lập luận hay bắt em chỉ nói vài từ.
+export const FAMILY_WRITING_POLICY = `LUẬT NỀN BIÊN KỊCH ${FAMILY_WRITING_POLICY_VERSION}: GIA ĐÌNH ĐẢO VAI CHĂM LO
+Bánh Bao & Đậu Đỏ là hai đứa CON NÍT mang vai người phải lo chuyện gia đình; Bố Mẹ mang hình người lớn nhưng có thể mè nheo, trì hoãn, quên đồ, đòi hỏi và cần được giục như trẻ con. Khán giả người lớn nhận ra một tình huống quen thuộc bị đảo chiều. Sự tương phản giữa HÌNH DÁNG và VAI TRÒ đã gây cười; thoại đời thường là đủ, không cần thêm câu chơi chữ.
 
-TỰ NHIÊN = CÓ ĐỘNG CƠ, KHÔNG PHẢI NÓI ĐƠN GIẢN:
-- Bắt đầu từ chuyện đang xảy ra và điều mỗi người muốn ngay lúc đó. Mỗi người đang nói với người kia để xin, dụ, giành, né, thuyết phục hoặc dò ý; không nói hộ tác giả cho khán giả nghe.
-- Cho nhân vật thử cách thứ nhất, gặp phản ứng rồi đổi cách. Tính cách giữ nguyên; người khôn, người bị hớ và liên minh được thay đổi. Bố Mẹ cũng có ham muốn riêng, có thể bày trò và thua; không luôn làm trọng tài chốt bài học.
-- Câu hỏi, câu xác nhận, lời giải thích dài hơn và khoảng dừng được giữ khi giúp nhân vật thực hiện ý đồ. Không bắt mỗi câu đều là punchline hoặc đảo chiều; không cắt mất màn thuyết phục để chạy thẳng tới cú cuối.
-- Cho phép ngôn ngữ người lớn, lập quy định, thương lượng và lý lẽ vô lý có lợi cho người nói. Đánh giá cả ngữ cảnh, không cấm từ hành chính, ẩn dụ hoặc cụm từ theo danh sách. Bỏ câu chỉ đẹp trên giấy, không có lý do để nhân vật nói trong tình huống.
-- Lý sự phải bám vào điều người kia vừa nói hoặc một điều kiện của tình huống. Không tự đặt một thuật ngữ khoa học/ẩn dụ rồi cho cả nhà nối lời theo thuật ngữ đó để tạo vẻ lanh lợi. Người nghe có thể không tin, phản bác, mặc cả hoặc nhượng bộ vì một lý do thấy được; không lập tức đồng ý chỉ vì tác giả cần kế hoạch thành công.
-- Hài phải xuất hiện trong cách hai bên ứng phó qua các lượt, không chỉ một câu chơi chữ cuối. Kết có thể là kế hoạch thành công, một hệ quả hoặc phản ứng; không bắt buộc cú lật, trừng phạt, hòa giải, lời đạo lý hay cả nhà cười.
-- Một điều kiện ở cuối chỉ có sức nặng nếu người nói có quyền, đang giữ thứ người kia cần, hoặc hai bên đã nhận giao kèo. Không tự cho người kia chịu thua bằng một tiếng “Ơ” hay chỉ dẫn đứng hình trước điều kiện họ hoàn toàn có thể bỏ qua. Phản ứng không thay thế hệ quả thực.
-- Phân biệt lý sự có chủ ý với lỗi nhân quả: nhân vật được cãi cùn vì lợi ích, nhưng không bỗng quên điều đã biết để tác giả chốt. Hành động cơ thể vẫn khả thi theo vóc dáng; không cho bé nhỏ cõng chị lớn.
-- Học CÁCH XÂY chuyện từ reference, không lấy lại chuỗi giao kèo/leo thang/cú chốt rồi đổi đồ vật hoặc bộ phận cơ thể. Đối chiếu cả reference và 20 tập gần đây.
+CHỌN THƯỜNG THỨC RỒI ĐẢO NGƯỜI GÁNH VIỆC:
+1. Chọn một việc cụ thể thường do cha mẹ chăm/nhắc con: gọi dậy, giục đúng giờ, chuẩn bị đồ, nhắc ăn, kiểm tra quên đồ, quản việc trong nhà.
+2. Đảo vai: hai bé phải đứng ra tổ chức, nhắc, lo; người lớn phản ứng như trẻ con trong chính việc đó. Nếu chỉ chọn hai bé, cho thấy hai bé đang gánh việc của người lớn qua đồ vật/công việc/lời nhắc, không tự thêm người nói ngoài cast.
+3. Mở ngay bằng dấu hiệu đảo vai trong việc đang xảy ra, không thuyết minh 'ở nhà này mọi thứ đều ngược'. Trẻ vẫn có hình/giọng trẻ, không cần hóa trang công sở hoặc xưng sếp/nhân viên để người xem hiểu.
+4. Tiến triển bằng phản ứng quen thuộc: gọi rồi xin thêm chút, đã giục còn quên đồ, đang lo việc này lại được nhờ thêm việc kia. Hai bé có cách xử lý khác nhau, có thể cùng thở dài hay phối hợp. Không cần chúng tranh nhau hoặc ai đó sập bẫy.
+5. Điểm rơi là một chi tiết làm sự đảo vai rõ hơn, một câu nhắc rất 'phụ huynh' từ bé, hay phản ứng rất 'con nít' từ bố mẹ. Có thể dừng trước khi công việc hoàn tất; không cần chứng minh thắng thua, kết hợp đồng hoặc phạt người lớn.
+Các ví dụ ở trên chỉ giải thích nguyên lý; không lặp 'gọi dậy' cho mọi tập. Khi đề xuất ba ý tưởng, chọn ba việc nhà/tình huống và phản ứng KHÁC NHAU, đều có thường thức được đảo. Đối chiếu 20 tập gần nhất; không chỉ thay đồ vật trong một câu chuyện cũ.
 
-Ưu tiên câu chuyện trước khi chia shot. Khẩu ngữ Việt tự nhiên, độ dài câu thay đổi theo ý đồ; không ép câu nào cũng 3–5 từ. Thời lượng là đích tham khảo, không viết bản ngắn nhất hoặc chèn câu cho đủ giây. Không tự đổi cast, nhận diện, giới tính hoặc giọng đã chọn.`;
+TÍNH CÁCH VÀ ĐỐI ĐÁP:
+- Bánh Bao thường đứng ra tổ chức/giục; Đậu Đỏ thấy việc cụ thể bị sót, có thể giúp chị, cằn nhằn hoặc chủ động giải quyết. Đổi người chủ trì, không mặc định chị khôn và em ngốc. Bố Mẹ có sở thích/lý do riêng; sự trẻ con của họ vui vẻ, không thành người xấu hoặc bị hạ nhục.
+- Không bắt tất cả tập có đủ bốn người. Kịch bản hai bé vẫn cho thấy dáng trẻ mà suy nghĩ/gánh việc của người lớn; tránh biến trở lại thành hai bé đơn thuần giành kẹo, giành đồ chơi.
+- Tuổi cố định diện mạo, vóc dáng, giới tính, giọng và quan hệ; KHÔNG giới hạn khả năng lập luận của nhân vật hoạt hình. Hành động phải diễn được theo vóc dáng; không cho bé cõng bố hoặc lái xe thật chỉ vì đảo vai.
+- Xưng hô theo người đang nghe: nói với bố/mẹ thì xưng con, nói với chị thì xưng em. Khi đổi người nghe phải rõ trong câu hoặc hành động; đảo vai chăm lo không đổi quan hệ gia đình.
+- Câu hỏi, xác nhận, dặn món/đồ vật, nhắc lần nữa và khoảng nhìn nhau giúp tình huống sống. Không bắt mỗi câu phải thông minh, có punchline, đổi chiến thuật hay tạo giao kèo. Người nhượng bộ có thể chỉ muốn được yên hoặc thương người kia.
+- Cho phép lập luận/thuật ngữ người lớn khi vai đang đóng cần đến và neo vào việc nhỏ cụ thể, như ref phỏng vấn. Đừng chỉ thêm chức danh, mở họp, thu phí hay lý lẽ hàn lâm rồi coi đó là đã đảo thường thức.
+- Một lời nói ngược/khoe quá có thể là cố giữ oai. Phân biệt lời nhân vật với sự thật của truyện; đừng sửa mọi lời chống chế thành nhận lỗi. Chỉ sửa lỗi tác giả khi nhân vật tự nhiên quên sự kiện hoặc hành động thay đổi vô cớ mà người xem không hiểu được.
+- Sự quan tâm thật giữa hai bé hoặc với bố mẹ có thể là chính điểm rơi. Không tự gán động cơ ích kỷ cho câu nói thương người, không nối thêm bài học đạo đức. Giữ câu cảm ơn/nụ cười/ánh nhìn nếu đúng quan hệ và đúng nhịp.
+- Neo việc vào chi tiết của đúng người: món bố vừa đòi, đồ mẹ quên, thói quen hoặc lời nhờ cụ thể. Đừng chỉ cho hai bé dọn đồ chung chung rồi đặt nhãn đó là đồ bố mẹ. Không để nhân vật giải thích định vị bằng câu kiểu chúng ta là phụ huynh hay người lớn mà như trẻ con.
+- Giữ tương phản VUI VẺ: bố mẹ có yêu cầu nhỏ hoặc phản ứng đáng yêu, hai bé có tình cảm và cách lo khác nhau. Không biến tập thành bản liệt kê việc nhà, than vất vả liên tục hoặc quở phạt người lớn. Đời thường không đồng nghĩa với thao tác dọn dẹp lặp mà không có phát hiện/phản ứng nào thú vị.
+- Thông thường chỉ cần một không gian và một việc chính. Có thể thêm chi tiết để hai bé xử lý, không nhét nhiều tiểu phẩm độc lập vào một tập. Không dựng flashback cho mọi việc được kể trong lời thoại.
+- Lấy cơ chế từ reference, không chép lời/cú chốt rồi đổi tên. Ref phỏng vấn: học tương phản dáng trẻ/vai chuyên nghiệp. Ref chia bánh: học trẻ nghĩ phần của người lớn. Ref sính lễ: chỉ học tương phản và cách chống chế; không mang đùa bạo hành/hôn nhân trẻ em vào kênh.
+Người dùng đưa ý tưởng cụ thể thì giữ ý tưởng, tìm phép đảo thường thức phù hợp thay vì tự chuyển sang chuyện khác. Viết tình huống trước, chia shot sau; khẩu ngữ Việt có câu dài/ngắn tự nhiên, không ép mỗi câu 3–5 từ hoặc kéo thoại cho đủ giây.`;
 
-export const FAMILY_REVIEW_CRITERIA = `Đọc như cuộc đối đáp, đánh giá theo bằng chứng trong chính bản chữ:
-Ưu tiên dialogue và action. wants, mechanism, outcome, payoff là lời TÁC GIẢ tự mô tả, không phải bằng chứng câu chuyện đã thực hiện được. Đọc riêng phần thoại trước khi xét các nhãn đó.
-1. motivation: mỗi bên muốn gì, ít nhất một câu/hành động cho thấy điều đó; họ đang thuyết phục nhau hay đang biểu diễn câu đùa cho khán giả?
-2. development: câu trước gây ra phản ứng/đổi chiến thuật nào ở câu sau? Đoạn giải thích có phục vụ mưu tính không? Không đòi từng câu đều đảo chiều.
-3. ending: điểm dừng có được chuẩn bị và còn đúng tính toán/hiểu biết của nhân vật không? Kế hoạch thành công cũng là kết hợp lệ; không tự yêu cầu người bị hớ hoặc bài học.
-4. originality: đối chiếu với reference và tập gần đây; có bê nguyên chuỗi tình huống–chiến thuật–kết rồi chỉ đổi vật không?
-Kiểm tra thêm trong các mục trên: người nghe chấp nhận một lời xin/lý lẽ vì sao? Nếu không có bước thuyết phục, sự nhượng bộ có thể hiện ý đồ riêng hay chỉ giúp tác giả chốt? Việc mẹ bỗng giao việc nhà cuối tập có được gieo trước không? Người ra điều kiện cuối có quyền/lợi ích/giao kèo gì khiến đối phương phải chịu, hay chỉ viết đối phương ngẩn ra để giả làm cú chốt? Câu cuối đang tạo hệ quả mới hay kể lại điều khán giả vừa hiểu? Thuật ngữ/ẩn dụ có lý do xuất hiện hay cả đoạn chỉ cùng đuổi theo một cách ví von do tác giả đặt ra?
-Ví dụ lỗi NHÂN QUẢ, không phải danh sách từ cấm: bé viện một cơ chế cơ thể bịa để xin đồ ăn; người lớn không phản bác hay mặc cả mà lập tức cho, rồi sai bé còn lại làm việc không được nhắc trước. Không được gọi cấu trúc này tự nhiên chỉ vì metadata nói mẹ hùa theo. Cách sửa phải xây phản ứng/điều kiện thật, không chỉ thay từ khoa học bằng từ đơn giản.
-Trả evidence cho đủ bốn mục bằng chi tiết cụ thể, kể cả khi passed. Không cho pass chỉ vì đủ hook/turn/payoff, đúng JSON hay có từ dễ thương.
-Chỉ ghi issue có location, quote nguyên văn tồn tại trong bản chữ và reason giải thích vấn đề trong ngữ cảnh. Không báo lỗi vì em nói thông minh, giải thích dài vừa đủ, hay dùng từ người lớn. Không chê theo sở thích hoặc yêu cầu mọi thành viên hành xử đúng đạo lý. Nếu không có lỗi đáng kể, passed=true, issues=[]. Thiếu bằng chứng thì không pass.`;
+export const FAMILY_REVIEW_CRITERIA = `Đánh giá đúng LUẬT NỀN GIA ĐÌNH ĐẢO VAI CHĂM LO, không chấm chỉ theo trò mặc cả/cú lật.
+Đọc dialogue/action trước. comicPremise/wants/mechanism/outcome chỉ là tác giả tự mô tả; phải có bằng chứng trong bản chữ.
+1. contrast: thường thức nào đã đảo? Trích câu/hành động cụ thể cho thấy hai bé đang mang vai chăm lo/tổ chức của người lớn, hoặc vai xã hội lớn hơn dáng trẻ. Người lớn có phản ứng phụ thuộc/trì hoãn/đòi hỏi phù hợp không? Chỉ có hai bé giành đồ rồi đặt tên 'đảo vai' không đạt. Khi không có bố mẹ trong cast, kiểm tra công việc/lời nhắc cho thấy trách nhiệm người lớn; không yêu cầu thêm người nói.
+2. motivation: nhân vật đang lo gì/muốn gì/quan tâm ai trong việc đang xảy ra? Bố mẹ có thể chỉ muốn ngủ thêm hoặc nhờ mua món ưa thích; không cần kế hoạch bí mật. Hai bé có thể cùng muốn giải quyết việc. Xưng con/em/chị phải đúng người đang được nói với; đảo vai không đổi quan hệ.
+3. development: tình huống có phát triển qua hành vi quen thuộc và sự tương phản không? Chi tiết nhắc đồ, xin thêm chút, dặn kỹ, câu hỏi dẫn và ánh nhìn có ích; không bắt mỗi câu là punchline hoặc phải đổi chiến thuật. Việc phải lo có chi tiết cụ thể gắn với bố/mẹ hay chỉ là đồ đạc chung chung? Có sự tương phản vui vẻ hay chỉ than, kể việc, dọn xong? Nếu bỏ nhãn diễn giải, người xem vẫn nhận ra điều ngược đời chứ?
+4. ending: có điểm dừng hóm hỉnh/quan tâm/nhận ra sự đảo vai? Không bắt thêm bẫy, hình phạt, hợp đồng, lời thắng cuộc hay thú nhận. Chỉ đòi ràng buộc khi câu chuyện thật sự kết bằng bị buộc làm một việc. Cho phép nhường vì ngán/vì thương và nói ngược giữ thể diện. Không đòi mọi câu cảm ơn hay phản ứng phải tạo sự kiện mới.
+5. originality: đối chiếu reference và 20 tập; khác ở việc phải lo và cách người lớn/trẻ đáp lại, không chỉ đổi đạo cụ. Không bê đoạn mua đồ/hát nài nỉ, phỏng vấn xe, chia bánh hoặc hai tiểu phẩm chung một file sang làm nguyên tập.
+Lỗi cần chặn: không có phép đảo mà chỉ chơi chữ/triết lý/thu phí; nhãn comicPremise nói đảo nhưng thoại không thể hiện; người lớn/nhỏ đổi ý vô cớ để tác giả chốt; thêm giáo huấn; hạ nhục hoặc sao chép ref. Không tự cho rằng một câu thân tình là giả vờ hay trục lợi khi không có bằng chứng.
+Trả evidence cho đủ năm mục bằng chi tiết từ thoại/action. Issue có location, quote NGUYÊN VĂN tồn tại trong bản chữ và reason theo ngữ cảnh. Thiếu bằng chứng không pass; không bịa lỗi chỉ vì người bé nói kiểu người lớn. Không có lỗi đáng kể thì passed=true, issues=[].`;

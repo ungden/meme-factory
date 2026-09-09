@@ -2,19 +2,17 @@ import { familyProfile, validateStory, type Story } from "./family-catalogue";
 import type { FilmCast } from "./short-film/contracts";
 export const familyPersonalities: Record<string, string> = {
   "Bánh Bao":
-    "Chị thích chủ trì, nói có lý lẽ, muốn được công nhận là lớn; đôi lúc quá tự tin tự mắc bẫy.",
+    "Chị thích đứng ra lo và sắp xếp việc nhà, giục người lớn như một phụ huynh tí hon; có thể sốt ruột, mềm lòng hoặc nhờ em giúp.",
   "Đậu Đỏ":
-    "Em trực tiếp, quan tâm lợi ích trước mắt, hiểu lời theo nghĩa riêng; khi ngây thơ khi bất ngờ tinh ý.",
-  Bố: "Hay hưởng ứng trò con, có ham thích và lý do trẻ con; đồng minh, giấu chuyện nhỏ hoặc bị bắt bài.",
-  Mẹ: "Quan sát tốt, thực tế, có khiếu hài, chơi cùng con; đổi điều kiện hoặc mở tình huống, không luôn xử phạt.",
+    "Em trực tiếp, thấy việc bị sót và phải chạy lo cùng chị; nhìn như bé nhỏ nhưng có thể nhắc bố mẹ rất thực tế. Có sở thích trẻ con, không luôn là người ngây ngô/thua chị.",
+  Bố: "Bố ham vui, có lúc cần hai bé gọi dậy, giục đúng giờ, nhắc đồ; trì hoãn và mè nheo rất trẻ con nhưng thương gia đình.",
+  Mẹ: "Mẹ có sở thích và khiếu hài; có lúc nhờ hai bé lo hộ, dặn kỹ hoặc xin thêm chút như trẻ con. Không cố định là trọng tài khôn nhất nhà.",
 };
 export const familySpeechStyles: Record<string, string> = {
-  "Bánh Bao":
-    "Chị gái, thích chủ trì và được coi là lớn. Có thể đặt luật, giải thích kế hoạch và mặc cả rất nghiêm túc để được việc của mình; khi cách đầu không hiệu quả thì tìm lý lẽ khác. Khẩu ngữ Việt, không cố nói thông minh trong mọi câu.",
-  "Đậu Đỏ":
-    "Em trai, để ý lợi ích trước mắt và những chỗ chị bỏ sót. Có thể hỏi thẳng, cãi lý, phân tích hay làm quân sư như người lớn khi muốn đạt điều gì đó. Không giới hạn ở câu vài từ hoặc luôn hiểu nghĩa đen; có thể dẫn dắt cuộc đối đáp và cũng có lúc tự mắc bẫy. Giữ diện mạo và giọng bé trai đã chọn.",
-  Bố: "Xưng bố/con, đời thường, ham vui. Có mong muốn riêng, biết thương lượng, rủ rê hoặc nài nỉ; có thể chủ động bày trò, không luôn là người bị bắt quả tang.",
-  Mẹ: "Xưng mẹ/con, thực tế và có khiếu hài. Có thể tham gia kế hoạch, mặc cả, nhờ vả hoặc bị con bắt lý; không luôn đóng vai trọng tài bắt bài hay kết luận đạo lý.",
+  "Bánh Bao": "Giọng bé gái đã chọn; lời dặn/giục đời thường như phụ huynh tí hon. Có thể nói dài để nhắc việc, rồi mềm lòng trước bố mẹ mè nheo; không cần xưng sếp hay lập hợp đồng.",
+  "Đậu Đỏ": "Giọng bé trai đã chọn; hỏi việc cụ thể, nhắc đồ bị sót và phụ chị lo cho người lớn. Có thể càu nhàu, thở dài hoặc giục rất nghiêm túc dù còn bé xíu; không ép câu vài từ hoặc luôn hiểu nghĩa đen.",
+  Bố: "Xưng bố/con, có lúc xin thêm chút, quên đồ, đòi món mình thích hoặc nài nỉ con. Lời rất thường, không luôn chống chế vì bị bắt quả tang.",
+  Mẹ: "Xưng mẹ/con, có lúc dặn hai bé lo hộ, trì hoãn, nhờ thêm việc hoặc mè nheo đáng yêu. Không luôn bắt bài và chốt bài học; giọng giữ nguyên phiên bản đã chọn.",
 };
 export type PilotEpisode = {
   key: string;

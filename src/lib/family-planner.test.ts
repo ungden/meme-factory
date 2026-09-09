@@ -30,11 +30,34 @@ const cast = Object.keys(familyPersonalities).map((name, i) => ({
   assetVersionId: String(i),
   assetVersion: 2,
 }));
-const { profile, plans } = buildFamilyPilot(cast, testPilot);
+const reversalPremise = {
+  normalExpectation: "Bố mẹ thường chuẩn bị đồ cho con ra khỏi nhà.",
+  invertedReality: "Hai bé chuẩn bị túi cơm, thìa và nước cho bố đi làm.",
+  visibleContrast: "Hai bé kiểm đồ cho bố, nhắc bố đi giày vì sợ bố lại gọi nhờ.",
+};
+const { profile, plans } = buildFamilyPilot(cast, [testPilot[0]].map(p => ({
+  ...p,
+  situation: "Hai bé soạn túi đồ cho bố đi làm",
+  mechanism: "Dáng trẻ con, vai phụ huynh lo đồ người lớn",
+  outcome: "Hai bé còn phải kiểm tra xem bố đã đi giày chưa",
+  setup: "Túi cơm của bố đang để trước cửa",
+  payoff: "Lo xong đồ vẫn phải giục bố chuẩn bị",
+  turns: [
+    ["Bánh Bao", "Đậu Đỏ, em lấy túi cơm cho bố chưa?", "Kiểm túi nhỏ trước cửa"],
+    ["Đậu Đỏ", "Rồi. Em còn cho thìa vào nữa.", "Chỉ chiếc thìa trong túi"],
+    ["Bánh Bao", "Bình nước đâu?", "Nhìn ngăn trống"],
+    ["Đậu Đỏ", "Bố bảo mang nặng lắm.", "Nhấc bình lên cho chị nhìn"],
+    ["Bánh Bao", "Không mang rồi trưa lại gọi hai chị em mình.", "Đưa bình vào túi bố"],
+    ["Đậu Đỏ", "Chị giữ túi đi. Em xem bố đã đi giày chưa.", "Bước tới cửa phòng"],
+  ],
+  reaction: "Hai bé nhìn đôi giày của bố còn nguyên trước cửa",
+})));
+plans.forEach(p => { p.story.comicPremise = reversalPremise; });
 const evidence = {
-  motivation: "Chị muốn chủ trì, em đòi quyền chọn trước; thể hiện ở hai câu mở.",
-  development: "Khi em không chịu, chị đổi điều kiện để được chia trước.",
-  ending: "Điều kiện chị đưa ra khiến em chọn phần chị đang giữ.",
+  contrast: "Hai bé chuẩn bị túi cơm và kiểm việc bố đi giày, đảo việc bố mẹ thường lo cho con.",
+  motivation: "Hai bé cùng muốn bố đủ đồ để đi làm, không phải tranh lượt.",
+  development: "Soạn cơm xong hai bé nhắc bình nước, rồi còn kiểm giày của bố.",
+  ending: "Đôi giày còn trước cửa cho thấy hai bé còn phải giục bố chuẩn bị.",
   originality: "Không dùng chuỗi đấu giá hay đổi tên bộ phận cơ thể của reference.",
 };
 const editorialPass = { passed: true, evidence, issues: [] };
@@ -75,7 +98,7 @@ it("writes story then shots, carries caption and freezes exact dialogue", async 
   ];
   const result = await generateCreativeAssist(input);
   expect(calls.prompts).toHaveLength(4);
-  expect(result.kind === "video_plan" && result.story?.profileVersion).toBe(3);
+  expect(result.kind === "video_plan" && result.story?.profileVersion).toBe(4);
   expect(result.kind === "video_plan" && result.caption).toBe(
     plans[0].story.caption,
   );
@@ -255,6 +278,7 @@ it("keeps a listener in a native dialogue shot and does not invent a final react
 
  it.each([
    { passed: true, issues: [] },
+   { passed: true, evidence: { motivation: evidence.motivation, development: evidence.development, ending: evidence.ending, originality: evidence.originality }, issues: [] },
    { passed: true, evidence, issues: [{ location: "dialogue.1" }] },
    { passed: false, evidence, issues: [] },
  ])("fails closed on malformed or unsupported editorial approval %j", async review => {
@@ -267,6 +291,6 @@ it("keeps a listener in a native dialogue shot and does not invent a final react
    const ideas = { ideas: [1,2,3].map(i => ({ title: `Câu chuyện ${i}`, idea: `Hai bé bàn cách giành lượt chơi ${i}`, why: "Hai mong muốn khác nhau" })) };
    calls.responses = [ideas];
    await generateCreativeAssist({ ...input, kind: "idea_suggestions" });
-   expect(calls.prompts[0]).toContain("family-dialogue-3");
-   expect(calls.prompts[0]).toContain("KHÔNG phải giới hạn khả năng lập luận");
+   expect(calls.prompts[0]).toContain("family-dialogue-4");
+   expect(calls.prompts[0]).toContain("KHÔNG giới hạn khả năng lập luận");
  });
