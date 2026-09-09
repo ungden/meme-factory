@@ -39,7 +39,38 @@ describe("film production invariants", () => {
     const native = compileFilmMotion(scene, "native", "9:16");
     expect(native).toContain("Bánh của con!");
     expect(native).toContain("nhạc nền không lời vui vẻ");
-    expect(fixed).toContain("Không tạo lời thoại hoặc nhạc nền");
+    expect(fixed).toContain("AUDIO: không lời thoại và không nhạc");
+    expect(fixed).toContain("0.0–");
+    expect(fixed).toContain("hành động bắt đầu ở giây 0");
+    expect(fixed).toContain("Người nghe giữ miệng đóng");
+    expect(fixed).not.toContain("Cast: Bánh Bao: áo vàng");
+  });
+  it("keeps an authored motion timeline and only locks the camera for an intentional reaction", () => {
+    const base = {
+      duration_seconds: 6,
+      motion_prompt:
+        "0.0s–1.0s: bé bật quay sang cô. 1.0s–4.8s: bé nói và chỉ tay. 4.8s–6.0s: cô nhướng mày.",
+      action: "bé nói nhanh",
+      setting: "cửa lớp",
+      camera: "stable camera",
+      dialogue: "Mai con không cho bố ngủ thêm đâu cô.",
+      speaker_character_id: "do",
+      cast_snapshot: [
+        { characterId: "do", name: "Đậu Đỏ", description: "áo đỏ" },
+        { characterId: "co", name: "Cô Mai", description: "áo xanh" },
+      ],
+    } as FilmScene;
+    const active = compileFilmMotion(base, "native", "16:9");
+    expect(active).toContain(base.motion_prompt);
+    expect(active).toContain("controlled handheld");
+    expect(active).toContain("Đậu Đỏ là người nói duy nhất");
+    expect(active).toContain("không thêm tiếng đệm hoặc câu đáp");
+    const reaction = compileFilmMotion(
+      { ...base, dialogue: "", camera: "static reaction medium shot" },
+      "native",
+      "16:9",
+    );
+    expect(reaction).toContain("nhịp phản ứng cố ý");
   });
   it("validates resolution and actual output dimensions instead of build settings", () => {
     expect(dimensions("9:16", "1080p")).toEqual([1080, 1920]);

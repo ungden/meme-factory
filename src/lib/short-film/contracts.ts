@@ -279,17 +279,41 @@ export function compileFilmMotion(
   mode: "native" | "fixed",
   format: string,
 ) {
-  return [
-    `Một shot liên tục ${format}, phong cách và nhận diện theo ảnh đầu.`,
+  const duration = Math.max(4, Math.min(30, scene.duration_seconds || 5));
+  const firstBeat = Math.min(1.2, duration * 0.22);
+  const finalBeat = Math.max(firstBeat + 0.8, duration - 0.8);
+  const speaker = scene.cast_snapshot.find(
+    (c) => c.characterId === scene.speaker_character_id,
+  )?.name;
+  const plannedTimeline = /(?:^|\s)(?:0(?:\.0)?s|0(?:\.0)?\s*(?:-|–|→))/i.test(
     scene.motion_prompt,
-    `Hành động: ${scene.action}. Bối cảnh: ${scene.setting}. Máy quay: ${scene.camera}.`,
-    `Cast: ${scene.cast_snapshot.map((c) => `${c.name}: ${c.description}`).join("; ")}. Giữ gương mặt, tóc, trang phục, tỷ lệ.`,
+  )
+    ? scene.motion_prompt
+    : [
+        `0.0–${firstBeat.toFixed(1)}s: bắt đầu ngay hành động chính, không có khung chờ hoặc đoạn thiết lập rỗng; ${scene.motion_prompt}.`,
+        `${firstBeat.toFixed(1)}–${finalBeat.toFixed(1)}s: ${scene.action}; biểu cảm, ánh mắt, tay và cơ thể tiếp tục phản ứng tự nhiên, không đứng tạo dáng.`,
+        `${finalBeat.toFixed(1)}–${duration.toFixed(1)}s: hoàn tất hành động và đi tới trạng thái kết rõ để cắt sang cảnh sau; chỉ giữ phản ứng cuối tối đa 0,3 giây.`,
+      ].join(" ");
+  const intentionalStillness =
+    /static reaction|locked[- ]?off|đứng hình|phản ứng ngơ|bất động/i.test(
+      `${scene.camera} ${scene.action}`,
+    );
+  const camera = intentionalStillness
+    ? `${scene.camera}; đây là nhịp phản ứng cố ý, vẫn có chuyển động rất nhỏ của mắt, hơi thở và tóc.`
+    : `${scene.camera.replace(/\b(?:stable|static)\s*(?:camera|shot)?\b/gi, "controlled handheld")}; camera chuyển động có chủ đích ngay từ giây 0 bằng handheld nhẹ, tracking, push hoặc slide phù hợp hành động; không khóa máy và không trôi vô cớ.`;
+  return [
+    `GLOBAL STYLE: một shot liên tục ${format}, nhịp nhanh tự nhiên, phong cách và nhận diện kế thừa chính xác từ ảnh đầu.`,
+    `SCENE: ${scene.setting}.`,
+    `FIRST FRAME: dùng nguyên bố cục, vị trí và diện mạo trong ảnh đầu; hành động bắt đầu ở giây 0, không mở bằng cảnh đứng yên.`,
+    `ACTION TIMELINE (${duration.toFixed(1)} giây): ${plannedTimeline}`,
+    `CAMERA: ${camera}`,
+    `CONTINUITY: chỉ có ${scene.cast_snapshot.map((c) => c.name).join(", ")}; giữ nguyên mặt, tóc, trang phục, tỷ lệ và hướng nhìn từ ảnh đầu. Không thêm người, không đổi vai hoặc đổi vị trí vô lý.`,
     scene.dialogue
-      ? `${scene.cast_snapshot.find((c) => c.characterId === scene.speaker_character_id)?.name} là người nói duy nhất. ${mode === "native" ? `Nói nguyên văn tiếng Việt: “${scene.dialogue}”.` : "Tập trung gương mặt người nói, diễn xuất tự nhiên; audio thoại sẽ được đồng bộ riêng."}`
-      : "Không ai nói.",
+      ? `ACTIVE SPEAKER: ${speaker || "người nói đã chỉ định"} là người nói duy nhất và là người duy nhất cử động môi theo lời. Người nghe giữ miệng đóng, chỉ phản ứng bằng mắt, nét mặt và cơ thể. ${mode === "native" ? `Nói đúng một câu nguyên văn tiếng Việt, không thêm tiếng đệm hoặc câu đáp: “${scene.dialogue}”.` : "Tập trung rõ gương mặt người nói; không phát lời vì audio sẽ được đồng bộ riêng."}`
+      : "ACTIVE SPEAKER: không ai nói; mọi nhân vật giữ miệng đóng.",
     mode === "native"
-      ? "Âm thanh native: lời thoại rõ và nổi phía trước; tạo nhạc nền không lời vui vẻ, ấm áp, tinh nghịch nhẹ kiểu gia đình, âm lượng thấp. Không thêm lời thoại, nhân vật, chữ hoặc phụ đề."
-      : "Không tạo lời thoại hoặc nhạc nền trong clip; audio lồng tiếng sẽ được đồng bộ riêng. Không thêm nhân vật, chữ hoặc phụ đề.",
+      ? "AUDIO: lời thoại rõ ở tiền cảnh; nhạc nền không lời vui vẻ, ấm áp, tinh nghịch nhẹ kiểu gia đình, âm lượng thấp và liên tục. Không thêm lời nói, tiếng đệm, chữ hoặc phụ đề."
+      : "AUDIO: không lời thoại và không nhạc; audio lồng tiếng sẽ được đồng bộ riêng. Không thêm chữ hoặc phụ đề.",
   ]
     .filter(Boolean)
     .join("\n");

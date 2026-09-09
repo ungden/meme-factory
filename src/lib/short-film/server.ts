@@ -232,7 +232,7 @@ export async function savePlan(
     audio_mode: body.audioMode === "native" ? "native" : "fixed",
     subtitles: body.subtitles !== false,
     story,
-    trim_speech: body.trimSpeech === true,
+    trim_speech: body.trimSpeech !== false,
     target_duration_seconds: [15, 30, 35, 40, 60].includes(
       Number(body.targetDurationSeconds),
     )

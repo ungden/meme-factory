@@ -72,6 +72,7 @@ type ProductionRun = {
   created_at: string;
 };
 const blank = (): Draft => ({
+  trimSpeech: true,
   title: "Phim ngắn",
   brief: "",
   caption: "",
@@ -116,7 +117,7 @@ const fromPlan = (p: FilmPlan): Draft => ({
   brief: p.brief,
   caption: p.caption,
   story: p.story,
-  trimSpeech: p.trim_speech,
+  trimSpeech: p.trim_speech !== false,
   targetDurationSeconds: p.target_duration_seconds || 30,
   format: p.format,
   resolution: p.resolution,
