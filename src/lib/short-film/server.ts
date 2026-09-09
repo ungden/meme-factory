@@ -654,7 +654,7 @@ export async function quotePlan(
         plan.format,
         plan.resolution,
         await signed(a, String(image.result?.path)),
-        Number(audio?.result?.duration || 0),
+        plan.audio_mode === "fixed" ? Number(audio?.result?.duration || 0) : 0,
       );
       const v = task(
         "video",

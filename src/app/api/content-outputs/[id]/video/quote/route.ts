@@ -1,3 +1,4 @@
+import { signClipQuote } from "@/lib/clip-quote-auth";
 import { resolveClipDubbing } from "@/lib/clip-dubbing";
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/supabase/request-auth";
@@ -85,10 +86,11 @@ export async function POST(
         baseQuote.providerCostUsd + (dubbing?.providerCostUsd || 0),
     };
     const expiresAt = new Date(Date.now() + 5 * 60_000).toISOString();
+    const signature = signClipQuote({ outputId: id, expiresAt, customerPoints: quote.customerPoints, providerCostUsd: quote.providerCostUsd, config, dubbing });
     const { error: saveError } = await supabase
       .from("content_outputs")
       .update({
-        quote_snapshot: { ...quote, config, dubbing },
+        quote_snapshot: { ...quote, config, dubbing, signature },
         quote_expires_at: expiresAt,
       })
       .eq("id", id);

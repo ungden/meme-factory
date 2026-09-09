@@ -1,3 +1,4 @@
+import { verifyClipQuote } from "@/lib/clip-quote-auth";
 import { resolveClipDubbing } from "@/lib/clip-dubbing";
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/supabase/request-auth";
@@ -83,6 +84,7 @@ export async function POST(
       customerPoints?: number;
       providerCostUsd?: number;
       dubbing?: unknown;
+      signature?: string;
       config?: Record<string, unknown>;
     } | null;
     const dubbing = await resolveClipDubbing(
@@ -93,7 +95,9 @@ export async function POST(
     if (body.generate_audio !== false && !dubbing)
       throw new Error("Chọn người nói và nhập lời lồng tiếng.");
     const savedConfig = savedQuote?.config;
+    const authentic = verifyClipQuote({ outputId: id, expiresAt: output.quote_expires_at ? new Date(output.quote_expires_at).toISOString() : null, customerPoints: savedQuote?.customerPoints, providerCostUsd: savedQuote?.providerCostUsd, config: savedConfig, dubbing: savedQuote?.dubbing }, savedQuote?.signature);
     const quoteIsCurrent =
+      authentic &&
       !!savedQuote &&
       !!output.quote_expires_at &&
       new Date(output.quote_expires_at).getTime() > Date.now() &&
