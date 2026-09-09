@@ -92,14 +92,25 @@ export async function checkVisualTask(
   mediaUrl: string,
   referenceUrls: string[],
 ): Promise<Check> {
-  const parts: Array<Record<string, unknown>> = [
-    {
-      text: `Kiểm tra ảnh/khung QA của một shot phim 3D. Ảnh đầu tiên là kết quả; các ảnh sau là ảnh chuẩn từng nhân vật. Chỉ passed khi đúng số người và đúng nhận diện, khuôn mặt/tóc/trang phục không trôi, không thêm người/chữ/lưới, hình không lỗi, và shot thoại chỉ có đúng một người nói nhìn rõ mặt. Nếu không đủ bằng chứng, needs_review. Không suy đoán.\nTASK: ${JSON.stringify({ kind: task.kind, cast: task.input.cast, dialogue: task.input.dialogue })}`,
-    },
-    await inline(mediaUrl),
-  ];
-  for (const url of referenceUrls.slice(0, 4)) parts.push(await inline(url));
-  return judge(parts);
+  try {
+    const parts: Array<Record<string, unknown>> = [
+      {
+        text: `Kiểm tra ảnh hoặc toàn bộ video của một shot phim 3D. Media đầu tiên là kết quả; các ảnh sau là ảnh chuẩn từng nhân vật. Chỉ passed khi đúng số người và đúng nhận diện, khuôn mặt/tóc/trang phục không trôi, không thêm người/chữ/lưới và hình không lỗi. Nếu là video có thoại, xem xuyên suốt đoạn: đúng characterId được chỉ định phải là người duy nhất cử động môi theo lời; mọi người nghe giữ miệng đóng và chỉ phản ứng không lời. Nếu không nhìn/nghe đủ để xác định người nói, nếu miệng người khác chuyển động như đang nói, hoặc chỉ có ảnh ghép tĩnh thì needs_review. Không suy đoán và không dùng kịch bản dự kiến thay cho bằng chứng nghe/nhìn.\nTASK: ${JSON.stringify({ kind: task.kind, cast: task.input.cast, dialogue: task.input.dialogue, speakerCharacterId: task.input.speakerCharacterId })}`,
+      },
+      await inline(mediaUrl),
+    ];
+    for (const url of referenceUrls.slice(0, 4))
+      parts.push(await inline(url));
+    return judge(parts);
+  } catch (error) {
+    if (error instanceof Error && error.message === "QA_MEDIA_TOO_LARGE")
+      return {
+        status: "needs_review",
+        issues: ["Video quá lớn để kiểm tra người nói tự động; cần xem trực tiếp."],
+        evidence: { reason: error.message },
+      };
+    throw error;
+  }
 }
 
 export function checkTechnicalTask(task: FilmTask): Check {

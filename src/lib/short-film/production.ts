@@ -212,11 +212,9 @@ async function ensureTaskCheck(a: Access, run: Run, task: FilmTask) {
   if (task.approved_at || task.auto_accepted_at) return "passed";
   let check = checkTechnicalTask(task);
   if (["image", "frame", "video", "lip_sync"].includes(task.kind)) {
-    const path = String(
-      task.kind === "video" || task.kind === "lip_sync"
-        ? task.result?.qaFramePath || ""
-        : task.result?.path || "",
-    );
+    // Speaker routing cannot be proven from a static contact sheet. Feed the
+    // actual clip to the multimodal check; oversized clips stay needs_review.
+    const path = String(task.result?.path || "");
     if (!path)
       check = {
         status: "needs_review" as const,
