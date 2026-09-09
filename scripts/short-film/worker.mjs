@@ -397,7 +397,7 @@ export function makeFilmWorker(db) {
           ? "(H-h)/2"
           : "H-h-24";
       filters.push(
-        `[1:v]scale=${Math.round(w * 0.13)}:-1,format=rgba,colorchannelmixer=aa=${Math.max(0.05, Math.min(1, Number(brand.watermark_opacity || 0.8)))}[wm]`,
+        `[1:v]scale=${Math.round(w * 0.24)}:-1,format=rgba,colorchannelmixer=aa=${Math.max(0.05, Math.min(1, Number(brand.watermark_opacity || 0.8)))}[wm]`,
         `[0:v][wm]overlay=${x}:${y}[branded]`,
       );
     }

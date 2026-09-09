@@ -36,9 +36,10 @@ describe("film production invariants", () => {
     expect(fixed).toContain("đưa chiếc bánh");
     expect(fixed).toContain("16:9");
     expect(fixed).not.toContain("Nói nguyên văn");
-    expect(compileFilmMotion(scene, "native", "9:16")).toContain(
-      "Bánh của con!",
-    );
+    const native = compileFilmMotion(scene, "native", "9:16");
+    expect(native).toContain("Bánh của con!");
+    expect(native).toContain("nhạc nền không lời vui vẻ");
+    expect(fixed).toContain("Không tạo lời thoại hoặc nhạc nền");
   });
   it("validates resolution and actual output dimensions instead of build settings", () => {
     expect(dimensions("9:16", "1080p")).toEqual([1080, 1920]);

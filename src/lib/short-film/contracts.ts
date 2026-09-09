@@ -192,6 +192,7 @@ export type FilmScene = {
   cast_snapshot: FilmCast[];
   start_image_url: string | null;
   end_image_url: string | null;
+  source_mode: "manual" | "ai";
   follows_previous: boolean;
   input_hash: string;
   media_links: Partial<Record<FilmKind, string>>;
@@ -286,7 +287,9 @@ export function compileFilmMotion(
     scene.dialogue
       ? `${scene.cast_snapshot.find((c) => c.characterId === scene.speaker_character_id)?.name} là người nói duy nhất. ${mode === "native" ? `Nói nguyên văn tiếng Việt: “${scene.dialogue}”.` : "Tập trung gương mặt người nói, diễn xuất tự nhiên; audio thoại sẽ được đồng bộ riêng."}`
       : "Không ai nói.",
-    "Không thêm nhân vật, chữ hoặc phụ đề. Không nhạc nền.",
+    mode === "native"
+      ? "Âm thanh native: lời thoại rõ và nổi phía trước; tạo nhạc nền không lời vui vẻ, ấm áp, tinh nghịch nhẹ kiểu gia đình, âm lượng thấp. Không thêm lời thoại, nhân vật, chữ hoặc phụ đề."
+      : "Không tạo lời thoại hoặc nhạc nền trong clip; audio lồng tiếng sẽ được đồng bộ riêng. Không thêm nhân vật, chữ hoặc phụ đề.",
   ]
     .filter(Boolean)
     .join("\n");

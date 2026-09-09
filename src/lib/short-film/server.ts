@@ -468,6 +468,9 @@ export async function quotePlan(
       ) {
         const input = {
           model: FILM_MODELS.image,
+          ...(s.source_mode === "manual" && s.start_image_url
+            ? { importPath: s.start_image_url }
+            : {}),
           prompt: [
             s.image_prompt,
             `Bối cảnh ${s.setting}. Hành động ${s.action}. Máy quay ${s.camera}.`,
@@ -481,12 +484,14 @@ export async function quotePlan(
           speakerCharacterId: s.speaker_character_id,
           format: plan.format,
         };
-        const p = estimateImageGenerationPrice({
-          model: FILM_MODELS.image,
-          resolution: "1K",
-          inputImageCount: s.cast_snapshot.length,
-          prompt: input.prompt,
-        });
+        const p = input.importPath
+          ? { customerPoints: 0 }
+          : estimateImageGenerationPrice({
+              model: FILM_MODELS.image,
+              resolution: "1K",
+              inputImageCount: s.cast_snapshot.length,
+              prompt: input.prompt,
+            });
         tasks.push(task("image", input, p.customerPoints, s));
       }
       if (
