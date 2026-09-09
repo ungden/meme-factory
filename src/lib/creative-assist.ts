@@ -488,35 +488,26 @@ Tự kiểm tra: nếu bỏ tên người nói thì vẫn nhận ra ít nhất B
       validateStory(unpackStory(v), profile, allowed, context.recentStories),
     storyResponseSchema(profile, allowed),
   );
-  let editorialIssues = localFamilyEditorialIssues(story);
-  let editorialAccepted = false;
-  if (!editorialIssues.length) {
-    const review = await reviewFamilyStory(story, context, allowed);
-    editorialIssues = review.passed ? [] : review.issues;
-    editorialAccepted = review.passed;
-  }
-  if (editorialIssues.length) {
+  for (let editorialAttempt = 0; editorialAttempt <= 2; editorialAttempt++) {
+    const localIssues = localFamilyEditorialIssues(story);
+    const review = localIssues.length
+      ? { passed: false, issues: localIssues }
+      : await reviewFamilyStory(story, context, allowed);
+    if (review.passed) break;
+    if (editorialAttempt === 2) {
+      throw new Error(
+        `FAMILY_EDITORIAL_NEEDS_REVIEW: ${JSON.stringify(review.issues)}`,
+      );
+    }
     story = await checked(
       `${contextText(context, allowed)}
 Sửa kịch bản sau theo đúng nhận xét của biên tập viên, giữ đề tài, cast và quan hệ nhân quả: ${JSON.stringify(story)}
-NHẬN XÉT BẮT BUỘC SỬA: ${JSON.stringify(editorialIssues)}
+NHẬN XÉT BẮT BUỘC SỬA (lượt ${editorialAttempt + 1}/2): ${JSON.stringify(review.issues)}
 
 Viết lại bằng câu người trong một gia đình Việt có thể bật ra ngay lúc đó. Để hành động và bằng chứng tạo tiếng cười; không thay câu văn viết bằng một ẩn dụ khác. Được cắt reaction, câu thắng cuộc hoặc cả một lượt thoại nếu payoff đã rõ. Hành động chỉ mô tả cử chỉ nhìn thấy được. Không giảng đạo và không làm người bị hớ phải hối lỗi. Trả toàn bộ JSON theo schema: ${STORY_SCHEMA}`,
       (v) =>
         validateStory(unpackStory(v), profile, allowed, context.recentStories),
       storyResponseSchema(profile, allowed),
-    );
-    editorialAccepted = false;
-  }
-  const remainingLocalIssues = localFamilyEditorialIssues(story);
-  const finalReview = editorialAccepted
-    ? { passed: true, issues: [] }
-    : remainingLocalIssues.length
-      ? { passed: false, issues: remainingLocalIssues }
-      : await reviewFamilyStory(story, context, allowed);
-  if (!finalReview.passed) {
-    throw new Error(
-      `FAMILY_EDITORIAL_NEEDS_REVIEW: ${JSON.stringify(finalReview.issues)}`,
     );
   }
   const hasReaction = story.beats.at(-1)?.purpose === "reaction";

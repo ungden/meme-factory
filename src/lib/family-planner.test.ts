@@ -183,6 +183,17 @@ it("refuses a family script when the independent final review still fails", asyn
         { location: "dialogue.2", quote: "gượng", reason: "vẫn chưa tự nhiên" },
       ],
     },
+    plans[0].story,
+    {
+      passed: false,
+      issues: [
+        {
+          location: "dialogue.2",
+          quote: "gượng",
+          reason: "vẫn chưa tự nhiên sau hai lượt sửa",
+        },
+      ],
+    },
   ];
   await expect(generateCreativeAssist(input)).rejects.toThrow(
     "FAMILY_EDITORIAL_NEEDS_REVIEW",
