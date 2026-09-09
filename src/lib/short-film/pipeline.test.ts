@@ -82,6 +82,17 @@ describe("film production invariants", () => {
     expect(subtitles(captionSegments(j.segments))).toContain(
       "00:00:00,200 --> 00:00:01,100",
     );
+    const waveSpeed = parseTranscript(
+      {
+        text: "Dạ rõ.",
+        text_details: [{ text: "Dạ rõ.", start: 0, end: 1.25 }],
+      },
+      4,
+    );
+    expect(waveSpeed).toEqual({
+      text: "Dạ rõ.",
+      segments: [{ text: "Dạ rõ.", start: 0, end: 1.25 }],
+    });
   });
   it("sanitizes subtitle markup and keeps Vietnamese accents", () => {
     const out = subtitles([{ text: "<Bánh Bao> và Đậu Đỏ", start: 1, end: 2 }]);

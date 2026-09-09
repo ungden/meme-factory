@@ -198,7 +198,13 @@ export function checkVideo(report, input) {
 export function parseTranscript(value, duration) {
   const raw = typeof value === "string" ? JSON.parse(value) : value;
   const j = raw?.data || raw;
-  let entries = j?.segments || j?.chunks || j?.words;
+  let entries =
+    j?.segments ||
+    j?.chunks ||
+    j?.words ||
+    // WaveSpeed's current Whisper response uses `text_details` for the
+    // timestamped transcript and keeps the rendered SRT alongside it.
+    j?.text_details;
   if (!Array.isArray(entries))
     throw new Error("ASR chưa trả timestamp để làm phụ đề.");
   const segments = entries
