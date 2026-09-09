@@ -203,7 +203,7 @@ export default function ShortFilmPage() {
     edited.current = true;
     setDirty(true);
     setQuote(null);
-    setDraft((d) => ({ ...d, ...patch }));
+    setDraft((d) => ({ ...d, ...patch, audioMode: (patch.audioMode || d.audioMode) === "native" ? "dubbed" : (patch.audioMode || d.audioMode) }));
   };
   const editScene = (patch: Partial<DraftScene>) =>
     change({
@@ -500,7 +500,7 @@ export default function ShortFilmPage() {
           localStorage.getItem(`${storageKey}:new-draft`) || "null",
         );
         if (saved?.draft) {
-          nextDraft = saved.draft;
+          nextDraft = { ...saved.draft, audioMode: saved.draft.audioMode === "native" ? "dubbed" : saved.draft.audioMode };
           nextCast = Array.isArray(saved.cast) ? saved.cast : [];
           nextDirty = true;
         }
