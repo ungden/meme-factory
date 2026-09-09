@@ -180,10 +180,11 @@ export function checkVideo(report, input) {
     const wanted = dimensions(input.format, input.resolution);
     if (Math.abs(report.width / report.height - wanted[0] / wanted[1]) > 0.04)
       throw new Error("Video trả về sai tỷ lệ.");
-    if (
-      Math.min(report.width, report.height) <
-      (input.resolution === "1080p" ? 1080 : 720)
-    )
+    // Provider resolution is a quality tier. Seedance may return a codec-safe
+    // dimension a few percent below the nominal short edge; the render stage
+    // always normalizes accepted clips to the exact project dimensions.
+    const nominal = input.resolution === "1080p" ? 1080 : 720;
+    if (Math.min(report.width, report.height) < Math.round(nominal * 0.94))
       throw new Error("Video trả về không đủ độ phân giải.");
   }
   if (

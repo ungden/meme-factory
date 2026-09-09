@@ -45,8 +45,14 @@ describe("film production invariants", () => {
     expect(dimensions("9:16", "1080p")).toEqual([1080, 1920]);
     expect(() =>
       checkVideo(
-        { video: true, audio: true, width: 720, height: 1280, duration: 5 },
-        { resolution: "1080p", format: "9:16" },
+        { video: true, audio: true, width: 704, height: 1252, duration: 5 },
+        { resolution: "720p", format: "9:16" },
+      ),
+    ).not.toThrow();
+    expect(() =>
+      checkVideo(
+        { video: true, audio: true, width: 640, height: 1138, duration: 5 },
+        { resolution: "720p", format: "9:16" },
       ),
     ).toThrow();
   });
