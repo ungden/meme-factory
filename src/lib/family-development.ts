@@ -1,6 +1,6 @@
 import type { Story, FamilyEditorialIssue } from "./family-catalogue";
 
-export const FAMILY_BENCHMARK_VERSION = "family-editorial-2";
+export const FAMILY_BENCHMARK_VERSION = "family-editorial-4";
 /** User rejected these assistant-written demos; they are negative anchors, not templates. */
 export const FAMILY_EDITORIAL_BENCHMARK = `MẪU ĐỐI CHIẾU ${FAMILY_BENCHMARK_VERSION}:
 REF người dùng thích — phỏng vấn xe đồ chơi: mở nhận ra phỏng vấn chủ xe sang; tiếp xúc khách sáo, giới thiệu nghề, hỏi cụ thể và nói về người em lần lượt lộ cách nhân vật nhìn mình và tận dụng việc nhỏ trong gia đình. Không chỉ gọi đồ chơi bằng tên sang. Giữ thái độ thật với vai, câu hỏi dẫn có tác dụng. Học cách phát triển, không chép chuỗi hỏi/đáp.
@@ -10,6 +10,8 @@ BA DEMO NGƯỜI DÙNG ĐÃ LOẠI (không được xem là bản đạt):
 2. Review buffet tủ lạnh: bánh của mẹ, sữa của bố → vậy ăn được gì → một cái rồi nửa cái. Mất hành vi người review, trở về xin đồ ăn; trò chia bánh không phát triển parody.
 3. Phỏng vấn sau trận: bé kể bố đang thắng thì cho hết giờ → mẹ chưa nấu xong → bố nhắc vẫn hai–một. Kể lại chuyện thay tương tác, người hỏi chỉ chuyển thông tin, kết nhắc điều đã biết.
 KIỂM TRA TRÁNH TỰ KHEN: Một tour nhà gối chỉ lần lượt đổi gối thành vật liệu nhập khẩu, bánh quy thành kho năng lượng, trùm chăn thành bảo mật vẫn có thể rất nhạt. MC hỏi tiện ích/an ninh, chủ nhà liệt kê, rồi thực hiện đúng tính năng vừa báo trước: không phải tự nhiên đã có diễn biến thú vị. Trích hai câu đặt tên hoa mỹ chưa chứng minh chất lượng. Cần thấy quan sát riêng về con người, cách đáp làm thay đổi cách hiểu hoặc tương tác, nét đời thường khiến vai diễn sống. Phỏng vấn được phép kể nhưng cách kể phải bộc lộ nhân vật, không chỉ kể thông tin.
+LỖI ĐIỂM DỪNG NGƯỜI DÙNG VỪA LOẠI: hai bé đã nói sẽ tự đi học và mẹ đang ngái ngủ chấp nhận — phép đảo vai đã hạ. Viết thêm việc hai bé không biết đường hoặc chỉ biết tên trường mở một vấn đề mới nhưng không phát triển/giải quyết nó. Đó là đuôi thừa, không phải kết chớt quớt hay cú chốt. Kết chớt quớt được phép khi câu cuối làm cái vô lý hoặc quan hệ vừa đủ rõ; không cần kết có hậu, giải quyết hậu quả, thêm bài học hay thêm một trò đùa nữa.
+LỖI NGÔI NÓI VỪA BẮT Ở CANARY: Đậu Đỏ nói với chị “Thôi hai đứa tự đi...” nghe như người lớn đang nói về hai bé khác. Trong quan hệ thật, em nói “chị em mình/tụi mình tự đi”; nói với bố mẹ mới là “tụi con”. Bản đúng ý và đúng điểm dừng vẫn không đạt nếu đại từ làm lộ giọng tác giả hoặc giọng dịch.
 Đừng biến các bản yếu thành danh sách cấm chủ đề. Cùng chủ đề có thể viết tốt bằng hành vi, quan hệ và cách phát triển khác. Không đổi vài danh từ trong các demo này rồi coi là phương án mới. So chất lượng diễn biến với ref và điểm yếu với demo, không chấm chỉ theo tên cơ chế. Không hứa điểm hài/retention bằng con số.`;
 
 export type PremiseCandidate = {
@@ -18,7 +20,7 @@ export type PremiseCandidate = {
   familiarPattern: string;
   observedBehavior: string;
   progression: string[];
-  ending: string;
+  stopPoint: string;
   risk: string;
   sampleExchange: Story["dialogue"];
 };
@@ -50,6 +52,18 @@ export type EditorialReview = {
   passed: boolean;
   evidence: Record<string, string>;
   issues: FamilyEditorialIssue[];
+  endingCheck: {
+    status: "clean_stop" | "forced_tail" | "unfinished";
+    lastNecessaryLine: number;
+    quote: string;
+    reason: string;
+  };
+  speechCheck: {
+    status: "natural" | "needs_revision";
+    line: number;
+    quote: string;
+    reason: string;
+  };
   watchability: Watchability;
 };
 export type FamilyDevelopmentTrace = {
@@ -62,6 +76,7 @@ export type FamilyDevelopmentTrace = {
     dialogue: Story["dialogue"];
     setup: string;
     payoff: string;
+    endingPlan?: Story["endingPlan"];
     review?: EditorialReview;
   }[];
 };
@@ -91,7 +106,7 @@ export function premiseSchema(ids: string[]) {
         familiarPattern: string,
         observedBehavior: string,
         progression: { type: "array", minItems: 2, maxItems: 4, items: string },
-        ending: string,
+        stopPoint: string,
         risk: string,
         sampleExchange: {
           type: "array",
@@ -132,6 +147,21 @@ export const editorialReviewSchema = object({
     maxItems: 12,
     items: object({ location: string, quote: string, reason: string }),
   },
+  endingCheck: object({
+    status: {
+      type: "string",
+      enum: ["clean_stop", "forced_tail", "unfinished"],
+    },
+    lastNecessaryLine: { type: "integer", minimum: 1 },
+    quote: string,
+    reason: string,
+  }),
+  speechCheck: object({
+    status: { type: "string", enum: ["natural", "needs_revision"] },
+    line: { type: "integer", minimum: 1 },
+    quote: string,
+    reason: string,
+  }),
   watchability: object({
     decision: { type: "string", enum: ["ready_for_user", "revise", "reject"] },
     reason: string,
@@ -195,7 +225,7 @@ export function validatePremises(
           p.situation,
           p.familiarPattern,
           p.observedBehavior,
-          p.ending,
+          p.stopPoint,
           p.risk,
         ].every((v) => hasText(v)) ||
         !Array.isArray(p.progression) ||
@@ -239,7 +269,7 @@ export function validateSelection(
         ? [
             c.observedBehavior,
             ...c.progression,
-            c.ending,
+            c.stopPoint,
             ...c.sampleExchange.flatMap((d) => [
               d.text,
               d.action,
@@ -290,7 +320,29 @@ export function validateEditorialReview(
   )
     throw new Error("FAMILY_EDITORIAL_REVIEW_INVALID");
   const w = r.watchability;
+  const ending = r.endingCheck;
+  const speech = r.speechCheck;
   if (
+    !ending ||
+    !["clean_stop", "forced_tail", "unfinished"].includes(ending.status) ||
+    !Number.isInteger(ending.lastNecessaryLine) ||
+    !story.dialogue[ending.lastNecessaryLine - 1] ||
+    !hasText(ending.quote, 2) ||
+    !hasText(ending.reason, 15) ||
+    ![
+      story.dialogue[ending.lastNecessaryLine - 1].text,
+      story.dialogue[ending.lastNecessaryLine - 1].action,
+    ].some((text) => text.includes(ending.quote)) ||
+    !speech ||
+    !["natural", "needs_revision"].includes(speech.status) ||
+    !Number.isInteger(speech.line) ||
+    !story.dialogue[speech.line - 1] ||
+    !hasText(speech.quote, 2) ||
+    !hasText(speech.reason, 15) ||
+    ![
+      story.dialogue[speech.line - 1].text,
+      story.dialogue[speech.line - 1].action,
+    ].some((text) => text.includes(speech.quote)) ||
     !w ||
     !["ready_for_user", "revise", "reject"].includes(w.decision) ||
     !hasText(w.reason, 15) ||
@@ -321,10 +373,23 @@ export function validateEditorialReview(
       new Set(w.moments.map((m) => m.line)).size < 2)
   )
     throw new Error("FAMILY_EDITORIAL_REVIEW_INVALID");
+  const endingIsClean =
+    ending.status === "clean_stop" &&
+    ending.lastNecessaryLine === story.dialogue.length;
+  const speechIsNatural = speech.status === "natural";
+  const decision = w.formatOnly
+    ? "reject"
+    : (!endingIsClean || !speechIsNatural) && w.decision === "ready_for_user"
+      ? "revise"
+      : w.decision;
   return {
     ...r,
-    watchability: { ...w, decision: w.formatOnly ? "reject" : w.decision },
+    watchability: { ...w, decision },
     passed:
-      !w.formatOnly && r.issues.length === 0 && w.decision === "ready_for_user",
+      endingIsClean &&
+      speechIsNatural &&
+      !w.formatOnly &&
+      r.issues.length === 0 &&
+      decision === "ready_for_user",
   };
 }

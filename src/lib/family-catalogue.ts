@@ -30,7 +30,13 @@ export type ChannelProfile = {
 };
 export type RecentStory = Pick<
   Story,
-  "series" | "situation" | "mechanism" | "outcome" | "wants" | "payoff" | "comicPremise"
+  | "series"
+  | "situation"
+  | "mechanism"
+  | "outcome"
+  | "wants"
+  | "payoff"
+  | "comicPremise"
 >;
 export type Story = {
   intendedShotSeconds?: number[];
@@ -42,6 +48,12 @@ export type Story = {
     visibleContrast: string;
   };
   editorialEvidence?: Record<string, string>;
+  endingPlan?: {
+    mode: "hard_cut" | "silent_reaction" | "resolved";
+    stopAfterLine: number;
+    anchorQuote: string;
+    reason: string;
+  };
   development?: FamilyDevelopmentTrace;
   series: string;
   situation: string;
@@ -72,7 +84,8 @@ export const referenceMechanisms: ChannelProfile["references"] = [
   {
     source: "1 · Đấu giá việc rửa bát",
     mechanism: "Cạnh tranh tăng cấp → tự mắc bẫy → lật lần hai",
-    lesson: "Từ muốn phần thưởng chuyển sang muốn thắng đối thủ: mỗi bên đổi giá vì phản ứng của bên kia. Hài tăng qua cuộc mặc cả trước cú lật cuối. Học động cơ đổi chiến thuật, không viết lại đấu giá bằng món đồ khác.",
+    lesson:
+      "Từ muốn phần thưởng chuyển sang muốn thắng đối thủ: mỗi bên đổi giá vì phản ứng của bên kia. Hài tăng qua cuộc mặc cả trước cú lật cuối. Học động cơ đổi chiến thuật, không viết lại đấu giá bằng món đồ khác.",
   },
   {
     source: "2 · Hẹn giờ khóc",
@@ -83,22 +96,26 @@ export const referenceMechanisms: ChannelProfile["references"] = [
   {
     source: "3 · Các loại chân",
     mechanism: "Luật vô lý được theo đuổi nhất quán",
-    lesson: "Bé bịa lý lẽ để được bế rồi thích nghi khi mẹ đổi điều kiện. Học lý sự có lợi và đổi chiến thuật; không lấy chuỗi chân chơi/chân về/chân kem thay thành tay/tai hay món khác.",
+    lesson:
+      "Bé bịa lý lẽ để được bế rồi thích nghi khi mẹ đổi điều kiện. Học lý sự có lợi và đổi chiến thuật; không lấy chuỗi chân chơi/chân về/chân kem thay thành tay/tai hay món khác.",
   },
   {
     source: "4 · Không so sánh mẹ",
     mechanism: "Đảo chiều người bị đánh giá",
-    lesson: "Bé dùng chính tiêu chuẩn của người lớn để bảo vệ mình. Lập luận có thể nhiều câu nếu để thuyết phục người đối diện; tránh chê ngoại hình, thu nhập hoặc hạ nhục.",
+    lesson:
+      "Bé dùng chính tiêu chuẩn của người lớn để bảo vệ mình. Lập luận có thể nhiều câu nếu để thuyết phục người đối diện; tránh chê ngoại hình, thu nhập hoặc hạ nhục.",
   },
   {
     source: "5 · Quân sư né việc",
     mechanism: "Quân sư quên tính mình vào điều kiện",
-    lesson: "Em giải thích khá dài cách đọc tâm trạng mẹ, lời khuyên thực sự giúp chị né việc rồi chính em quên tính mình vào. Đừng cắt màn quân sư vì coi giải thích là thừa; gieo điều kiện để hệ quả sau tự nhiên.",
+    lesson:
+      "Em giải thích khá dài cách đọc tâm trạng mẹ, lời khuyên thực sự giúp chị né việc rồi chính em quên tính mình vào. Đừng cắt màn quân sư vì coi giải thích là thừa; gieo điều kiện để hệ quả sau tự nhiên.",
   },
   {
     source: "6 · Bố mẹ nhờ mua đồ",
     mechanism: "Đảo vai người lớn và trẻ con",
-    lesson: "Hình chính đã đảo thường thức: hai bé đeo cặp chuẩn bị đi học nhưng còn phải lo đồ ăn cho bố mẹ đang nằm trên giường. Người lớn dặn món, mè nheo; trẻ thở dài như người phải chăm lo. Đây là tương phản dáng vẻ/vai trò và mọi việc đến tay con, không chỉ là mặc cả hay thua lý. Nhượng bộ để được yên, lời cảm ơn và lời hứa trả tiền đều tự nhiên. File được gửi lại là cùng reference, không tính thành mẫu độc lập mới.",
+    lesson:
+      "Hình chính đã đảo thường thức: hai bé đeo cặp chuẩn bị đi học nhưng còn phải lo đồ ăn cho bố mẹ đang nằm trên giường. Người lớn dặn món, mè nheo; trẻ thở dài như người phải chăm lo. Đây là tương phản dáng vẻ/vai trò và mọi việc đến tay con, không chỉ là mặc cả hay thua lý. Nhượng bộ để được yên, lời cảm ơn và lời hứa trả tiền đều tự nhiên. File được gửi lại là cùng reference, không tính thành mẫu độc lập mới.",
   },
   {
     source: "7 · Cuộc gọi đáng ngờ",
@@ -108,28 +125,34 @@ export const referenceMechanisms: ChannelProfile["references"] = [
   },
   {
     source: "8 · Phỏng vấn chủ xe đồ chơi",
-    mechanism: "Parody format TikTok phỏng vấn người giàu/chủ xe sang, nhưng khách và xe là phiên bản trẻ con",
-    lesson: "Khán giả nhận ra format nhờ micro, cách tiếp cận/phỏng vấn, vị thế khách và phong thái nghiêm túc; thấy vô lý vì đó là trẻ con bên xe đồ chơi. Học cả cấu trúc diễn của format và tương phản quy mô, không chỉ thêm từ khó hoặc việc vặt. Hai bé đóng cả hai vai là đủ, không cần cha mẹ/chăm sóc. Được parody cùng thể loại bằng cuộc đối đáp mới; không bê nguyên chuỗi hỏi–đáp/câu chốt nguồn. Không bắt nhân vật tự nhận đùa.",
+    mechanism:
+      "Parody format TikTok phỏng vấn người giàu/chủ xe sang, nhưng khách và xe là phiên bản trẻ con",
+    lesson:
+      "Khán giả nhận ra format nhờ micro, cách tiếp cận/phỏng vấn, vị thế khách và phong thái nghiêm túc; thấy vô lý vì đó là trẻ con bên xe đồ chơi. Học cả cấu trúc diễn của format và tương phản quy mô, không chỉ thêm từ khó hoặc việc vặt. Hai bé đóng cả hai vai là đủ, không cần cha mẹ/chăm sóc. Được parody cùng thể loại bằng cuộc đối đáp mới; không bê nguyên chuỗi hỏi–đáp/câu chốt nguồn. Không bắt nhân vật tự nhận đùa.",
   },
   {
     source: "9 · Bé thương lượng với bố",
     mechanism: "Tương phản tỷ lệ, thương lượng rồi khoe ngược để giữ thể diện",
-    lesson: "Chênh lệch giữa điều mong đợi và phần nhận được tạo nhịp; bé vẫn nói như mình rất giỏi dù đang lép vế. Lời nói và biểu cảm cố ý lệch nhau, không cần sửa thành nhận thua. Chỉ lấy cơ chế cho chuyện nhẹ nhàng khác; không bê sính lễ, đùa bạo hành hoặc lời thoại nguồn.",
+    lesson:
+      "Chênh lệch giữa điều mong đợi và phần nhận được tạo nhịp; bé vẫn nói như mình rất giỏi dù đang lép vế. Lời nói và biểu cảm cố ý lệch nhau, không cần sửa thành nhận thua. Chỉ lấy cơ chế cho chuyện nhẹ nhàng khác; không bê sính lễ, đùa bạo hành hoặc lời thoại nguồn.",
   },
   {
     source: "10a · Hai chiếc bánh, hai phản ứng",
-    mechanism: "Cùng một lời mời, một người ăn ngay, một người nghĩ tới người mời",
-    lesson: "Sự chậm lại ban đầu được giải thích bằng quan tâm cho mẹ; đẩy bánh và lời mời mẹ là điểm chốt. Không tự suy ra đang giả hiếu thảo để trục lợi, không thêm cú lật ích kỷ hay bài học. Đây là một mẩu độc lập trong file tổng hợp.",
+    mechanism:
+      "Cùng một lời mời, một người ăn ngay, một người nghĩ tới người mời",
+    lesson:
+      "Sự chậm lại ban đầu được giải thích bằng quan tâm cho mẹ; đẩy bánh và lời mời mẹ là điểm chốt. Không tự suy ra đang giả hiếu thảo để trục lợi, không thêm cú lật ích kỷ hay bài học. Đây là một mẩu độc lập trong file tổng hợp.",
   },
   {
     source: "10b · Chọn tiền khi thăm ông",
     mechanism: "Người lớn nhìn giá tiền, bé trả lời bằng mục đích đến thăm",
-    lesson: "Một lựa chọn bị hiểu nhầm được giải thích bằng câu nói khéo/thân tình. Cho phép kết ở phản ứng nhận ra, không bắt có quà hay giao dịch chứng minh. Không suy động cơ diễn đạo đức chỉ từ câu trả lời; không cố định em ham lợi để chị luôn hơn. Tách khỏi mẩu hai chiếc bánh.",
+    lesson:
+      "Một lựa chọn bị hiểu nhầm được giải thích bằng câu nói khéo/thân tình. Cho phép kết ở phản ứng nhận ra, không bắt có quà hay giao dịch chứng minh. Không suy động cơ diễn đạo đức chỉ từ câu trả lời; không cố định em ham lợi để chị luôn hơn. Tách khỏi mẩu hai chiếc bánh.",
   },
 ];
 export function familyProfile(roles: ChannelProfile["roles"]): ChannelProfile {
   return {
-    version: 6,
+    version: 8,
     writingPolicyVersion: FAMILY_WRITING_POLICY_VERSION,
     positioning:
       "Hai chị em trong một gia đình cố định, kể chuyện bằng đảo thường thức và parody thế giới người lớn. Hai nhánh: con lo cho bố mẹ như phụ huynh; trẻ diễn format/vai xã hội người lớn rất nghiêm túc với đạo cụ và quy mô trẻ con. Khán giả nhận ra khuôn mẫu rồi thấy sự tương phản vui vẻ. Không bắt mọi tập có bố mẹ, việc nhà hoặc bánh.",
@@ -171,9 +194,18 @@ export function validateStory(
   recent: Pick<Story, "situation" | "mechanism" | "outcome">[] = [],
 ): Story {
   const s = value as Story;
-  if (s?.comicPremise !== undefined && (!s.comicPremise ||
-    ![s.comicPremise.normalExpectation, s.comicPremise.invertedReality, s.comicPremise.visibleContrast]
-      .every(v => typeof v === "string" && v.trim().length >= 8 && v.length <= 1000)))
+  if (
+    s?.comicPremise !== undefined &&
+    (!s.comicPremise ||
+      ![
+        s.comicPremise.normalExpectation,
+        s.comicPremise.invertedReality,
+        s.comicPremise.visibleContrast,
+      ].every(
+        (v) =>
+          typeof v === "string" && v.trim().length >= 8 && v.length <= 1000,
+      ))
+  )
     throw new Error("STORY_COMIC_PREMISE_INVALID");
   if (
     !s ||
@@ -221,7 +253,31 @@ export function validateStory(
   )
     throw new Error("STORY_DIALOGUE_INVALID");
   if (s.dialogue.length + (reactionIndex >= 0 ? 1 : 0) > 12)
-    throw new Error("STORY_SHOT_LIMIT: tối đa 12 shot kể cả reaction; giữ đối đáp, bỏ reaction nếu không cần");
+    throw new Error(
+      "STORY_SHOT_LIMIT: tối đa 12 shot kể cả reaction; giữ đối đáp, bỏ reaction nếu không cần",
+    );
+  if (s.endingPlan !== undefined) {
+    const ending = s.endingPlan;
+    const last = s.dialogue.at(-1);
+    const hasReaction = reactionIndex >= 0;
+    if (
+      !ending ||
+      !["hard_cut", "silent_reaction", "resolved"].includes(ending.mode) ||
+      ending.stopAfterLine !== s.dialogue.length ||
+      !last ||
+      typeof ending.anchorQuote !== "string" ||
+      ending.anchorQuote.trim().length < 2 ||
+      ![last.text, last.action].some((text) =>
+        text.includes(ending.anchorQuote),
+      ) ||
+      typeof ending.reason !== "string" ||
+      ending.reason.trim().length < 12 ||
+      (ending.mode === "silent_reaction") !== hasReaction
+    )
+      throw new Error(
+        "STORY_ENDING_INVALID: điểm dừng phải ở lượt cuối; reaction chỉ có khi endingPlan là silent_reaction",
+      );
+  }
   const words = s.dialogue.reduce(
     (n, d) => n + d.text.trim().split(/\s+/).length,
     0,
@@ -247,11 +303,15 @@ export type FamilyEditorialIssue = {
 
 /** New AI drafts declare the ordinary expectation and its reversal; historic saved stories remain readable without one. */
 export function validateGeneratedFamilyStory(
-  value: unknown, profile: ChannelProfile, allowed: string[], recent: RecentStory[] = [],
+  value: unknown,
+  profile: ChannelProfile,
+  allowed: string[],
+  recent: RecentStory[] = [],
 ): Story {
   const story = validateStory(value, profile, allowed, recent);
   if (!story.comicPremise) throw new Error("STORY_COMIC_PREMISE_REQUIRED");
+  if (!story.endingPlan) throw new Error("STORY_ENDING_REQUIRED");
   return story;
 }
 export const STORY_SCHEMA =
-  '{"comicPremise":{"normalExpectation":"","invertedReality":"","visibleContrast":""}, "series":"", "situation":"", "mechanism":"", "outcome":"", "wants":[{"characterId":"uuid","want":""}], "beats":{"hook":"","turns":[],"payoff":"","reaction":""}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid","text":"","action":""}]}';
+  '{"comicPremise":{"normalExpectation":"","invertedReality":"","visibleContrast":""}, "series":"", "situation":"", "mechanism":"", "outcome":"", "wants":[{"characterId":"uuid","want":""}], "beats":{"hook":"","turns":[],"payoff":"","reaction":""}, "endingPlan":{"mode":"hard_cut|silent_reaction|resolved","stopAfterLine":1,"anchorQuote":"nguyên văn từ lượt cuối","reason":"vì sao dừng đúng ở đây"}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid","text":"","action":""}]}';

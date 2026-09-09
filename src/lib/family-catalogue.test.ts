@@ -98,26 +98,102 @@ describe("family catalogue", () => {
   });
   it("keeps motivated adult reasoning intact rather than censoring vocabulary", () => {
     const story = structuredClone(plans[0].story);
-    story.dialogue[0].text = "Chị làm chủ thì chị chia đi. Chia xong em mới chọn phe. Mà sao chị được hai cái, em có một cái?";
-    expect(validateStory(story, profile, cast.map(c => c.characterId)).dialogue[0].text).toBe(story.dialogue[0].text);
+    story.dialogue[0].text =
+      "Chị làm chủ thì chị chia đi. Chia xong em mới chọn phe. Mà sao chị được hai cái, em có một cái?";
+    expect(
+      validateStory(
+        story,
+        profile,
+        cast.map((c) => c.characterId),
+      ).dialogue[0].text,
+    ).toBe(story.dialogue[0].text);
   });
   it("rejects a thirteenth reaction shot before purchasing or planning media", () => {
-    const story = { ...plans[0].story, dialogue: Array.from({ length: 12 }, (_, i) => ({ ...plans[0].story.dialogue[i % 6], text: "Cho em xem nào." })) };
-    expect(() => validateStory(story, profile, cast.map(c => c.characterId))).toThrow("STORY_SHOT_LIMIT");
-    expect(validateStory({ ...story, beats: story.beats.filter(b => b.purpose !== "reaction") }, profile, cast.map(c => c.characterId)).dialogue).toHaveLength(12);
+    const story = {
+      ...plans[0].story,
+      dialogue: Array.from({ length: 12 }, (_, i) => ({
+        ...plans[0].story.dialogue[i % 6],
+        text: "Cho em xem nào.",
+      })),
+    };
+    expect(() =>
+      validateStory(
+        story,
+        profile,
+        cast.map((c) => c.characterId),
+      ),
+    ).toThrow("STORY_SHOT_LIMIT");
+    expect(
+      validateStory(
+        {
+          ...story,
+          beats: story.beats.filter((b) => b.purpose !== "reaction"),
+        },
+        profile,
+        cast.map((c) => c.characterId),
+      ).dialogue,
+    ).toHaveLength(12);
   });
 });
 
-it("keeps legacy plans readable but requires a concrete inversion in new AI drafts", () => {
-  const ids = cast.map(c => c.characterId);
-  expect(validateStory(plans[0].story, profile, ids).comicPremise).toBeUndefined();
-  expect(() => validateGeneratedFamilyStory(plans[0].story, profile, ids)).toThrow("STORY_COMIC_PREMISE_REQUIRED");
+it("keeps legacy plans readable but requires an inversion and explicit stop in new AI drafts", () => {
+  const ids = cast.map((c) => c.characterId);
+  expect(
+    validateStory(plans[0].story, profile, ids).comicPremise,
+  ).toBeUndefined();
+  expect(() =>
+    validateGeneratedFamilyStory(plans[0].story, profile, ids),
+  ).toThrow("STORY_COMIC_PREMISE_REQUIRED");
   const premise = {
     normalExpectation: "Cha mẹ chuẩn bị đồ cho con đi học",
     invertedReality: "Hai bé chuẩn bị đồ cho bố đi làm",
     visibleContrast: "Bé kiểm bình nước của bố còn bố đòi nằm thêm",
   };
-  const story = validateGeneratedFamilyStory({ ...plans[0].story, comicPremise: premise }, profile, ids);
+  expect(() =>
+    validateGeneratedFamilyStory(
+      { ...plans[0].story, comicPremise: premise },
+      profile,
+      ids,
+    ),
+  ).toThrow("STORY_ENDING_REQUIRED");
+  const endingPlan = {
+    mode: "silent_reaction" as const,
+    stopAfterLine: plans[0].story.dialogue.length,
+    anchorQuote: plans[0].story.dialogue.at(-1)!.text,
+    reason:
+      "Câu thoại cuối hạ việc đang diễn rồi nhường cho một phản ứng im lặng.",
+  };
+  const story = validateGeneratedFamilyStory(
+    { ...plans[0].story, comicPremise: premise, endingPlan },
+    profile,
+    ids,
+  );
   expect(compactStory(story).comicPremise).toEqual(premise);
-  expect(() => validateGeneratedFamilyStory({ ...story, comicPremise: { ...premise, visibleContrast: "" } }, profile, ids)).toThrow("STORY_COMIC_PREMISE_INVALID");
+  expect(() =>
+    validateGeneratedFamilyStory(
+      {
+        ...story,
+        comicPremise: { ...premise, visibleContrast: "" },
+      },
+      profile,
+      ids,
+    ),
+  ).toThrow("STORY_COMIC_PREMISE_INVALID");
+  expect(() =>
+    validateGeneratedFamilyStory(
+      { ...story, endingPlan: { ...endingPlan, stopAfterLine: 1 } },
+      profile,
+      ids,
+    ),
+  ).toThrow("STORY_ENDING_INVALID");
+  expect(() =>
+    validateGeneratedFamilyStory(
+      {
+        ...story,
+        endingPlan: { ...endingPlan, anchorQuote: "Câu bịa ở cuối" },
+      },
+      profile,
+      ids,
+    ),
+  ).toThrow("STORY_ENDING_INVALID");
 });

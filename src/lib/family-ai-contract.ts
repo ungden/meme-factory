@@ -9,7 +9,11 @@ const object = (properties: Record<string, unknown>) => ({
 export function storyResponseSchema(profile: ChannelProfile, ids: string[]) {
   const characterId = { type: "string", enum: ids };
   return object({
-    comicPremise: object({ normalExpectation: string, invertedReality: string, visibleContrast: string }),
+    comicPremise: object({
+      normalExpectation: string,
+      invertedReality: string,
+      visibleContrast: string,
+    }),
     series: { type: "string", enum: profile.series },
     situation: string,
     mechanism: string,
@@ -17,6 +21,15 @@ export function storyResponseSchema(profile: ChannelProfile, ids: string[]) {
     setup: string,
     payoff: string,
     caption: string,
+    endingPlan: object({
+      mode: {
+        type: "string",
+        enum: ["hard_cut", "silent_reaction", "resolved"],
+      },
+      stopAfterLine: { type: "integer", minimum: 1, maximum: 12 },
+      anchorQuote: string,
+      reason: string,
+    }),
     wants: {
       type: "array",
       minItems: 2,
@@ -47,6 +60,11 @@ export function unpackStory(value: unknown) {
     reaction: string;
   };
   if (!b || !Array.isArray(b.turns)) return value;
+  const endingPlan = v.endingPlan as Story["endingPlan"] | undefined;
+  // The legacy free-text reaction field often repeats the last spoken line.
+  // Only an explicit silent-reaction ending may create an additional shot.
+  const silentReaction =
+    endingPlan?.mode === "silent_reaction" ? b.reaction?.trim() : "";
   return {
     ...v,
     beats: [
@@ -55,8 +73,8 @@ export function unpackStory(value: unknown) {
         .filter((description) => description?.trim())
         .map((description) => ({ purpose: "turn", description })),
       { purpose: "payoff", description: b.payoff },
-      ...(b.reaction?.trim()
-        ? [{ purpose: "reaction", description: b.reaction }]
+      ...(silentReaction
+        ? [{ purpose: "reaction", description: silentReaction }]
         : []),
     ],
   };
@@ -86,10 +104,7 @@ export function shotResponseSchema(story: Story, ids: string[] = []) {
     summary: string,
     shots: object(
       Object.fromEntries(
-        Array.from({ length: shotCount }, (_, i) => [
-          `shot${i + 1}`,
-          shot,
-        ]),
+        Array.from({ length: shotCount }, (_, i) => [`shot${i + 1}`, shot]),
       ),
     ),
   });
@@ -131,9 +146,11 @@ export function compileStoryShots(
       characterIds: line
         ? [
             line.characterId,
-            ...((Array.isArray(shot.listenerCharacterIds)
-              ? shot.listenerCharacterIds
-              : []) as string[]).filter(
+            ...(
+              (Array.isArray(shot.listenerCharacterIds)
+                ? shot.listenerCharacterIds
+                : []) as string[]
+            ).filter(
               (id) =>
                 id !== line.characterId && characters.some((c) => c.id === id),
             ),

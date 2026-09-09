@@ -438,6 +438,7 @@ export function buildFamilyEditorialPrompt(
   const performance = {
     setup: story.setup,
     dialogue: story.dialogue,
+    proposedEndingPlan: story.endingPlan,
     reaction:
       story.beats.find((b) => b.purpose === "reaction")?.description || "",
   };
@@ -447,6 +448,8 @@ ${FAMILY_EDITORIAL_BENCHMARK}
 BẢN DIỄN CẦN ĐÁNH GIÁ: ${JSON.stringify(performance)}
 ${FAMILY_REVIEW_CRITERIA}
 Đây là bước chọn chất lượng, không chỉ dò lỗi. watchability.decision: ready_for_user khi đáng gửi cho người dùng chọn; revise nếu một sửa cụ thể có thể cứu phần đối đáp đang tốt; reject nếu tiền đề vẫn nhạt/dễ đoán/cần thay gốc. Được reject dù issues=[] vì bản không có lỗi cấu trúc nhưng không đáng xem.
+Audit điểm dừng độc lập, không tin proposedEndingPlan của người viết. Đọc từ cuối lên và thử bỏ từng lượt. endingCheck.status=clean_stop chỉ khi lượt cuối là lượt cuối thật sự cần thiết; lastNecessaryLine phải là số lượt đó và quote trích nguyên văn thoại/action. forced_tail khi điểm dừng thật nằm trước phần đuôi đang có; unfinished khi chưa có lượt nào hạ được việc/quan hệ đang diễn. Kết chớt quớt vẫn clean_stop nếu câu cuối làm cái vô lý đủ rõ, dù hậu quả chưa giải quyết. Câu cuối mở thêm vấn đề không được phát triển, giải thích lại điều đã thấy hoặc cố thêm trò đùa thứ hai là forced_tail. ready_for_user bắt buộc clean_stop tại đúng lượt cuối.
+Audit khẩu ngữ độc lập theo đúng characterId, tên và người họ đang nói cùng. speechCheck trích một lượt đáng kiểm tra nhất. status=needs_revision nếu đại từ sai góc nhìn/quan hệ, câu giống dịch hoặc tác giả kể hộ nhân vật; khi đó không được ready_for_user. Ví dụ Đậu Đỏ nói với Bánh Bao phải dùng “chị em mình/tụi mình”, không tự gọi cả hai là “hai đứa”; nói với bố mẹ mới dùng “tụi con”. status=natural chỉ khi toàn bộ thoại qua kiểm tra này; reason phải giải thích bằng ngữ cảnh người nói/người nghe.
 Trước khi quyết định, phản biện bản này như một biên tập viên phải từ chối bài nhạt. weakestMoment trích một câu/action NGUYÊN VĂN ở line tương ứng và why nêu nguy cơ cụ thể khiến người xem chán; không dùng "cần nghe diễn viên" hay "không có điểm yếu" để né đánh giá bản chữ. formatOnly=true nếu toàn sức hút vẫn chỉ là trẻ đóng vai người lớn hoặc gọi đồ nhỏ bằng từ sang, chưa có quan sát/đối đáp/hành động riêng đáng xem; khi đó không được ready_for_user. Đừng mặc định đúng format là xuất sắc. Có thể nhận xét một câu yếu dù tổng thể vẫn đạt.
 watchability.reason nêu căn cứ cụ thể, weakness nêu hạn chế còn lại. moments trích NGUYÊN VĂN đoạn thoại hoặc action, line là số lượt từ 1, kind=dialogue/action, why giải thích vì sao đoạn ấy thú vị hoặc phản ứng nào được tạo. ready_for_user cần ít nhất hai đoạn ở các lượt khác nhau (có thể là hành động/câu dẫn có tác dụng, không bắt hai punchline). Không chấp nhận lý do chỉ là đúng format/đảo vai. Câu trích của issues cũng phải có trong bản diễn.
 Không có lỗi chưa đủ để ready_for_user. Chỉ trả quyết định này khi bản đáng gửi người dùng và không còn issue cần sửa. Đây không phải người dùng duyệt; server tự suy trạng thái từ quyết định và bằng chứng, không cần một cờ passed riêng.`;
@@ -522,7 +525,7 @@ Mở ngay ở việc đang diễn ra. Chọn chi tiết dễ hình dung, khẩu 
     `${writerContext}
 Ý TƯỞNG NGƯỜI DÙNG: ${intent}
 Đề xuất ĐÚNG BA tình huống A/B/C trước khi viết kịch bản. Nếu đã có đề tài/format, cả ba giữ đề tài ấy nhưng phát triển bằng hành vi và quan hệ KHÁC NHAU; nếu để trống, chọn ba hướng khác nhau.
-Mỗi phương án gồm situation, familiarPattern (thường thức/format được nhận ra), observedBehavior (hành vi cụ thể đời thường), progression (2–4 việc/câu đáp làm tình huống tiếp diễn), ending, risk (vì sao có thể nhạt), sampleExchange (2–4 lượt thoại cùng hành động, đúng cast).
+Mỗi phương án gồm situation, familiarPattern (thường thức/format được nhận ra), observedBehavior (hành vi cụ thể đời thường), progression (2–4 việc/câu đáp làm tình huống tiếp diễn), stopPoint (đúng khoảnh khắc nên cắt, không bắt giải quyết hậu quả), risk (vì sao có thể nhạt), sampleExchange (2–4 lượt thoại cùng hành động, đúng cast).
 Viết mẫu đối đáp thật để so sánh, không chỉ nhãn hài. Trước hết tìm thói quen nhỏ của con người (cách nhờ, hỏi vặn, giữ thể diện, chen nhu cầu), rồi đặt vào tình huống; đừng bắt đầu bằng danh sách thuật ngữ để đổi tên đồ chơi. Mẫu trao đổi phải cho thấy nét riêng của hai người đang nói. Mỗi progression phát triển cái vừa xảy ra/được kể, không chỉ chuyển sang tiện ích/chủ đề kế tiếp. Quan sát ý muốn, thói quen và cách nhân vật phản ứng trước người kia. Các phương án khác nhau về cách chuyện diễn ra, không chỉ thay đồ vật. Không chọn sẵn phương án thắng. Mỗi trường mô tả ngắn gọn, sampleExchange mỗi câu tối đa 25 từ.`,
     (v) => validatePremises(v, allowed),
     premiseSchema(allowed),
@@ -551,6 +554,7 @@ TÌNH HUỐNG ĐÃ CHỌN: ${JSON.stringify(selected)}
 NHẬN XÉT SO SÁNH: ${JSON.stringify(trace.selection)}
 Viết bản đầy đủ bằng tiếng Việt, khai thác hành vi/quan hệ cụ thể đã chọn. Không chỉ minh họa một phép đảo vai hoặc gắn micro vào chuyện kể. Giữ các câu phản ứng có tác dụng, không bắt mỗi câu là một trò đùa. Khác biệt hai bé phải thể hiện qua cách xử lý/đối đáp, không chỉ đổi tên người nói.
 Thời lượng dự kiến ${input.targetDurationSeconds || 35} giây; đừng kéo chuyện cho đủ số lượt. Tổng 15–120 đơn vị lời thoại, mỗi lượt tối đa 35; tối đa 12 lượt kể cả reaction. Có thể không có reaction nếu đã đủ điểm dừng. Viết tình huống đang diễn ra, lời kể chỉ khi format cần và cách kể tự có sức hút.
+endingPlan.mode chọn hard_cut, silent_reaction hoặc resolved. stopAfterLine bắt buộc bằng đúng số lượt thoại; anchorQuote trích nguyên văn từ thoại/action lượt cuối; reason nói vì sao phép đảo/quan hệ hạ đúng ở đó. payoff và beats.payoff là mô tả điểm dừng để tương thích dữ liệu, KHÔNG phải yêu cầu punchline. Nếu dùng silent_reaction thì beats.reaction mô tả phản ứng không thoại; hai mode còn lại để reaction rỗng. Trước khi trả, thử xóa lần lượt các câu cuối: cắt mọi câu không làm mất điểm rơi. Không thêm câu mở vấn đề mới sau khi chuyện đã hạ, không nối câu đùa thứ hai để “finish”. Trước khi trả, đọc từng câu từ góc nhìn người đang nói: hai chị em nói với nhau dùng chị/em, “chị em mình/tụi mình”; nói với bố mẹ dùng “tụi con”; không để một bé tự gọi cả hai là “hai đứa”.
 comicPremise ghi thường thức/format gốc, điều bị đảo/lệch và tín hiệu nhìn/nghe thấy. Phần thoại/action phải tự thể hiện, không dựa vào lời tác giả tự khen. Không thêm người ngoài cast, không ép parody thành việc chăm bố mẹ.
 Trả JSON: ${STORY_SCHEMA}`,
     (v) =>
@@ -569,6 +573,7 @@ Trả JSON: ${STORY_SCHEMA}`,
       dialogue: story.dialogue,
       setup: story.setup,
       payoff: story.payoff,
+      endingPlan: story.endingPlan,
     });
     await checkpoint("review");
     // Read the staged dialogue without the writer's self-justification or selection verdict.
@@ -587,7 +592,7 @@ Trả JSON: ${STORY_SCHEMA}`,
 Ý TƯỞNG PHẢI GIỮ: ${intent}
 BẢN CHỮ: ${JSON.stringify(story)}
 NHẬN XÉT BẮT BUỘC SỬA: ${JSON.stringify(review)}
-Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống. Không thêm câu chốt thông minh để che tiền đề yếu, không rút tất cả thoại thành câu cụt. Giữ nguyên đề tài, cast và format. Trả toàn bộ JSON: ${STORY_SCHEMA}`,
+Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống. Nếu endingCheck=forced_tail, cắt từ sau lastNecessaryLine rồi cập nhật endingPlan; không thay đuôi thừa bằng một câu chốt mới. Nếu unfinished, phát triển đúng việc đang diễn trước khi chọn điểm cắt. Nếu speechCheck=needs_revision, sửa đúng ngôi nói/khẩu ngữ ở câu được trích và rà cùng lỗi trong các câu khác; không đổi diễn biến chỉ để chữa đại từ. Không thêm câu chốt thông minh để che tiền đề yếu, không rút tất cả thoại thành câu cụt. Giữ nguyên đề tài, cast và format. Trả toàn bộ JSON: ${STORY_SCHEMA}`,
       (v) =>
         validateGeneratedFamilyStory(
           unpackStory(v),

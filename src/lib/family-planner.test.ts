@@ -2,7 +2,7 @@ import { testPilot } from "./family-test-fixture";
 import { it, expect, vi, beforeEach } from "vitest";
 import { buildFamilyPilot, familyPersonalities } from "./family-pilot";
 import { creativeAssistModel, generateCreativeAssist } from "./creative-assist";
-import { compileStoryShots } from "./family-ai-contract";
+import { compileStoryShots, unpackStory } from "./family-ai-contract";
 const calls = vi.hoisted(() => ({
   prompts: [] as string[],
   responses: [] as unknown[],
@@ -72,6 +72,13 @@ const { profile, plans } = buildFamilyPilot(
 );
 plans.forEach((p) => {
   p.story.comicPremise = reversalPremise;
+  p.story.endingPlan = {
+    mode: "silent_reaction",
+    stopAfterLine: p.story.dialogue.length,
+    anchorQuote: p.story.dialogue.at(-1)!.text,
+    reason:
+      "Câu cuối giao việc kiểm tra giày rồi dừng ở phản ứng nhìn đôi giày.",
+  };
 });
 const evidence = {
   contrast:
@@ -109,7 +116,7 @@ const candidates = [
       "Hai bé kiểm túi cơm đã có thìa",
       "Bố giấu bình vì sợ nặng nhưng trưa sẽ lại nhờ con",
     ],
-    ending: "Đồ đã đủ nhưng giày của bố vẫn chưa đi",
+    stopPoint: "Đồ đã đủ nhưng giày của bố vẫn chưa đi",
     risk: "Có thể thành liệt kê đồ nếu không có phản ứng cụ thể",
     sampleExchange: plans[0].story.dialogue.slice(0, 2),
   },
@@ -122,7 +129,7 @@ const candidates = [
       "Hai bé tìm rau và thấy kem của mẹ",
       "Mẹ xin ăn nốt vì kem đang chảy ra tay",
     ],
-    ending: "Hai bé phải lấy bát hứng kem cho mẹ",
+    stopPoint: "Hai bé phải lấy bát hứng kem cho mẹ",
     risk: "Tránh biến thành hai bé lên lớp mẹ",
     sampleExchange: plans[0].story.dialogue.slice(2, 4),
   },
@@ -135,7 +142,7 @@ const candidates = [
       "Người dẫn hỏi lối vào nhà",
       "Khách phải cúi rồi bò trong khi vẫn giữ micro",
     ],
-    ending: "Chủ nhà vẫn đứng nghiêm chờ khách bò xong",
+    stopPoint: "Chủ nhà vẫn đứng nghiêm chờ khách bò xong",
     risk: "Tránh chỉ đặt tên sang cho đồ chơi",
     sampleExchange: plans[0].story.dialogue.slice(4, 6),
   },
@@ -156,6 +163,19 @@ const reviewFor = (story = plans[0].story, decision = "ready_for_user") => ({
   passed: decision === "ready_for_user",
   evidence,
   issues: [],
+  endingCheck: {
+    status: "clean_stop",
+    lastNecessaryLine: story.dialogue.length,
+    quote: story.dialogue.at(-1)!.text,
+    reason: "Lượt cuối hạ đúng việc đang diễn và không mở thêm một vấn đề mới.",
+  },
+  speechCheck: {
+    status: "natural",
+    line: 1,
+    quote: story.dialogue[0].text,
+    reason:
+      "Người nói dùng đại từ và khẩu ngữ phù hợp với người đang nghe trong cảnh.",
+  },
   watchability: {
     decision,
     formatOnly: false,
@@ -201,7 +221,7 @@ it("records all alternatives and comparison, then freezes reviewed dialogue into
   });
   expect(calls.prompts).toHaveLength(5);
   if (result.kind !== "video_plan") throw Error("Wrong kind");
-  expect(result.story?.profileVersion).toBe(6);
+  expect(result.story?.profileVersion).toBe(8);
   expect(result.story?.development?.candidates).toHaveLength(3);
   expect(result.story?.development?.selection?.selectedId).toBe("A");
   expect(result.story?.development?.stage).toBe("complete");
@@ -278,6 +298,55 @@ it("revises only after a concrete review, preserving both drafts", async () => {
     result.kind === "video_plan" && result.story?.development?.drafts,
   ).toHaveLength(2);
   expect(calls.prompts).toHaveLength(7);
+});
+it("removes a forced spoken tail instead of inventing another ending", async () => {
+  const forcedTail = {
+    ...plans[0].story,
+    dialogue: [
+      ...plans[0].story.dialogue,
+      {
+        characterId: plans[0].story.dialogue[0].characterId,
+        text: "Nhưng chị chỉ biết tên trường thôi.",
+        action: "Đứng lại ở cửa và nhìn em",
+      },
+    ],
+    endingPlan: {
+      mode: "silent_reaction" as const,
+      stopAfterLine: plans[0].story.dialogue.length + 1,
+      anchorQuote: "Nhưng chị chỉ biết tên trường thôi.",
+      reason:
+        "Bản nháp đề xuất dừng sau câu mở thêm chuyện hai bé không biết đường.",
+    },
+  };
+  const forcedReview = {
+    ...reviewFor(forcedTail, "ready_for_user"),
+    endingCheck: {
+      status: "forced_tail" as const,
+      lastNecessaryLine: plans[0].story.dialogue.length,
+      quote: plans[0].story.dialogue.at(-1)!.text,
+      reason:
+        "Câu về tên trường mở vấn đề mới sau khi việc chính đã hạ ở lượt trước.",
+    },
+  };
+  queue(
+    forcedTail,
+    forcedReview,
+    plans[0].story,
+    reviewFor(),
+    shotResult(plans[0]),
+  );
+  const result = await generateCreativeAssist(input);
+  if (result.kind !== "video_plan") throw Error("Wrong kind");
+  expect(result.story?.development?.drafts).toHaveLength(2);
+  expect(result.story?.development?.drafts[0].endingPlan?.stopAfterLine).toBe(
+    7,
+  );
+  expect(result.story?.development?.drafts[0].review?.passed).toBe(false);
+  expect(result.story?.development?.drafts[1].dialogue).toHaveLength(6);
+  expect(
+    result.scenes.map((scene) => scene.dialogue).filter(Boolean),
+  ).not.toContain("Nhưng chị chỉ biết tên trường thôi.");
+  expect(calls.prompts[4]).toContain("cắt từ sau lastNecessaryLine");
 });
 it("does not continue an unproductive revision loop", async () => {
   queue(
@@ -371,6 +440,13 @@ it("preserves a sibling-only staged parody without inventing a parent or final r
       { purpose: "hook" as const, description: "Micro trước nhà gối" },
       { purpose: "payoff" as const, description: "Khách cần bò qua cửa" },
     ],
+    endingPlan: {
+      mode: "hard_cut" as const,
+      stopAfterLine: 3,
+      anchorQuote: "Tôi đang ngồi xổm rồi đấy.",
+      reason:
+        "Câu cuối hạ độ vô lý của căn nhà gối ngay trong format tour nhà.",
+    },
   };
   const scenes = plans[0].scenes.slice(0, 3).map((s) => ({
     ...s,
@@ -404,7 +480,7 @@ it("keeps the general idea assist single-call and preserves identities", async (
   ];
   await generateCreativeAssist({ ...input, kind: "idea_suggestions" });
   expect(calls.prompts).toHaveLength(1);
-  expect(calls.prompts[0]).toContain("family-dialogue-6");
+  expect(calls.prompts[0]).toContain("family-dialogue-8");
 });
 it("compiles listener reactions without inventing extra dialogue", () => {
   const story = {
@@ -414,6 +490,13 @@ it("compiles listener reactions without inventing extra dialogue", () => {
       { purpose: "hook" as const, description: "Bắt đầu việc đang làm" },
       { purpose: "payoff" as const, description: "Đến điểm dừng của chuyện" },
     ],
+    endingPlan: {
+      mode: "hard_cut" as const,
+      stopAfterLine: 4,
+      anchorQuote: plans[0].story.dialogue[3].text,
+      reason:
+        "Lượt thứ tư hạ việc kiểm đồ và không cần thêm một cảnh phản ứng.",
+    },
   };
   const shots = Object.fromEntries(
     plans[0].scenes.slice(0, 4).map((s, i) => [
@@ -431,6 +514,26 @@ it("compiles listener reactions without inventing extra dialogue", () => {
   );
   expect(r.scenes).toHaveLength(4);
   expect(r.scenes[0].characterIds).toHaveLength(2);
+});
+
+it("does not turn a legacy reaction label into an extra ending shot", () => {
+  const unpacked = unpackStory({
+    ...plans[0].story,
+    endingPlan: {
+      mode: "hard_cut",
+      stopAfterLine: plans[0].story.dialogue.length,
+      anchorQuote: plans[0].story.dialogue.at(-1)!.text,
+      reason:
+        "Lời thoại cuối đã là điểm dừng nên không cần thêm cảnh phản ứng.",
+    },
+    beats: {
+      hook: "Hai bé gọi bố mẹ dậy",
+      turns: ["Bố mẹ đùn đẩy nhau"],
+      payoff: "Hai bé quyết định tự đi",
+      reaction: "Lặp lại việc hai bé quyết định tự đi",
+    },
+  }) as (typeof plans)[number]["story"];
+  expect(unpacked.beats.at(-1)?.purpose).toBe("payoff");
 });
 
 it("stops at the time budget with the current draft checkpoint intact", async () => {

@@ -38,6 +38,18 @@ const review = {
   passed: true,
   evidence,
   issues: [],
+  endingCheck: {
+    status: "clean_stop",
+    lastNecessaryLine: story.dialogue.length,
+    quote: story.dialogue.at(-1)!.text,
+    reason: "Lượt cuối hạ việc kiểm đồ đang diễn mà không mở thêm vấn đề mới.",
+  },
+  speechCheck: {
+    status: "natural",
+    line: 1,
+    quote: story.dialogue[0].text,
+    reason: "Người nói dùng cách xưng hô phù hợp với người nghe trong cảnh.",
+  },
   watchability: {
     decision: "ready_for_user",
     formatOnly: false,
@@ -142,7 +154,7 @@ const candidates = ["A", "B", "C"].map((id, i) => ({
     "Một hành vi cụ thể thứ " + i,
     "Người kia đáp lại và làm thay đổi việc đang diễn",
   ],
-  ending: "Người lớn lại nhờ hai bé thêm một việc",
+  stopPoint: "Người lớn lại nhờ hai bé thêm một việc",
   risk: "Có thể nhạt nếu chỉ liệt kê các việc phải làm",
   sampleExchange: story.dialogue,
 }));
@@ -294,4 +306,55 @@ it("derives acceptance from the editorial verdict, not a second contradictory fl
   expect(
     validateEditorialReview({ ...review, passed: false }, story).passed,
   ).toBe(true);
+});
+
+it("downgrades a claimed ready script when the reviewer finds a forced tail", () => {
+  const result = validateEditorialReview(
+    {
+      ...review,
+      endingCheck: {
+        status: "forced_tail",
+        lastNecessaryLine: 1,
+        quote: story.dialogue[0].text,
+        reason:
+          "Lượt thứ hai mở thêm việc bình nước sau khi điểm dừng đã nằm ở lượt đầu.",
+      },
+    },
+    story,
+  );
+  expect(result.passed).toBe(false);
+  expect(result.watchability.decision).toBe("revise");
+});
+
+it("requires the stopping-point evidence to quote the claimed line", () => {
+  expect(() =>
+    validateEditorialReview(
+      {
+        ...review,
+        endingCheck: {
+          ...review.endingCheck,
+          quote: "Một câu không tồn tại trong kịch bản",
+        },
+      },
+      story,
+    ),
+  ).toThrow("FAMILY_EDITORIAL_REVIEW_INVALID");
+});
+
+it("requires revision when a line uses an unnatural speaker viewpoint", () => {
+  const result = validateEditorialReview(
+    {
+      ...review,
+      speechCheck: {
+        status: "needs_revision",
+        line: 2,
+        quote: story.dialogue[1].text,
+        reason:
+          "Câu thoại dùng đại từ như người ngoài kể thay vì đúng góc nhìn nhân vật.",
+      },
+    },
+    story,
+  );
+  expect(result.passed).toBe(false);
+  expect(result.watchability.decision).toBe("revise");
 });
