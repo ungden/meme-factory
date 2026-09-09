@@ -24,7 +24,13 @@ describe("family catalogue", () => {
     for (const p of plans) {
       expect(p.scenes.filter((s) => s.dialogue)).toHaveLength(6);
       expect(
-        p.scenes.every((s) => !s.dialogue || s.characterIds.length === 1),
+        p.scenes.every(
+          (s) =>
+            !s.dialogue ||
+            (s.characterIds.length <= 2 &&
+              !!s.speakerCharacterId &&
+              s.characterIds.includes(s.speakerCharacterId)),
+        ),
       ).toBe(true);
       expect(p.scenes.at(-1)?.dialogue).toBe("");
     }
@@ -64,5 +70,22 @@ describe("family catalogue", () => {
         cast.map((c) => c.characterId),
       ),
     ).toThrow("BEATS");
+  });
+  it("allows a concise story to end on its payoff without a forced reaction", () => {
+    const story = {
+      ...plans[0].story,
+      beats: [
+        { purpose: "hook" as const, description: "Hai bé tranh lượt" },
+        { purpose: "payoff" as const, description: "Cả hai quên mất trò ban đầu" },
+      ],
+      dialogue: plans[0].story.dialogue.slice(0, 4),
+    };
+    expect(
+      validateStory(
+        story,
+        profile,
+        cast.map((c) => c.characterId),
+      ).beats.at(-1)?.purpose,
+    ).toBe("payoff");
   });
 });

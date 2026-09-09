@@ -402,21 +402,33 @@ async function generateFamilyFilm(input: CreativeAssistInput) {
       return validate(candidate);
     }
   }
-  const story = await checked(
+  const draftStory = await checked(
     `${contextText(context, allowed)}
 Viết CÂU CHUYỆN trước khi chia shot. Ý tưởng: ${input.intent || "Một chuyện nhỏ mới của gia đình"}.
-6–10 lượt thoại, tổng 60–90 từ tiếng Việt. Hook là yêu cầu/hành động ngay đầu, không giới thiệu lại gia đình. Hai hoặc ba nhịp thay đổi tình thế; cú chốt được chuẩn bị từ setup; phản ứng cuối cụ thể, không cả nhà cùng cười. Hai người có mong muốn khác nhau. Hài mà thương nhau; không giảng đạo. So sánh cả tình huống, cơ chế và kết quả với 20 tập trước; viết cách kể mới, không chỉ đổi từ đồng nghĩa. Vai trò người thắng/liên minh cần thay đổi.
+Viết bản ngắn nhất vẫn đủ chuyện, thường 3–12 lượt thoại; không kéo cho đủ thời lượng. Mở bằng việc đang xảy ra. Mỗi câu phải khiến người kia đổi cách làm, lộ ý muốn hoặc tạo hệ quả. Cú chốt phải phát sinh từ một chi tiết đã có; nhân vật không được bỗng dưng làm trái điều vừa hiểu để phục vụ cú chốt. Có thể kết bằng người bị hớ, một sự đồng lõa hoặc một biểu cảm; reaction sau payoff để trống nếu không làm đoạn kết vui hơn.
+Thoại là khẩu ngữ Việt Nam: câu ngắn, có ngắt, phản bác và chống chế. Trẻ có thể bắt chước cách nói người lớn để đạt mục đích trẻ con, nhưng không dùng từ hành chính, ẩn dụ cầu kỳ hoặc câu đối đẹp chỉ để tỏ ra thông minh. Tình cảm thể hiện bằng hành động; không chữa mâu thuẫn bằng câu chia sẻ/hợp tác và không giảng đạo. Hai người có mong muốn khác nhau. So sánh tình huống, cơ chế và kết quả với 20 tập trước; đổi người thắng và liên minh.
 Trả JSON: ${STORY_SCHEMA}`,
     (v) =>
       validateStory(unpackStory(v), profile, allowed, context.recentStories),
     storyResponseSchema(profile, allowed),
   );
+  const story = await checked(
+    `${contextText(context, allowed)}
+Bạn là biên tập thoại cuối, không phải người viết quảng cáo. Đọc bản nháp sau thành tiếng và sửa trực tiếp: ${JSON.stringify(draftStory)}
+Giữ ý tưởng và cast. Được sửa setup, mechanism, outcome, payoff, beats, thoại và hành động để nhân quả kín hơn. Cắt câu giải thích điều khán giả vừa thấy, câu văn hành chính, ẩn dụ gượng, lời đạo lý và reaction thừa. Mỗi nhân vật phải muốn một thứ cụ thể trong cảnh. Đậu Đỏ là em trai chập chững nên nói ngắn, bám vào từ vừa nghe; Bánh Bao là chị mẫu giáo, chỉ nói kiểu người lớn khi đang bày luật hoặc mặc cả. Bố chống chế đời thường; Mẹ bắt bài gọn. Câu cuối phải là điểm dừng tự nhiên và vui nhất, không cần hòa giải.
+Tự kiểm tra: nếu bỏ tên người nói thì vẫn nhận ra ít nhất Bánh Bao và Đậu Đỏ qua cách phản ứng; payoff không phụ thuộc vào hành động vô lý; bỏ câu cuối nếu nó chỉ giải thích trò đùa. Trả toàn bộ JSON theo schema: ${STORY_SCHEMA}`,
+    (v) =>
+      validateStory(unpackStory(v), profile, allowed, context.recentStories),
+    storyResponseSchema(profile, allowed),
+  );
+  const hasReaction = story.beats.at(-1)?.purpose === "reaction";
+  const shotCount = story.dialogue.length + (hasReaction ? 1 : 0);
   const result = await checked(
     `${contextText(context, allowed)}
 CÂU CHUYỆN ĐÃ SOẠN: ${JSON.stringify(story)}
-Chuyển thành shot sản xuất, GIỮ NGUYÊN từng câu thoại và người nói theo đúng thứ tự. Mỗi lượt thoại là một shot chỉ có người nói trong characterIds. Cảnh đầu là lời đầu, không mở bằng cảnh im lặng. Chỉ thêm đúng một shot phản ứng không thoại cuối; 7–11 shot tất cả. Không thêm lời. Hook bắt đầu ngay, không thêm cảnh mở đầu im lặng dài. Cuối có phản ứng cụ thể. Prompt ảnh có vị trí, đạo cụ, hướng nhìn và bối cảnh nhất quán. Giữ trục đối thoại qua các shot, không đưa người nghe vào shot lip-sync.
+Chuyển thành shot sản xuất, GIỮ NGUYÊN từng câu thoại và người nói theo đúng thứ tự. Một lượt thoại là một shot và chỉ có một người nói. Có thể giữ tối đa một người nghe trong khung bằng listenerCharacterIds khi biểu cảm hoặc khoảng nhìn của họ giúp cuộc đối đáp tự nhiên. Cảnh đầu là lời đầu, không thêm mở đầu im lặng. Chỉ tạo shot phản ứng không thoại nếu story đã có reaction. Không thêm lời. Prompt ảnh giữ vị trí, đạo cụ, hướng nhìn và trục đối thoại nhất quán.
 Phân biệt clip sinh và thời lượng dựng: durationSeconds là thời lượng clip NGUYÊN 4–30 giây, đủ câu ở tốc độ tối đa 2.6 từ/giây, không bắt tổng clip đúng thời lượng tập. Thời lượng phim ${input.targetDurationSeconds || 35} giây chỉ là dự kiến. KHÔNG ràng buộc tổng clip gốc vào thời lượng phim; thành phẩm tính sau từ audio thật. Không bịa mốc transcript.
-Chỉ trả title, summary và object shots với ${story.dialogue.length + 1} khóa shot1 đến shot${story.dialogue.length + 1}. Mỗi shot có action, setting, camera, durationSeconds, imagePrompt, motionPrompt. KHÔNG viết lại dialogue hoặc speaker. shot1..shot${story.dialogue.length} tương ứng đúng thứ tự các lượt thoại, chỉ người nói trong hình; Mỗi prompt ảnh/chuyển động tối đa 300 ký tự, cụ thể và không lặp hồ sơ nhân vật. shot cuối phản ứng không thoại. Server giữ nguyên từng câu và ID người nói từ câu chuyện.`,
+Chỉ trả title, summary và object shots với ${shotCount} khóa shot1 đến shot${shotCount}. Mỗi shot có action, setting, camera, durationSeconds, imagePrompt, motionPrompt và listenerCharacterIds. KHÔNG viết lại dialogue hoặc speaker. shot1..shot${story.dialogue.length} tương ứng đúng thứ tự các lượt thoại. Mỗi prompt ảnh/chuyển động tối đa 300 ký tự, cụ thể và không lặp hồ sơ nhân vật.${hasReaction ? " Shot cuối là phản ứng không thoại đã có trong story." : " Không thêm shot kết."} Server giữ nguyên từng câu và ID người nói từ câu chuyện.`,
     (v) => {
       const r = validateCreativeAssist(
         "video_plan",
@@ -432,15 +444,16 @@ Chỉ trả title, summary và object shots với ${story.dialogue.length + 1} k
           (s, i) =>
             s.dialogue !== story.dialogue[i].text ||
             s.speakerCharacterId !== story.dialogue[i].characterId ||
-            s.characterIds.length !== 1,
+            !s.characterIds.includes(story.dialogue[i].characterId) ||
+            s.characterIds.length > 2,
         )
       )
         throw new Error(
-          "FAMILY_DIALOGUE_CHANGED: giữ nguyên thoại, thứ tự, người nói; chỉ một người trong shot thoại",
+          "FAMILY_DIALOGUE_CHANGED: giữ nguyên thoại, thứ tự, đúng người nói và tối đa một người nghe",
         );
       return r;
     },
-    shotResponseSchema(story),
+    shotResponseSchema(story, allowed),
   );
   return {
     ...result,

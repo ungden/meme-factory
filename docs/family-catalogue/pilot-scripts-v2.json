@@ -1,0 +1,253 @@
+[
+  {
+    "key": "01",
+    "title": "Đơn xin làm em",
+    "group": "siblings",
+    "series": "Hôm nay đổi phe",
+    "setting": "Bàn ăn gia đình, một đĩa bánh nhỏ đặt giữa hai bé",
+    "situation": "Bánh Bao muốn tạm làm em để được chọn bánh trước",
+    "mechanism": "Đổi vai theo lợi ích rồi tự mắc vào chính luật mình đặt",
+    "outcome": "Đậu Đỏ giữ quyền của người lớn và lấy phần hơn",
+    "setup": "Bánh Bao tuyên bố hôm nay mình làm em",
+    "payoff": "Đậu Đỏ dùng đúng luật đổi vai để nhận phần hơn",
+    "wants": { "Bánh Bao": "được chọn bánh trước", "Đậu Đỏ": "được làm người quyết định" },
+    "turns": [
+      ["Bánh Bao", "Hôm nay chị làm em nhé. Em bé được chọn bánh trước.", "Kéo đĩa bánh về phía mình"],
+      ["Đậu Đỏ", "Được. Vậy em làm lớn, em chọn hoạt hình.", "Ôm điều khiển vào ngực"],
+      ["Bánh Bao", "Chị chỉ làm em lúc ăn thôi.", "Giữ tay trên chiếc bánh to"],
+      ["Đậu Đỏ", "Thế em chỉ làm lớn lúc cầm điều khiển.", "Bấm nút bật tivi"],
+      ["Bánh Bao", "Thôi, chị làm chị lại.", "Đẩy chiếc bánh nhỏ sang cho em"],
+      ["Đậu Đỏ", "Muộn rồi. Em lớn hơn chị một miếng bánh.", "Cầm chiếc bánh to lên"]
+    ]
+  },
+  {
+    "key": "02",
+    "title": "Cuộc họp trước giờ ngủ",
+    "group": "siblings",
+    "series": "Hai người lớn tí hon",
+    "setting": "Phòng ngủ trẻ em, đồng hồ cát mười phút đặt cạnh đồ chơi",
+    "situation": "Hai bé có mười phút chơi nhưng dùng hết thời gian để họp chọn trò",
+    "mechanism": "Cách tổ chức nghiêm túc nuốt mất chính phần thưởng",
+    "outcome": "Đậu Đỏ nhận ra cuộc họp đã trở thành trò chơi duy nhất",
+    "setup": "Bánh Bao mở cuộc họp để chọn trò chơi cuối ngày",
+    "payoff": "Đồng hồ hết khi hai bé vẫn chưa chọn xong",
+    "wants": { "Bánh Bao": "chọn trò thật công bằng", "Đậu Đỏ": "xây nhà hai tầng" },
+    "turns": [
+      ["Bánh Bao", "Mình được chơi mười phút. Họp chọn trò trước nhé.", "Lật đồng hồ cát"],
+      ["Đậu Đỏ", "Em xây nhà. Hai tầng.", "Chồng hai khối gỗ"],
+      ["Bánh Bao", "Khoan, phải bỏ phiếu đã.", "Chia hai mảnh giấy"],
+      ["Đậu Đỏ", "Chị ơi, cát hết rồi.", "Chỉ chiếc đồng hồ đã chảy hết"],
+      ["Bánh Bao", "Nhưng mình chưa chơi gì mà!", "Nhìn đống đồ chơi còn nguyên"],
+      ["Đậu Đỏ", "Có. Chơi họp.", "Gõ bút xuống bàn như kết thúc cuộc họp"]
+    ]
+  },
+  {
+    "key": "03",
+    "title": "Đội tìm điều khiển",
+    "group": "siblings",
+    "series": "Quân sư gặp nạn",
+    "setting": "Phòng khách, hai bé chuẩn bị xem hoạt hình",
+    "situation": "Bánh Bao chỉ huy tìm điều khiển mà chính mình đang cất",
+    "mechanism": "Người đặt quy tắc an toàn quên tính mình vào manh mối",
+    "outcome": "Đậu Đỏ tìm thấy điều khiển trong túi chị và đòi công",
+    "setup": "Bánh Bao lập đội tìm điều khiển",
+    "payoff": "Quy tắc xa tầm tay Đậu Đỏ dẫn thẳng tới túi Bánh Bao",
+    "wants": { "Bánh Bao": "chứng tỏ mình chỉ huy giỏi", "Đậu Đỏ": "tìm điều khiển để xem phim" },
+    "turns": [
+      ["Bánh Bao", "Đội tìm điều khiển, bắt đầu! Em coi dưới gối đi.", "Cầm bút đồ chơi chỉ về ghế sofa"],
+      ["Đậu Đỏ", "Không có. Hôm qua chị cất đâu?", "Nhấc chiếc gối lên"],
+      ["Bánh Bao", "Chỗ an toàn, xa tay em.", "Giơ tay lên cao"],
+      ["Đậu Đỏ", "Túi chị cao nè.", "Chỉ vào túi áo đang phồng"],
+      ["Bánh Bao", "À... chị cất để khỏi mất.", "Rút điều khiển ra"],
+      ["Đậu Đỏ", "Tìm thấy rồi. Trả công em đi.", "Xòe bàn tay trước mặt chị"]
+    ]
+  },
+  {
+    "key": "04",
+    "title": "Trạm thu phí cái ôm",
+    "group": "siblings",
+    "series": "Luật của tụi con",
+    "setting": "Góc chơi, Đậu Đỏ dựng một tấm biển bằng khối gỗ",
+    "situation": "Đậu Đỏ thu phí người muốn ôm mình",
+    "mechanism": "Luật thu phí quay ngược khi chính người đặt luật chủ động ôm",
+    "outcome": "Đậu Đỏ giả vờ mình chỉ đi ngang để khỏi trả",
+    "setup": "Đậu Đỏ mở trạm thu phí cái ôm",
+    "payoff": "Bánh Bao áp phí ngược ngay khi em ôm chị",
+    "wants": { "Bánh Bao": "được ôm em mà không mất bánh", "Đậu Đỏ": "đổi cái ôm lấy bánh" },
+    "turns": [
+      ["Đậu Đỏ", "Ôm em một cái, nộp một miếng bánh.", "Chắn lối bằng tấm biển đồ chơi"],
+      ["Bánh Bao", "Thế em ôm chị thì em trả chị nhé?", "Khoanh tay chờ"],
+      ["Đậu Đỏ", "Em không ôm.", "Lắc đầu rồi lén tựa vào vai chị"],
+      ["Bánh Bao", "Cái tay em đang làm gì đây?", "Nhìn cánh tay em đang vòng qua mình"],
+      ["Đậu Đỏ", "Nó đi ngang thôi.", "Rút tay về thật nhanh"]
+    ]
+  },
+  {
+    "key": "05",
+    "title": "Mật khẩu của hộp đồ chơi",
+    "group": "siblings",
+    "series": "Quân sư gặp nạn",
+    "setting": "Phòng chơi, một hộp đồ chơi có nắp gài",
+    "situation": "Bánh Bao đặt mật khẩu quá dài rồi tự quên",
+    "mechanism": "Cách bảo vệ cầu kỳ thua một chi tiết rất đơn giản",
+    "outcome": "Đậu Đỏ mở hộp vì chị chưa hề gài nắp",
+    "setup": "Bánh Bao tuyên bố hộp đồ chơi đã có mật khẩu bí mật",
+    "payoff": "Đậu Đỏ chỉ cần nhấc chiếc nắp chưa khóa",
+    "wants": { "Bánh Bao": "giữ quyền mở hộp", "Đậu Đỏ": "lấy chiếc xe đỏ" },
+    "turns": [
+      ["Bánh Bao", "Hộp này có mật khẩu. Em không tự mở được đâu.", "Đặt tay lên nắp hộp"],
+      ["Đậu Đỏ", "Mật khẩu gì?", "Chạm vào chiếc khóa đồ chơi"],
+      ["Bánh Bao", "Tên tất cả đồ chơi, đọc từ nhỏ tới lớn.", "Đếm trên đầu ngón tay"],
+      ["Đậu Đỏ", "Đọc đi chị.", "Ngồi chờ trước hộp"],
+      ["Bánh Bao", "Chị... quên chiếc đầu tiên rồi.", "Khựng lại giữa lúc đếm"],
+      ["Đậu Đỏ", "Em mở được.", "Nhấc chiếc nắp chưa hề gài lên"]
+    ]
+  },
+  {
+    "key": "06",
+    "title": "Bản đồ trốn dọn đồ",
+    "group": "siblings",
+    "series": "Luật của tụi con",
+    "setting": "Phòng chơi bừa bộn, một tấm chăn trải giữa sàn",
+    "situation": "Đậu Đỏ vẽ vùng không phải dọn để né việc",
+    "mechanism": "Bánh Bao dùng đúng vùng an toàn cho tới khi nó phản tác dụng",
+    "outcome": "Đậu Đỏ bị đẩy ra khỏi chỗ ngồi bởi chính đống đồ an toàn",
+    "setup": "Đậu Đỏ tuyên bố đồ trong vùng chăn không cần dọn",
+    "payoff": "Bánh Bao chất hết đồ lên chăn khiến em không còn chỗ",
+    "wants": { "Bánh Bao": "dọn phòng cho xong", "Đậu Đỏ": "khỏi phải cất đồ" },
+    "turns": [
+      ["Đậu Đỏ", "Trong chăn là vùng sạch. Không phải dọn.", "Ngồi giữa tấm chăn"],
+      ["Bánh Bao", "Thế cái xe này sạch chưa?", "Cầm chiếc xe đồ chơi lên"],
+      ["Đậu Đỏ", "Bỏ vào đây là sạch.", "Vỗ tay xuống chăn"],
+      ["Bánh Bao", "Còn mấy khối gỗ?", "Ôm cả rổ khối gỗ"],
+      ["Đậu Đỏ", "Cũng sạch.", "Nhích người tránh đống đồ"],
+      ["Bánh Bao", "Vùng sạch hết chỗ rồi. Em ngồi đâu?", "Đặt món cuối cùng vào chỗ em vừa ngồi"],
+      ["Đậu Đỏ", "Em ra vùng phải dọn vậy.", "Bước ra ngoài chăn với vẻ không phục"]
+    ]
+  },
+  {
+    "key": "07",
+    "title": "Tay có giờ nghỉ",
+    "group": "siblings",
+    "series": "Luật của tụi con",
+    "setting": "Bàn học cạnh bếp, hộp bút màu và đĩa dưa hấu ở gần nhau",
+    "situation": "Đậu Đỏ cho tay nghỉ để khỏi cất bút nhưng vẫn muốn ăn dưa",
+    "mechanism": "Bánh Bao tách hai bàn tay theo chính luật em vừa bịa",
+    "outcome": "Đậu Đỏ phải dùng bàn tay còn lại để xách hộp bút",
+    "setup": "Đậu Đỏ từ chối cất hộp bút vì tay đang nghỉ",
+    "payoff": "Bàn tay không cầm dưa bị giao đúng việc cần làm",
+    "wants": { "Bánh Bao": "Đậu Đỏ tự cất bút", "Đậu Đỏ": "ăn dưa mà không phải làm việc" },
+    "turns": [
+      ["Bánh Bao", "Đậu Đỏ, cất hộp bút đi em.", "Đẩy hộp bút về phía em"],
+      ["Đậu Đỏ", "Tay em nghỉ rồi.", "Giấu hai tay sau lưng"],
+      ["Bánh Bao", "Ừ. Chị ăn dưa một mình vậy.", "Cầm một miếng dưa lên"],
+      ["Đậu Đỏ", "Tay ăn dưa thức rồi.", "Chìa tay phải ra"],
+      ["Bánh Bao", "Tốt. Tay kia xách hộp bút.", "Móc quai hộp vào tay trái của em"],
+      ["Đậu Đỏ", "Hai tay không nghỉ cùng giờ hả chị?", "Nhìn qua lại hai bàn tay"]
+    ]
+  },
+  {
+    "key": "08",
+    "title": "Ban giám khảo không được ăn",
+    "group": "siblings",
+    "series": "Hôm nay đổi phe",
+    "setting": "Bàn bếp, hai chiếc bánh nhỏ vừa nguội",
+    "situation": "Bánh Bao giành làm giám khảo vì tưởng sẽ được nếm nhiều",
+    "mechanism": "Đậu Đỏ đặt quyền của người thắng cao hơn quyền của giám khảo",
+    "outcome": "Bánh Bao lập tức xin làm thí sinh",
+    "setup": "Bánh Bao tự nhận làm giám khảo cuộc thi bánh",
+    "payoff": "Đậu Đỏ tuyên bố người thắng mới được ăn",
+    "wants": { "Bánh Bao": "được nếm cả hai chiếc", "Đậu Đỏ": "giữ chiếc bánh mình làm" },
+    "turns": [
+      ["Bánh Bao", "Chị làm giám khảo. Chị phải nếm cả hai cái.", "Kéo hai chiếc bánh lại gần"],
+      ["Đậu Đỏ", "Thế ai được ăn cái to?", "Giữ tay trên chiếc bánh to"],
+      ["Bánh Bao", "Giám khảo chứ ai.", "Chỉ vào mình"],
+      ["Đậu Đỏ", "Không. Người thắng ăn.", "Đặt chiếc bánh to trước mặt mình"],
+      ["Bánh Bao", "Vậy chị không làm giám khảo nữa.", "Tháo tấm thẻ giám khảo bằng giấy"],
+      ["Đậu Đỏ", "Muộn rồi. Em chấm chị thua.", "Gõ chiếc thìa xuống bàn"]
+    ]
+  },
+  {
+    "key": "09",
+    "title": "Biên bản nếm bánh",
+    "group": "child_parent",
+    "series": "Bố mẹ bị bắt bài",
+    "setting": "Bếp gia đình, khay bánh chỉ còn một chiếc",
+    "situation": "Bố lấy cớ kiểm tra chất lượng để ăn bánh trước",
+    "mechanism": "Bánh Bao biến dấu vết bố để lại thành số liệu kiểm tra",
+    "outcome": "Chiếc bánh bố giấu sau lưng bị tính vào biên bản",
+    "setup": "Bánh Bao phát hiện khay bánh nhẹ dần",
+    "payoff": "Bánh Bao đếm cả chiếc bánh bố đang giấu",
+    "wants": { "Bánh Bao": "giữ phần bánh còn lại", "Bố": "ăn thêm mà không bị bắt quả tang" },
+    "turns": [
+      ["Bánh Bao", "Bố ơi, khay bánh sao nhẹ dần vậy?", "Đếm những chỗ trống trên khay"],
+      ["Bố", "Bố kiểm tra chất lượng thôi con.", "Đặt hai tay ra sau lưng"],
+      ["Bánh Bao", "Bố kiểm tra mấy cái rồi?", "Mở cuốn sổ nhỏ"],
+      ["Bố", "Bố quên đếm. Hay làm lại từ đầu nhé?", "Nhìn chiếc bánh cuối trên khay"],
+      ["Bánh Bao", "Không cần. Năm cái ngon.", "Ghi con số năm vào sổ"],
+      ["Bố", "Còn cái thứ sáu?", "Cố giữ vẻ bình thản"],
+      ["Bánh Bao", "Nó ở sau lưng bố.", "Nghiêng người nhìn bàn tay bố"]
+    ]
+  },
+  {
+    "key": "10",
+    "title": "Mẹ tìm kính",
+    "group": "child_parent",
+    "series": "Bố mẹ bị bắt bài",
+    "setting": "Góc đọc sách, kính nằm trên đầu Mẹ",
+    "situation": "Mẹ tìm kính để đọc truyện trong khi kính đang ở trên đầu",
+    "mechanism": "Đậu Đỏ giải quyết từng mục đích trước khi chỉ ra vật bị mất",
+    "outcome": "Một câu hỏi ngắn khiến Mẹ tự sờ lên đầu",
+    "setup": "Mẹ lục tìm kính quanh chồng sách",
+    "payoff": "Đậu Đỏ hỏi chiếc kính trên đầu mẹ có dùng được không",
+    "wants": { "Đậu Đỏ": "được nghe truyện ngay", "Mẹ": "tìm kính để đọc sách" },
+    "turns": [
+      ["Đậu Đỏ", "Mẹ tìm gì vậy?", "Nhìn Mẹ lật từng cuốn sách"],
+      ["Mẹ", "Mẹ tìm kính để đọc truyện cho con.", "Nhìn xuống dưới gối"],
+      ["Đậu Đỏ", "Truyện đây.", "Đưa cuốn truyện cho Mẹ"],
+      ["Mẹ", "Nhưng không có kính, mẹ không đọc được.", "Nheo mắt nhìn trang sách"],
+      ["Đậu Đỏ", "Cái trên đầu mẹ đọc được không?", "Chỉ lên mái tóc của Mẹ"]
+    ]
+  },
+  {
+    "key": "11",
+    "title": "Vé ưu tiên ôm bố",
+    "group": "child_parent",
+    "series": "Luật của tụi con",
+    "setting": "Cửa ra vào khi Bố vừa đi làm về",
+    "situation": "Bánh Bao phát vé xếp hàng ôm Bố nhưng Đậu Đỏ đi thẳng qua",
+    "mechanism": "Đậu Đỏ dùng quyết định của chính người soát vé để bỏ qua luật chị đặt",
+    "outcome": "Bố đã ôm Đậu Đỏ nên vô tình xác nhận em được vào",
+    "setup": "Bánh Bao cầm hai tấm vé chờ Bố về",
+    "payoff": "Đậu Đỏ tuyên bố Bố đã cho mình qua cửa",
+    "wants": { "Bánh Bao": "được ôm Bố trước theo đúng hàng", "Đậu Đỏ": "ôm Bố ngay" },
+    "turns": [
+      ["Bánh Bao", "Ai có vé mới được ôm bố. Chị số một.", "Giơ tấm vé số một"],
+      ["Đậu Đỏ", "Bố về!", "Chạy tới ôm chân Bố"],
+      ["Bánh Bao", "Vé em đâu?", "Chặn lại bằng tấm vé còn lại"],
+      ["Đậu Đỏ", "Bố là người giữ cửa. Bố cho em qua rồi.", "Ôm Bố chặt hơn"],
+      ["Bố", "Ờ... cửa này mở hơi nhanh.", "Nhìn Bánh Bao rồi giấu nụ cười"]
+    ]
+  },
+  {
+    "key": "12",
+    "title": "Bức ảnh gia đình nghiêm túc",
+    "group": "family",
+    "series": "Hai người lớn tí hon",
+    "setting": "Bếp sáng, điện thoại đặt hẹn giờ chụp ảnh gia đình",
+    "situation": "Cả nhà cố chụp một bức ảnh nghiêm túc khi Đậu Đỏ sắp hắt xì",
+    "mechanism": "Nỗ lực giữ nghiêm túc càng làm khoảnh khắc ngoài kế hoạch buồn cười",
+    "outcome": "Máy chụp đúng lúc bột bay và mọi người phản ứng thật",
+    "setup": "Mẹ bật hẹn giờ và yêu cầu cả nhà đứng yên",
+    "payoff": "Đậu Đỏ hắt xì đúng lúc máy chụp",
+    "wants": { "Mẹ": "có một tấm ảnh chỉnh tề", "Đậu Đỏ": "được hắt xì" },
+    "turns": [
+      ["Mẹ", "Cả nhà đứng yên nhé. Lần này chụp nghiêm túc.", "Bật hẹn giờ rồi chạy vào đứng cạnh Bố"],
+      ["Bánh Bao", "Đậu Đỏ, em đừng nhúc nhích.", "Giữ nhẹ hai vai em"],
+      ["Đậu Đỏ", "Nhưng mũi em sắp hắt xì.", "Nhăn mũi nhìn hũ bột trước mặt"],
+      ["Bố", "Ráng giữ, bố đếm ba...", "Giơ ba ngón tay"],
+      ["Đậu Đỏ", "Hắt xì!", "Hắt xì làm một lớp bột mỏng bay lên đúng lúc điện thoại chụp"],
+      ["Mẹ", "Thôi, khỏi chụp lại.", "Nhìn bức ảnh rồi bật cười vì vẻ mặt cả nhà"]
+    ]
+  }
+]

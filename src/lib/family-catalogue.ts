@@ -12,7 +12,12 @@ export type ChannelProfile = {
   positioning: string;
   audience: string;
   tone: string;
-  roles: Array<{ characterId: string; name: string; personality: string }>;
+  roles: Array<{
+    characterId: string;
+    name: string;
+    personality: string;
+    speechStyle?: string;
+  }>;
   series: readonly string[];
   avoid: string[];
   references: Array<{ source: string; mechanism: string; lesson: string }>;
@@ -89,7 +94,7 @@ export const referenceMechanisms: ChannelProfile["references"] = [
 ];
 export function familyProfile(roles: ChannelProfile["roles"]): ChannelProfile {
   return {
-    version: 1,
+    version: 2,
     positioning:
       "Một gia đình cố định, nhiều chuyện nhỏ nối tiếp; Bánh Bao và Đậu Đỏ dẫn chuyện. Mỗi tập độc lập, quan hệ tích luỹ qua các tập. Làm bánh chỉ là một bối cảnh nhận diện.",
     audience: "Người lớn, đặc biệt cha mẹ Việt Nam",
@@ -104,6 +109,9 @@ export function familyProfile(roles: ChannelProfile["roles"]): ChannelProfile {
       "Không kết bằng bài học, cả nhà cùng cười hoặc cú lật không được chuẩn bị",
       "Không kéo thoại cho đủ thời lượng",
       "Không ép tất cả tập về bánh",
+      "Không chữa mâu thuẫn bằng một câu chia sẻ, hợp tác hoặc bài học ở cuối",
+      "Không dùng lời văn hành chính, ẩn dụ cầu kỳ hoặc chơi chữ chỉ để tỏ ra thông minh",
+      "Không bắt nhân vật làm trái điều vừa hiểu chỉ để tạo cú lật",
     ],
   };
 }
@@ -141,21 +149,28 @@ export function validateStory(
     s.wants.some((w) => !allowed.includes(w.characterId) || !w.want?.trim())
   )
     throw new Error("STORY_WANTS_INVALID");
+  const payoffIndex = s?.beats?.findIndex((b) => b.purpose === "payoff") ?? -1;
+  const reactionIndex = s?.beats?.findIndex((b) => b.purpose === "reaction") ?? -1;
   if (
     !Array.isArray(s.beats) ||
+    s.beats.length < 2 ||
+    s.beats.length > 7 ||
     s.beats[0]?.purpose !== "hook" ||
-    s.beats.at(-1)?.purpose !== "reaction" ||
-    !s.beats.some((b) => b.purpose === "payoff") ||
-    s.beats.filter((b) => b.purpose === "turn").length < 2 ||
+    payoffIndex < 1 ||
+    s.beats.filter((b) => b.purpose === "payoff").length !== 1 ||
+    s.beats.filter((b) => b.purpose === "turn").length > 4 ||
+    s.beats.slice(1, payoffIndex).some((b) => b.purpose !== "turn") ||
+    (reactionIndex >= 0 &&
+      (reactionIndex !== s.beats.length - 1 || reactionIndex < payoffIndex)) ||
     s.beats.some((b) => !b.description?.trim())
   )
     throw new Error(
-      `STORY_BEATS_INVALID: cần hook, 2–3 turn, payoff, reaction; nhận ${JSON.stringify(s.beats?.map((b) => b.purpose))}`,
+      `STORY_BEATS_INVALID: cần hook, 0–4 turn, payoff và reaction chỉ khi làm câu chuyện hay hơn; nhận ${JSON.stringify(s.beats?.map((b) => b.purpose))}`,
     );
   if (
     !Array.isArray(s.dialogue) ||
-    s.dialogue.length < 6 ||
-    s.dialogue.length > 10 ||
+    s.dialogue.length < 3 ||
+    s.dialogue.length > 12 ||
     s.dialogue.some(
       (d) =>
         !allowed.includes(d.characterId) ||
@@ -168,11 +183,17 @@ export function validateStory(
     (n, d) => n + d.text.trim().split(/\s+/).length,
     0,
   );
-  if (words < 60 || words > 90)
-    throw new Error(`STORY_WORDS_${words}: cần 60–90 từ và 6–10 lượt thoại`);
+  if (words < 15 || words > 120)
+    throw new Error(`STORY_WORDS_${words}: cần 15–120 đơn vị lời thoại`);
+  if (
+    s.dialogue.some(
+      (d) => d.text.trim().split(/\s+/).filter(Boolean).length > 35,
+    )
+  )
+    throw new Error("STORY_DIALOGUE_LINE_TOO_LONG");
   if (recent.some((r) => fingerprint(r) === fingerprint(s)))
     throw new Error("STORY_REPEATED_COMBINATION");
   return { ...s, profileVersion: profile.version };
 }
 export const STORY_SCHEMA =
-  '{"series":"", "situation":"", "mechanism":"", "outcome":"", "wants":[{"characterId":"uuid","want":""}], "beats":{"hook":"","turns":["",""],"payoff":"","reaction":""}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid","text":"","action":""}]}';
+  '{"series":"", "situation":"", "mechanism":"", "outcome":"", "wants":[{"characterId":"uuid","want":""}], "beats":{"hook":"","turns":[],"payoff":"","reaction":""}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid","text":"","action":""}]}';

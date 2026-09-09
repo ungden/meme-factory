@@ -8,6 +8,14 @@ export const familyPersonalities: Record<string, string> = {
   Bố: "Hay hưởng ứng trò con, có ham thích và lý do trẻ con; đồng minh, giấu chuyện nhỏ hoặc bị bắt bài.",
   Mẹ: "Quan sát tốt, thực tế, có khiếu hài, chơi cùng con; đổi điều kiện hoặc mở tình huống, không luôn xử phạt.",
 };
+export const familySpeechStyles: Record<string, string> = {
+  "Bánh Bao":
+    "Chị gái tuổi mẫu giáo. Câu ngắn, rõ và hay mở luật chơi bằng giọng chắc chắn. Chỉ dùng kiểu nói người lớn khi đang bắt chước hoặc thương lượng; để lộ ngay điều chị thật sự muốn khi bị bắt bẻ.",
+  "Đậu Đỏ":
+    "Em trai tuổi chập chững. Nói rất ngắn, hỏi thẳng và bám vào một từ vừa nghe. Không dùng ẩn dụ dài, từ hành chính hoặc kết luận đạo lý; sự tinh ý nằm ở một câu hỏi hoặc một hành động đơn giản.",
+  Bố: "Nói đời thường, hơi ham vui, hay chống chế ngắn khi bị bắt quả tang. Xưng bố/con; không độc thoại giải thích trò đùa.",
+  Mẹ: "Nói gọn, thực tế, đôi khi chốt khô mà vui. Xưng mẹ/con; phản ứng bằng đổi điều kiện hoặc một câu bắt bài, không giảng giải.",
+};
 export type PilotEpisode = {
   key: string;
   title: string;
@@ -20,7 +28,7 @@ export type PilotEpisode = {
   setup: string;
   payoff: string;
   turns: string[][];
-  reaction: string;
+  reaction?: string;
   wants?: Record<string, string>;
 };
 export function buildFamilyPilot(cast: FilmCast[], pilot: PilotEpisode[]) {
@@ -35,6 +43,7 @@ export function buildFamilyPilot(cast: FilmCast[], pilot: PilotEpisode[]) {
       characterId: c.characterId,
       name: c.name,
       personality: familyPersonalities[c.name],
+      speechStyle: familySpeechStyles[c.name],
     })),
   );
   const stories: Story[] = [];
@@ -56,12 +65,17 @@ export function buildFamilyPilot(cast: FilmCast[], pilot: PilotEpisode[]) {
         })),
         beats: [
           { purpose: "hook", description: e.setup },
-          { purpose: "turn", description: e.turns[2][1] },
-          { purpose: "turn", description: e.turns[4][1] },
+          ...e.turns
+            .slice(1, -1)
+            .filter((_, i) => i % 2 === 1)
+            .slice(0, 4)
+            .map((turn) => ({ purpose: "turn" as const, description: turn[1] })),
           { purpose: "payoff", description: e.payoff },
-          { purpose: "reaction", description: e.reaction },
+          ...(e.reaction
+            ? [{ purpose: "reaction" as const, description: e.reaction }]
+            : []),
         ],
-        caption: `${e.title}. Nhà bạn đã từng có cuộc thương lượng như thế này chưa?`,
+        caption: e.title,
         dialogue: e.turns.map((t) => ({
           characterId: role(t[0]).characterId,
           text: t[1],
@@ -84,34 +98,41 @@ export function buildFamilyPilot(cast: FilmCast[], pilot: PilotEpisode[]) {
       imagePrompt: string;
       motionPrompt: string;
       followsPrevious: boolean;
-    }> = e.turns.map((t) => {
+    }> = e.turns.map((t, index) => {
       const c = role(t[0]);
+      const adjacent = [...e.turns.slice(index + 1), ...e.turns.slice(0, index)]
+        .map((turn) => role(turn[0]))
+        .find((candidate) => candidate.characterId !== c.characterId);
+      const characterIds = [c.characterId, adjacent?.characterId].filter(
+        (id): id is string => !!id,
+      );
       return {
-        characterIds: [c.characterId],
+        characterIds,
         speakerCharacterId: c.characterId,
         dialogue: t[1],
         action: t[2],
         setting: e.setting,
         camera:
-          "Cận trung ngang tầm mắt người nói, máy cố định; hướng nhìn về người đối thoại ngoài khung, giữ trục máy.",
+          "Trung cận ngang tầm mắt người nói; giữ người nghe trong khung khi biểu cảm của họ làm câu thoại tự nhiên hơn.",
         durationSeconds: Math.max(4, Math.ceil(t[1].split(/\s+/).length / 2.6)),
-        imagePrompt: `${e.setting}. Một mình ${c.name} trong khung hình, ${t[2].toLocaleLowerCase("vi")}. Ảnh đầu trước khi nói. Theo ảnh chuẩn ${c.name}: ${c.description}. Không chữ, không bố cục lưới, không người khác. Ánh sáng mềm, giữ đạo cụ và vị trí qua các shot.`,
-        motionPrompt: `${c.name}: ${t[2]}. Một lượt nói, cử chỉ tiết chế, nhường nhịp cho câu sau; giữ hướng nhìn và nhận diện từ ảnh đầu.`,
+        imagePrompt: `${e.setting}. ${c.name} chuẩn bị nói, ${t[2].toLocaleLowerCase("vi")}.${adjacent ? ` ${adjacent.name} ở cạnh và đang lắng nghe.` : ""} Theo đúng ảnh chuẩn từng người. Không chữ, không bố cục lưới.`,
+        motionPrompt: `${c.name} là người duy nhất nói: ${t[2]}. ${adjacent ? `${adjacent.name} chỉ nghe và phản ứng tự nhiên.` : ""} Giữ hướng nhìn và nhận diện từ ảnh đầu.`,
         followsPrevious: false,
       };
     });
-    scenes.push({
-      characterIds: ids,
-      speakerCharacterId: null,
-      dialogue: "",
-      action: e.reaction,
-      setting: e.setting,
-      camera: "Trung cảnh cố định vừa đủ người và đạo cụ; giữ trục không gian",
-      durationSeconds: 4,
-      imagePrompt: `${e.setting}. ${ids.map((id) => cast.find((c) => c.characterId === id)!.name).join(", ")} đúng ảnh chuẩn. ${e.reaction}. Không người khác, không chữ, không lưới.`,
-      motionPrompt: e.reaction,
-      followsPrevious: false,
-    });
+    if (e.reaction)
+      scenes.push({
+        characterIds: ids,
+        speakerCharacterId: null,
+        dialogue: "",
+        action: e.reaction,
+        setting: e.setting,
+        camera: "Trung cảnh cố định vừa đủ người và đạo cụ; giữ trục không gian",
+        durationSeconds: 4,
+        imagePrompt: `${e.setting}. ${ids.map((id) => cast.find((c) => c.characterId === id)!.name).join(", ")} đúng ảnh chuẩn. ${e.reaction}. Không người khác, không chữ, không lưới.`,
+        motionPrompt: e.reaction,
+        followsPrevious: false,
+      });
     return {
       catalogueKey: `family-v1-${e.key}`,
       title: e.title,
@@ -124,7 +145,7 @@ export function buildFamilyPilot(cast: FilmCast[], pilot: PilotEpisode[]) {
       resolution: "720p",
       audioMode: "native",
       subtitles: true,
-      trimSpeech: false,
+      trimSpeech: true,
       scenes,
     };
   });

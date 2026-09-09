@@ -24,14 +24,14 @@ export function storyResponseSchema(profile: ChannelProfile, ids: string[]) {
     },
     beats: object({
       hook: string,
-      turns: { type: "array", minItems: 2, maxItems: 3, items: string },
+      turns: { type: "array", minItems: 0, maxItems: 4, items: string },
       payoff: string,
       reaction: string,
     }),
     dialogue: {
       type: "array",
-      minItems: 6,
-      maxItems: 10,
+      minItems: 3,
+      maxItems: 12,
       items: object({ characterId, text: string, action: string }),
     },
   });
@@ -50,13 +50,19 @@ export function unpackStory(value: unknown) {
     ...v,
     beats: [
       { purpose: "hook", description: b.hook },
-      ...b.turns.map((description) => ({ purpose: "turn", description })),
+      ...b.turns
+        .filter((description) => description?.trim())
+        .map((description) => ({ purpose: "turn", description })),
       { purpose: "payoff", description: b.payoff },
-      { purpose: "reaction", description: b.reaction },
+      ...(b.reaction?.trim()
+        ? [{ purpose: "reaction", description: b.reaction }]
+        : []),
     ],
   };
 }
-export function shotResponseSchema(story: Story) {
+export function shotResponseSchema(story: Story, ids: string[] = []) {
+  const hasReaction = story.beats.at(-1)?.purpose === "reaction";
+  const shotCount = story.dialogue.length + (hasReaction ? 1 : 0);
   const shot = object({
     action: string,
     setting: string,
@@ -65,16 +71,21 @@ export function shotResponseSchema(story: Story) {
     imagePrompt: {
       type: "string",
       description:
-        "Khung ĐẦU trước hành động; chưa diễn ra kết quả chuyển động. Shot thoại chỉ có người nói, người nghe ngoài khung, mặt rõ; không chữ hoặc lưới.",
+        "Khung ĐẦU trước hành động; chưa diễn ra kết quả chuyển động. Người nói phải rõ mặt; có thể giữ một người nghe trong khung để lấy phản ứng; không chữ hoặc lưới.",
     },
     motionPrompt: string,
+    listenerCharacterIds: {
+      type: "array",
+      maxItems: 1,
+      items: ids.length ? { type: "string", enum: ids } : string,
+    },
   });
   return object({
     title: string,
     summary: string,
     shots: object(
       Object.fromEntries(
-        Array.from({ length: story.dialogue.length + 1 }, (_, i) => [
+        Array.from({ length: shotCount }, (_, i) => [
           `shot${i + 1}`,
           shot,
         ]),
@@ -93,9 +104,11 @@ export function compileStoryShots(
     summary: string;
     shots: Record<string, Record<string, unknown>>;
   };
-  if (!v?.shots || Object.keys(v.shots).length !== story.dialogue.length + 1)
+  const hasReaction = story.beats.at(-1)?.purpose === "reaction";
+  const shotCount = story.dialogue.length + (hasReaction ? 1 : 0);
+  if (!v?.shots || Object.keys(v.shots).length !== shotCount)
     throw new Error("STORY_SHOTS_MISSING");
-  const scenes = Array.from({ length: story.dialogue.length + 1 }, (_, i) => {
+  const scenes = Array.from({ length: shotCount }, (_, i) => {
     const shot = v.shots[`shot${i + 1}`],
       line = story.dialogue[i];
     if (
@@ -111,12 +124,19 @@ export function compileStoryShots(
       ...shot,
       ...(line
         ? {
-            camera: `Trung cận ngang tầm mắt ${characters.find((c) => c.id === line.characterId)?.name || "người nói"}; chỉ một người trong khung. Giữ mặt rõ, nhìn về người nghe ngoài khung suốt câu thoại.`,
-            imagePrompt: `${shot.imagePrompt || ""}\nRàng buộc: chỉ ${characters.find((c) => c.id === line.characterId)?.name || "người nói"} hiện trong khung; người nghe ở ngoài khung. Đây là trạng thái trước hành động, không phải kết quả sau chuyển động; không chữ hay lưới ảnh.`,
+            imagePrompt: `${shot.imagePrompt || ""}\nRàng buộc: ${characters.find((c) => c.id === line.characterId)?.name || "người nói"} là người duy nhất nói và phải nhìn rõ mặt. Người nghe chỉ hiện khi cần cho phản ứng tự nhiên; không chữ hay lưới ảnh.`,
           }
         : {}),
       characterIds: line
-        ? [line.characterId]
+        ? [
+            line.characterId,
+            ...((Array.isArray(shot.listenerCharacterIds)
+              ? shot.listenerCharacterIds
+              : []) as string[]).filter(
+              (id) =>
+                id !== line.characterId && characters.some((c) => c.id === id),
+            ),
+          ].slice(0, 2)
         : [...new Set(story.dialogue.map((d) => d.characterId))],
       speakerCharacterId: line?.characterId || null,
       dialogue: line?.text || "",

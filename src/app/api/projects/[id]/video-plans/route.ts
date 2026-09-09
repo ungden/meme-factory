@@ -14,6 +14,7 @@ export async function GET(
       )
       .eq("project_id", a.project.id)
       .eq("workspace_version", a.project.workspace_version)
+      .neq("status", "cancelled")
       .order("updated_at", { ascending: false })
       .limit(24);
     if (error) throw error;

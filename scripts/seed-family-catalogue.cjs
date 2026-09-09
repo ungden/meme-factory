@@ -100,7 +100,7 @@ const uuid = (key) => {
       .select("profile")
       .eq("project_id", p.id)
       .eq("workspace_version", 1)
-      .eq("version", 1)
+      .eq("version", profile.version)
       .maybeSingle(),
   );
   if (prior) {
@@ -113,7 +113,7 @@ const uuid = (key) => {
           : v;
       });
     if (stable(prior.profile) !== stable(profile))
-      throw new Error("Profile v1 changed; create v2 instead.");
+      throw new Error(`Profile v${profile.version} changed; create a new version instead.`);
   }
   if (!prior)
     await value(
@@ -122,7 +122,7 @@ const uuid = (key) => {
         .insert({
           project_id: p.id,
           workspace_version: 1,
-          version: 1,
+          version: profile.version,
           profile,
         }),
     );
@@ -186,8 +186,7 @@ const uuid = (key) => {
     });
     if (
       !exists ||
-      (process.argv.includes("--correct-untouched") &&
-        exists.version === 1 &&
+      (process.argv.includes("--upgrade-editorial") &&
         exists.story?.source === "editorial_draft")
     ) {
       await value(
@@ -205,7 +204,7 @@ const uuid = (key) => {
             resolution: e.resolution,
             audio_mode: e.audioMode,
             subtitles: true,
-            trim_speech: false,
+            trim_speech: true,
             target_duration_seconds: 35,
             cast_snapshot: cast.filter((c) =>
               rows.some((s) =>
@@ -236,7 +235,7 @@ const uuid = (key) => {
         (d) =>
           `- **${cast.find((c) => c.characterId === d.characterId).name}:** ${d.text} _(${d.action})_`,
       ),
-      `\nPhản ứng: ${e.scenes.at(-1).action}`,
+      `\nĐiểm dừng: ${e.scenes.at(-1).action}`,
       `\nPlan: ${planId}\n`,
     );
   }
@@ -246,7 +245,7 @@ const uuid = (key) => {
   console.log(
     JSON.stringify({
       project: p.name,
-      profileVersion: 1,
+      profileVersion: profile.version,
       created,
       total: plans.length,
       mediaRequests: 0,
