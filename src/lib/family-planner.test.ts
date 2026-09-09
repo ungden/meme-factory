@@ -98,7 +98,7 @@ it("writes story then shots, carries caption and freezes exact dialogue", async 
   ];
   const result = await generateCreativeAssist(input);
   expect(calls.prompts).toHaveLength(4);
-  expect(result.kind === "video_plan" && result.story?.profileVersion).toBe(4);
+  expect(result.kind === "video_plan" && result.story?.profileVersion).toBe(5);
   expect(result.kind === "video_plan" && result.caption).toBe(
     plans[0].story.caption,
   );
@@ -291,6 +291,55 @@ it("keeps a listener in a native dialogue shot and does not invent a final react
    const ideas = { ideas: [1,2,3].map(i => ({ title: `Câu chuyện ${i}`, idea: `Hai bé bàn cách giành lượt chơi ${i}`, why: "Hai mong muốn khác nhau" })) };
    calls.responses = [ideas];
    await generateCreativeAssist({ ...input, kind: "idea_suggestions" });
-   expect(calls.prompts[0]).toContain("family-dialogue-4");
+   expect(calls.prompts[0]).toContain("family-dialogue-5");
    expect(calls.prompts[0]).toContain("KHÔNG giới hạn khả năng lập luận");
  });
+
+it("keeps a sibling-only adult-format parody and its staged pronouns through shot planning", async () => {
+  const ids = [cast[0].characterId, cast[1].characterId];
+  const story = {
+    ...plans[0].story,
+    comicPremise: {
+      normalExpectation: "Người dẫn giới thiệu một căn nhà sang trọng cho chủ nhà.",
+      invertedReality: "Hai bé làm chương trình tham quan căn nhà dựng bằng gối.",
+      visibleContrast: "Micro và động tác dẫn tour nghiêm túc trước căn nhà nhỏ bằng gối sofa.",
+    },
+    series: "Chuyện người lớn phiên bản nhí",
+    situation: "Hai bé quay chương trình giới thiệu căn nhà bằng gối",
+    mechanism: "Parody tour nhà sang trọng với quy mô đồ chơi",
+    outcome: "Lối đi được chủ nhà hướng dẫn bằng cách bò",
+    setup: "Người dẫn cầm micro đứng bên cửa nhà gối",
+    payoff: "Khách cần bò mới vào được cửa chính",
+    dialogue: [
+      { characterId: ids[0], text: "Mời anh giới thiệu lối vào.", action: "Cầm micro hướng vào cửa nhà gối" },
+      { characterId: ids[1], text: "Cửa chính đây. Anh cúi thấp một chút.", action: "Vén tấm chăn che cửa" },
+      { characterId: ids[0], text: "Thấp nữa à?", action: "Ngồi xổm trước cửa, micro vẫn hướng về khách" },
+    ],
+    beats: [
+      { purpose: "hook" as const, description: "Micro trước căn nhà bằng gối" },
+      { purpose: "turn" as const, description: "Chủ nhà hướng dẫn lối vào" },
+      { purpose: "payoff" as const, description: "Cửa nhỏ khiến người dẫn phải bò" },
+    ],
+  };
+  const shots = Object.fromEntries(story.dialogue.map((d, i) => [`shot${i + 1}`, {
+    action: d.action, setting: "Nhà gối trong phòng khách", camera: "Trung cảnh như dẫn tour",
+    durationSeconds: 4, imagePrompt: "Hai bé cùng micro trước nhà gối nhỏ",
+    motionPrompt: d.action, listenerCharacterIds: [ids[(i + 1) % 2]],
+  }]));
+  calls.responses = [story, story, {
+    passed: true, issues: [], evidence: {
+      contrast: "Micro và cách dẫn tour trang trọng nhưng nhà làm bằng gối nhỏ.",
+      motivation: "Người dẫn hỏi lối vào, chủ nhà hướng dẫn đi qua cửa.",
+      development: "Câu hướng dẫn cúi dẫn tới người dẫn ngồi xổm vẫn chưa vào được.",
+      ending: "Câu thấp nữa à giữ nghiêm túc trong tình thế phải bò vào nhà gối.",
+      originality: "Không dùng chuỗi hỏi nghề nghiệp hoặc câu chốt của phỏng vấn xe.",
+    },
+  }, { title: "Mời vào nhà", summary: "Tour nhà gối", shots }];
+  const result = await generateCreativeAssist({ ...input, selectedCharacterIds: ids, intent: "Hai bé parody một chương trình tham quan nhà" });
+  expect(result.kind).toBe("video_plan");
+  if (result.kind !== "video_plan") throw new Error("Expected a video plan");
+  expect(result.scenes.map(s => s.dialogue)).toEqual(story.dialogue.map(d => d.text));
+  expect(result.scenes.map(s => s.speakerCharacterId)).toEqual(story.dialogue.map(d => d.characterId));
+  expect(result.scenes.flatMap(s => s.characterIds).every(id => ids.includes(id))).toBe(true);
+  expect(result.story?.comicPremise).toEqual(story.comicPremise);
+});

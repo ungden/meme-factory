@@ -2,15 +2,15 @@ import { familyProfile, validateStory, type Story } from "./family-catalogue";
 import type { FilmCast } from "./short-film/contracts";
 export const familyPersonalities: Record<string, string> = {
   "Bánh Bao":
-    "Chị thích đứng ra lo và sắp xếp việc nhà, giục người lớn như một phụ huynh tí hon; có thể sốt ruột, mềm lòng hoặc nhờ em giúp.",
+    "Chị thích chủ trì, sắp xếp và thể hiện vai lớn: có thể lo việc nhà hoặc làm người hỏi/khách mời trong parody. Diễn nghiêm túc, có thể sốt ruột hay mềm lòng; không chỉ biết giục bố mẹ.",
   "Đậu Đỏ":
-    "Em trực tiếp, thấy việc bị sót và phải chạy lo cùng chị; nhìn như bé nhỏ nhưng có thể nhắc bố mẹ rất thực tế. Có sở thích trẻ con, không luôn là người ngây ngô/thua chị.",
+    "Em trực tiếp, có góc nhìn riêng và có thể chủ động hỏi hoặc trả lời rất tỉnh bơ trong vai người lớn. Có sở thích/đạo cụ trẻ con tạo tương phản; có thể phụ chị lo nhà, không luôn ngây ngô hay thua chị.",
   Bố: "Bố ham vui, có lúc cần hai bé gọi dậy, giục đúng giờ, nhắc đồ; trì hoãn và mè nheo rất trẻ con nhưng thương gia đình.",
   Mẹ: "Mẹ có sở thích và khiếu hài; có lúc nhờ hai bé lo hộ, dặn kỹ hoặc xin thêm chút như trẻ con. Không cố định là trọng tài khôn nhất nhà.",
 };
 export const familySpeechStyles: Record<string, string> = {
-  "Bánh Bao": "Giọng bé gái đã chọn; lời dặn/giục đời thường như phụ huynh tí hon. Có thể nói dài để nhắc việc, rồi mềm lòng trước bố mẹ mè nheo; không cần xưng sếp hay lập hợp đồng.",
-  "Đậu Đỏ": "Giọng bé trai đã chọn; hỏi việc cụ thể, nhắc đồ bị sót và phụ chị lo cho người lớn. Có thể càu nhàu, thở dài hoặc giục rất nghiêm túc dù còn bé xíu; không ép câu vài từ hoặc luôn hiểu nghĩa đen.",
+  "Bánh Bao": "Giọng bé gái đã chọn. Đối đáp đời thường khi ở nhà; khi parody dùng cách hỏi/trả lời đúng format, tự tin và nghiêm túc. Câu dài/ngắn theo ý nói, không cần giải thích mình đang diễn.",
+  "Đậu Đỏ": "Giọng bé trai đã chọn. Hỏi việc cụ thể, đáp tỉnh bơ hoặc giữ phong thái người lớn trong parody. Có thể chủ trì/phản biện, không ép câu vài từ hay luôn hiểu nghĩa đen; giữ cách xưng hô phù hợp người nghe/vai đang diễn.",
   Bố: "Xưng bố/con, có lúc xin thêm chút, quên đồ, đòi món mình thích hoặc nài nỉ con. Lời rất thường, không luôn chống chế vì bị bắt quả tang.",
   Mẹ: "Xưng mẹ/con, có lúc dặn hai bé lo hộ, trì hoãn, nhờ thêm việc hoặc mè nheo đáng yêu. Không luôn bắt bài và chốt bài học; giọng giữ nguyên phiên bản đã chọn.",
 };

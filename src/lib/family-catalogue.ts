@@ -9,6 +9,7 @@ export const FAMILY_SERIES = [
   "Bố mẹ bị bắt bài",
   "Hai con lo hết",
   "Bố mẹ chưa chịu lớn",
+  "Chuyện người lớn phiên bản nhí",
 ] as const;
 export type ChannelProfile = {
   version: number;
@@ -105,8 +106,8 @@ export const referenceMechanisms: ChannelProfile["references"] = [
   },
   {
     source: "8 · Phỏng vấn chủ xe đồ chơi",
-    mechanism: "Đóng vai người thành đạt, kể chuyện nhỏ bằng phong thái lớn",
-    lesson: "Người hỏi giúp người trả lời thể hiện vai; chức danh to tát được giải thích bằng việc vặt gia đình. Các câu hỏi dẫn không cần gây cười riêng. Giữ mặt nghiêm túc; không ép ai bị lộ/thua, không dựng flashback cho mọi lời kể. Không sao chép chuỗi hỏi nghề–ưu điểm–khuyên người trẻ hay câu triết lý cuối.",
+    mechanism: "Parody format TikTok phỏng vấn người giàu/chủ xe sang, nhưng khách và xe là phiên bản trẻ con",
+    lesson: "Khán giả nhận ra format nhờ micro, cách tiếp cận/phỏng vấn, vị thế khách và phong thái nghiêm túc; thấy vô lý vì đó là trẻ con bên xe đồ chơi. Học cả cấu trúc diễn của format và tương phản quy mô, không chỉ thêm từ khó hoặc việc vặt. Hai bé đóng cả hai vai là đủ, không cần cha mẹ/chăm sóc. Được parody cùng thể loại bằng cuộc đối đáp mới; không bê nguyên chuỗi hỏi–đáp/câu chốt nguồn. Không bắt nhân vật tự nhận đùa.",
   },
   {
     source: "9 · Bé thương lượng với bố",
@@ -126,12 +127,12 @@ export const referenceMechanisms: ChannelProfile["references"] = [
 ];
 export function familyProfile(roles: ChannelProfile["roles"]): ChannelProfile {
   return {
-    version: 4,
+    version: 5,
     writingPolicyVersion: FAMILY_WRITING_POLICY_VERSION,
     positioning:
-      "Gia đình đảo vai chăm lo: hai đứa con nít Bánh Bao & Đậu Đỏ phải lo/nhắc/tổ chức như phụ huynh, còn Bố Mẹ có lúc mè nheo, chậm chạp, đòi hỏi như trẻ con. Sự tương phản vui vẻ giữa dáng vẻ và vai trò là trục hài. Mỗi tập là một việc đời thường khác; không bắt mọi chuyện về bánh.",
+      "Hai chị em trong một gia đình cố định, kể chuyện bằng đảo thường thức và parody thế giới người lớn. Hai nhánh: con lo cho bố mẹ như phụ huynh; trẻ diễn format/vai xã hội người lớn rất nghiêm túc với đạo cụ và quy mô trẻ con. Khán giả nhận ra khuôn mẫu rồi thấy sự tương phản vui vẻ. Không bắt mọi tập có bố mẹ, việc nhà hoặc bánh.",
     audience: "Người lớn, đặc biệt cha mẹ Việt Nam",
-    tone: "Hài tương phản vui vẻ, đời thường: cha mẹ thường giục con, ở đây hai bé giục cha mẹ. Hình con nít, vai chăm lo của người lớn; người lớn được chăm thì mè nheo như con nít. Lời nói bình thường, phản ứng quen thuộc trong vai bị đảo; không cần câu đố, thu phí hay cú lật thông minh. Có tình cảm, không chế giễu hoặc giảng đạo.",
+    tone: "Hài tương phản vui vẻ: tình huống/format người lớn quen thuộc được diễn trong thế giới trẻ con. Nhân vật nghiêm túc trong vai, khán giả thấy cái lệch; thoại đời thường hoặc đúng phong cách format. Giữ tình cảm gia đình, không cố chơi chữ/giảng đạo hoặc bắt mọi tập là con chăm bố mẹ.",
     roles,
     series: FAMILY_SERIES,
     references: referenceMechanisms,
