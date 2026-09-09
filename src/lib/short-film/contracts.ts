@@ -26,9 +26,10 @@ export const GEMINI_TTS_MODELS = [
 export type GeminiTtsModel = (typeof GEMINI_TTS_MODELS)[number]["id"];
 
 /**
- * Gemini publishes named base voices and speaking styles, not guaranteed child
- * voices. These AIDA presets add an explicit Vietnamese age/gender direction;
- * every generated sample still has to be heard and approved by a person.
+ * Gemini publishes named base voices with an official gender mapping. These
+ * AIDA presets preserve that base gender while directing age, Vietnamese
+ * delivery and character style. Every sample still has to be heard and
+ * approved by a person.
  */
 export const GEMINI_VOICE_PRESETS = {
   girl_leda: {
@@ -49,35 +50,65 @@ export const GEMINI_VOICE_PRESETS = {
     direction:
       "Giọng bé gái Việt Nam khoảng 7 đến 9 tuổi, sáng, lanh lợi, phản ứng nhanh và vui; giữ âm sắc trẻ em, không đọc quảng cáo.",
   },
-  girl_sadachbia: {
-    label: "Bé gái · hoạt bát, lém lỉnh",
-    voice: "Sadachbia",
-    direction:
-      "Giọng bé gái Việt Nam khoảng 6 đến 8 tuổi, hoạt bát, lém lỉnh và giàu biểu cảm; phát âm tự nhiên, không lên giọng kiểu MC.",
-  },
   boy_puck: {
-    label: "Bé trai · vui, tinh nghịch",
+    label: "Bé trai nam · vui, tinh nghịch",
     voice: "Puck",
     direction:
-      "Giọng bé trai Việt Nam khoảng 4 đến 6 tuổi, vui, tinh nghịch, hồn nhiên và rõ lời; tuyệt đối không giống đàn ông trưởng thành.",
+      "Audio profile: bé trai Việt Nam khoảng 7 đến 9 tuổi, vui và tinh nghịch. Giữ nguyên âm sắc NAM của base voice: âm vực trung thấp đối với trẻ em, có độ vang ngực nhẹ, không falsetto, không nữ tính và không phải giọng đàn ông trưởng thành. Nói tự nhiên, rõ tiếng Việt, không đọc quảng cáo.",
   },
   boy_fenrir: {
-    label: "Bé trai · hào hứng, nhiều năng lượng",
+    label: "Bé trai nam · hào hứng, nhiều năng lượng",
     voice: "Fenrir",
     direction:
-      "Giọng bé trai Việt Nam khoảng 5 đến 7 tuổi, hào hứng, nhiều năng lượng, nhịp tự nhiên; giữ âm sắc trẻ em và không gằn giọng người lớn.",
+      "Audio profile: bé trai Việt Nam khoảng 7 đến 9 tuổi, hào hứng và nhiều năng lượng. Giữ nguyên âm sắc NAM của base voice: âm vực trung thấp đối với trẻ em, có độ vang ngực nhẹ, không falsetto, không nữ tính và không phải giọng đàn ông trưởng thành. Nói tự nhiên, rõ tiếng Việt, không gằn giọng.",
   },
   boy_achird: {
-    label: "Bé trai · thân thiện, ấm",
+    label: "Bé trai nam · thân thiện, ấm",
     voice: "Achird",
     direction:
-      "Giọng bé trai Việt Nam khoảng 5 đến 7 tuổi, thân thiện, ấm và tò mò; nói rõ tiếng Việt, không có chất giọng người dẫn chương trình.",
+      "Audio profile: bé trai Việt Nam khoảng 7 đến 9 tuổi, thân thiện, ấm và tò mò. Giữ nguyên âm sắc NAM của base voice: âm vực trung thấp đối với trẻ em, có độ vang ngực nhẹ, không falsetto, không nữ tính và không phải giọng đàn ông trưởng thành. Nói tự nhiên, rõ tiếng Việt.",
   },
   boy_enceladus: {
-    label: "Bé trai · nhỏ nhẹ, ngây thơ",
+    label: "Bé trai nam · nhỏ nhẹ, ngây thơ",
     voice: "Enceladus",
     direction:
-      "Giọng bé trai Việt Nam khoảng 4 đến 6 tuổi, nhỏ nhẹ, ngây thơ, có nhịp thở tự nhiên; không trầm hoặc già dặn.",
+      "Audio profile: bé trai Việt Nam khoảng 7 đến 9 tuổi, nhỏ nhẹ và ngây thơ. Giữ nguyên âm sắc NAM của base voice: âm vực trung thấp đối với trẻ em, có độ vang ngực nhẹ, không falsetto, không nữ tính và không phải giọng đàn ông trưởng thành. Nói tự nhiên, rõ tiếng Việt.",
+  },
+  boy_charon: {
+    label: "Bé trai nam · tò mò, tự nhiên",
+    voice: "Charon",
+    direction:
+      "Audio profile: bé trai Việt Nam khoảng 7 đến 9 tuổi, tò mò và tự nhiên. Giữ nguyên âm sắc NAM của base voice: âm vực trung thấp đối với trẻ em, có độ vang ngực nhẹ, không falsetto, không nữ tính và không phải giọng đàn ông trưởng thành. Nói thân mật, rõ tiếng Việt.",
+  },
+  boy_iapetus: {
+    label: "Bé trai nam · trong, rõ, lanh lợi",
+    voice: "Iapetus",
+    direction:
+      "Audio profile: bé trai Việt Nam khoảng 7 đến 9 tuổi, trong, rõ lời và lanh lợi. Giữ nguyên âm sắc NAM của base voice: âm vực trung thấp đối với trẻ em, có độ vang ngực nhẹ, không falsetto, không nữ tính và không phải giọng đàn ông trưởng thành. Nói tự nhiên, không đọc quảng cáo.",
+  },
+  boy_orus: {
+    label: "Bé trai nam · tự tin, lém lỉnh",
+    voice: "Orus",
+    direction:
+      "Audio profile: bé trai Việt Nam khoảng 7 đến 9 tuổi, tự tin và lém lỉnh. Giữ nguyên âm sắc NAM của base voice: âm vực trung thấp đối với trẻ em, có độ vang ngực nhẹ, không falsetto, không nữ tính và không phải giọng đàn ông trưởng thành. Nói tự nhiên, rõ tiếng Việt.",
+  },
+  boy_algenib: {
+    label: "Bé trai nam · hơi khàn, nghịch ngợm",
+    voice: "Algenib",
+    direction:
+      "Audio profile: bé trai Việt Nam khoảng 7 đến 9 tuổi, hơi khàn nhẹ và nghịch ngợm. Giữ nguyên âm sắc NAM của base voice: âm vực trung thấp đối với trẻ em, có độ vang ngực nhẹ, không falsetto, không nữ tính và không phải giọng đàn ông trưởng thành. Nói tự nhiên, rõ tiếng Việt.",
+  },
+  boy_algieba: {
+    label: "Bé trai nam · mượt, ấm, vui vẻ",
+    voice: "Algieba",
+    direction:
+      "Audio profile: bé trai Việt Nam khoảng 7 đến 9 tuổi, mượt, ấm và vui vẻ. Giữ nguyên âm sắc NAM của base voice: âm vực trung thấp đối với trẻ em, có độ vang ngực nhẹ, không falsetto, không nữ tính và không phải giọng đàn ông trưởng thành. Nói tự nhiên, rõ tiếng Việt.",
+  },
+  boy_sadachbia: {
+    label: "Bé trai nam · hoạt bát, giàu biểu cảm",
+    voice: "Sadachbia",
+    direction:
+      "Audio profile: bé trai Việt Nam khoảng 7 đến 9 tuổi, hoạt bát và giàu biểu cảm. Giữ nguyên âm sắc NAM của base voice: âm vực trung thấp đối với trẻ em, có độ vang ngực nhẹ, không falsetto, không nữ tính và không phải giọng đàn ông trưởng thành. Nói tự nhiên, rõ tiếng Việt.",
   },
 } as const;
 export type GeminiVoicePreset = keyof typeof GEMINI_VOICE_PRESETS;
