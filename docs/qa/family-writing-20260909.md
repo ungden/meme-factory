@@ -32,3 +32,10 @@ These samples guided iteration; successful JSON is not evidence that every scrip
 ## Verification
 
 199 tests passed, including malformed reviewer responses, cast/dialogue preservation, repetition, locked-scene behavior and the 12-shot boundary. TypeScript, ESLint and Next production build passed. Production release/readback recorded after deployment below.
+
+## Production readback
+
+- Code release: `e048103`, Vercel deployment `dpl_CovG96fz178iVY3rRHxSj5NctZib`, Ready with both `aida.vn` and `www.aida.vn` aliases. GitHub Vercel commit status succeeded.
+- Final shared-planner canary `a3e433ea-1cee-4520-a4f7-980a0efe5c6b`: blank idea, 8 speaking shots plus reaction, 102 seconds. Completed with policy `family-dialogue-3`, profile 3, exact dialogue and editorial evidence. This remains a draft sample, not a claim of human approval or guaranteed humor.
+- Authenticated production browser: “Gợi ý cho dự án” returned three visible suggestions. Job `224ef16c-3454-40e9-b1a9-95b5bc71aff1` recorded policy `family-dialogue-3`, channel profile 3. Existing idea, dialogue and caption in the browser remained intact. The full-film canary was the shared server planner using production context, not a click on the production “Tạo phim” button.
+- No media generation was requested; project balance remained 30,916. Existing 13 saved scripts were not overwritten. No automatic production schedule was enabled.
