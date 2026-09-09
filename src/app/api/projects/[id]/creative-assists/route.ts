@@ -1,5 +1,6 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import {
+  creativeAssistModel,
   generateCreativeAssist,
   type CreativeAssistInput,
   type CreativeAssistKind,
@@ -198,7 +199,7 @@ export async function POST(
       kind: body.kind,
       input_snapshot: inputSnapshot,
       status: "running",
-      model: "gemini-3-flash-preview",
+      model: creativeAssistModel(body.kind, Boolean(channel?.profile)),
       workspace_version: project.workspace_version,
       created_by: user.id,
     })

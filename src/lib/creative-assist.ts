@@ -325,9 +325,25 @@ function instruction(input: CreativeAssistInput) {
   return `${base}\n\nChỉ sửa các cảnh mà yêu cầu nhắc tới. Cảnh khoá (chỉ số từ 1): ${(input.lockedSceneIndexes || []).map((index) => index + 1).join(", ") || "không có"}. Giữ nguyên nguyên văn các cảnh khoá. Cảnh hiện tại:\n${JSON.stringify(input.currentScenes || [])}`;
 }
 
-async function generateJson(prompt: string, responseJsonSchema?: unknown) {
+export function creativeAssistModel(
+  kind: CreativeAssistKind,
+  hasChannelProfile: boolean,
+) {
+  return kind === "video_plan" && hasChannelProfile
+    ? process.env.FAMILY_CREATIVE_TEXT_MODEL || "gemini-3.1-pro-preview"
+    : process.env.CREATIVE_TEXT_MODEL || "gemini-3-flash-preview";
+}
+
+async function generateJson(
+  prompt: string,
+  responseJsonSchema?: unknown,
+  modelOverride?: string,
+) {
   const ai = new GoogleGenAI({ apiKey: await getGeminiApiKey() });
-  const model = process.env.CREATIVE_TEXT_MODEL || "gemini-3-flash-preview";
+  const model =
+    modelOverride ||
+    process.env.CREATIVE_TEXT_MODEL ||
+    "gemini-3-flash-preview";
   const response = await ai.models.generateContent({
     model,
     contents: [{ text: prompt }],
@@ -394,6 +410,7 @@ async function reviewFamilyStory(
   story: Story,
   context: CreativeContext,
   allowed: string[],
+  model: string,
 ) {
   return unpackEditorialReview(
     await generateJson(
@@ -408,8 +425,10 @@ Bạn là biên tập viên độc lập. Chỉ đánh giá lời thoại và đ
 - Hành động mô tả thứ máy quay nhìn thấy, không gán nhãn cảm xúc như “đắc thắng”, “đầy hối lỗi”, “đầy ẩn ý”.
 
 Ví dụ câu phải báo lỗi: “vụn bánh đang nhảy múa”, “cái má khai hết rồi”, “không cùng phe”, “hệ điều hành khác”, “chốt đơn”. Những câu này là văn viết. Một câu đời thường như “Má em dính gì kìa?” hoặc một hành động im lặng thường tự nhiên hơn. Không đòi thêm bài học hay kết êm.
+Không bắt bẻ khẩu ngữ tự nhiên như “mất tiêu”, “nè”, “đâu”, “hả”; trẻ trong catalogue được phép bắt chước cách nói người lớn khi đang bày trò. Không yêu cầu nhân vật phải “khách quan”, không đề xuất câu thay thế chỉ vì sở thích cá nhân. Chỉ ghi issue khi câu đó rõ ràng làm mất tự nhiên, giải thích trò đùa, phá logic hoặc sai giọng nhân vật. Nếu chỉ có góp ý nhỏ không ảnh hưởng cách xem, trả passed=true và issues=[].
 Trả passed và issues. Mỗi issue ghi location, trích đúng quote và lý do cụ thể.`,
       familyEditorialReviewSchema,
+      model,
     ),
   );
 }
@@ -443,6 +462,7 @@ export async function generateCreativeAssist(input: CreativeAssistInput) {
 /** Story, dialogue, independent editorial review and shot planning. Never starts media. */
 async function generateFamilyFilm(input: CreativeAssistInput) {
   const profile = input.context.channelProfile!;
+  const model = creativeAssistModel(input.kind, true);
   const allowed = input.selectedCharacterIds?.length
     ? input.selectedCharacterIds
     : input.context.characters.map((c) => c.id);
@@ -458,13 +478,14 @@ async function generateFamilyFilm(input: CreativeAssistInput) {
   ): Promise<T> {
     let candidate: unknown;
     try {
-      candidate = await generateJson(prompt, schema);
+      candidate = await generateJson(prompt, schema, model);
       return validate(candidate);
     } catch (e) {
       if (repairs++ >= 1) throw e;
       candidate = await generateJson(
         `${prompt}\nSửa bản vừa trả, không thay đề tài: ${JSON.stringify(candidate)}\nLỗi: ${e instanceof Error ? e.message : e}`,
         schema,
+        model,
       );
       return validate(candidate);
     }
@@ -492,7 +513,7 @@ Tự kiểm tra: nếu bỏ tên người nói thì vẫn nhận ra ít nhất B
     const localIssues = localFamilyEditorialIssues(story);
     const review = localIssues.length
       ? { passed: false, issues: localIssues }
-      : await reviewFamilyStory(story, context, allowed);
+      : await reviewFamilyStory(story, context, allowed, model);
     if (review.passed) break;
     if (editorialAttempt === 2) {
       throw new Error(

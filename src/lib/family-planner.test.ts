@@ -1,7 +1,7 @@
 import { testPilot } from "./family-test-fixture";
 import { it, expect, vi, beforeEach } from "vitest";
 import { buildFamilyPilot, familyPersonalities } from "./family-pilot";
-import { generateCreativeAssist } from "./creative-assist";
+import { creativeAssistModel, generateCreativeAssist } from "./creative-assist";
 import { compileStoryShots } from "./family-ai-contract";
 const calls = vi.hoisted(() => ({
   prompts: [] as string[],
@@ -51,6 +51,14 @@ const input = {
 beforeEach(() => {
   calls.prompts = [];
   calls.responses = [];
+});
+it("uses the higher quality family writing model without changing other assists", () => {
+  expect(creativeAssistModel("video_plan", true)).toBe(
+    "gemini-3.1-pro-preview",
+  );
+  expect(creativeAssistModel("image_plan", true)).toBe(
+    "gemini-3-flash-preview",
+  );
 });
 it("writes story then shots, carries caption and freezes exact dialogue", async () => {
   calls.responses = [
