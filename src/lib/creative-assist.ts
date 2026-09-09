@@ -1,4 +1,10 @@
 import {
+  storyboardGroups,
+  validateStoryboard,
+  storyboardDialogue,
+  type FilmStoryboard,
+} from "./film-storyboard";
+import {
   FAMILY_WRITING_POLICY,
   FAMILY_WRITING_POLICY_VERSION,
   FAMILY_REVIEW_CRITERIA,
@@ -7,7 +13,7 @@ import {
   storyResponseSchema,
   shotResponseSchema,
   unpackStory,
-  compileStoryShots,
+  compileStoryboards,
 } from "./family-ai-contract";
 import {
   validateGeneratedFamilyStory,
@@ -67,6 +73,7 @@ export type CreativeContext = {
 };
 
 export type PlannedScene = {
+  storyboard?: FilmStoryboard | null;
   characterIds: string[];
   speakerCharacterId: string | null;
   dialogue: string;
@@ -155,6 +162,14 @@ function plannedScene(
     ids.includes(item.speakerCharacterId)
       ? item.speakerCharacterId
       : null;
+  const storyboard =
+    item.storyboard == null ? null : validateStoryboard(item.storyboard, ids);
+  if (
+    storyboard &&
+    (Number(item.durationSeconds) !== 15 ||
+      item.dialogue !== storyboardDialogue(storyboard))
+  )
+    return null;
   const intendedDuration = Number(item.durationSeconds);
   const dialogue = text(item.dialogue, 700);
   // Editorial shot length is not a provider contract. Round UP before quoting,
@@ -183,12 +198,14 @@ function plannedScene(
   // A single speaker can usually deliver 13 Vietnamese words per 5 seconds.
   if (
     dialogue &&
+    !storyboard &&
     (!speaker || dialogue.split(/\s+/).length > Math.ceil(duration * 2.6))
   )
     return null;
   return {
     characterIds: ids,
-    speakerCharacterId: speaker,
+    ...(storyboard ? { storyboard } : {}),
+    speakerCharacterId: storyboard ? null : speaker,
     dialogue,
     action: text(item.action, 900),
     setting: text(item.setting, 700),
@@ -286,7 +303,7 @@ export function validateCreativeAssist(
       0,
     );
     if (
-      scenes.length < 3 ||
+      scenes.length < (scenes.every((s) => s.storyboard) ? 1 : 3) ||
       scenes.length > 12 ||
       !targetDurationSeconds ||
       (!context.channelProfile && Math.abs(sum - targetDurationSeconds) > 5)
@@ -399,26 +416,45 @@ export async function generateCreativeAssist(
 ) {
   if (input.kind === "video_plan" && input.context.channelProfile)
     return generateFamilyFilm(input, options);
-  const prompt = `${instruction(input)}\n\nTrả về JSON ĐÚNG schema, không markdown:\n${schemaFor(input.kind)}`;
-  let candidate: unknown;
-  try {
-    candidate = await generateJson(prompt);
-    return validateCreativeAssist(
+  const boardRevision =
+    input.kind === "scene_revision" &&
+    input.currentScenes?.some((s) => s.storyboard);
+  const prompt = `${instruction(input)}\n\nTrả về JSON ĐÚNG schema, không markdown:\n${schemaFor(input.kind)}${boardRevision ? "\nVới scene có storyboard, giữ thêm toàn bộ storyboard (version, durationSeconds và beats). Chỉ sửa beat được yêu cầu; giữ timeline 0–15, cast/người nói hợp lệ. dialogue của scene là nối các beat.dialogue có chữ bằng newline, speakerCharacterId của scene=null. Không được bỏ storyboard hoặc đổi đoạn thành clip một câu." : ""}`;
+  const validate = (value: unknown) => {
+    const result = validateCreativeAssist(
       input.kind,
-      candidate,
+      value,
       input.context,
       input.targetDurationSeconds,
     );
+    if (
+      input.kind === "scene_revision" &&
+      result.kind === "scene_revision" &&
+      input.currentScenes
+    ) {
+      if (result.scenes.length !== input.currentScenes.length)
+        throw new Error("CREATIVE_REVISION_SCENES_CHANGED");
+      input.currentScenes.forEach((previous, i) => {
+        if (previous.storyboard && !result.scenes[i].storyboard)
+          throw new Error("CREATIVE_REVISION_STORYBOARD_LOST");
+        if (input.lockedSceneIndexes?.includes(i)) {
+          const normalized = plannedScene(previous, input.context);
+          if (JSON.stringify(result.scenes[i]) !== JSON.stringify(normalized))
+            throw new Error("CREATIVE_REVISION_LOCKED_SCENE_CHANGED");
+        }
+      });
+    }
+    return result;
+  };
+  let candidate: unknown;
+  try {
+    candidate = await generateJson(prompt);
+    return validate(candidate);
   } catch (error) {
     candidate = await generateJson(
       `${prompt}\n\nSửa đúng bản JSON sau (không bỏ cảnh): ${JSON.stringify(candidate ?? {})}\nLỗi cần sửa: ${error instanceof Error ? error.message : "JSON không hợp lệ"}`,
     );
-    return validateCreativeAssist(
-      input.kind,
-      candidate,
-      input.context,
-      input.targetDurationSeconds,
-    );
+    return validate(candidate);
   }
 }
 
@@ -607,34 +643,35 @@ Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống
   await checkpoint("shots");
   const hasReaction = story.beats.at(-1)?.purpose === "reaction";
   const shotCount = story.dialogue.length + (hasReaction ? 1 : 0);
+  const groups = storyboardGroups(story.dialogue, hasReaction);
   const result = await checked(
     `${contextText(context, allowed)}
 CÂU CHUYỆN ĐÃ SOẠN: ${JSON.stringify(story)}
-Chuyển thành shot sản xuất, GIỮ NGUYÊN từng câu thoại và người nói theo đúng thứ tự. Một lượt thoại là một shot và chỉ có một người nói. Có thể giữ tối đa một người nghe trong khung bằng listenerCharacterIds khi biểu cảm hoặc khoảng nhìn của họ giúp cuộc đối đáp tự nhiên. Cảnh đầu là lời đầu, không thêm mở đầu im lặng. Chỉ tạo shot phản ứng không thoại nếu story đã có reaction. Không thêm lời. Prompt ảnh giữ vị trí, đạo cụ, hướng nhìn và trục đối thoại nhất quán. Với parody, giữ tín hiệu nhận ra format (micro, cách đứng hỏi/đáp, đạo cụ đúng quy mô đồ chơi) ở cảnh mở; không biến thành cuộc nói chuyện trẻ con chung chung hoặc thay đồ chơi bằng tài sản thật.
-Phân biệt clip sinh và thời lượng dựng: durationSeconds là thời lượng clip NGUYÊN 4–30 giây, đủ câu ở tốc độ tối đa 2.6 từ/giây, không bắt tổng clip đúng thời lượng tập. Thời lượng phim ${input.targetDurationSeconds || 35} giây chỉ là dự kiến. KHÔNG ràng buộc tổng clip gốc vào thời lượng phim; thành phẩm tính sau từ audio thật. Không bịa mốc transcript.
-MOTION PROMPT: viết timeline liên tục từ 0.0s tới hết durationSeconds, ít nhất ba nhịp. Hành động/cảm xúc đầu tiên xảy ra ngay 0.0s, không có establishing pause. Mỗi nhịp phải đổi hành động, nét mặt, ánh nhìn hoặc phản ứng; máy quay phải có chuyển động cụ thể như handheld nhẹ, tracking, slide, push nhanh hoặc pan theo hành động. Chỉ dùng máy khóa khi đó là cú phản ứng bất động có chủ ý. Nhịp cuối đi tới tư thế/hướng nhìn rõ để hard cut sang shot sau. Không lặp mô tả mặt/tóc/trang phục đã có trong ảnh đầu.
-Chỉ trả title, summary và object shots với ${shotCount} khóa shot1 đến shot${shotCount}. Mỗi shot có action, setting, camera, durationSeconds, imagePrompt, motionPrompt và listenerCharacterIds. KHÔNG viết lại dialogue hoặc speaker. shot1..shot${story.dialogue.length} tương ứng đúng thứ tự các lượt thoại. imagePrompt tối đa 300 ký tự; motionPrompt tối đa 600 ký tự để đủ timeline nhưng vẫn cụ thể.${hasReaction ? " Shot cuối là phản ứng không thoại đã có trong story." : " Không thêm shot kết."} Server giữ nguyên từng câu và ID người nói từ câu chuyện.`,
+DỰNG STORYBOARD: chia thành ${groups.length} đoạn video, mỗi đoạn 15 giây. Các nhịp thoại/panel được nhóm sẵn (chỉ số từ 1): ${JSON.stringify(groups.map((g) => g.map((i) => i + 1)))}. Mỗi panel là một nhịp bên trong đoạn, KHÔNG phải một job video riêng. GIỮ NGUYÊN câu thoại, thứ tự và người nói. Không thêm lời. durationSeconds ở panel chỉ là nhịp diễn dự kiến; server chia timeline 15 giây của cả đoạn.
+Trong cùng đoạn: cùng bối cảnh, ánh sáng, vị trí nhân vật, hướng nhìn và trục máy. Có thể pan theo người nói hoặc cắt đối đáp theo storyboard; không đổi cảnh ngẫu nhiên. Hành động bắt đầu ngay, người nghe phản ứng trong khi người kia nói, không đứng đợi tới lượt. Viết motionPrompt cho từng nhịp bằng hành động cụ thể, KHÔNG thêm mốc giây riêng; server gắn mốc liên tục từ 0 tới 15. Chỉ một người nói tại mỗi thời điểm, đến nhịp sau mới đổi người. Không slow motion, kéo dài âm tiết, khoảng chờ mở đầu hoặc lặp động tác để đủ 15 giây.
+Panel đầu mỗi đoạn là một khung sạch có đủ người sẽ xuất hiện trong đoạn đó; đủ ảnh chuẩn từng người, đúng tỷ lệ, trang phục và vị trí. Không dùng grid/storyboard sheet làm ảnh đầu video. Các panel sau mô tả diễn tiến hành động/camera. Kết đoạn có tư thế, đạo cụ và hướng nhìn khớp đầu đoạn tiếp; giữ trục đối thoại để nối bằng hard cut. Không cố thêm reaction sau điểm dừng đã chọn. Với parody giữ tín hiệu nhận diện format.
+Chỉ trả title, summary và shots với ${shotCount} khóa shot1..shot${shotCount}. Mỗi panel có action, setting, camera, durationSeconds, imagePrompt, motionPrompt và listenerCharacterIds. shot1..shot${story.dialogue.length} tương ứng các lượt thoại; ${hasReaction ? "panel cuối phản ứng im lặng đã có trong story" : "không thêm panel kết"}. imagePrompt tối đa 300 ký tự, motionPrompt tối đa 600. Không viết lại dialogue/speaker. Thời lượng phim khoảng ${input.targetDurationSeconds || 35} giây; các clip gốc 15 giây, thời lượng thực kiểm tra sau, không bịa transcript.`,
     (v) => {
       const r = validateCreativeAssist(
         "video_plan",
-        compileStoryShots(v, story, context.characters),
+        compileStoryboards(v, story, context.characters),
         context,
         input.targetDurationSeconds || 35,
       );
       if (r.kind !== "video_plan") throw new Error("FAMILY_PLAN_INVALID");
-      const spoken = r.scenes.filter((s) => s.dialogue);
+      const spoken = r.scenes
+        .flatMap((s) => s.storyboard?.beats || [])
+        .filter((s) => s.dialogue);
       if (
         spoken.length !== story.dialogue.length ||
         spoken.some(
           (s, i) =>
             s.dialogue !== story.dialogue[i].text ||
-            s.speakerCharacterId !== story.dialogue[i].characterId ||
-            !s.characterIds.includes(story.dialogue[i].characterId) ||
-            s.characterIds.length > 2,
+            s.speakerCharacterId !== story.dialogue[i].characterId,
         )
       )
         throw new Error(
-          "FAMILY_DIALOGUE_CHANGED: giữ nguyên thoại, thứ tự, đúng người nói và tối đa một người nghe",
+          "FAMILY_DIALOGUE_CHANGED: giữ nguyên thoại, thứ tự và người nói của từng nhịp storyboard",
         );
       return r;
     },

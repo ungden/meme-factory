@@ -226,9 +226,12 @@ it("records all alternatives and comparison, then freezes reviewed dialogue into
   expect(result.story?.development?.selection?.selectedId).toBe("A");
   expect(result.story?.development?.stage).toBe("complete");
   expect(result.story?.development?.drafts).toHaveLength(1);
-  expect(result.scenes.map((s) => s.dialogue).filter(Boolean)).toEqual(
-    plans[0].story.dialogue.map((d) => d.text),
-  );
+  expect(
+    result.scenes
+      .flatMap((s) => s.storyboard?.beats || [])
+      .map((b) => b.dialogue)
+      .filter(Boolean),
+  ).toEqual(plans[0].story.dialogue.map((d) => d.text));
   expect(checkpoints.length).toBeGreaterThan(3);
   // Reviewer must not see the author's labels or the premise winner as an endorsement.
   expect(calls.prompts[3]).not.toContain('"selectedId":"A"');
@@ -387,10 +390,12 @@ it("normalizes provider durations without altering the editorial timing or exact
   );
   const r = await generateCreativeAssist(input);
   if (r.kind !== "video_plan") throw Error("Wrong kind");
-  expect(r.scenes.every((s) => s.durationSeconds >= 4)).toBe(true);
-  expect(r.story?.intendedShotSeconds?.at(-1)).toBe(1.5);
-  expect(r.scenes[0].dialogue).toBe(plans[0].story.dialogue[0].text);
-  expect(r.scenes[0].speakerCharacterId).toBe(
+  expect(r.scenes.every((s) => s.durationSeconds === 15)).toBe(true);
+  expect(r.story?.intendedShotSeconds).toEqual([15, 15]);
+  expect(r.scenes[0].storyboard?.beats[0].dialogue).toBe(
+    plans[0].story.dialogue[0].text,
+  );
+  expect(r.scenes[0].storyboard?.beats[0].speakerCharacterId).toBe(
     plans[0].story.dialogue[0].characterId,
   );
 });
@@ -407,7 +412,7 @@ it("does not force total generated clip seconds to equal edited duration", async
   expect(
     r.kind === "video_plan" &&
       r.scenes.reduce((n, s) => n + s.durationSeconds, 0),
-  ).toBe(63);
+  ).toBe(30);
 });
 it("limits malformed response repair globally and never drops invalid shots", async () => {
   const bad = shotResult({
@@ -458,10 +463,10 @@ it("preserves a sibling-only staged parody without inventing a parent or final r
     selectedCharacterIds: [cast[0].characterId, cast[1].characterId],
   });
   if (r.kind !== "video_plan") throw Error("Wrong kind");
-  expect(r.scenes).toHaveLength(3);
-  expect(r.scenes.map((s) => s.dialogue)).toEqual(
-    story.dialogue.map((d) => d.text),
-  );
+  expect(r.scenes).toHaveLength(1);
+  expect(
+    r.scenes.flatMap((s) => s.storyboard?.beats || []).map((b) => b.dialogue),
+  ).toEqual(story.dialogue.map((d) => d.text));
   expect(
     r.scenes
       .flatMap((s) => s.characterIds)

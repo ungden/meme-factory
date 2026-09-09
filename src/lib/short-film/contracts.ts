@@ -1,3 +1,4 @@
+import { validateStoryboard, type FilmStoryboard } from "../film-storyboard";
 import type { Story } from "../family-catalogue";
 export const FILM_MODELS = {
   image: "gemini-3.1-flash-image",
@@ -178,6 +179,7 @@ export type FilmKind =
   | "render"
   | "frame";
 export type FilmScene = {
+  storyboard?: FilmStoryboard | null;
   id: string;
   version: number;
   scene_index: number;
@@ -279,6 +281,29 @@ export function compileFilmMotion(
   mode: "native" | "fixed",
   format: string,
 ) {
+  if (scene.storyboard) {
+    if (mode !== "native")
+      throw new Error(
+        "STORYBOARD_NATIVE_REQUIRED: storyboard nhiều lượt nói dùng audio native.",
+      );
+    const board = validateStoryboard(
+      scene.storyboard,
+      scene.cast_snapshot.map((c) => c.characterId),
+    );
+    const name = (id: string | null) =>
+      scene.cast_snapshot.find((c) => c.characterId === id)?.name;
+    return [
+      `STORYBOARD: một đoạn phim 15 giây ${format}, nhiều nhịp đối đáp/hành động liên tục theo thứ tự sau. Bối cảnh ${scene.setting}.`,
+      "FIRST FRAME: ảnh đầu là một khung sạch, không phải lưới storyboard. Giữ đúng diện mạo, vóc dáng, trang phục, vị trí và hướng nhìn của từng người trong ảnh.",
+      `CAST: ${scene.cast_snapshot.map((c) => `${c.name}: ${c.description}`).join("; ")}. Không trộn người hoặc đổi giọng giữa các lượt.`,
+      ...board.beats.map(
+        (b) =>
+          `${b.startSeconds.toFixed(2)}–${b.endSeconds.toFixed(2)}s | ${b.action} | CAMERA: ${b.camera} | MOTION: ${b.motion} | ${b.dialogue ? `Chỉ ${name(b.speakerCharacterId)} nói nguyên văn tiếng Việt: “${b.dialogue}”. Các nhân vật còn lại nghe và phản ứng không lời, không cử động môi như đang nói.` : "Không có lời nói; diễn hành động/phản ứng đã mô tả."}`,
+      ),
+      "PACING: bắt đầu ngay giây 0, nói nhanh tự nhiên nhưng rõ, không kéo dài âm tiết, không slow motion, không lặp câu hoặc lặp động tác. Mốc thời gian định hướng nhịp diễn; nói trọn câu trước đổi lượt, không chồng lời. Người nghe phản ứng ngay trong lượt nói. Pan/cắt theo storyboard, giữ hướng nhìn và trục đối thoại; không chuyển cảnh trang trí hoặc đổi bối cảnh. Kết ở tư thế/hướng nhìn đã mô tả để nối đoạn sau.",
+      "AUDIO: giọng đúng người đang nói, rõ ở tiền cảnh; nhạc không lời vui vẻ, tinh nghịch nhẹ, âm lượng thấp. Không thêm lời thoại, chữ, phụ đề hoặc nhãn thời gian trong hình.",
+    ].join("\n");
+  }
   const duration = Math.max(4, Math.min(30, scene.duration_seconds || 5));
   const firstBeat = Math.min(1.2, duration * 0.22);
   const finalBeat = Math.max(firstBeat + 0.8, duration - 0.8);
@@ -317,6 +342,26 @@ export function compileFilmMotion(
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+/** I2V takes a clean first frame; it has no reference_images/aspect_ratio fields. */
+export function filmVideoInputs(
+  scene: FilmScene,
+  mode: "native" | "fixed",
+  format: string,
+  resolution: "720p" | "1080p",
+  image: string,
+  audioDuration = 0,
+) {
+  return {
+    prompt: compileFilmMotion(scene, mode, format),
+    image,
+    duration: scene.storyboard
+      ? 15
+      : shotDuration(audioDuration, scene.duration_seconds),
+    resolution,
+    generate_audio: mode === "native",
+  };
 }
 
 /** A completed result is current only if its immutable dependencies are current. */

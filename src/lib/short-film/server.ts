@@ -16,8 +16,7 @@ import {
   FILM_MODELS,
   assertFixedVoiceShot,
   currentSceneTask,
-  compileFilmMotion,
-  shotDuration,
+  filmVideoInputs,
   type FilmPlan,
   type FilmCast,
   type FilmScene,
@@ -167,20 +166,32 @@ export async function savePlan(
   const inputs = body.scenes as (SceneInput & { camera?: string })[];
   if (!Array.isArray(inputs) || inputs.length < 1 || inputs.length > 12)
     throw new FilmError("Cần 1–12 cảnh.");
+  if (inputs.some((s) => s.storyboard) && body.audioMode !== "native")
+    throw new FilmError(
+      "Storyboard 15 giây dùng audio native; lồng tiếng từng người vẫn dùng cảnh riêng.",
+    );
   const ids = [...new Set(inputs.flatMap((s) => s.characterIds || []))];
   const cast = await freezeCast(a, ids, old?.cast_snapshot);
   const rows = inputs.map((raw, i) => {
-    const s = normalizeScene(raw);
+    let s: ReturnType<typeof normalizeScene>;
+    try {
+      s = normalizeScene(raw);
+    } catch (e) {
+      throw new FilmError(
+        e instanceof Error ? e.message : "Storyboard không hợp lệ.",
+      );
+    }
     if (
       s.characterIds.some((id) => !ids.includes(id)) ||
       (s.speakerCharacterId &&
         !s.characterIds.includes(s.speakerCharacterId)) ||
-      (s.dialogue && !s.speakerCharacterId)
+      (s.dialogue && !s.speakerCharacterId && !s.storyboard)
     )
       throw new FilmError(`Cảnh ${i + 1} cần đúng người nói trong cast.`);
     const row = {
       id: raw.id || crypto.randomUUID(),
       scene_index: i,
+      storyboard: s.storyboard,
       cast_snapshot: cast.filter((c) => s.characterIds.includes(c.characterId)),
       speaker_character_id: s.speakerCharacterId,
       dialogue: s.dialogue,
@@ -195,10 +206,13 @@ export async function savePlan(
       motion_prompt: s.motionPrompt,
       source_mode: s.sourceMode,
     };
-    const { id, scene_index, ...visual } = row;
+    const { id, scene_index, storyboard, ...visual } = row;
     void id;
     void scene_index;
-    return { ...row, input_hash: hash(visual) };
+    return {
+      ...row,
+      input_hash: hash({ ...visual, ...(storyboard ? { storyboard } : {}) }),
+    };
   });
   let story = body.story === undefined ? old?.story : body.story;
   if (story != null) {
@@ -232,7 +246,10 @@ export async function savePlan(
     audio_mode: body.audioMode === "native" ? "native" : "fixed",
     subtitles: body.subtitles !== false,
     story,
-    trim_speech: body.trimSpeech !== false,
+    trim_speech:
+      body.trimSpeech === undefined
+        ? old?.trim_speech !== false
+        : body.trimSpeech !== false,
     target_duration_seconds: [15, 30, 35, 40, 60].includes(
       Number(body.targetDurationSeconds),
     )
@@ -475,13 +492,16 @@ export async function quotePlan(
             s.image_prompt,
             `Bối cảnh ${s.setting}. Hành động ${s.action}. Máy quay ${s.camera}.`,
             "Dựng đúng một khung ảnh điện ảnh 3D, không chữ, không lưới ảnh. Chỉ cast được đính kèm xuất hiện; giữ nhận diện và trang phục. Không thêm người khác.",
-            s.dialogue
-              ? "Chỉ một người nói trong khung, mặt rõ; người nghe ngoài khung. Khung đầu là trước hành động, không phải kết quả sau chuyển động."
-              : "",
+            s.storyboard
+              ? "Khung mở có đủ cast được đính kèm, trước lượt thoại đầu, bố trí rõ người nói/người nghe theo trục đối thoại. Không dồn hành động của các nhịp sau vào ảnh đầu."
+              : s.dialogue
+                ? "Chỉ một người nói trong khung, mặt rõ; người nghe ngoài khung. Khung đầu là trước hành động, không phải kết quả sau chuyển động."
+                : "",
           ].join("\n"),
           cast: s.cast_snapshot,
           dialogue: s.dialogue,
           speakerCharacterId: s.speaker_character_id,
+          storyboard: s.storyboard || null,
           format: plan.format,
         };
         const p = input.importPath
@@ -605,17 +625,14 @@ export async function quotePlan(
         throw new FilmError(
           `Nghe và duyệt thoại cảnh ${s.scene_index + 1} trước.`,
         );
-      const duration = shotDuration(
+      const inputs = filmVideoInputs(
+        s,
+        plan.audio_mode,
+        plan.format,
+        plan.resolution,
+        await signed(a, String(image.result?.path)),
         Number(audio?.result?.duration || 0),
-        s.duration_seconds,
       );
-      const inputs = {
-        prompt: compileFilmMotion(s, plan.audio_mode, plan.format),
-        image: await signed(a, String(image.result?.path)),
-        duration,
-        resolution: plan.resolution,
-        generate_audio: plan.audio_mode === "native",
-      };
       const v = task(
         "video",
         {
@@ -626,6 +643,7 @@ export async function quotePlan(
           cast: s.cast_snapshot,
           dialogue: s.dialogue,
           speakerCharacterId: s.speaker_character_id,
+          storyboard: s.storyboard || null,
           format: plan.format,
           resolution: plan.resolution,
         },
@@ -669,6 +687,7 @@ export async function quotePlan(
               duration: video.result.duration,
               dialogue: s.dialogue,
               speakerCharacterId: s.speaker_character_id,
+              storyboard: s.storyboard || null,
               cast: s.cast_snapshot,
             },
             await modelPrice(FILM_MODELS.lip_sync, inputs),
@@ -691,6 +710,7 @@ export async function quotePlan(
               videoTaskId: video.id,
               dialogue: s.dialogue,
               speakerCharacterId: s.speaker_character_id,
+              storyboard: s.storyboard || null,
               duration: video.result.duration,
             },
             await modelPrice(FILM_MODELS.transcribe, inputs),
@@ -717,7 +737,7 @@ export async function quotePlan(
         transcriptTaskId: transcript?.id,
         sceneId: s.id,
         version: s.version,
-        trimSpeech: !!plan.trim_speech && !!s.dialogue,
+        trimSpeech: !!plan.trim_speech && !!s.dialogue && !s.storyboard,
       };
     });
     tasks.push(

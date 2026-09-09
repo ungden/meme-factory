@@ -1,3 +1,10 @@
+import {
+  storyboardGroups,
+  spokenSeconds,
+  validateStoryboard,
+  storyboardDialogue,
+  type StoryboardBeat,
+} from "./film-storyboard";
 import type { ChannelProfile, Story } from "./family-catalogue";
 const string = { type: "string" };
 const object = (properties: Record<string, unknown>) => ({
@@ -162,4 +169,73 @@ export function compileStoryShots(
     };
   });
   return { title: v.title, summary: v.summary, scenes };
+}
+
+/** Panels are planned per story beat, but provider jobs are 15-second sequences. */
+export function compileStoryboards(
+  value: unknown,
+  story: Story,
+  characters: { id: string; name: string }[] = [],
+) {
+  const planned = compileStoryShots(value, story, characters);
+  const hasReaction = story.beats.at(-1)?.purpose === "reaction";
+  const groups = storyboardGroups(story.dialogue, hasReaction);
+  const raw = (value as { shots: Record<string, Record<string, unknown>> })
+    .shots;
+  const scenes = groups.map((group) => {
+    const shots = group.map((i) => planned.scenes[i]);
+    const characterIds = [...new Set(shots.flatMap((s) => s.characterIds))];
+    const weights = group.map((i) =>
+      story.dialogue[i] ? spokenSeconds(story.dialogue[i].text) : 1.2,
+    );
+    const sum = weights.reduce((n, w) => n + w, 0);
+    // Distribute movement/reaction space, not artificial slow speech or a long tail hold.
+    let cursor = 0;
+    const beats: StoryboardBeat[] = group.map((i, j) => {
+      const shot = raw[`shot${i + 1}`],
+        line = story.dialogue[i];
+      const startSeconds = cursor;
+      cursor =
+        j === group.length - 1
+          ? 15
+          : Math.round((cursor + (weights[j] / sum) * 15) * 100) / 100;
+      return {
+        startSeconds,
+        endSeconds: cursor,
+        speakerCharacterId: line?.characterId || null,
+        dialogue: line?.text || "",
+        action: String(shot.action),
+        camera: String(shot.camera),
+        motion: String(shot.motionPrompt)
+          .replace(
+            /(?:^|\s)\d+(?:\.\d+)?s?\s*[–-]\s*\d+(?:\.\d+)?s\s*:\s*/g,
+            " ",
+          )
+          .trim(),
+      };
+    });
+    const storyboard = validateStoryboard(
+      { version: 1, durationSeconds: 15, beats },
+      characterIds,
+    );
+    const first = raw[`shot${group[0] + 1}`];
+    const names = characterIds
+      .map((id) => characters.find((c) => c.id === id)?.name || id)
+      .join(", ");
+    return {
+      characterIds,
+      speakerCharacterId: null,
+      dialogue: storyboardDialogue(storyboard),
+      action: String(first.action),
+      setting: String(first.setting),
+      camera: String(first.camera),
+      durationSeconds: 15,
+      followsPrevious: false,
+      storyboard,
+      imagePrompt: `${first.imagePrompt}\nKhung đầu sạch của đoạn đối đáp: có đủ ${names} từ ảnh chuẩn, vị trí và hướng nhìn rõ theo trục đối thoại, đúng tỷ lệ vóc dáng. Chưa diễn ra hành động hoặc kết quả ở nhịp sau. Không lưới, nhãn, mũi tên, chữ hoặc nhiều bản sao nhân vật.`,
+      motionPrompt:
+        "Thực hiện lần lượt các nhịp storyboard, giữ nhịp đối đáp tự nhiên và liên tục; mốc thời gian là chỉ dẫn diễn xuất, không phải phụ đề.",
+    };
+  });
+  return { title: planned.title, summary: planned.summary, scenes };
 }

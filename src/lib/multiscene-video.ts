@@ -1,3 +1,8 @@
+import {
+  validateStoryboard,
+  storyboardDialogue,
+  type FilmStoryboard,
+} from "./film-storyboard";
 import type { VideoRequest } from "@/lib/wavespeed";
 
 export const MULTISCENE_DURATIONS = [5, 10, 15, 30] as const;
@@ -8,6 +13,7 @@ export const MAX_SCENES = 12;
 export const MAX_BATCH_PLANS = 10;
 
 export type SceneInput = {
+  storyboard?: FilmStoryboard | null;
   id?: string;
   dialogue?: string;
   action?: string;
@@ -43,12 +49,25 @@ export function isSceneDuration(
   );
 }
 
-export function normalizeScene(
-  scene: SceneInput,
-): Required<Omit<SceneInput, "id" | "speakerCharacterId">> & {
+export function normalizeScene(scene: SceneInput): Required<
+  Omit<SceneInput, "id" | "speakerCharacterId">
+> & {
   speakerCharacterId: string | null;
 } {
+  const storyboard =
+    scene.storyboard == null
+      ? null
+      : validateStoryboard(scene.storyboard, scene.characterIds || []);
+  if (
+    storyboard &&
+    (scene.durationSeconds !== 15 ||
+      scene.dialogue !== storyboardDialogue(storyboard))
+  )
+    throw new Error(
+      "STORYBOARD_DERIVED_FIELDS_CONFLICT: lưu thoại từ các nhịp storyboard và thời lượng 15 giây.",
+    );
   return {
+    storyboard,
     dialogue:
       typeof scene.dialogue === "string"
         ? scene.dialogue.trim().slice(0, 700)
@@ -60,7 +79,7 @@ export function normalizeScene(
         ? scene.setting.trim().slice(0, 700)
         : "",
     speakerCharacterId:
-      typeof scene.speakerCharacterId === "string"
+      !storyboard && typeof scene.speakerCharacterId === "string"
         ? scene.speakerCharacterId
         : null,
     characterIds: Array.isArray(scene.characterIds)

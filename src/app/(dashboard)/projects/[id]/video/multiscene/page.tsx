@@ -1,6 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import { FilmStoryboardEditor } from "@/components/film-storyboard-editor";
+import { storyboardDialogue, type FilmStoryboard } from "@/lib/film-storyboard";
+import { compileStoryboards } from "@/lib/family-ai-contract";
 import type { ChannelProfile, Story } from "@/lib/family-catalogue";
 import { notifyProjectBalanceChanged } from "@/lib/client-fetch";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -27,6 +30,7 @@ import {
 } from "@/lib/short-film/contracts";
 
 type DraftScene = {
+  storyboard?: FilmStoryboard | null;
   id?: string;
   characterIds: string[];
   speakerCharacterId: string | null;
@@ -92,13 +96,14 @@ const sceneBlank = (): DraftScene => ({
   camera: "",
   imagePrompt: "",
   motionPrompt: "",
-  durationSeconds: 5,
+  durationSeconds: 15,
   startImageUrl: null,
   endImageUrl: null,
   followsPrevious: false,
 });
 const fromScene = (s: FilmScene): DraftScene => ({
   id: s.id,
+  storyboard: s.storyboard,
   characterIds: s.cast_snapshot.map((c) => c.characterId),
   speakerCharacterId: s.speaker_character_id,
   dialogue: s.dialogue,
@@ -462,7 +467,9 @@ export default function ShortFilmPage() {
     if (id === (plan?.id || "")) return;
     if (dirty && plan && draft.scenes.length) await save();
     else if (dirty && plan)
-      throw new Error("Kịch bản đang sửa cần ít nhất một cảnh trước khi đổi tập.");
+      throw new Error(
+        "Kịch bản đang sửa cần ít nhất một cảnh trước khi đổi tập.",
+      );
     else if (dirty && storageKey)
       localStorage.setItem(
         `${storageKey}:new-draft`,
@@ -501,13 +508,7 @@ export default function ShortFilmPage() {
     setDirty(nextDirty);
     edited.current = nextDirty;
     setAssistId(null);
-    setNote(
-      next
-        ? ""
-        : nextDirty
-          ? "Đã khôi phục ý tưởng của Tập mới."
-          : "",
-    );
+    setNote(next ? "" : nextDirty ? "Đã khôi phục ý tưởng của Tập mới." : "");
   }
   async function suggest() {
     const g = generation.current;
@@ -1193,7 +1194,8 @@ export default function ShortFilmPage() {
                     className="mt-1"
                   />
                   Rút phần đệm trước/sau thoại theo transcript, giữ 0,2 giây
-                  trước và 0,5 giây sau. Cảnh phản ứng giữ nguyên.
+                  trước và 0,5 giây sau. Cảnh phản ứng và storyboard 15 giây giữ
+                  nguyên.
                 </label>
                 <details className="mt-4 border-t pt-3">
                   <summary className="cursor-pointer text-sm font-semibold th-text-primary">
@@ -1210,8 +1212,15 @@ export default function ShortFilmPage() {
                         })
                       }
                     >
-                      <option value="native">Audio native Seedance · mặc định</option>
-                      <option value="fixed">Lồng tiếng Gemini · nâng cao</option>
+                      <option value="native">
+                        Audio native Seedance · mặc định
+                      </option>
+                      <option
+                        value="fixed"
+                        disabled={draft.scenes.some((s) => s.storyboard)}
+                      >
+                        Lồng tiếng Gemini · nâng cao
+                      </option>
                     </select>
                     <select
                       aria-label="Độ phân giải"
@@ -1246,7 +1255,8 @@ export default function ShortFilmPage() {
                   {draft.audioMode === "native" && (
                     <p className="mt-3 text-xs th-text-secondary">
                       Seedance nói trực tiếp theo thoại của từng cảnh. AIDA chép
-                      lại chính audio trong clip, tạo SRT và gắn phụ đề khi ghép.
+                      lại chính audio trong clip, tạo SRT và gắn phụ đề khi
+                      ghép.
                     </p>
                   )}
                   {draft.audioMode === "fixed" && !enabled && (
@@ -1255,62 +1265,69 @@ export default function ShortFilmPage() {
                       lip-sync chỉ mở sau bài kiểm chứng.
                     </p>
                   )}
-                  {draft.audioMode === "fixed" && characters
-                    .filter((c) => cast.includes(c.id))
-                    .map((c) => (
-                      <div key={c.id} className="mt-3 border-t pt-3">
-                        <p className="text-sm th-text-primary">
-                          {c.name}{" "}
-                          {voices.find(
-                            (v) => v.character_id === c.id && v.approved_at,
-                          )
-                            ? "· đã có giọng duyệt"
-                            : "· chưa duyệt giọng"}
-                        </p>
-                        <select
-                          aria-label={`Giọng ${c.name}`}
-                          className={`${control} mt-2`}
-                          disabled={!!busy}
-                          defaultValue=""
-                          onChange={(e) => {
-                            if (e.target.value)
-                              void act("Báo giá giọng", async () => {
-                                const [provider, geminiModel, geminiVoicePreset] =
-                                  e.target.value.split("|");
-                                if (provider !== "gemini")
-                                  throw new Error("Lựa chọn giọng không hợp lệ.");
-                                const j = await api(`${base}/voices`, {
-                                  workspaceVersion: workspace,
-                                  characterId: c.id,
-                                  geminiModel,
-                                  geminiVoicePreset,
+                  {draft.audioMode === "fixed" &&
+                    characters
+                      .filter((c) => cast.includes(c.id))
+                      .map((c) => (
+                        <div key={c.id} className="mt-3 border-t pt-3">
+                          <p className="text-sm th-text-primary">
+                            {c.name}{" "}
+                            {voices.find(
+                              (v) => v.character_id === c.id && v.approved_at,
+                            )
+                              ? "· đã có giọng duyệt"
+                              : "· chưa duyệt giọng"}
+                          </p>
+                          <select
+                            aria-label={`Giọng ${c.name}`}
+                            className={`${control} mt-2`}
+                            disabled={!!busy}
+                            defaultValue=""
+                            onChange={(e) => {
+                              if (e.target.value)
+                                void act("Báo giá giọng", async () => {
+                                  const [
+                                    provider,
+                                    geminiModel,
+                                    geminiVoicePreset,
+                                  ] = e.target.value.split("|");
+                                  if (provider !== "gemini")
+                                    throw new Error(
+                                      "Lựa chọn giọng không hợp lệ.",
+                                    );
+                                  const j = await api(`${base}/voices`, {
+                                    workspaceVersion: workspace,
+                                    characterId: c.id,
+                                    geminiModel,
+                                    geminiVoicePreset,
+                                  });
+                                  setVoiceQuote(j.quote);
                                 });
-                                setVoiceQuote(j.quote);
-                              });
-                          }}
-                        >
-                          <option value="">Chọn giọng để nghe thử</option>
-                          {GEMINI_TTS_MODELS.map((model) => (
-                            <optgroup key={model.id} label={model.label}>
-                              {Object.entries(GEMINI_VOICE_PRESETS).map(
-                                ([id, voice]) => (
-                                  <option
-                                    key={`${model.id}:${id}`}
-                                    value={`gemini|${model.id}|${id}`}
-                                  >
-                                    {voice.label} · {voice.voice}
-                                  </option>
-                                ),
-                              )}
-                            </optgroup>
-                          ))}
-                        </select>
-                        <p className="mt-1 text-xs th-text-secondary">
-                          Gemini không có preset “trẻ em” chính thức. AIDA điều
-                          khiển tuổi và giới tính bằng chỉ dẫn; cần nghe rồi duyệt.
-                        </p>
-                      </div>
-                    ))}
+                            }}
+                          >
+                            <option value="">Chọn giọng để nghe thử</option>
+                            {GEMINI_TTS_MODELS.map((model) => (
+                              <optgroup key={model.id} label={model.label}>
+                                {Object.entries(GEMINI_VOICE_PRESETS).map(
+                                  ([id, voice]) => (
+                                    <option
+                                      key={`${model.id}:${id}`}
+                                      value={`gemini|${model.id}|${id}`}
+                                    >
+                                      {voice.label} · {voice.voice}
+                                    </option>
+                                  ),
+                                )}
+                              </optgroup>
+                            ))}
+                          </select>
+                          <p className="mt-1 text-xs th-text-secondary">
+                            Gemini không có preset “trẻ em” chính thức. AIDA
+                            điều khiển tuổi và giới tính bằng chỉ dẫn; cần nghe
+                            rồi duyệt.
+                          </p>
+                        </div>
+                      ))}
                   {voiceQuote && (
                     <button
                       disabled={!!busy}
@@ -1323,6 +1340,68 @@ export default function ShortFilmPage() {
                     </button>
                   )}
                 </details>
+                {draft.story &&
+                  draft.scenes.length > 0 &&
+                  !draft.scenes.some((s) => s.storyboard) && (
+                    <button
+                      className="mt-4 min-h-11 rounded-lg border th-border px-3 text-sm th-text-accent"
+                      onClick={() =>
+                        act("Gom storyboard", async () => {
+                          const story = draft.story!;
+                          const spoken = draft.scenes.filter((s) => s.dialogue);
+                          if (
+                            spoken.length !== story.dialogue.length ||
+                            spoken.some(
+                              (s, i) =>
+                                s.dialogue !== story.dialogue[i].text ||
+                                s.speakerCharacterId !==
+                                  story.dialogue[i].characterId,
+                            )
+                          )
+                            throw new Error(
+                              "Thoại đã thay đổi so với bản chữ. Hãy dùng AI viết phim để soạn storyboard mới từ ý tưởng hiện tại.",
+                            );
+                          const board = compileStoryboards(
+                            {
+                              title: draft.title,
+                              summary: draft.brief,
+                              shots: Object.fromEntries(
+                                draft.scenes.map((s, i) => [
+                                  `shot${i + 1}`,
+                                  {
+                                    ...s,
+                                    listenerCharacterIds: s.characterIds.filter(
+                                      (id) => id !== s.speakerCharacterId,
+                                    ),
+                                  },
+                                ]),
+                              ),
+                            },
+                            story,
+                            characters,
+                          );
+                          change({
+                            audioMode: "native",
+                            scenes: board.scenes.map((s) => ({
+                              ...sceneBlank(),
+                              ...s,
+                            })),
+                          });
+                          setSelected(0);
+                        })
+                      }
+                    >
+                      Gom thành storyboard 15 giây
+                    </button>
+                  )}
+                {draft.scenes.some((s) => s.storyboard) && (
+                  <p className="mt-4 text-sm th-text-secondary">
+                    Storyboard · {draft.scenes.length} đoạn ·{" "}
+                    {draft.scenes.reduce((n, s) => n + s.durationSeconds, 0)}{" "}
+                    giây clip gốc. Mỗi đoạn có ảnh đầu riêng và nhiều nhịp đối
+                    đáp.
+                  </p>
+                )}
                 <div className="mt-4 flex flex-wrap gap-2">
                   {draft.scenes.map((s, i) => (
                     <button
@@ -1330,7 +1409,8 @@ export default function ShortFilmPage() {
                       onClick={() => setSelected(i)}
                       className={`min-h-11 rounded-lg border th-border px-3 text-sm ${selected === i ? "th-bg-accent-light th-text-accent" : "th-text-primary"}`}
                     >
-                      Cảnh {i + 1}
+                      {s.storyboard ? "Đoạn" : "Cảnh"} {i + 1}
+                      {s.storyboard ? " · 15s" : ""}
                     </button>
                   ))}
                   <button
@@ -1349,7 +1429,8 @@ export default function ShortFilmPage() {
                   <div className="mt-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <strong className="text-sm th-text-primary">
-                        Cảnh {selected + 1}
+                        {scene.storyboard ? "Storyboard · Đoạn" : "Cảnh"}{" "}
+                        {selected + 1}
                       </strong>
                       <div className="flex">
                         <button
@@ -1409,6 +1490,11 @@ export default function ShortFilmPage() {
                           <input
                             type="checkbox"
                             checked={scene.characterIds.includes(c.id)}
+                            disabled={
+                              !!scene.storyboard?.beats.some(
+                                (b) => b.speakerCharacterId === c.id,
+                              )
+                            }
                             onChange={(e) =>
                               editScene({
                                 characterIds: e.target.checked
@@ -1423,32 +1509,60 @@ export default function ShortFilmPage() {
                         </label>
                       ))}
                     </div>
-                    <select
-                      aria-label="Người nói"
-                      className={control}
-                      value={scene.speakerCharacterId || ""}
-                      onChange={(e) =>
-                        editScene({
-                          speakerCharacterId: e.target.value || null,
-                        })
-                      }
-                    >
-                      <option value="">Không thoại</option>
-                      {characters
-                        .filter((c) => scene.characterIds.includes(c.id))
-                        .map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name} nói
-                          </option>
-                        ))}
-                    </select>
-                    {(["dialogue", "action", "setting", "camera"] as const).map(
-                      (field, i) => (
+                    {!scene.storyboard && (
+                      <select
+                        aria-label="Người nói"
+                        className={control}
+                        value={scene.speakerCharacterId || ""}
+                        onChange={(e) =>
+                          editScene({
+                            speakerCharacterId: e.target.value || null,
+                          })
+                        }
+                      >
+                        <option value="">Không thoại</option>
+                        {characters
+                          .filter((c) => scene.characterIds.includes(c.id))
+                          .map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} nói
+                            </option>
+                          ))}
+                      </select>
+                    )}
+                    {scene.storyboard && (
+                      <FilmStoryboardEditor
+                        board={scene.storyboard}
+                        control={control}
+                        characters={characters.filter((c) =>
+                          scene.characterIds.includes(c.id),
+                        )}
+                        onChange={(storyboard) =>
+                          editScene({
+                            storyboard,
+                            dialogue: storyboardDialogue(storyboard),
+                            speakerCharacterId: null,
+                          })
+                        }
+                      />
+                    )}
+                    {(["dialogue", "action", "setting", "camera"] as const)
+                      .filter(
+                        (field) => !scene.storyboard || field === "setting",
+                      )
+                      .map((field) => (
                         <label
                           key={field}
                           className="block text-xs font-semibold th-text-secondary"
                         >
-                          {["Lời thoại", "Hành động", "Bối cảnh", "Góc máy"][i]}
+                          {
+                            {
+                              dialogue: "Lời thoại",
+                              action: "Hành động",
+                              setting: "Bối cảnh",
+                              camera: "Góc máy",
+                            }[field]
+                          }
                           <textarea
                             className={`${control} mt-1 min-h-16`}
                             value={scene[field]}
@@ -1457,8 +1571,7 @@ export default function ShortFilmPage() {
                             }
                           />
                         </label>
-                      ),
-                    )}
+                      ))}
                     <label className="block text-xs th-text-secondary">
                       Thời lượng clip gốc (giây)
                       <input
@@ -1466,6 +1579,7 @@ export default function ShortFilmPage() {
                         type="number"
                         min={4}
                         max={30}
+                        readOnly={!!scene.storyboard}
                         value={scene.durationSeconds}
                         onChange={(e) =>
                           editScene({ durationSeconds: Number(e.target.value) })
@@ -1645,8 +1759,7 @@ export default function ShortFilmPage() {
                         else if (!draft.scenes.length) {
                           const generated = await write();
                           await save(generated);
-                        }
-                        else if (dirty || !plan) await save();
+                        } else if (dirty || !plan) await save();
                         else await getQuote(stage);
                       })
                     }
@@ -1667,8 +1780,8 @@ export default function ShortFilmPage() {
                             : !draft.scenes.length
                               ? "AI viết và lưu kịch bản"
                               : dirty || !plan
-                              ? "Lưu kịch bản"
-                              : `Xem giá · ${stageNames[stage]}`)}
+                                ? "Lưu kịch bản"
+                                : `Xem giá · ${stageNames[stage]}`)}
                     </span>
                   </button>
                 </div>

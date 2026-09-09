@@ -69,7 +69,7 @@ export async function checkProductionScript(
   const story = plan.story as Story;
   return judge([
     {
-      text: `Bạn kiểm duyệt kịch bản family catalogue trước khi hệ thống chi tiền sinh media. Chỉ passed khi câu chuyện rõ trong 2 giây đầu, setup/payoff có quan hệ nhân quả, hành động khả thi theo tuổi/vóc dáng và mọi người nói thuộc cast. Đọc từng câu như lời nói thật: đánh dấu needs_review và nêu đúng câu nếu nó là văn hành chính, ẩn dụ/chơi chữ gượng, giải thích điều khán giả vừa thấy, hoặc có thể đổi người nói mà không đổi tính cách. Trẻ có thể nói như người lớn khi bắt chước để đạt một lợi ích trẻ con; không được nói câu đối đẹp hay bài học chỉ để kết êm. Payoff không được dựa vào việc nhân vật đột ngột quên hoặc làm trái điều vừa hiểu. Không bắt buộc cú lật, hòa giải hay reaction cuối; đánh dấu reaction thừa nếu bỏ nó thì kết hay hơn. Đặc biệt đánh dấu needs_review nếu trẻ nhỏ phải cõng/nâng trẻ lớn hơn, hành động nguy hiểm, lặp mô-típ gần đây, hoặc nhiều câu liên tiếp không làm tình thế thay đổi. Không sửa kịch bản.\nHỒ SƠ: ${JSON.stringify(profile)}\nKỊCH BẢN: ${JSON.stringify(story)}\nCẢNH: ${JSON.stringify(plan.video_plan_scenes.map((s) => ({ speaker: s.speaker_character_id, dialogue: s.dialogue, action: s.action, cast: s.cast_snapshot.map((c) => c.characterId) })))}`,
+      text: `Bạn kiểm duyệt kịch bản family catalogue trước khi hệ thống chi tiền sinh media. Chỉ passed khi câu chuyện rõ trong 2 giây đầu, setup/payoff có quan hệ nhân quả, hành động khả thi theo tuổi/vóc dáng và mọi người nói thuộc cast. Đọc từng câu như lời nói thật: đánh dấu needs_review và nêu đúng câu nếu nó là văn hành chính, ẩn dụ/chơi chữ gượng, giải thích điều khán giả vừa thấy, hoặc có thể đổi người nói mà không đổi tính cách. Trẻ có thể nói như người lớn khi bắt chước để đạt một lợi ích trẻ con; không được nói câu đối đẹp hay bài học chỉ để kết êm. Payoff không được dựa vào việc nhân vật đột ngột quên hoặc làm trái điều vừa hiểu. Không bắt buộc cú lật, hòa giải hay reaction cuối; đánh dấu reaction thừa nếu bỏ nó thì kết hay hơn. Đặc biệt đánh dấu needs_review nếu trẻ nhỏ phải cõng/nâng trẻ lớn hơn, hành động nguy hiểm, lặp mô-típ gần đây, hoặc nhiều câu liên tiếp không làm tình thế thay đổi. Không sửa kịch bản.\nHỒ SƠ: ${JSON.stringify(profile)}\nKỊCH BẢN: ${JSON.stringify(story)}\nCẢNH: ${JSON.stringify(plan.video_plan_scenes.map((s) => ({ speaker: s.speaker_character_id, storyboard: s.storyboard, dialogue: s.dialogue, action: s.action, cast: s.cast_snapshot.map((c) => c.characterId) })))}`,
     },
   ]);
 }
@@ -77,8 +77,22 @@ export async function checkProductionScript(
 async function inline(url: string) {
   const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
   if (!response.ok) throw new Error(`QA_MEDIA_${response.status}`);
-  const bytes = await response.arrayBuffer();
-  if (bytes.byteLength > 8 * 1024 * 1024) throw new Error("QA_MEDIA_TOO_LARGE");
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("QA_MEDIA_EMPTY");
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > 8 * 1024 * 1024) throw new Error("QA_MEDIA_TOO_LARGE");
+      chunks.push(value);
+    }
+  } finally {
+    await reader.cancel();
+  }
+  const bytes = Buffer.concat(chunks);
   return {
     inlineData: {
       mimeType: response.headers.get("content-type") || "image/jpeg",
@@ -95,18 +109,19 @@ export async function checkVisualTask(
   try {
     const parts: Array<Record<string, unknown>> = [
       {
-        text: `Kiểm tra ảnh hoặc toàn bộ video của một shot phim 3D. Media đầu tiên là kết quả; các ảnh sau là ảnh chuẩn từng nhân vật. Chỉ passed khi đúng số người và đúng nhận diện, khuôn mặt/tóc/trang phục không trôi, không thêm người/chữ/lưới và hình không lỗi. Nếu là video có thoại, xem xuyên suốt đoạn: đúng characterId được chỉ định phải là người duy nhất cử động môi theo lời; mọi người nghe giữ miệng đóng và chỉ phản ứng không lời. Nếu không nhìn/nghe đủ để xác định người nói, nếu miệng người khác chuyển động như đang nói, hoặc chỉ có ảnh ghép tĩnh thì needs_review. Không suy đoán và không dùng kịch bản dự kiến thay cho bằng chứng nghe/nhìn.\nTASK: ${JSON.stringify({ kind: task.kind, cast: task.input.cast, dialogue: task.input.dialogue, speakerCharacterId: task.input.speakerCharacterId })}`,
+        text: `Kiểm tra ảnh hoặc toàn bộ video của một shot phim 3D. Media đầu tiên là kết quả; các ảnh sau là ảnh chuẩn từng nhân vật. Chỉ passed khi đúng số người và đúng nhận diện, khuôn mặt/tóc/trang phục không trôi, không thêm người/chữ/lưới và hình không lỗi. Nếu có storyboard, kiểm tra từng lượt nói theo thứ tự: người nói thay đổi theo mỗi beat, chỉ đúng người ấy cử động môi theo lời trong lượt đó; các nhân vật khác nghe và phản ứng không lời. Mốc beat là dự kiến, không dùng làm bằng chứng audio thực; xem/nghe video để kiểm tra thứ tự, đủ câu và đúng người. Shot đơn không storyboard chỉ có một người nói được chỉ định xuyên suốt. Cận cảnh có thể chỉ hiện người nói; khung mở phải có đủ cast, không phạt vì camera chuyển sang cận cảnh theo storyboard. Nếu không nhìn/nghe đủ để xác định người nói, nếu miệng người khác chuyển động như đang nói, hoặc chỉ có ảnh ghép tĩnh thì needs_review. Không suy đoán và không dùng kịch bản dự kiến thay cho bằng chứng nghe/nhìn.\nTASK: ${JSON.stringify({ kind: task.kind, cast: task.input.cast, dialogue: task.input.dialogue, speakerCharacterId: task.input.speakerCharacterId, storyboard: task.input.storyboard })}`,
       },
       await inline(mediaUrl),
     ];
-    for (const url of referenceUrls.slice(0, 4))
-      parts.push(await inline(url));
+    for (const url of referenceUrls.slice(0, 4)) parts.push(await inline(url));
     return judge(parts);
   } catch (error) {
     if (error instanceof Error && error.message === "QA_MEDIA_TOO_LARGE")
       return {
         status: "needs_review",
-        issues: ["Video quá lớn để kiểm tra người nói tự động; cần xem trực tiếp."],
+        issues: [
+          "Video quá lớn để kiểm tra người nói tự động; cần xem trực tiếp.",
+        ],
         evidence: { reason: error.message },
       };
     throw error;
@@ -124,7 +139,9 @@ export function checkTechnicalTask(task: FilmTask): Check {
         }
       : { status: "failed", issues: ["TTS thiếu audio hợp lệ."], evidence: r };
   if (task.kind === "transcribe")
-    return Number(r.speechError) <= 0.2 && Array.isArray(r.segments)
+    return Number(r.speechError) <= 0.2 &&
+      Array.isArray(r.segments) &&
+      (!task.input.dialogue || r.segments.length > 0)
       ? {
           status: "passed",
           issues: [],
