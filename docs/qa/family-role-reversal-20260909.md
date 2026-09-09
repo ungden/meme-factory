@@ -42,3 +42,13 @@ Neither sample was saved over an episode, marked user-approved, or sent to a med
 ## Verification
 
 201 tests pass. Tests cover legacy story compatibility, required premise in new AI drafts, missing contrast evidence, exact speaker/dialogue preservation, existing locked-scene behavior and bounded repair. TypeScript, ESLint, whitespace checks and the production Next build pass. No schema or dependency changes are required.
+
+- `75b53b7a-5c0e-4aea-ae73-870edbabeea1`: sibling-only blank-input revision was rejected after two editorial correction rounds (76 seconds). Reviewer found dialogue addressed to absent parents without corresponding interaction. The job ended as failed with no result/media, rather than returning an unsupported approval. This shows a remaining limitation when only the siblings are selected, not a successful editorial sample.
+
+Profile readback after the code push confirms version 4, policy 4, the same four role IDs and recorded premise/evidence in the completed text jobs. There are now 15 saved plans in the project; this turn's operator evaluation scripts do not write `video_plans`. Do not attribute concurrent user changes to these samples or restore the old count.
+
+- `da248921-0ebc-44e0-a05b-e4c5639f863d`: final blank-input sample with all four characters available completed in 43 seconds, seven speaking shots plus reaction. Children collect their parents' book/coat/cup and ask them to stop watching TV; father asks to finish the program, mother asks for five more minutes, and Bánh Bao sets the limit. The reversal is expressed through familiar requests and responses, with correct family pronouns and no contract/trap. Operator read the result; it remains an unapproved writing sample, not a produced film or proof of audience response.
+
+## Production release
+
+Code commit `a05d70a4337d199a41ca2f485e90785dea0397a0` deployed via the existing Git integration. Vercel deployment `dpl_CxJUFA6X1dpmo8HgMSb5ZkExQ3Z1` is Ready, aliases `aida.vn` and `www.aida.vn`; GitHub's Vercel status is successful. The live text evaluations use the same shared planner code with production project context, not a browser click or end-to-end video generation. No new media was requested and automation was not enabled.
