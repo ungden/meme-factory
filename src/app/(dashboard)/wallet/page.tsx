@@ -98,7 +98,7 @@ export default function WalletPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ packageId: buyingPackage.id }),
+        body: JSON.stringify({ packageId: buyingPackage.id, expectedPrice: buyingPackage.price, expectedPoints: buyingPackage.points }),
       });
 
       const data = await res.json();
@@ -217,6 +217,7 @@ export default function WalletPage() {
                   <ShoppingCart size={18} />
                   Mua Points
                 </h3>
+                <p className="mb-4 text-sm th-text-secondary">Mọi gói: 1 điểm = 500đ. Giá tạo nội dung tính từ chi phí AI +30%, làm tròn lên điểm nguyên. Báo giá hiển thị trước khi tạo.</p>
                 <div className="space-y-3">
                   {POINT_PACKAGES.map((pkg) => (
                     <button

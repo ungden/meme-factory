@@ -22,6 +22,9 @@ export async function POST(req: Request) {
     if (!pkg) {
       return NextResponse.json({ error: "Gói không hợp lệ" }, { status: 400 });
     }
+    if (body.expectedPrice !== pkg.price || body.expectedPoints !== pkg.points) {
+      return NextResponse.json({ error: "Bảng giá đã thay đổi. Tải lại trang Ví tiền để xem và chọn lại gói.", code: "PRICE_CHANGED" }, { status: 409 });
+    }
 
     // Atomic: deduct balance + add points + record transaction — all in one DB call
     const { data: result, error: rpcError } = await supabaseAdmin.rpc("atomic_buy_points", {

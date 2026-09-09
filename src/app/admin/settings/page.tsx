@@ -193,7 +193,7 @@ export default function AdminSettingsPage() {
                           {margin.coversCost
                             ? margin.meetsTarget
                               ? ""
-                              : ` · dưới mục tiêu 1.5x, nên từ ${margin.minimumPoints} pts`
+                              : ` · dưới mục tiêu +${AI_PRICE_MARKUP_PERCENT}%, nên từ ${margin.minimumPoints} pts`
                             : ` · LỖ, tối thiểu ${margin.minimumPoints} pts`}
                         </p>
                       );

@@ -4,8 +4,7 @@
 
 import { estimateImageGenerationPrice } from "./ai-pricing";
 
-// Giá được tính từ Standard API cost × 1.5 và quy đổi theo gói point rẻ
-// nhất (499đ/point), để cả gói doanh nghiệp vẫn đạt mức cộng 50%.
+// Standard API cost × 1.3, làm tròn lên điểm nguyên; mọi gói mới 500đ/điểm.
 export const POINT_ACTION_QUOTES = {
   character: estimateImageGenerationPrice({
     model: "gemini-3.1-flash-image",
@@ -17,7 +16,7 @@ export const POINT_ACTION_QUOTES = {
     model: "gemini-3.1-flash-image",
     resolution: "1K",
     inputImageCount: 14,
-    inputTextTokens: 2_500,
+    inputTextTokens: 4_000,
   }),
   background: estimateImageGenerationPrice({
     model: "gemini-3.1-flash-image",
@@ -61,43 +60,43 @@ export const POINT_PACKAGES: PointPackage[] = [
   {
     id: "trial",
     name: "Dùng thử",
-    points: 10,
+    points: 20,
     price: 10000,
-    pricePerPoint: 1000,
+    pricePerPoint: 500,
     bonus: "",
   },
   {
     id: "basic",
     name: "Cơ bản",
-    points: 50,
-    price: 45000,
-    pricePerPoint: 900,
-    bonus: "+11%",
+    points: 100,
+    price: 50000,
+    pricePerPoint: 500,
+    bonus: "",
   },
   {
     id: "popular",
     name: "Phổ biến",
-    points: 120,
-    price: 99000,
-    pricePerPoint: 825,
-    bonus: "+21%",
+    points: 200,
+    price: 100000,
+    pricePerPoint: 500,
+    bonus: "",
     popular: true,
   },
   {
     id: "pro",
     name: "Pro",
-    points: 300,
-    price: 199000,
-    pricePerPoint: 663,
-    bonus: "+51%",
+    points: 400,
+    price: 200000,
+    pricePerPoint: 500,
+    bonus: "",
   },
   {
     id: "enterprise",
     name: "Doanh nghiệp",
     points: 1000,
-    price: 499000,
-    pricePerPoint: 499,
-    bonus: "+100%",
+    price: 500000,
+    pricePerPoint: 500,
+    bonus: "",
   },
 ];
 
@@ -169,7 +168,7 @@ export interface MarginCheck {
   /** VND the sale brings in, valued at the cheapest package rate. */
   revenueVnd: number;
   worstCostVnd: number;
-  /** Revenue divided by cost. 1.5 is the target. */
+  /** Revenue divided by cost. 1.3 is the target before whole-point rounding. */
   marginMultiplier: number;
   coversCost: boolean;
   meetsTarget: boolean;

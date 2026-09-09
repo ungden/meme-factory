@@ -16,7 +16,7 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const amount = Number(body?.amount);
-    if (!amount || isNaN(amount) || amount < 10000) {
+    if (!Number.isSafeInteger(amount) || amount < 10000) {
       return NextResponse.json({ error: "Số tiền tối thiểu 10.000đ" }, { status: 400 });
     }
     if (amount > 50000000) {

@@ -1,4 +1,5 @@
 import "server-only";
+import { isProjectMediaPath } from "@/lib/project-media-path";
 import crypto from "node:crypto";
 import { validateStory, type Story } from "../family-catalogue";
 import { NextRequest, NextResponse } from "next/server";
@@ -297,7 +298,7 @@ export async function savePlan(
   return readPlan(a, data);
 }
 export async function signed(a: Access, path: string) {
-  if (!path.startsWith(`${a.project.id}/`))
+  if (!isProjectMediaPath(a.project.id, path))
     throw new FilmError("Media không thuộc dự án.", 403);
   const { data, error } = await a.admin.storage
     .from("content-media")

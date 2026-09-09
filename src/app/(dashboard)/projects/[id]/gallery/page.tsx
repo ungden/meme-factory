@@ -349,7 +349,7 @@ export default function GalleryPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold th-text-primary">Thư viện</h1>
-            <p className="th-text-tertiary mt-1">{memes.length} đầu ra đã lưu từ tất cả chế độ Studio</p>
+            <p className="th-text-tertiary mt-1">{memes.length} ảnh · {videoOutputs.length} video đang hiển thị</p>
           </div>
           {!loading && memes.length > 0 && !selectionMode && (
             <Button variant="outline" onClick={() => setSelectionMode(true)}>
@@ -361,11 +361,11 @@ export default function GalleryPage() {
 
         {videoOutputs.length > 0 && (
           <section className="mb-6">
-            <h2 className="mb-3 text-lg font-semibold th-text-primary">Video của bộ nội dung</h2>
+            <h2 className="mb-3 text-lg font-semibold th-text-primary">Video và phim đã tạo</h2>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {videoOutputs.map((output) => (
                 <Card key={output.id} className="overflow-hidden p-0">
-                  {["completed", "approved", "rejected"].includes(output.status) ? <video controls preload="metadata" poster={output.poster_url ?? undefined} className="aspect-[9/16] w-full bg-black" src={`/api/content-outputs/${output.id}/media`} /> : <div className="flex aspect-[9/16] items-center justify-center p-5 text-center text-sm th-text-tertiary">{output.status === "failed" ? "Video chưa tạo được. Hãy tạo đầu ra mới để xem giá và thử lại." : "Video đang được xử lý. Bạn có thể rời trang và quay lại sau."}</div>}
+                  {["completed", "approved", "rejected"].includes(output.status) ? <video controls preload="none" poster={output.poster_url ? `/api/content-outputs/${output.id}/media?artifact=poster` : undefined} className="w-full bg-black object-contain" style={{ aspectRatio: ["16:9", "9:16", "1:1", "4:5"].includes(output.format) ? output.format.replace(":", "/") : "16/9" }} src={`/api/content-outputs/${output.id}/media`} /> : <div className="flex aspect-[9/16] items-center justify-center p-5 text-center text-sm th-text-tertiary">{output.status === "failed" ? "Video chưa tạo được. Hãy tạo đầu ra mới để xem giá và thử lại." : "Video đang được xử lý. Bạn có thể rời trang và quay lại sau."}</div>}
                   <div className="p-3"><p className="line-clamp-2 text-sm th-text-secondary">{output.caption || output.script || "Video Seedance 2.5"}</p><p className="mt-1 text-xs th-text-muted">{output.duration_seconds ? `${output.duration_seconds} giây` : ""} · {["completed", "approved", "rejected"].includes(output.status) ? (output.status === "approved" ? "Đã duyệt" : output.status === "rejected" ? "Cần chỉnh sửa" : "Sẵn sàng tải MP4") : output.status}</p>{["completed", "approved", "rejected"].includes(output.status) && <div className="mt-2 flex flex-wrap gap-2"><a className="inline-flex text-xs font-semibold text-blue-600" href={`/api/content-outputs/${output.id}/media?download=1`}>Tải MP4</a>{output.status === "completed" && <><button onClick={() => reviewOutput(output.id, "approved")} className="text-xs font-semibold text-emerald-600">Duyệt</button><button onClick={() => reviewOutput(output.id, "rejected")} className="text-xs font-semibold text-amber-600">Cần chỉnh</button></>}</div>}</div>
                 </Card>
               ))}
@@ -548,7 +548,7 @@ export default function GalleryPage() {
             <div className="w-20 h-20 th-bg-card rounded-2xl flex items-center justify-center mb-4">
               <ImageIcon size={32} className="th-text-muted" />
             </div>
-            <h3 className="text-lg font-medium th-text-secondary">Chưa có đầu ra nào</h3>
+            <h3 className="text-lg font-medium th-text-secondary">Chưa có ảnh nào</h3>
             <p className="th-text-muted mt-1">Ảnh từ Nội dung nhanh và Dựng cảnh sẽ xuất hiện ở đây</p>
           </div>
         ) : (

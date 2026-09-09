@@ -1,15 +1,14 @@
 // Central AI image pricing catalog.
 //
 // Provider prices are USD Standard API prices, effective 2026-07-21.
-// Customer prices use a 50% markup (cost x 1.5), then round up to whole
-// AIDA points using the cheapest point package so every paid package covers
-// the target markup.
+// Customer prices use a 30% markup (cost x 1.3), then round up to whole
+// AIDA points. Every new package uses the same 500 VND/point conversion.
 
 export const AI_PRICING_EFFECTIVE_DATE = "2026-07-21";
-export const AI_PRICE_MARKUP_MULTIPLIER = 1.5;
-export const AI_PRICE_MARKUP_PERCENT = 50;
+export const AI_PRICE_MARKUP_MULTIPLIER = 1.3;
+export const AI_PRICE_MARKUP_PERCENT = 30;
 export const AI_PRICING_USD_VND = 26_500;
-export const BILLING_POINT_FLOOR_VND = 499;
+export const BILLING_POINT_FLOOR_VND = 500;
 
 export const AI_PRICING_SOURCES = {
   google: "https://ai.google.dev/gemini-api/docs/pricing",

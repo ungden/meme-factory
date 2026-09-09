@@ -42,7 +42,8 @@ describe("AI image pricing", () => {
     }).outputCostUsd).toBe(0.165);
   });
 
-  it("applies a 50% markup before converting to whole points", () => {
+  it("applies the agreed 30% markup before converting to whole points", () => {
+    expect(AI_PRICE_MARKUP_MULTIPLIER).toBe(1.3);
     const quote = estimateImageGenerationPrice({
       model: "gemini-3.1-flash-image",
       resolution: "1K",
@@ -55,7 +56,12 @@ describe("AI image pricing", () => {
 
   it("prices current actions against the cheapest paid point package", () => {
     expect(Math.min(...POINT_PACKAGES.map((item) => item.pricePerPoint))).toBe(BILLING_POINT_FLOOR_VND);
-    expect(POINT_COSTS).toMatchObject({ character: 6, meme: 6, background: 9, content: 0 });
+    for (const pkg of POINT_PACKAGES) {
+      expect(pkg.price / pkg.points).toBe(BILLING_POINT_FLOOR_VND);
+      expect(pkg.pricePerPoint).toBe(BILLING_POINT_FLOOR_VND);
+      expect(pkg.bonus).toBe("");
+    }
+    expect(POINT_COSTS).toMatchObject({ character: 5, meme: 6, background: 8, content: 0 });
   });
 
   it("reconciles Gemini usage metadata when modality counts are available", () => {

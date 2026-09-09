@@ -17,7 +17,7 @@ describe("margin guard", () => {
     const margin = checkMargin(action, POINT_COSTS[action]);
     expect(margin.coversCost).toBe(true);
     expect(margin.meetsTarget).toBe(true);
-    expect(margin.marginMultiplier).toBeGreaterThanOrEqual(1.5);
+    expect(margin.marginMultiplier).toBeGreaterThanOrEqual(1.3);
   });
 
   it("prices the worst case above the everyday quote it replaces", () => {
