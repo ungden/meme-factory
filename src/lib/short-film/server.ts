@@ -227,7 +227,7 @@ export async function savePlan(
     caption: String(body.caption || "").slice(0, 5000),
     format: ["9:16", "1:1", "16:9", "4:5"].includes(String(body.format))
       ? body.format
-      : "9:16",
+      : "16:9",
     resolution: body.resolution === "1080p" ? "1080p" : "720p",
     audio_mode: body.audioMode === "native" ? "native" : "fixed",
     subtitles: body.subtitles !== false,

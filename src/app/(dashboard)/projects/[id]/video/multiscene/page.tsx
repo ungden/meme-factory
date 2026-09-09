@@ -76,7 +76,7 @@ const blank = (): Draft => ({
   brief: "",
   caption: "",
   targetDurationSeconds: 30,
-  format: "9:16",
+  format: "16:9",
   resolution: "720p",
   audioMode: "native",
   subtitles: true,
@@ -1227,7 +1227,7 @@ export default function ShortFilmPage() {
                       value={draft.format}
                       onChange={(e) => change({ format: e.target.value })}
                     >
-                      {["9:16", "16:9", "1:1", "4:5"].map((v) => (
+                      {["16:9", "9:16", "1:1", "4:5"].map((v) => (
                         <option key={v}>{v}</option>
                       ))}
                     </select>

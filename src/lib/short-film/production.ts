@@ -62,7 +62,7 @@ async function accessForRun(admin: SupabaseClient, run: Run): Promise<Access> {
   const { data: project, error } = await admin
     .from("projects")
     .select(
-      "id,name,brand_voice,audience,content_guidelines,workspace_version,watermark_url,watermark_position,watermark_opacity",
+      "id,user_id,name,brand_voice,audience,content_guidelines,default_format,workspace_version,watermark_url,watermark_position,watermark_opacity",
     )
     .eq("id", run.project_id)
     .eq("workspace_version", run.workspace_version)
@@ -163,13 +163,27 @@ async function createAutomaticPlan(
     options,
   );
   if (result.kind !== "video_plan") throw new Error("SCRIPT_RESULT_INVALID");
+  const { data: automation } = await a.admin
+    .from("short_film_automation_settings")
+    .select("default_config")
+    .eq("project_id", a.project.id)
+    .eq("workspace_version", a.project.workspace_version)
+    .maybeSingle();
+  const configuredFormat = String(
+    automation?.default_config?.format ||
+      (a.project as Record<string, unknown>).default_format ||
+      "16:9",
+  );
+  const format = ["9:16", "16:9", "1:1", "4:5"].includes(configuredFormat)
+    ? configuredFormat
+    : "16:9";
   const plan = await savePlan(a, {
     title: result.title,
     brief: run.intent || result.summary,
     caption: result.caption || "",
     story: result.story,
     targetDurationSeconds: 35,
-    format: "9:16",
+    format,
     resolution: "720p",
     audioMode: "native",
     subtitles: true,
