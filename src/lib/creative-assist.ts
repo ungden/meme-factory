@@ -1,4 +1,9 @@
 import {
+  FAMILY_WRITING_POLICY,
+  FAMILY_WRITING_POLICY_VERSION,
+  FAMILY_REVIEW_CRITERIA,
+} from "./family-writing-policy";
+import {
   storyResponseSchema,
   shotResponseSchema,
   unpackStory,
@@ -6,7 +11,6 @@ import {
 } from "./family-ai-contract";
 import {
   validateStory,
-  localFamilyEditorialIssues,
   STORY_SCHEMA,
   type ChannelProfile,
   type FamilyEditorialIssue,
@@ -296,7 +300,7 @@ function contextText(context: CreativeContext, selectedIds: string[]) {
   const selected = selectedIds.length
     ? context.characters.filter((item) => selectedIds.includes(item.id))
     : context.characters;
-  return `${context.channelProfile ? "HỒ SƠ KÊNH (giữ vai trò và tính cách, không tự đổi ảnh chuẩn): " + JSON.stringify(context.channelProfile) + "\n20 TẬP GẦN NHẤT (tránh lặp tổ hợp tình huống–cơ chế–kết quả và cùng người luôn thua): " + JSON.stringify(context.recentStories || []) + "\n" : ""}DỰ ÁN: ${context.projectName}\nGIỌNG VIẾT: ${context.brandVoice || "tự nhiên, rõ ràng"}\nĐỘC GIẢ: ${context.audience || "khán giả fanpage Việt Nam"}\nHƯỚNG DẪN: ${context.guidelines || ""}\nNHÂN VẬT ĐƯỢC PHÉP DÙNG (chỉ dùng ID trong danh sách):\n${selected.map((character) => `- ${character.name} | ID ${character.id} | ${character.description || "nhân vật 3D đã duyệt"}; ${character.personality || ""}`).join("\n") || "Không có nhân vật được chọn."}\nNỘI DUNG GẦN ĐÂY CẦN TRÁNH LẶP: ${context.recentContent.join(" | ") || "chưa có"}`;
+  return `${context.channelProfile ? "HỒ SƠ KÊNH (giữ vai trò và tính cách, không tự đổi ảnh chuẩn): " + JSON.stringify(context.channelProfile) + "\n20 TẬP GẦN NHẤT (tránh lặp tổ hợp tình huống–cơ chế–kết quả và cùng người luôn thua): " + JSON.stringify(context.recentStories || []) + "\n" : ""}DỰ ÁN: ${context.projectName}\nGIỌNG VIẾT: ${context.channelProfile?.tone || context.brandVoice || "tự nhiên, rõ ràng"}\nĐỘC GIẢ: ${context.channelProfile?.audience || context.audience || "khán giả fanpage Việt Nam"}\nHƯỚNG DẪN: ${context.guidelines || ""}\nNHÂN VẬT ĐƯỢC PHÉP DÙNG (chỉ dùng ID trong danh sách):\n${selected.map((character) => `- ${character.name} | ID ${character.id} | ${character.description || "nhân vật 3D đã duyệt"}; ${character.personality || ""}`).join("\n") || "Không có nhân vật được chọn."}\nNỘI DUNG GẦN ĐÂY CẦN TRÁNH LẶP: ${context.recentContent.join(" | ") || "chưa có"}${context.channelProfile ? "\n\n" + FAMILY_WRITING_POLICY : ""}`;
 }
 
 function schemaFor(kind: CreativeAssistKind) {
@@ -369,6 +373,12 @@ const familyEditorialReviewSchema = {
   type: "object",
   properties: {
     passed: { type: "boolean" },
+    evidence: {
+      type: "object",
+      properties: Object.fromEntries(["motivation", "development", "ending", "originality"].map((key) => [key, { type: "string" }])),
+      required: ["motivation", "development", "ending", "originality"],
+      additionalProperties: false,
+    },
     issues: {
       type: "array",
       maxItems: 12,
@@ -384,26 +394,39 @@ const familyEditorialReviewSchema = {
       },
     },
   },
-  required: ["passed", "issues"],
+  required: ["passed", "evidence", "issues"],
   additionalProperties: false,
 };
 
 function unpackEditorialReview(value: unknown) {
-  const review = value as { passed?: unknown; issues?: unknown };
-  const issues = Array.isArray(review?.issues)
-    ? review.issues
-        .map((item) => item as Partial<FamilyEditorialIssue>)
-        .filter(
-          (item): item is FamilyEditorialIssue =>
-            typeof item.location === "string" &&
-            typeof item.quote === "string" &&
-            typeof item.reason === "string",
-        )
-        .slice(0, 12)
-    : [];
-  if (typeof review?.passed !== "boolean")
-    throw new Error("FAMILY_EDITORIAL_REVIEW_INVALID");
-  return { passed: review.passed && issues.length === 0, issues };
+  const review = value as {
+    passed?: unknown;
+    evidence?: Record<string, unknown>;
+    issues?: unknown;
+  };
+  if (
+    typeof review?.passed !== "boolean" ||
+    !Array.isArray(review.issues) ||
+    !["motivation", "development", "ending", "originality"].every(
+      (key) => typeof review.evidence?.[key] === "string" &&
+        (review.evidence[key] as string).trim().length > 10,
+    )
+  ) throw new Error("FAMILY_EDITORIAL_REVIEW_INVALID");
+  const issues = review.issues as FamilyEditorialIssue[];
+  if (
+    issues.length > 12 ||
+    issues.some((item) => !item ||
+      ![item.location, item.quote, item.reason].every(
+        (v) => typeof v === "string" && v.trim(),
+      ),
+    ) ||
+    (!review.passed && !issues.length)
+  ) throw new Error("FAMILY_EDITORIAL_REVIEW_INVALID");
+  return {
+    passed: review.passed && issues.length === 0,
+    issues,
+    evidence: review.evidence as Record<string, string>,
+  };
 }
 
 async function reviewFamilyStory(
@@ -415,18 +438,8 @@ async function reviewFamilyStory(
   return unpackEditorialReview(
     await generateJson(
       `${contextText(context, allowed)}
-Bạn là biên tập viên độc lập. Chỉ đánh giá lời thoại và điểm dừng của kịch bản sau, không viết lại: ${JSON.stringify(story)}
-
-Đọc từng câu như lời nói thật trong nhà, không đọc như văn trên giấy. Chỉ passed khi:
-- Bánh Bao nghe như bé gái mẫu giáo thích làm chị; Đậu Đỏ nghe như bé trai chập chững, câu ngắn và phản ứng vào điều vừa nghe. Bố Mẹ nói đời thường.
-- Mỗi câu là điều nhân vật có lý do nói ngay lúc đó. Không dùng ẩn dụ, khẩu hiệu, câu đối, thuật ngữ quảng cáo/hành chính để tác giả cố tạo tiếng cười.
-- Hài đến từ mong muốn đối nghịch, hiểu nhầm hoặc hành động; lời thoại không tự giải thích trò đùa.
-- Payoff dùng chi tiết đã có và dừng đúng chỗ. Không bắt người bị lộ phải hối lỗi, không thêm câu thắng cuộc hay reaction nếu hình ảnh đã chốt được chuyện.
-- Hành động mô tả thứ máy quay nhìn thấy, không gán nhãn cảm xúc như “đắc thắng”, “đầy hối lỗi”, “đầy ẩn ý”.
-
-Ví dụ câu phải báo lỗi: “vụn bánh đang nhảy múa”, “cái má khai hết rồi”, “không cùng phe”, “hệ điều hành khác”, “chốt đơn”. Những câu này là văn viết. Một câu đời thường như “Má em dính gì kìa?” hoặc một hành động im lặng thường tự nhiên hơn. Không đòi thêm bài học hay kết êm.
-Không bắt bẻ khẩu ngữ tự nhiên như “mất tiêu”, “nè”, “đâu”, “hả”; trẻ trong catalogue được phép bắt chước cách nói người lớn khi đang bày trò. Không yêu cầu nhân vật phải “khách quan”, không đề xuất câu thay thế chỉ vì sở thích cá nhân. Chỉ ghi issue khi câu đó rõ ràng làm mất tự nhiên, giải thích trò đùa, phá logic hoặc sai giọng nhân vật. Nếu chỉ có góp ý nhỏ không ảnh hưởng cách xem, trả passed=true và issues=[].
-Trả passed và issues. Mỗi issue ghi location, trích đúng quote và lý do cụ thể.`,
+Bạn là biên tập viên độc lập. Đánh giá toàn bộ câu chuyện sau, không viết lại: ${JSON.stringify(story)}
+${FAMILY_REVIEW_CRITERIA}`,
       familyEditorialReviewSchema,
       model,
     ),
@@ -493,8 +506,9 @@ async function generateFamilyFilm(input: CreativeAssistInput) {
   const draftStory = await checked(
     `${contextText(context, allowed)}
 Viết CÂU CHUYỆN trước khi chia shot. Ý tưởng: ${input.intent || "Một chuyện nhỏ mới của gia đình"}.
-Viết bản ngắn nhất vẫn đủ chuyện, thường 3–12 lượt thoại; không kéo cho đủ thời lượng. Mở bằng việc đang xảy ra. Mỗi câu phải khiến người kia đổi cách làm, lộ ý muốn hoặc tạo hệ quả. Cú chốt phải phát sinh từ một chi tiết đã có; nhân vật không được bỗng dưng làm trái điều vừa hiểu để phục vụ cú chốt. Có thể kết bằng người bị hớ, một sự đồng lõa hoặc một biểu cảm; reaction sau payoff để trống nếu không làm đoạn kết vui hơn.
-Thoại là khẩu ngữ Việt Nam: câu ngắn, có ngắt, phản bác và chống chế. Trẻ có thể bắt chước cách nói người lớn để đạt mục đích trẻ con, nhưng không dùng từ hành chính, ẩn dụ cầu kỳ hoặc câu đối đẹp chỉ để tỏ ra thông minh. Tình cảm thể hiện bằng hành động; không chữa mâu thuẫn bằng câu chia sẻ/hợp tác và không giảng đạo. Hai người có mong muốn khác nhau. So sánh tình huống, cơ chế và kết quả với 20 tập trước; đổi người thắng và liên minh.
+Tự cân nhắc vài tình huống khác nhau rồi chọn một chuyện có xung đột đời thường và động cơ rõ nhất, không xuất danh sách ý tưởng. Thời lượng dự kiến ${input.targetDurationSeconds || 35} giây; thường 8–12 lượt đối đáp cho khoảng 35 giây, nhưng được ít hơn nếu chuyện đã đủ. Tổng 15–120 đơn vị lời thoại (tách bằng khoảng trắng), mỗi lượt tối đa 35; thay đổi độ dài câu theo mục đích nói. Không cắt màn mặc cả hoặc giải thích có tác dụng để làm bản ngắn nhất.
+Ghi wants cụ thể, setup là việc đang xảy ra, turns là những thay đổi chiến thuật/hệ quả, payoff là kết quả cuối. Kế hoạch thành công vẫn là payoff, không bắt buộc ai thua. Mở ngay bằng yêu cầu/hành động, không giới thiệu gia đình.
+Tối đa 12 lượt thoại; nếu cần reaction riêng thì tối đa 11 lượt thoại + 1 reaction. Reaction để trống khi đã dừng đúng chỗ. Chỉ mô tả hành động nhìn thấy; không dùng nhãn cảm xúc thay việc diễn ra.
 Trả JSON: ${STORY_SCHEMA}`,
     (v) =>
       validateStory(unpackStory(v), profile, allowed, context.recentStories),
@@ -503,18 +517,20 @@ Trả JSON: ${STORY_SCHEMA}`,
   let story = await checked(
     `${contextText(context, allowed)}
 Bạn là biên tập thoại cuối, không phải người viết quảng cáo. Đọc bản nháp sau thành tiếng và sửa trực tiếp: ${JSON.stringify(draftStory)}
-Giữ ý tưởng và cast. Được sửa setup, mechanism, outcome, payoff, beats, thoại và hành động để nhân quả kín hơn. Cắt câu giải thích điều khán giả vừa thấy, câu văn hành chính, ẩn dụ gượng, lời đạo lý và reaction thừa. Mỗi nhân vật phải muốn một thứ cụ thể trong cảnh. Đậu Đỏ là em trai chập chững nên nói ngắn, bám vào từ vừa nghe; Bánh Bao là chị mẫu giáo, chỉ nói kiểu người lớn khi đang bày luật hoặc mặc cả. Bố chống chế đời thường; Mẹ bắt bài gọn. Câu cuối phải là điểm dừng tự nhiên và vui nhất, không cần hòa giải.
-Tự kiểm tra: nếu bỏ tên người nói thì vẫn nhận ra ít nhất Bánh Bao và Đậu Đỏ qua cách phản ứng; payoff không phụ thuộc vào hành động vô lý; bỏ câu cuối nếu nó chỉ giải thích trò đùa. Trả toàn bộ JSON theo schema: ${STORY_SCHEMA}`,
+Giữ đề tài và cast, biên tập theo mục đích từng người và cách họ đáp lại nhau. Giữ những màn lý sự, giải thích, thăm dò và mặc cả đang có tác dụng; không rút mọi câu thành vài từ. Nếu vấn đề là tình huống không có gì để tranh, sửa động cơ/setup/chiến thuật thay vì thêm câu chơi chữ. Không luôn cho Bố chống chế, Mẹ bắt bài hay Đậu Đỏ chỉ hiểu nghĩa đen.
+Chỉ sửa phần làm gãy nhân quả hoặc khiến nhân vật nói hộ tác giả. Được sửa setup, mechanism, outcome, payoff và beats cho khớp thoại, giữ chi tiết đã gieo. Không đổi kết thành chia sẻ hay hối lỗi. Không viết tiếp sau điểm dừng có ý nghĩa. Dùng toàn bộ QUY TẮC BIÊN KỊCH ở trên; sự tự nhiên không được suy từ tuổi.
+Trả toàn bộ JSON theo schema: ${STORY_SCHEMA}`,
     (v) =>
       validateStory(unpackStory(v), profile, allowed, context.recentStories),
     storyResponseSchema(profile, allowed),
   );
+  let editorialEvidence: Record<string, string> | undefined;
   for (let editorialAttempt = 0; editorialAttempt <= 2; editorialAttempt++) {
-    const localIssues = localFamilyEditorialIssues(story);
-    const review = localIssues.length
-      ? { passed: false, issues: localIssues }
-      : await reviewFamilyStory(story, context, allowed, model);
-    if (review.passed) break;
+    const review = await reviewFamilyStory(story, context, allowed, model);
+    if (review.passed) {
+      editorialEvidence = review.evidence;
+      break;
+    }
     if (editorialAttempt === 2) {
       throw new Error(
         `FAMILY_EDITORIAL_NEEDS_REVIEW: ${JSON.stringify(review.issues)}`,
@@ -525,7 +541,7 @@ Tự kiểm tra: nếu bỏ tên người nói thì vẫn nhận ra ít nhất B
 Sửa kịch bản sau theo đúng nhận xét của biên tập viên, giữ đề tài, cast và quan hệ nhân quả: ${JSON.stringify(story)}
 NHẬN XÉT BẮT BUỘC SỬA (lượt ${editorialAttempt + 1}/2): ${JSON.stringify(review.issues)}
 
-Viết lại bằng câu người trong một gia đình Việt có thể bật ra ngay lúc đó. Để hành động và bằng chứng tạo tiếng cười; không thay câu văn viết bằng một ẩn dụ khác. Được cắt reaction, câu thắng cuộc hoặc cả một lượt thoại nếu payoff đã rõ. Hành động chỉ mô tả cử chỉ nhìn thấy được. Không giảng đạo và không làm người bị hớ phải hối lỗi. Trả toàn bộ JSON theo schema: ${STORY_SCHEMA}`,
+Sửa đúng nguyên nhân được chỉ ra: động cơ, chiến thuật, nhân quả hoặc câu nói thiếu lý do. Giữ phần đối đáp đang hiệu quả, kể cả lời giải thích và cách nói người lớn có chủ ý. Không giải quyết mọi nhận xét bằng rút ngắn thoại. Được cắt reaction, câu thắng cuộc hoặc cả một lượt thoại nếu payoff đã rõ. Hành động chỉ mô tả cử chỉ nhìn thấy được. Không giảng đạo và không làm người bị hớ phải hối lỗi. Trả toàn bộ JSON theo schema: ${STORY_SCHEMA}`,
       (v) =>
         validateStory(unpackStory(v), profile, allowed, context.recentStories),
       storyResponseSchema(profile, allowed),
@@ -569,6 +585,8 @@ Chỉ trả title, summary và object shots với ${shotCount} khóa shot1 đế
     ...result,
     story: {
       ...story,
+      writingPolicyVersion: FAMILY_WRITING_POLICY_VERSION,
+      editorialEvidence,
       intendedShotSeconds: result.scenes.map(
         (s) => s.intendedDurationSeconds || s.durationSeconds,
       ),

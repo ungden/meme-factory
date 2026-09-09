@@ -1,3 +1,4 @@
+import { FAMILY_WRITING_POLICY_VERSION } from "@/lib/family-writing-policy";
 import { after, NextRequest, NextResponse } from "next/server";
 import {
   creativeAssistModel,
@@ -175,6 +176,7 @@ export async function POST(
     kind: body.kind,
     intent: typeof body.intent === "string" ? body.intent.slice(0, 4000) : "",
     channelProfileVersion: channel?.profile?.version ?? null,
+    writingPolicyVersion: channel?.profile ? FAMILY_WRITING_POLICY_VERSION : null,
     recentPlanIds: (recentPlans || []).map((p) => p.id),
     selectedCharacterIds: selectedIds,
     targetDurationSeconds: body.targetDurationSeconds || (channel ? 35 : 30),

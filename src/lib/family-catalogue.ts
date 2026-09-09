@@ -1,3 +1,4 @@
+import { FAMILY_WRITING_POLICY_VERSION } from "./family-writing-policy";
 /** Editorial references describe mechanisms only; no source dialogue or media is copied. */
 export const FAMILY_SERIES = [
   "Liên minh bí mật",
@@ -9,6 +10,7 @@ export const FAMILY_SERIES = [
 ] as const;
 export type ChannelProfile = {
   version: number;
+  writingPolicyVersion?: string;
   positioning: string;
   audience: string;
   tone: string;
@@ -28,7 +30,9 @@ export type RecentStory = Pick<
 >;
 export type Story = {
   intendedShotSeconds?: number[];
+  writingPolicyVersion?: string;
   profileVersion: number;
+  editorialEvidence?: Record<string, string>;
   series: string;
   situation: string;
   mechanism: string;
@@ -57,33 +61,33 @@ export const referenceMechanisms: ChannelProfile["references"] = [
   {
     source: "1 · Đấu giá việc rửa bát",
     mechanism: "Cạnh tranh tăng cấp → tự mắc bẫy → lật lần hai",
-    lesson: "Mỗi lượt thay đổi một biến số; cú cuối giải thích hành vi từ đầu.",
+    lesson: "Từ muốn phần thưởng chuyển sang muốn thắng đối thủ: mỗi bên đổi giá vì phản ứng của bên kia. Hài tăng qua cuộc mặc cả trước cú lật cuối. Học động cơ đổi chiến thuật, không viết lại đấu giá bằng món đồ khác.",
   },
   {
     source: "2 · Hẹn giờ khóc",
     mechanism: "Trẻ tổ chức nhu cầu trẻ con bằng tư duy người lớn",
     lesson:
-      "Sự đồng lõa và biểu cảm có thể là kết; không bắt mọi tập phải lật.",
+      "Hai bé bàn thời điểm, phân vai rồi thực hiện để đạt nhu cầu. Lập kế hoạch bằng tư duy người lớn là phần gây cười; kế hoạch thành công đủ làm kết, không cần phạt hoặc lật.",
   },
   {
     source: "3 · Các loại chân",
     mechanism: "Luật vô lý được theo đuổi nhất quán",
-    lesson: "Thay điều kiện lợi ích để phá lý lẽ, không giảng giải.",
+    lesson: "Bé bịa lý lẽ để được bế rồi thích nghi khi mẹ đổi điều kiện. Học lý sự có lợi và đổi chiến thuật; không lấy chuỗi chân chơi/chân về/chân kem thay thành tay/tai hay món khác.",
   },
   {
     source: "4 · Không so sánh mẹ",
     mechanism: "Đảo chiều người bị đánh giá",
-    lesson: "Chỉ ra bất cân xứng; tránh chê ngoại hình, thu nhập hoặc hạ nhục.",
+    lesson: "Bé dùng chính tiêu chuẩn của người lớn để bảo vệ mình. Lập luận có thể nhiều câu nếu để thuyết phục người đối diện; tránh chê ngoại hình, thu nhập hoặc hạ nhục.",
   },
   {
     source: "5 · Quân sư né việc",
     mechanism: "Quân sư quên tính mình vào điều kiện",
-    lesson: "Hệ quả dùng đúng điều đã thiết lập; luân phiên người mắc bẫy.",
+    lesson: "Em giải thích khá dài cách đọc tâm trạng mẹ, lời khuyên thực sự giúp chị né việc rồi chính em quên tính mình vào. Đừng cắt màn quân sư vì coi giải thích là thừa; gieo điều kiện để hệ quả sau tự nhiên.",
   },
   {
     source: "6 · Bố mẹ nhờ mua đồ",
     mechanism: "Đảo vai người lớn và trẻ con",
-    lesson: "Người lớn cũng đáng yêu và biết cảm ơn; không chỉ sai vặt con.",
+    lesson: "Bố mẹ muốn nằm tiếp, hai bé muốn đi; đặt món, từ chối, nài nỉ rồi đổi cách thuyết phục. Lời cảm ơn cuối thuộc giao dịch đang diễn ra, không phải bài học gắn thêm. Bố mẹ có thể chủ động bày trò.",
   },
   {
     source: "7 · Cuộc gọi đáng ngờ",
@@ -94,11 +98,12 @@ export const referenceMechanisms: ChannelProfile["references"] = [
 ];
 export function familyProfile(roles: ChannelProfile["roles"]): ChannelProfile {
   return {
-    version: 2,
+    version: 3,
+    writingPolicyVersion: FAMILY_WRITING_POLICY_VERSION,
     positioning:
       "Một gia đình cố định, nhiều chuyện nhỏ nối tiếp; Bánh Bao và Đậu Đỏ dẫn chuyện. Mỗi tập độc lập, quan hệ tích luỹ qua các tập. Làm bánh chỉ là một bối cảnh nhận diện.",
     audience: "Người lớn, đặc biệt cha mẹ Việt Nam",
-    tone: "Hài lém lỉnh, có tình cảm; thể hiện thương nhau qua hành động. Giữ tính cách, đổi người thắng và liên minh.",
+    tone: "Hài gia đình cho người lớn: trẻ con có thể lý sự, tính toán như người lớn vì mong muốn của mình. Đối đáp nghiêm túc trong tình huống buồn cười; giữ tính cách, đổi chiến thuật, người thắng và liên minh. Tình cảm nằm trong quan hệ, không bắt buộc lời kết dễ thương.",
     roles,
     series: FAMILY_SERIES,
     references: referenceMechanisms,
@@ -110,7 +115,7 @@ export function familyProfile(roles: ChannelProfile["roles"]): ChannelProfile {
       "Không kéo thoại cho đủ thời lượng",
       "Không ép tất cả tập về bánh",
       "Không chữa mâu thuẫn bằng một câu chia sẻ, hợp tác hoặc bài học ở cuối",
-      "Không dùng lời văn hành chính, ẩn dụ cầu kỳ hoặc chơi chữ chỉ để tỏ ra thông minh",
+      "Không viết câu chỉ nhằm khoe chơi chữ; ngôn ngữ người lớn được dùng khi phục vụ ý đồ của nhân vật, không cấm theo danh sách từ",
       "Không bắt nhân vật làm trái điều vừa hiểu chỉ để tạo cú lật",
     ],
   };
@@ -180,6 +185,8 @@ export function validateStory(
     )
   )
     throw new Error("STORY_DIALOGUE_INVALID");
+  if (s.dialogue.length + (reactionIndex >= 0 ? 1 : 0) > 12)
+    throw new Error("STORY_SHOT_LIMIT: tối đa 12 shot kể cả reaction; giữ đối đáp, bỏ reaction nếu không cần");
   const words = s.dialogue.reduce(
     (n, d) => n + d.text.trim().split(/\s+/).length,
     0,
@@ -203,49 +210,5 @@ export type FamilyEditorialIssue = {
   reason: string;
 };
 
-/**
- * Fast, deterministic guard for phrases that read like copywriting or stage
- * direction instead of a family speaking naturally. The semantic editor still
- * reviews the full story because naturalness cannot be reduced to a word list.
- */
-export function localFamilyEditorialIssues(
-  story: Story,
-): FamilyEditorialIssue[] {
-  const issues: FamilyEditorialIssue[] = [];
-  const writtenJokes = [
-    /nhảy múa/iu,
-    /cái (?:má|miệng|mắt).{0,24}khai/iu,
-    /không cùng phe/iu,
-    /hệ điều hành/iu,
-    /tan xác/iu,
-  ];
-  story.dialogue.forEach((line, index) => {
-    if (writtenJokes.some((pattern) => pattern.test(line.text))) {
-      issues.push({
-        location: `dialogue.${index + 1}`,
-        quote: line.text,
-        reason:
-          "Câu đùa được viết bằng ẩn dụ hoặc khẩu hiệu; người trong tình huống này khó nói tự nhiên như vậy.",
-      });
-    }
-    if (/\b(?:hối lỗi|đắc thắng|đầy ẩn ý)\b/iu.test(line.action)) {
-      issues.push({
-        location: `dialogue.${index + 1}.action`,
-        quote: line.action,
-        reason:
-          "Chỉ dẫn đang áp cảm xúc kết luận lên nhân vật thay vì mô tả một hành động nhìn thấy được.",
-      });
-    }
-  });
-  if (/không cùng phe|hệ điều hành|chốt đơn/iu.test(story.caption)) {
-    issues.push({
-      location: "caption",
-      quote: story.caption,
-      reason:
-        "Caption dùng câu quảng cáo/công thức thay vì bám khoảnh khắc thật của tập.",
-    });
-  }
-  return issues;
-}
 export const STORY_SCHEMA =
   '{"series":"", "situation":"", "mechanism":"", "outcome":"", "wants":[{"characterId":"uuid","want":""}], "beats":{"hook":"","turns":[],"payoff":"","reaction":""}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid","text":"","action":""}]}';

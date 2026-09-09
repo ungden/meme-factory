@@ -10,11 +10,11 @@ export const familyPersonalities: Record<string, string> = {
 };
 export const familySpeechStyles: Record<string, string> = {
   "Bánh Bao":
-    "Chị gái tuổi mẫu giáo. Câu ngắn, rõ và hay mở luật chơi bằng giọng chắc chắn. Chỉ dùng kiểu nói người lớn khi đang bắt chước hoặc thương lượng; để lộ ngay điều chị thật sự muốn khi bị bắt bẻ.",
+    "Chị gái, thích chủ trì và được coi là lớn. Có thể đặt luật, giải thích kế hoạch và mặc cả rất nghiêm túc để được việc của mình; khi cách đầu không hiệu quả thì tìm lý lẽ khác. Khẩu ngữ Việt, không cố nói thông minh trong mọi câu.",
   "Đậu Đỏ":
-    "Em trai tuổi chập chững. Nói rất ngắn, hỏi thẳng và bám vào một từ vừa nghe. Không dùng ẩn dụ dài, từ hành chính hoặc kết luận đạo lý; sự tinh ý nằm ở một câu hỏi hoặc một hành động đơn giản.",
-  Bố: "Nói đời thường, hơi ham vui, hay chống chế ngắn khi bị bắt quả tang. Xưng bố/con; không độc thoại giải thích trò đùa.",
-  Mẹ: "Nói gọn, thực tế, đôi khi chốt khô mà vui. Xưng mẹ/con; phản ứng bằng đổi điều kiện hoặc một câu bắt bài, không giảng giải.",
+    "Em trai, để ý lợi ích trước mắt và những chỗ chị bỏ sót. Có thể hỏi thẳng, cãi lý, phân tích hay làm quân sư như người lớn khi muốn đạt điều gì đó. Không giới hạn ở câu vài từ hoặc luôn hiểu nghĩa đen; có thể dẫn dắt cuộc đối đáp và cũng có lúc tự mắc bẫy. Giữ diện mạo và giọng bé trai đã chọn.",
+  Bố: "Xưng bố/con, đời thường, ham vui. Có mong muốn riêng, biết thương lượng, rủ rê hoặc nài nỉ; có thể chủ động bày trò, không luôn là người bị bắt quả tang.",
+  Mẹ: "Xưng mẹ/con, thực tế và có khiếu hài. Có thể tham gia kế hoạch, mặc cả, nhờ vả hoặc bị con bắt lý; không luôn đóng vai trọng tài bắt bài hay kết luận đạo lý.",
 };
 export type PilotEpisode = {
   key: string;

@@ -4,7 +4,6 @@ import { buildFamilyPilot, familyPersonalities } from "./family-pilot";
 import {
   validateStory,
   fingerprint,
-  localFamilyEditorialIssues,
 } from "./family-catalogue";
 import type { FilmCast } from "./short-film/contracts";
 const cast = Object.keys(familyPersonalities).map((name, i) => ({
@@ -95,24 +94,14 @@ describe("family catalogue", () => {
       ).beats.at(-1)?.purpose,
     ).toBe("payoff");
   });
-  it("flags written punchlines and emotional stage labels", () => {
-    const story = {
-      ...plans[0].story,
-      caption: "Khi cái má không cùng phe với cái miệng",
-      dialogue: plans[0].story.dialogue.map((line, index) =>
-        index === 0
-          ? {
-              ...line,
-              text: "Vụn bánh đang nhảy múa kìa!",
-              action: "Nhìn em đầy hối lỗi.",
-            }
-          : line,
-      ),
-    };
-    expect(
-      localFamilyEditorialIssues(story).map((item) => item.location),
-    ).toEqual(
-      expect.arrayContaining(["dialogue.1", "dialogue.1.action", "caption"]),
-    );
+  it("keeps motivated adult reasoning intact rather than censoring vocabulary", () => {
+    const story = structuredClone(plans[0].story);
+    story.dialogue[0].text = "Chị làm chủ thì chị chia đi. Chia xong em mới chọn phe. Mà sao chị được hai cái, em có một cái?";
+    expect(validateStory(story, profile, cast.map(c => c.characterId)).dialogue[0].text).toBe(story.dialogue[0].text);
+  });
+  it("rejects a thirteenth reaction shot before purchasing or planning media", () => {
+    const story = { ...plans[0].story, dialogue: Array.from({ length: 12 }, (_, i) => ({ ...plans[0].story.dialogue[i % 6], text: "Cho em xem nào." })) };
+    expect(() => validateStory(story, profile, cast.map(c => c.characterId))).toThrow("STORY_SHOT_LIMIT");
+    expect(validateStory({ ...story, beats: story.beats.filter(b => b.purpose !== "reaction") }, profile, cast.map(c => c.characterId)).dialogue).toHaveLength(12);
   });
 });

@@ -31,7 +31,13 @@ const cast = Object.keys(familyPersonalities).map((name, i) => ({
   assetVersion: 2,
 }));
 const { profile, plans } = buildFamilyPilot(cast, testPilot);
-const editorialPass = { passed: true, issues: [] };
+const evidence = {
+  motivation: "Chị muốn chủ trì, em đòi quyền chọn trước; thể hiện ở hai câu mở.",
+  development: "Khi em không chịu, chị đổi điều kiện để được chia trước.",
+  ending: "Điều kiện chị đưa ra khiến em chọn phần chị đang giữ.",
+  originality: "Không dùng chuỗi đấu giá hay đổi tên bộ phận cơ thể của reference.",
+};
+const editorialPass = { passed: true, evidence, issues: [] };
 const shotResult = (p: (typeof plans)[number]) => ({
   title: p.title,
   summary: p.brief,
@@ -69,7 +75,7 @@ it("writes story then shots, carries caption and freezes exact dialogue", async 
   ];
   const result = await generateCreativeAssist(input);
   expect(calls.prompts).toHaveLength(4);
-  expect(result.kind === "video_plan" && result.story?.profileVersion).toBe(2);
+  expect(result.kind === "video_plan" && result.story?.profileVersion).toBe(3);
   expect(result.kind === "video_plan" && result.caption).toBe(
     plans[0].story.caption,
   );
@@ -159,6 +165,7 @@ it("repairs written jokes before planning shots", async () => {
   calls.responses = [
     plans[0].story,
     stiff,
+    { passed: false, evidence, issues: [{ location: "dialogue.2", quote: "Vụn bánh đang nhảy múa đó!", reason: "Câu này không đáp lời chị hoặc giúp em giấu việc ăn vụng; thay cuộc đối đáp bằng ví von của tác giả." }] },
     plans[0].story,
     editorialPass,
     shotResult(plans[0]),
@@ -176,6 +183,7 @@ it("refuses a family script when the independent final review still fails", asyn
     plans[0].story,
     {
       passed: false,
+      evidence,
       issues: [
         {
           location: "dialogue.2",
@@ -187,6 +195,7 @@ it("refuses a family script when the independent final review still fails", asyn
     plans[0].story,
     {
       passed: false,
+      evidence,
       issues: [
         { location: "dialogue.2", quote: "gượng", reason: "vẫn chưa tự nhiên" },
       ],
@@ -194,6 +203,7 @@ it("refuses a family script when the independent final review still fails", asyn
     plans[0].story,
     {
       passed: false,
+      evidence,
       issues: [
         {
           location: "dialogue.2",
@@ -242,3 +252,21 @@ it("keeps a listener in a native dialogue shot and does not invent a final react
     story.dialogue[0].characterId,
   );
 });
+
+ it.each([
+   { passed: true, issues: [] },
+   { passed: true, evidence, issues: [{ location: "dialogue.1" }] },
+   { passed: false, evidence, issues: [] },
+ ])("fails closed on malformed or unsupported editorial approval %j", async review => {
+   calls.responses = [plans[0].story, plans[0].story, review];
+   await expect(generateCreativeAssist(input)).rejects.toThrow("FAMILY_EDITORIAL_REVIEW_INVALID");
+   expect(calls.prompts).toHaveLength(3);
+ });
+
+ it("applies one writing policy to ideation and preserves child identities", async () => {
+   const ideas = { ideas: [1,2,3].map(i => ({ title: `Câu chuyện ${i}`, idea: `Hai bé bàn cách giành lượt chơi ${i}`, why: "Hai mong muốn khác nhau" })) };
+   calls.responses = [ideas];
+   await generateCreativeAssist({ ...input, kind: "idea_suggestions" });
+   expect(calls.prompts[0]).toContain("family-dialogue-3");
+   expect(calls.prompts[0]).toContain("KHÔNG phải giới hạn khả năng lập luận");
+ });
