@@ -1,7 +1,11 @@
 import { testPilot } from "./family-test-fixture";
 import { describe, it, expect } from "vitest";
 import { buildFamilyPilot, familyPersonalities } from "./family-pilot";
-import { validateStory, fingerprint } from "./family-catalogue";
+import {
+  validateStory,
+  fingerprint,
+  localFamilyEditorialIssues,
+} from "./family-catalogue";
 import type { FilmCast } from "./short-film/contracts";
 const cast = Object.keys(familyPersonalities).map((name, i) => ({
   name,
@@ -76,7 +80,10 @@ describe("family catalogue", () => {
       ...plans[0].story,
       beats: [
         { purpose: "hook" as const, description: "Hai bé tranh lượt" },
-        { purpose: "payoff" as const, description: "Cả hai quên mất trò ban đầu" },
+        {
+          purpose: "payoff" as const,
+          description: "Cả hai quên mất trò ban đầu",
+        },
       ],
       dialogue: plans[0].story.dialogue.slice(0, 4),
     };
@@ -87,5 +94,25 @@ describe("family catalogue", () => {
         cast.map((c) => c.characterId),
       ).beats.at(-1)?.purpose,
     ).toBe("payoff");
+  });
+  it("flags written punchlines and emotional stage labels", () => {
+    const story = {
+      ...plans[0].story,
+      caption: "Khi cái má không cùng phe với cái miệng",
+      dialogue: plans[0].story.dialogue.map((line, index) =>
+        index === 0
+          ? {
+              ...line,
+              text: "Vụn bánh đang nhảy múa kìa!",
+              action: "Nhìn em đầy hối lỗi.",
+            }
+          : line,
+      ),
+    };
+    expect(
+      localFamilyEditorialIssues(story).map((item) => item.location),
+    ).toEqual(
+      expect.arrayContaining(["dialogue.1", "dialogue.1.action", "caption"]),
+    );
   });
 });

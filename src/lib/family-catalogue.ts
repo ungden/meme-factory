@@ -150,7 +150,8 @@ export function validateStory(
   )
     throw new Error("STORY_WANTS_INVALID");
   const payoffIndex = s?.beats?.findIndex((b) => b.purpose === "payoff") ?? -1;
-  const reactionIndex = s?.beats?.findIndex((b) => b.purpose === "reaction") ?? -1;
+  const reactionIndex =
+    s?.beats?.findIndex((b) => b.purpose === "reaction") ?? -1;
   if (
     !Array.isArray(s.beats) ||
     s.beats.length < 2 ||
@@ -194,6 +195,57 @@ export function validateStory(
   if (recent.some((r) => fingerprint(r) === fingerprint(s)))
     throw new Error("STORY_REPEATED_COMBINATION");
   return { ...s, profileVersion: profile.version };
+}
+
+export type FamilyEditorialIssue = {
+  location: string;
+  quote: string;
+  reason: string;
+};
+
+/**
+ * Fast, deterministic guard for phrases that read like copywriting or stage
+ * direction instead of a family speaking naturally. The semantic editor still
+ * reviews the full story because naturalness cannot be reduced to a word list.
+ */
+export function localFamilyEditorialIssues(
+  story: Story,
+): FamilyEditorialIssue[] {
+  const issues: FamilyEditorialIssue[] = [];
+  const writtenJokes = [
+    /nhảy múa/iu,
+    /cái (?:má|miệng|mắt).{0,24}khai/iu,
+    /không cùng phe/iu,
+    /hệ điều hành/iu,
+    /tan xác/iu,
+  ];
+  story.dialogue.forEach((line, index) => {
+    if (writtenJokes.some((pattern) => pattern.test(line.text))) {
+      issues.push({
+        location: `dialogue.${index + 1}`,
+        quote: line.text,
+        reason:
+          "Câu đùa được viết bằng ẩn dụ hoặc khẩu hiệu; người trong tình huống này khó nói tự nhiên như vậy.",
+      });
+    }
+    if (/\b(?:hối lỗi|đắc thắng|đầy ẩn ý)\b/iu.test(line.action)) {
+      issues.push({
+        location: `dialogue.${index + 1}.action`,
+        quote: line.action,
+        reason:
+          "Chỉ dẫn đang áp cảm xúc kết luận lên nhân vật thay vì mô tả một hành động nhìn thấy được.",
+      });
+    }
+  });
+  if (/không cùng phe|hệ điều hành|chốt đơn/iu.test(story.caption)) {
+    issues.push({
+      location: "caption",
+      quote: story.caption,
+      reason:
+        "Caption dùng câu quảng cáo/công thức thay vì bám khoảnh khắc thật của tập.",
+    });
+  }
+  return issues;
 }
 export const STORY_SCHEMA =
   '{"series":"", "situation":"", "mechanism":"", "outcome":"", "wants":[{"characterId":"uuid","want":""}], "beats":{"hook":"","turns":[],"payoff":"","reaction":""}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid","text":"","action":""}]}';

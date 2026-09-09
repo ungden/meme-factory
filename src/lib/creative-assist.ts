@@ -6,8 +6,10 @@ import {
 } from "./family-ai-contract";
 import {
   validateStory,
+  localFamilyEditorialIssues,
   STORY_SCHEMA,
   type ChannelProfile,
+  type FamilyEditorialIssue,
   type Story,
   type RecentStory,
 } from "./family-catalogue";
@@ -347,6 +349,71 @@ async function generateJson(prompt: string, responseJsonSchema?: unknown) {
   return JSON.parse(response.text || "{}") as unknown;
 }
 
+const familyEditorialReviewSchema = {
+  type: "object",
+  properties: {
+    passed: { type: "boolean" },
+    issues: {
+      type: "array",
+      maxItems: 12,
+      items: {
+        type: "object",
+        properties: {
+          location: { type: "string" },
+          quote: { type: "string" },
+          reason: { type: "string" },
+        },
+        required: ["location", "quote", "reason"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["passed", "issues"],
+  additionalProperties: false,
+};
+
+function unpackEditorialReview(value: unknown) {
+  const review = value as { passed?: unknown; issues?: unknown };
+  const issues = Array.isArray(review?.issues)
+    ? review.issues
+        .map((item) => item as Partial<FamilyEditorialIssue>)
+        .filter(
+          (item): item is FamilyEditorialIssue =>
+            typeof item.location === "string" &&
+            typeof item.quote === "string" &&
+            typeof item.reason === "string",
+        )
+        .slice(0, 12)
+    : [];
+  if (typeof review?.passed !== "boolean")
+    throw new Error("FAMILY_EDITORIAL_REVIEW_INVALID");
+  return { passed: review.passed && issues.length === 0, issues };
+}
+
+async function reviewFamilyStory(
+  story: Story,
+  context: CreativeContext,
+  allowed: string[],
+) {
+  return unpackEditorialReview(
+    await generateJson(
+      `${contextText(context, allowed)}
+Bạn là biên tập viên độc lập. Chỉ đánh giá lời thoại và điểm dừng của kịch bản sau, không viết lại: ${JSON.stringify(story)}
+
+Đọc từng câu như lời nói thật trong nhà, không đọc như văn trên giấy. Chỉ passed khi:
+- Bánh Bao nghe như bé gái mẫu giáo thích làm chị; Đậu Đỏ nghe như bé trai chập chững, câu ngắn và phản ứng vào điều vừa nghe. Bố Mẹ nói đời thường.
+- Mỗi câu là điều nhân vật có lý do nói ngay lúc đó. Không dùng ẩn dụ, khẩu hiệu, câu đối, thuật ngữ quảng cáo/hành chính để tác giả cố tạo tiếng cười.
+- Hài đến từ mong muốn đối nghịch, hiểu nhầm hoặc hành động; lời thoại không tự giải thích trò đùa.
+- Payoff dùng chi tiết đã có và dừng đúng chỗ. Không bắt người bị lộ phải hối lỗi, không thêm câu thắng cuộc hay reaction nếu hình ảnh đã chốt được chuyện.
+- Hành động mô tả thứ máy quay nhìn thấy, không gán nhãn cảm xúc như “đắc thắng”, “đầy hối lỗi”, “đầy ẩn ý”.
+
+Ví dụ câu phải báo lỗi: “vụn bánh đang nhảy múa”, “cái má khai hết rồi”, “không cùng phe”, “hệ điều hành khác”, “chốt đơn”. Những câu này là văn viết. Một câu đời thường như “Má em dính gì kìa?” hoặc một hành động im lặng thường tự nhiên hơn. Không đòi thêm bài học hay kết êm.
+Trả passed và issues. Mỗi issue ghi location, trích đúng quote và lý do cụ thể.`,
+      familyEditorialReviewSchema,
+    ),
+  );
+}
+
 export async function generateCreativeAssist(input: CreativeAssistInput) {
   if (input.kind === "video_plan" && input.context.channelProfile)
     return generateFamilyFilm(input);
@@ -373,7 +440,7 @@ export async function generateCreativeAssist(input: CreativeAssistInput) {
   }
 }
 
-/** Two semantic passes, one repair budget across the whole request. Never starts media. */
+/** Story, dialogue, independent editorial review and shot planning. Never starts media. */
 async function generateFamilyFilm(input: CreativeAssistInput) {
   const profile = input.context.channelProfile!;
   const allowed = input.selectedCharacterIds?.length
@@ -412,7 +479,7 @@ Trả JSON: ${STORY_SCHEMA}`,
       validateStory(unpackStory(v), profile, allowed, context.recentStories),
     storyResponseSchema(profile, allowed),
   );
-  const story = await checked(
+  let story = await checked(
     `${contextText(context, allowed)}
 Bạn là biên tập thoại cuối, không phải người viết quảng cáo. Đọc bản nháp sau thành tiếng và sửa trực tiếp: ${JSON.stringify(draftStory)}
 Giữ ý tưởng và cast. Được sửa setup, mechanism, outcome, payoff, beats, thoại và hành động để nhân quả kín hơn. Cắt câu giải thích điều khán giả vừa thấy, câu văn hành chính, ẩn dụ gượng, lời đạo lý và reaction thừa. Mỗi nhân vật phải muốn một thứ cụ thể trong cảnh. Đậu Đỏ là em trai chập chững nên nói ngắn, bám vào từ vừa nghe; Bánh Bao là chị mẫu giáo, chỉ nói kiểu người lớn khi đang bày luật hoặc mặc cả. Bố chống chế đời thường; Mẹ bắt bài gọn. Câu cuối phải là điểm dừng tự nhiên và vui nhất, không cần hòa giải.
@@ -421,6 +488,37 @@ Tự kiểm tra: nếu bỏ tên người nói thì vẫn nhận ra ít nhất B
       validateStory(unpackStory(v), profile, allowed, context.recentStories),
     storyResponseSchema(profile, allowed),
   );
+  let editorialIssues = localFamilyEditorialIssues(story);
+  let editorialAccepted = false;
+  if (!editorialIssues.length) {
+    const review = await reviewFamilyStory(story, context, allowed);
+    editorialIssues = review.passed ? [] : review.issues;
+    editorialAccepted = review.passed;
+  }
+  if (editorialIssues.length) {
+    story = await checked(
+      `${contextText(context, allowed)}
+Sửa kịch bản sau theo đúng nhận xét của biên tập viên, giữ đề tài, cast và quan hệ nhân quả: ${JSON.stringify(story)}
+NHẬN XÉT BẮT BUỘC SỬA: ${JSON.stringify(editorialIssues)}
+
+Viết lại bằng câu người trong một gia đình Việt có thể bật ra ngay lúc đó. Để hành động và bằng chứng tạo tiếng cười; không thay câu văn viết bằng một ẩn dụ khác. Được cắt reaction, câu thắng cuộc hoặc cả một lượt thoại nếu payoff đã rõ. Hành động chỉ mô tả cử chỉ nhìn thấy được. Không giảng đạo và không làm người bị hớ phải hối lỗi. Trả toàn bộ JSON theo schema: ${STORY_SCHEMA}`,
+      (v) =>
+        validateStory(unpackStory(v), profile, allowed, context.recentStories),
+      storyResponseSchema(profile, allowed),
+    );
+    editorialAccepted = false;
+  }
+  const remainingLocalIssues = localFamilyEditorialIssues(story);
+  const finalReview = editorialAccepted
+    ? { passed: true, issues: [] }
+    : remainingLocalIssues.length
+      ? { passed: false, issues: remainingLocalIssues }
+      : await reviewFamilyStory(story, context, allowed);
+  if (!finalReview.passed) {
+    throw new Error(
+      `FAMILY_EDITORIAL_NEEDS_REVIEW: ${JSON.stringify(finalReview.issues)}`,
+    );
+  }
   const hasReaction = story.beats.at(-1)?.purpose === "reaction";
   const shotCount = story.dialogue.length + (hasReaction ? 1 : 0);
   const result = await checked(

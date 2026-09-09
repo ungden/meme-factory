@@ -31,6 +31,7 @@ const cast = Object.keys(familyPersonalities).map((name, i) => ({
   assetVersion: 2,
 }));
 const { profile, plans } = buildFamilyPilot(cast, testPilot);
+const editorialPass = { passed: true, issues: [] };
 const shotResult = (p: (typeof plans)[number]) => ({
   title: p.title,
   summary: p.brief,
@@ -52,9 +53,14 @@ beforeEach(() => {
   calls.responses = [];
 });
 it("writes story then shots, carries caption and freezes exact dialogue", async () => {
-  calls.responses = [plans[0].story, plans[0].story, shotResult(plans[0])];
+  calls.responses = [
+    plans[0].story,
+    plans[0].story,
+    editorialPass,
+    shotResult(plans[0]),
+  ];
   const result = await generateCreativeAssist(input);
-  expect(calls.prompts).toHaveLength(3);
+  expect(calls.prompts).toHaveLength(4);
   expect(result.kind === "video_plan" && result.story?.profileVersion).toBe(2);
   expect(result.kind === "video_plan" && result.caption).toBe(
     plans[0].story.caption,
@@ -68,15 +74,22 @@ it("allows only one repair across both passes and never drops bad shots", async 
       imagePrompt: "",
     })),
   };
-  calls.responses = [{}, plans[0].story, plans[0].story, shotResult(bad)];
+  calls.responses = [
+    {},
+    plans[0].story,
+    plans[0].story,
+    editorialPass,
+    shotResult(bad),
+  ];
   await expect(generateCreativeAssist(input)).rejects.toThrow("INVALID");
-  expect(calls.prompts).toHaveLength(4);
+  expect(calls.prompts).toHaveLength(5);
 });
 
 it("does not confuse generated clip duration with edited film duration", async () => {
   calls.responses = [
     plans[0].story,
     plans[0].story,
+    editorialPass,
     shotResult({
       ...plans[0],
       scenes: plans[0].scenes.map((s) => ({ ...s, durationSeconds: 9 })),
@@ -94,6 +107,7 @@ it("normalizes short acting beats to provider minimum without changing the edito
   calls.responses = [
     plans[0].story,
     plans[0].story,
+    editorialPass,
     shotResult({ ...plans[0], scenes: shots }),
   ];
   const result = await generateCreativeAssist(input);
@@ -116,7 +130,7 @@ it("compiles dialogue and speakers from the story even if the shot response trie
       characterIds: ["foreign"],
     })),
   });
-  calls.responses = [plans[0].story, plans[0].story, altered];
+  calls.responses = [plans[0].story, plans[0].story, editorialPass, altered];
   const r = await generateCreativeAssist(input);
   expect(r.kind === "video_plan" && r.scenes[0].dialogue).toBe(
     plans[0].story.dialogue[0].text,
@@ -124,6 +138,55 @@ it("compiles dialogue and speakers from the story even if the shot response trie
   expect(r.kind === "video_plan" && r.scenes[0].characterIds).toEqual([
     plans[0].story.dialogue[0].characterId,
   ]);
+});
+
+it("repairs written jokes before planning shots", async () => {
+  const stiff = {
+    ...plans[0].story,
+    caption: "Khi cái má không cùng phe với cái miệng",
+    dialogue: plans[0].story.dialogue.map((line, index) =>
+      index === 1 ? { ...line, text: "Vụn bánh đang nhảy múa đó!" } : line,
+    ),
+  };
+  calls.responses = [
+    plans[0].story,
+    stiff,
+    plans[0].story,
+    editorialPass,
+    shotResult(plans[0]),
+  ];
+  const result = await generateCreativeAssist(input);
+  expect(result.kind).toBe("video_plan");
+  expect(
+    calls.prompts.some((prompt) => prompt.includes("NHẬN XÉT BẮT BUỘC SỬA")),
+  ).toBe(true);
+});
+
+it("refuses a family script when the independent final review still fails", async () => {
+  calls.responses = [
+    plans[0].story,
+    plans[0].story,
+    {
+      passed: false,
+      issues: [
+        {
+          location: "dialogue.2",
+          quote: "gượng",
+          reason: "không giống lời nói thật",
+        },
+      ],
+    },
+    plans[0].story,
+    {
+      passed: false,
+      issues: [
+        { location: "dialogue.2", quote: "gượng", reason: "vẫn chưa tự nhiên" },
+      ],
+    },
+  ];
+  await expect(generateCreativeAssist(input)).rejects.toThrow(
+    "FAMILY_EDITORIAL_NEEDS_REVIEW",
+  );
 });
 
 it("keeps a listener in a native dialogue shot and does not invent a final reaction", () => {
