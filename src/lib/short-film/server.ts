@@ -499,10 +499,13 @@ export async function quotePlan(
           throw new FilmError(
             `Duyệt giọng của ${c?.name || "người nói"} trước.`,
           );
+        const { designedProfile: _designedProfile, ...voiceSettings } =
+          c.voice.settings || {};
+        const voiceModel = c.voice.model || FILM_MODELS.tts;
         const inputs = {
           text: s.dialogue,
           voice_id: c.voice.voice_id,
-          ...c.voice.settings,
+          ...voiceSettings,
           format: "wav",
           sample_rate: 44100,
           channel: "1",
@@ -512,11 +515,11 @@ export async function quotePlan(
           task(
             "tts",
             {
-              model: FILM_MODELS.tts,
+              model: voiceModel,
               providerInputs: inputs,
               voiceProfileVersion: c.voice.id,
             },
-            await modelPrice(FILM_MODELS.tts, inputs),
+            await modelPrice(voiceModel, inputs),
             s,
           ),
         );

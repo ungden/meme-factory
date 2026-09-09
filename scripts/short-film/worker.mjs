@@ -509,7 +509,7 @@ export function makeFilmWorker(db) {
             };
           } else {
             if (!url) throw new Error("Provider chưa trả URL kết quả.");
-            const audio = t.kind === "tts",
+            const audio = t.kind === "tts" || t.kind === "voice_design",
               file = path.join(dir, audio ? "audio.wav" : "video.mp4");
             await download(
               url,

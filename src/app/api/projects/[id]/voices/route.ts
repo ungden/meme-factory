@@ -10,7 +10,13 @@ import {
   fail,
   FilmError,
 } from "@/lib/short-film/server";
-import { VOICES, FILM_MODELS, type FilmTask } from "@/lib/short-film/contracts";
+import {
+  DESIGNED_CHILD_VOICES,
+  VOICES,
+  FILM_MODELS,
+  type DesignedChildVoice,
+  type FilmTask,
+} from "@/lib/short-film/contracts";
 export async function GET(
   r: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -77,7 +83,12 @@ export async function POST(
       if (error) throw new FilmError(error.message, 409);
       return NextResponse.json(data, { status: 202 });
     }
-    if (!VOICES.includes(body.voiceId))
+    const designedProfile =
+      typeof body.designedProfile === "string" &&
+      body.designedProfile in DESIGNED_CHILD_VOICES
+        ? (body.designedProfile as DesignedChildVoice)
+        : null;
+    if (!designedProfile && !VOICES.includes(body.voiceId))
       throw new FilmError("Giọng không có trong danh sách.");
     const { data: c } = await a.admin
       .from("characters")
@@ -94,40 +105,85 @@ export async function POST(
       .limit(1)
       .maybeSingle();
     const id = crypto.randomUUID();
-    const settings = { speed: 1, pitch: 0, volume: 1 };
+    const sampleText = `Xin chào, mình là ${c.name}. Hôm nay cả nhà cùng làm bánh nhé!`;
+    const designed = designedProfile
+      ? DESIGNED_CHILD_VOICES[designedProfile]
+      : null;
+    const voiceId = designed
+      ? `Aida${designedProfile === "child_girl" ? "BanhBao" : "DauDo"}${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`
+      : body.voiceId;
+    const speechSettings = designed
+      ? { ...designed.settings }
+      : { speed: 1, pitch: 0, volume: 1 };
+    const settings = designed
+      ? { ...designed.settings, designedProfile }
+      : speechSettings;
+    const model = designed ? designed.model : FILM_MODELS.tts;
     const inputs = {
-      text: `Xin chào, mình là ${c.name}. Hôm nay cả nhà cùng làm bánh nhé!`,
-      voice_id: body.voiceId,
-      ...settings,
+      text: sampleText,
+      voice_id: voiceId,
+      ...speechSettings,
       language_boost: "Vietnamese",
       format: "wav",
       sample_rate: 44100,
       channel: "1",
     };
-    const points = await modelPrice(FILM_MODELS.tts, inputs);
+    const points = designed ? null : await modelPrice(model, inputs);
     const { error } = await a.admin.from("character_voice_versions").insert({
       id,
       project_id: a.project.id,
       workspace_version: a.project.workspace_version,
       character_id: c.id,
       version: (last?.version || 0) + 1,
-      voice_id: body.voiceId,
+      model,
+      voice_id: voiceId,
       settings,
       created_by: a.user.id,
     });
     if (error) throw error;
+    if (designed) {
+      const designInputs = {
+        prompt: designed.prompt,
+        custom_voice_id: voiceId,
+        text: sampleText,
+      };
+      const design = task(
+        "voice_design",
+        {
+          model: FILM_MODELS.voice_design,
+          providerInputs: designInputs,
+          displayName: c.name,
+          subjectKey: `voice-design:${c.id}:${id}`,
+        },
+        await modelPrice(FILM_MODELS.voice_design, designInputs),
+      );
+      const activation = task(
+        "tts",
+        {
+          model,
+          providerInputs: inputs,
+          voiceVersionId: id,
+          displayName: c.name,
+          subjectKey: `voice:${c.id}:${id}`,
+        },
+        await modelPrice(model, inputs),
+        undefined,
+        [design.id],
+      );
+      return NextResponse.json({ quote: await storeQuote(a, [design, activation]) });
+    }
     return NextResponse.json({
       quote: await storeQuote(a, [
         task(
           "tts",
           {
-            model: FILM_MODELS.tts,
+            model,
             providerInputs: inputs,
             voiceVersionId: id,
             displayName: c.name,
             subjectKey: `voice:${c.id}:${id}`,
           },
-          points,
+          points!,
         ),
       ]),
     });

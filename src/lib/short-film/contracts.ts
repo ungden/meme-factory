@@ -2,10 +2,36 @@ import type { Story } from "../family-catalogue";
 export const FILM_MODELS = {
   image: "gemini-3.1-flash-image",
   tts: "minimax/speech-2.6-hd",
+  designed_tts: "minimax/speech-02-hd",
+  voice_design: "minimax/voice-design",
   video: "bytedance/seedance-2.5/image-to-video",
   lip_sync: "sync/lipsync-2-pro",
   transcribe: "wavespeed-ai/openai-whisper-with-video",
 } as const;
+
+/**
+ * The provider's built-in voices are adult/general-purpose voices.  Do not
+ * present them as child voices just because their pitch is higher.  Designed
+ * profiles create an original synthetic voice ID first, then keep that ID on
+ * the approved character version for every later episode.
+ */
+export const DESIGNED_CHILD_VOICES = {
+  child_girl: {
+    label: "Bé gái · giọng Việt tự nhiên",
+    model: "minimax/speech-02-hd",
+    settings: { speed: 1.08, pitch: 1, volume: 1, emotion: "happy" },
+    prompt:
+      "Original synthetic Vietnamese voice for a cheerful young girl around six years old. Bright small childlike timbre, playful and expressive, clear Vietnamese pronunciation, warm family-cartoon energy, natural little laughs and lively rising intonation. Must sound like a child, never an adult woman, never sensual, never announcer-like.",
+  },
+  child_boy: {
+    label: "Bé trai · giọng Việt tự nhiên",
+    model: "minimax/speech-02-hd",
+    settings: { speed: 1.02, pitch: 0, volume: 1, emotion: "happy" },
+    prompt:
+      "Original synthetic Vietnamese voice for a curious young boy around three to four years old. Soft round childlike timbre, playful and warm, clearly intelligible Vietnamese pronunciation, spontaneous small-child rhythm and wonder. Must sound like a child, never an adult man, never announcer-like.",
+  },
+} as const;
+export type DesignedChildVoice = keyof typeof DESIGNED_CHILD_VOICES;
 export const VOICES = [
   "Wise_Woman",
   "Friendly_Person",
@@ -23,7 +49,14 @@ export const VOICES = [
   "Exuberant_Girl",
 ] as const;
 export type FilmKind =
-  "image" | "tts" | "video" | "lip_sync" | "transcribe" | "render" | "frame";
+  | "image"
+  | "voice_design"
+  | "tts"
+  | "video"
+  | "lip_sync"
+  | "transcribe"
+  | "render"
+  | "frame";
 export type FilmScene = {
   id: string;
   version: number;

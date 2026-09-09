@@ -17,6 +17,7 @@ import {
 import Sidebar from "@/components/layout/sidebar";
 import { useCharacters, useProject } from "@/lib/use-store";
 import {
+  DESIGNED_CHILD_VOICES,
   VOICES,
   currentSceneTask,
   type FilmKind,
@@ -126,6 +127,7 @@ const fromPlan = (p: FilmPlan): Draft => ({
 const labels: Record<string, string> = {
   image: "Ảnh đầu",
   frame: "Khung nối tiếp",
+  voice_design: "Thiết kế giọng",
   tts: "Giọng nói",
   video: "Chuyển động",
   lip_sync: "Đồng bộ môi",
@@ -1226,19 +1228,35 @@ export default function ShortFilmPage() {
                           onChange={(e) => {
                             if (e.target.value)
                               void act("Báo giá giọng", async () => {
+                                const designedProfile = e.target.value.startsWith("designed:")
+                                  ? e.target.value.slice("designed:".length)
+                                  : undefined;
                                 const j = await api(`${base}/voices`, {
                                   workspaceVersion: workspace,
                                   characterId: c.id,
-                                  voiceId: e.target.value,
+                                  ...(designedProfile
+                                    ? { designedProfile }
+                                    : { voiceId: e.target.value }),
                                 });
                                 setVoiceQuote(j.quote);
                               });
                           }}
                         >
                           <option value="">Chọn giọng để nghe thử</option>
+                          <optgroup label="Giọng trẻ em tổng hợp">
+                            {Object.entries(DESIGNED_CHILD_VOICES).map(
+                              ([id, voice]) => (
+                                <option key={id} value={`designed:${id}`}>
+                                  {voice.label}
+                                </option>
+                              ),
+                            )}
+                          </optgroup>
+                          <optgroup label="Giọng hệ thống">
                           {VOICES.map((v) => (
                             <option key={v}>{v}</option>
                           ))}
+                          </optgroup>
                         </select>
                       </div>
                     ))}
