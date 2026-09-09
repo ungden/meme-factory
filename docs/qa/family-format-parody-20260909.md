@@ -15,3 +15,13 @@ Channel profile 5 was inserted for project `0eed3bc2-b0e9-499a-afc4-b4ac425b44d2
 The new regression exercises a sibling-only staged property-tour parody, preserving its dialogue, staged pronouns and speaker IDs through the shared planner into shots, without introducing parents. Existing caregiving cases remain covered. Live text evaluation and production release readback follow below.
 
 202 tests passed across 24 files. TypeScript, ESLint and the Next production build passed. No schema/provider/dependency changes. The existing historical-story and caregiving tests still pass.
+
+## Live text sample
+
+Shared-planner canary `de8f65a8-29bf-4729-b496-5191bc5cf13f` completed in 84 seconds with profile 5/policy 5, ten speaking shots plus reaction. The supplied idea was a luxury house tour performed by the siblings around a house made from pillows and blankets. The resulting story keeps the adult tour's presenter/owner roles, microphone, questions about materials/security and a walkthrough, with a teddy-bear guard and towel doormat. Both remain serious when the blanket roof falls. Operator inspected the actual dialogue and first image/motion prompts; the latter retain the toy microphone and pillow structure. No parent was introduced and no caregiving scene replaced the requested format.
+
+The generated story includes all five review-evidence fields. This is a text/shot-plan sample, not user approval, a finished film, proof of natural performance, or an audience test. The production readback confirms the same four role IDs; the project still has 15 saved plans. This canary writes creative-assist results only and does not modify those plans.
+
+## Production release
+
+Code `b9a9987` deployed through Git integration. Vercel `dpl_BoT9YBnygNTZzeFaRAx4oSEUhKEJ` is Ready with `aida.vn` and `www.aida.vn` aliases; GitHub Vercel status succeeded. The live canary ran the shared planner against production context, not the browser's film-generation button. No media or automation was started.
