@@ -1,3 +1,4 @@
+import { validateDubCue, dubArguments } from "./dubbing.mjs";
 import { speechRange, shiftTranscript } from "./edit-range.mjs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -301,6 +302,34 @@ export function makeFilmWorker(db) {
     await checkpoint(t, { checkpoint: { persisted: result } });
     return result;
   }
+  async function dub(t, dir) {
+    const video = await source(t.input.videoTaskId, t.project_id);
+    if (video.kind !== "video" || video.scene_id !== t.scene_id || video.scene_version !== t.scene_version || JSON.stringify(t.input.schedule) !== JSON.stringify(video.input.dubbingSchedule)) throw new Error("DUB_SOURCE_MISMATCH");
+    const file = path.join(dir, "source.mp4");
+    await checkpoint(t, {});
+    await download(await sign(video.result.path, t.project_id), file, VIDEO_MAX_BYTES);
+    const inspection = await probe(file), files = [];
+    for (const [index, cue] of t.input.schedule.entries()) {
+      await checkpoint(t, {});
+      const audio = await source(cue.audioTaskId, t.project_id);
+      validateDubCue(cue, audio, video, Number(audio.result.duration));
+      const wav = path.join(dir, `line-${index}.wav`);
+      await download(await sign(audio.result.path, t.project_id), wav, 64 * 1024 * 1024);
+      const measured = await probe(wav);
+      if (!measured.audio) throw new Error("DUB_AUDIO_MISSING");
+      validateDubCue(cue, audio, video, measured.duration);
+      files.push(wav);
+    }
+    await checkpoint(t, {});
+    const output = path.join(dir, "dubbed.mp4");
+    await ffmpeg(dubArguments(file, files, t.input.schedule, inspection.duration, output));
+    await checkpoint(t, {});
+    const checked = await probe(output);
+    if (!checked.video || !checked.audio || checked.width !== inspection.width || checked.height !== inspection.height || Math.abs(checked.duration - inspection.duration) > 0.1) throw new Error("DUB_OUTPUT_INVALID");
+    const result = { ...checked, path: await upload(t, output, "dubbed.mp4", "video/mp4"), schedule: t.input.schedule, review: "pending_speaker_and_lip_review", sourceVideoTaskId: video.id };
+    await checkpoint(t, { checkpoint: { persisted: result } });
+    return result;
+  }
   async function render(t, dir) {
     await ensureDiskSpace(
       path.join(dir, "final.mp4"),
@@ -503,6 +532,7 @@ export function makeFilmWorker(db) {
           GEMINI_TTS_MODEL_IDS.has(t.input.model)
         )
           result = await geminiTts(t, dir);
+        else if (t.kind === "dub") result = await dub(t, dir);
         else if (t.kind === "render") result = await render(t, dir);
         else if (t.kind === "frame") {
           const clip = await source(t.input.videoTaskId, t.project_id);

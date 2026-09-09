@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
     .select("id, project_id, content_output_id, provider_request_id")
     .eq("provider", "wavespeed")
     .neq("workflow_version", "short-film-v2")
+    .neq("workflow_version", "content-video-dub-v1")
     .eq("status", "running")
     .not("provider_request_id", "is", null)
     .order("started_at", { ascending: true })

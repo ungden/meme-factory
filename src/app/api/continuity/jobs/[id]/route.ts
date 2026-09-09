@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { data: job, error } = await supabase
     .from("generation_jobs")
     .select(
-      "id, project_id, content_output_id, creation_kind, source_entity_type, source_entity_id, workflow_version, provider, model, continuity_policy, status, compiled_prompt, reference_manifest, dropped_references, manifest_hash, requested_output, estimated_points, actual_points, estimated_cost_usd, actual_cost_usd, error, created_at, started_at, completed_at"
+      "id, project_id, content_output_id, creation_kind, source_entity_type, source_entity_id, workflow_version, provider, model, continuity_policy, status, phase, compiled_prompt, reference_manifest, dropped_references, manifest_hash, requested_output, estimated_points, actual_points, estimated_cost_usd, actual_cost_usd, error, created_at, started_at, completed_at"
     )
     .eq("id", id)
     .maybeSingle();
@@ -66,6 +66,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   return NextResponse.json({
     id: job.id,
     status: job.status,
+    phase: job.phase,
     progress: STATUS_PROGRESS[job.status as GenerationJobRecord["status"]] ?? 0,
     projectId: job.project_id,
     creationKind: job.creation_kind,

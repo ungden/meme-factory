@@ -59,6 +59,11 @@ export async function PUT(
       if (count !== ids.length)
         throw new FilmError("Hàng đợi có kịch bản không thuộc dự án.");
       queuedPlans = data || [];
+      if (queuedPlans.some((plan) => plan.audio_mode === "native"))
+        throw new FilmError(
+          "Lưu các kịch bản trong hàng đợi sang lồng tiếng trước khi bật lịch.",
+          409,
+        );
     }
     if (body.enabled) {
       if (
@@ -66,7 +71,7 @@ export async function PUT(
         !fixedVoiceEnabled(a.project.id)
       )
         throw new FilmError(
-          "Hàng đợi có phim lồng tiếng chưa qua canary. Chuyển phim đó sang audio native Seedance trước.",
+          "Hàng đợi có phim lồng tiếng chưa qua canary. Chọn lồng tiếng theo từng lượt trước.",
           409,
         );
     }

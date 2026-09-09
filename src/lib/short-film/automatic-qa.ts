@@ -109,7 +109,7 @@ export async function checkVisualTask(
   try {
     const parts: Array<Record<string, unknown>> = [
       {
-        text: `Kiểm tra ảnh hoặc toàn bộ video của một shot phim 3D. Media đầu tiên là kết quả; các ảnh sau là ảnh chuẩn từng nhân vật. Chỉ passed khi đúng số người và đúng nhận diện, khuôn mặt/tóc/trang phục không trôi, không thêm người/chữ/lưới và hình không lỗi. Nếu có storyboard, kiểm tra từng lượt nói theo thứ tự: người nói thay đổi theo mỗi beat, chỉ đúng người ấy cử động môi theo lời trong lượt đó; các nhân vật khác nghe và phản ứng không lời. Mốc beat là dự kiến, không dùng làm bằng chứng audio thực; xem/nghe video để kiểm tra thứ tự, đủ câu và đúng người. Shot đơn không storyboard chỉ có một người nói được chỉ định xuyên suốt. Cận cảnh có thể chỉ hiện người nói; khung mở phải có đủ cast, không phạt vì camera chuyển sang cận cảnh theo storyboard. Nếu không nhìn/nghe đủ để xác định người nói, nếu miệng người khác chuyển động như đang nói, hoặc chỉ có ảnh ghép tĩnh thì needs_review. Không suy đoán và không dùng kịch bản dự kiến thay cho bằng chứng nghe/nhìn.\nTASK: ${JSON.stringify({ kind: task.kind, cast: task.input.cast, dialogue: task.input.dialogue, speakerCharacterId: task.input.speakerCharacterId, storyboard: task.input.storyboard })}`,
+        text: `Kiểm tra ảnh hoặc toàn bộ video của một shot phim 3D. Với kind video và audioMode dubbed, đây là chuyển động im tiếng trước lồng tiếng: chỉ kiểm tra hình và đúng người diễn từng lượt, không đòi audio. Với kind dub, bắt buộc nghe/xem đúng người nói, kiểm tra lệch môi; ghép audio thành công không chứng minh khớp môi. Media đầu tiên là kết quả; các ảnh sau là ảnh chuẩn từng nhân vật. Chỉ passed khi đúng số người và đúng nhận diện, khuôn mặt/tóc/trang phục không trôi, không thêm người/chữ/lưới và hình không lỗi. Nếu có storyboard, kiểm tra từng lượt nói theo thứ tự: người nói thay đổi theo mỗi beat, chỉ đúng người ấy cử động môi theo lời trong lượt đó; các nhân vật khác nghe và phản ứng không lời. Mốc beat là dự kiến, không dùng làm bằng chứng audio thực; xem/nghe video để kiểm tra thứ tự, đủ câu và đúng người. Shot đơn không storyboard chỉ có một người nói được chỉ định xuyên suốt. Cận cảnh có thể chỉ hiện người nói; khung mở phải có đủ cast, không phạt vì camera chuyển sang cận cảnh theo storyboard. Nếu không nhìn/nghe đủ để xác định người nói, nếu miệng người khác chuyển động như đang nói, hoặc chỉ có ảnh ghép tĩnh thì needs_review. Không suy đoán và không dùng kịch bản dự kiến thay cho bằng chứng nghe/nhìn.\nTASK: ${JSON.stringify({ audioMode: task.input.audioMode, kind: task.kind, cast: task.input.cast, dialogue: task.input.dialogue, speakerCharacterId: task.input.speakerCharacterId, storyboard: task.input.storyboard })}`,
       },
       await inline(mediaUrl),
     ];
@@ -172,7 +172,7 @@ export function checkTechnicalTask(task: FilmTask): Check {
           issues: ["Thành phẩm thiếu MP4, poster, SRT hoặc audio."],
           evidence: r,
         };
-  if (["video", "lip_sync", "frame", "image"].includes(task.kind))
+  if (["video", "lip_sync", "dub", "frame", "image"].includes(task.kind))
     return {
       status: "needs_review",
       issues: ["Cần kiểm tra hình ảnh."],

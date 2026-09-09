@@ -128,11 +128,11 @@ describe("15-second storyboard production", () => {
     expect(inputs.generate_audio).toBe(true);
     const prompt = inputs.prompt;
     expect(prompt).toContain("15 giây 16:9");
-    expect(prompt).toContain("Chỉ Bánh Bao nói nguyên văn");
-    expect(prompt).toContain("Chỉ Đậu Đỏ nói nguyên văn");
+    expect(prompt).toContain("Chỉ Bánh Bao diễn lời thoại");
+    expect(prompt).toContain("Chỉ Đậu Đỏ diễn lời thoại");
     expect(prompt).not.toContain("một shot liên tục");
     expect(() => compileFilmMotion(scene, "fixed", "16:9")).toThrow(
-      "NATIVE_REQUIRED",
+      "không dùng đồng bộ môi một người",
     );
   });
 });

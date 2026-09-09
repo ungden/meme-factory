@@ -23,6 +23,8 @@ import {
   GEMINI_TTS_MODELS,
   GEMINI_VOICE_PRESETS,
   currentSceneTask,
+  speechTasks,
+  finalClipKind,
   type FilmKind,
   type FilmPlan,
   type FilmScene,
@@ -54,7 +56,7 @@ type Draft = {
   targetDurationSeconds: number;
   format: string;
   resolution: string;
-  audioMode: "native" | "fixed";
+  audioMode: "native" | "fixed" | "dubbed";
   subtitles: boolean;
   scenes: DraftScene[];
 };
@@ -83,7 +85,7 @@ const blank = (): Draft => ({
   targetDurationSeconds: 30,
   format: "16:9",
   resolution: "720p",
-  audioMode: "native",
+  audioMode: "dubbed",
   subtitles: true,
   scenes: [],
 });
@@ -126,7 +128,7 @@ const fromPlan = (p: FilmPlan): Draft => ({
   targetDurationSeconds: p.target_duration_seconds || 30,
   format: p.format,
   resolution: p.resolution,
-  audioMode: p.audio_mode,
+  audioMode: p.audio_mode === "native" ? "dubbed" : p.audio_mode,
   subtitles: p.subtitles,
   scenes: p.video_plan_scenes.map(fromScene),
 });
@@ -137,6 +139,7 @@ const labels: Record<string, string> = {
   tts: "Giọng nói",
   video: "Chuyển động",
   lip_sync: "Đồng bộ môi",
+  dub: "Lồng tiếng",
   transcribe: "Kiểm tra lời",
   render: "Phim hoàn chỉnh",
 };
@@ -298,7 +301,13 @@ export default function ShortFilmPage() {
               saved.planId === (p?.id || null) &&
               saved.version === (p?.version || null)
             ) {
-              initial = saved.draft;
+              initial = {
+                ...saved.draft,
+                audioMode:
+                  saved.draft.audioMode === "native"
+                    ? "dubbed"
+                    : saved.draft.audioMode,
+              };
               setDirty(saved.dirty);
               setCast(saved.cast || []);
             } else {
@@ -592,7 +601,11 @@ export default function ShortFilmPage() {
     )
       throw new Error("Nhập trần điểm mỗi phim và mỗi ngày trước khi chạy.");
     let selectedPlan = plan;
-    if (draft.scenes.length && (dirty || !plan)) selectedPlan = await save();
+    if (
+      draft.scenes.length &&
+      (dirty || !plan || plan.audio_mode !== draft.audioMode)
+    )
+      selectedPlan = await save();
     const storage = `film-production-key:${ref}:${selectedPlan?.id || "new"}:${selectedPlan?.version || draft.brief}`;
     const key = localStorage.getItem(storage) || crypto.randomUUID();
     localStorage.setItem(storage, key);
@@ -657,7 +670,10 @@ export default function ShortFilmPage() {
     sceneIds?: string[],
     regenerate = false,
   ) {
-    const p = dirty || !plan ? await save() : plan;
+    const p =
+      dirty || !plan || plan.audio_mode !== draft.audioMode
+        ? await save()
+        : plan;
     const j = await api(`${base}/video-plans/${p.id}/quote`, {
       workspaceVersion: workspace,
       expectedVersion: p.version,
@@ -719,23 +735,24 @@ export default function ShortFilmPage() {
         latest(s, "image")?.approved_at &&
         (!s.dialogue ||
           draft.audioMode === "native" ||
-          latest(s, "tts")?.approved_at),
+          (draft.audioMode === "dubbed"
+            ? speechTasks(currentTasks, s).every((t) => t?.approved_at)
+            : latest(s, "tts")?.approved_at)),
     );
     if (prepared) stage = "video";
     if (prepared && ss.every((s) => latest(s, "video"))) stage = "finish";
     if (
       stage === "finish" &&
-      draft.audioMode === "fixed" &&
-      ss.every((s) => !s.dialogue || latest(s, "lip_sync"))
+      draft.audioMode !== "native" &&
+      ss.every(
+        (s) => !s.dialogue || latest(s, finalClipKind(s, draft.audioMode)),
+      )
     )
       stage = "transcript";
     if (
       ss.every(
         (s) =>
-          latest(
-            s,
-            draft.audioMode === "fixed" && s.dialogue ? "lip_sync" : "video",
-          )?.approved_at &&
+          latest(s, finalClipKind(s, draft.audioMode))?.approved_at &&
           (!s.dialogue || latest(s, "transcribe")),
       )
     )
@@ -744,7 +761,12 @@ export default function ShortFilmPage() {
   const stageNames: Record<string, string> = {
     prepare: "Chuẩn bị ảnh và thoại",
     video: "Tạo chuyển động",
-    finish: draft.audioMode === "fixed" ? "Đồng bộ môi" : "Kiểm tra lời thoại",
+    finish:
+      draft.audioMode === "dubbed"
+        ? "Lồng tiếng từng lượt"
+        : draft.audioMode === "fixed"
+          ? "Đồng bộ môi"
+          : "Kiểm tra lời thoại",
     transcript: "Kiểm tra lời thoại",
     render: "Ghép phim",
   };
@@ -760,8 +782,8 @@ export default function ShortFilmPage() {
               Tạo phim ngắn
             </h1>
             <p className="mt-1 text-sm th-text-secondary">
-              Seedance tạo hình, chuyển động và lời thoại; AIDA chép lại audio
-              thật để làm phụ đề và ghép phim.
+              Seedance tạo chuyển động; Gemini lồng tiếng theo từng nhân vật.
+              AIDA chép audio thật để làm phụ đề và ghép phim.
             </p>
           </header>
           <div className="mb-4 flex min-w-0 flex-wrap items-center gap-2">
@@ -1212,14 +1234,14 @@ export default function ShortFilmPage() {
                         })
                       }
                     >
-                      <option value="native">
-                        Audio native Seedance · mặc định
+                      <option value="dubbed">
+                        Lồng tiếng Gemini theo từng nhân vật
                       </option>
                       <option
                         value="fixed"
                         disabled={draft.scenes.some((s) => s.storyboard)}
                       >
-                        Lồng tiếng Gemini · nâng cao
+                        Đồng bộ môi một người · thử nghiệm
                       </option>
                     </select>
                     <select
@@ -1252,11 +1274,11 @@ export default function ShortFilmPage() {
                       Gắn phụ đề
                     </label>
                   </div>
-                  {draft.audioMode === "native" && (
+                  {draft.audioMode === "dubbed" && (
                     <p className="mt-3 text-xs th-text-secondary">
-                      Seedance nói trực tiếp theo thoại của từng cảnh. AIDA chép
-                      lại chính audio trong clip, tạo SRT và gắn phụ đề khi
-                      ghép.
+                      Mỗi lượt nói dùng đúng giọng đã duyệt của nhân vật.
+                      Seedance tạo hình im tiếng; AIDA lồng tiếng và chép audio
+                      thực để làm phụ đề. Khớp môi cần xem lại trên thành phẩm.
                     </p>
                   )}
                   {draft.audioMode === "fixed" && !enabled && (
@@ -1265,7 +1287,7 @@ export default function ShortFilmPage() {
                       lip-sync chỉ mở sau bài kiểm chứng.
                     </p>
                   )}
-                  {draft.audioMode === "fixed" &&
+                  {draft.audioMode !== "native" &&
                     characters
                       .filter((c) => cast.includes(c.id))
                       .map((c) => (
@@ -1381,7 +1403,7 @@ export default function ShortFilmPage() {
                             characters,
                           );
                           change({
-                            audioMode: "native",
+                            audioMode: "dubbed",
                             scenes: board.scenes.map((s) => ({
                               ...sceneBlank(),
                               ...s,

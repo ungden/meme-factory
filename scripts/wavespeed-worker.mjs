@@ -1,3 +1,4 @@
+import { dubStandaloneClip } from "./short-film/clip-dubbing.mjs";
 import { makeFilmWorker } from "./short-film/worker.mjs";
 import { download as downloadMedia } from "./short-film/media.mjs";
 import {
@@ -85,21 +86,17 @@ async function probeVideo(filePath) {
 async function streamUrlToFile(sourceUrl, filePath) {
   await downloadMedia(sourceUrl, filePath, VIDEO_MAX_BYTES);
 }
-async function saveUploadCheckpoint(job, name, state) {
-  const checkpoint = {
-    ...(job.checkpoint || {}),
-    uploads: { ...(job.checkpoint?.uploads || {}), [name]: state },
-  };
-  const { data, error } = await supabase
-    .from("generation_jobs")
-    .update({ checkpoint })
-    .eq("id", job.id)
-    .eq("lease_owner", job.lease_owner)
-    .eq("status", "running")
-    .select("id");
+async function saveJobCheckpoint(job, patch) {
+  const checkpoint = { ...(job.checkpoint || {}), ...patch };
+  const { data, error } = await supabase.from("generation_jobs").update({ checkpoint })
+    .eq("id", job.id).eq("lease_owner", job.lease_owner).eq("status", "running").select("id");
   if (error || !data?.length) throw new Error("Worker đã mất lease upload.");
   job.checkpoint = checkpoint;
 }
+async function saveUploadCheckpoint(job, name, state) {
+  await saveJobCheckpoint(job, { uploads: { ...(job.checkpoint?.uploads || {}), [name]: state } });
+}
+
 async function persistMedia(job, file, name, mime) {
   return uploadMedia({
     db: supabase,
@@ -112,6 +109,15 @@ async function persistMedia(job, file, name, mime) {
   });
 }
 async function downloadAndPersist(sourceUrl, job) {
+  if (job.checkpoint?.dubbing) return dubStandaloneClip({ job, sourceUrl,
+    save: (patch) => saveJobCheckpoint(job, patch),
+    persist: (file, name, mime) => persistMedia(job, file, name, mime),
+    sign: async (storagePath) => {
+      if (!storagePath.startsWith(job.project_id + "/")) throw new Error("MEDIA_PROJECT_MISMATCH");
+      const { data, error } = await supabase.storage.from("content-media").createSignedUrl(storagePath, 3600);
+      if (error || !data) throw new Error("MEDIA_SIGN_FAILED");
+      return data.signedUrl;
+    }, apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY });
   const filePath = `/tmp/${job.id}.mp4`;
   try {
     await streamUrlToFile(sourceUrl, filePath);
@@ -178,6 +184,11 @@ async function setSceneFailed(job, result) {
       .in("status", ["queued", "running"]);
 }
 async function finishProviderJob(job) {
+  // Claim RPC intentionally returns a compact row. Recover persisted state with
+  // the ownership token before branching or writing any upload checkpoint.
+  const { data: current, error: readError } = await supabase.from("generation_jobs").select("checkpoint,workflow_version").eq("id", job.id).eq("lease_owner", job.lease_owner).eq("status", "running").single();
+  if (readError || !current) return false;
+  job = { ...job, ...current };
   const lease = heartbeat(job);
   try {
     const result = await prediction(job.provider_request_id);
@@ -223,7 +234,7 @@ async function finishProviderJob(job) {
         .update({
           status: "completed",
           provider_response: result,
-          checkpoint: {},
+          checkpoint: job.checkpoint?.dubbing ? job.checkpoint : {},
           error: null,
           phase: "stored",
           completed_at: new Date().toISOString(),
@@ -256,6 +267,9 @@ async function finishProviderJob(job) {
       return Boolean(data?.length);
     }
   } catch (error) {
+    if (job.checkpoint?.dubbing) {
+      await supabase.from("generation_jobs").update({ error: { dubbing: error instanceof Error ? error.message : "DUB_FAILED" }, phase: "dubbing_needs_review" }).eq("id", job.id).eq("lease_owner", job.lease_owner).eq("status", "running");
+    }
     console.error(
       `WaveSpeed worker failed for ${job.id}:`,
       error instanceof Error ? error.message : error,

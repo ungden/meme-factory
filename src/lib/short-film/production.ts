@@ -16,7 +16,13 @@ import {
   checkTechnicalTask,
   checkVisualTask,
 } from "./automatic-qa";
-import { currentSceneTask, type FilmPlan, type FilmTask } from "./contracts";
+import {
+  speechTasks,
+  finalClipKind,
+  currentSceneTask,
+  type FilmPlan,
+  type FilmTask,
+} from "./contracts";
 import {
   quotePlan,
   readPlan,
@@ -185,7 +191,7 @@ async function createAutomaticPlan(
     targetDurationSeconds: 35,
     format,
     resolution: "720p",
-    audioMode: "native",
+    audioMode: "dubbed",
     subtitles: true,
     scenes: result.scenes.map((s) => ({
       ...s,
@@ -211,7 +217,7 @@ async function signed(admin: SupabaseClient, project: string, path: string) {
 async function ensureTaskCheck(a: Access, run: Run, task: FilmTask) {
   if (task.approved_at || task.auto_accepted_at) return "passed";
   let check = checkTechnicalTask(task);
-  if (["image", "frame", "video", "lip_sync"].includes(task.kind)) {
+  if (["image", "frame", "video", "lip_sync", "dub"].includes(task.kind)) {
     // Speaker routing cannot be proven from a static contact sheet. Feed the
     // actual clip to the multimodal check; oversized clips stay needs_review.
     const path = String(task.result?.path || "");
@@ -262,26 +268,23 @@ function stageFor(plan: FilmPlan, tasks: FilmTask[]) {
       accepted(latest(s, "image")) &&
       (!s.dialogue ||
         plan.audio_mode === "native" ||
-        accepted(latest(s, "tts"))),
+        (plan.audio_mode === "dubbed"
+          ? speechTasks(tasks, s).every(accepted)
+          : accepted(latest(s, "tts")))),
   );
   if (!prepared) return "prepare";
   if (!scenes.every((s) => latest(s, "video"))) return "video";
   if (
-    plan.audio_mode === "fixed" &&
-    !scenes.every((s) => !s.dialogue || latest(s, "lip_sync"))
+    plan.audio_mode !== "native" &&
+    !scenes.every(
+      (s) => !s.dialogue || latest(s, finalClipKind(s, plan.audio_mode)),
+    )
   )
     return "finish";
   if (!scenes.every((s) => !s.dialogue || latest(s, "transcribe")))
-    return plan.audio_mode === "fixed" ? "transcript" : "finish";
+    return plan.audio_mode !== "native" ? "transcript" : "finish";
   if (
-    !scenes.every((s) =>
-      accepted(
-        latest(
-          s,
-          plan.audio_mode === "fixed" && s.dialogue ? "lip_sync" : "video",
-        ),
-      ),
-    )
+    !scenes.every((s) => accepted(latest(s, finalClipKind(s, plan.audio_mode))))
   )
     return "check";
   const render = tasks.find(

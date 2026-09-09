@@ -16,6 +16,10 @@ import {
   FILM_MODELS,
   assertFixedVoiceShot,
   currentSceneTask,
+  speechLines,
+  speechTasks,
+  dubbingSchedule,
+  finalClipKind,
   filmVideoInputs,
   type FilmPlan,
   type FilmCast,
@@ -166,9 +170,9 @@ export async function savePlan(
   const inputs = body.scenes as (SceneInput & { camera?: string })[];
   if (!Array.isArray(inputs) || inputs.length < 1 || inputs.length > 12)
     throw new FilmError("Cần 1–12 cảnh.");
-  if (inputs.some((s) => s.storyboard) && body.audioMode !== "native")
+  if (inputs.some((s) => s.storyboard) && body.audioMode === "fixed")
     throw new FilmError(
-      "Storyboard 15 giây dùng audio native; lồng tiếng từng người vẫn dùng cảnh riêng.",
+      "Storyboard nhiều người dùng lồng tiếng theo từng lượt; đồng bộ môi một người cần cảnh riêng.",
     );
   const ids = [...new Set(inputs.flatMap((s) => s.characterIds || []))];
   const cast = await freezeCast(a, ids, old?.cast_snapshot);
@@ -243,7 +247,12 @@ export async function savePlan(
       ? body.format
       : "16:9",
     resolution: body.resolution === "1080p" ? "1080p" : "720p",
-    audio_mode: body.audioMode === "native" ? "native" : "fixed",
+    audio_mode:
+      body.audioMode === "native"
+        ? "native"
+        : body.audioMode === "fixed"
+          ? "fixed"
+          : "dubbed",
     subtitles: body.subtitles !== false,
     story,
     trim_speech:
@@ -429,6 +438,11 @@ export async function quotePlan(
 ) {
   checkVersion(a, body, plan);
   const stage = String(body.stage || "prepare");
+  if (plan.audio_mode === "native" && ["prepare", "video"].includes(stage))
+    throw new FilmError(
+      "Lưu phiên bản kịch bản sang lồng tiếng trước khi tạo mới.",
+      409,
+    );
   if (["prepare", "video"].includes(stage)) {
     const { count, error } = await a.admin
       .from("channel_profiles")
@@ -514,73 +528,80 @@ export async function quotePlan(
             });
         tasks.push(task("image", input, p.customerPoints, s));
       }
-      if (
-        s.dialogue &&
-        plan.audio_mode === "fixed" &&
-        (!accepted(latest(s, "tts")) || body.regenerate === true)
-      ) {
-        const c = s.cast_snapshot.find(
-          (c) => c.characterId === s.speaker_character_id,
-        );
-        if (!c?.voice)
-          throw new FilmError(
-            `Duyệt giọng của ${c?.name || "người nói"} trước.`,
+      if (s.dialogue && plan.audio_mode !== "native") {
+        for (const line of speechLines(s)) {
+          const prior =
+            plan.audio_mode === "fixed"
+              ? latest(s, "tts")
+              : speechTasks(eligible, s).find(
+                  (t) => t?.input.beatIndex === line.beatIndex,
+                );
+          if (accepted(prior) && body.regenerate !== true) continue;
+          const c = s.cast_snapshot.find(
+            (c) => c.characterId === line.speakerCharacterId,
           );
-        const voiceSettings = { ...(c.voice.settings || {}) };
-        const direction = voiceSettings.direction;
-        delete voiceSettings.designedProfile;
-        delete voiceSettings.provider;
-        delete voiceSettings.voicePreset;
-        delete voiceSettings.voiceName;
-        delete voiceSettings.direction;
-        const voiceModel = c.voice.model || FILM_MODELS.tts;
-        const inputs = isGeminiTtsModel(voiceModel)
-          ? {
-              text: s.dialogue,
-              voice: c.voice.voice_id,
-              direction: String(direction || "Nói tiếng Việt tự nhiên."),
-              language: "vi",
-            }
-          : {
-              text: s.dialogue,
-              voice_id: c.voice.voice_id,
-              ...voiceSettings,
-              format: "wav",
-              sample_rate: 44100,
-              channel: "1",
-              language_boost: "Vietnamese",
-            };
-        const points = isGeminiTtsModel(voiceModel)
-          ? estimateGeminiTtsPrice({
-              model: voiceModel,
-              text: s.dialogue,
-              requestedSeconds: s.duration_seconds,
-            }).customerPoints
-          : await modelPrice(voiceModel, inputs);
-        tasks.push(
-          task(
-            "tts",
-            {
-              model: voiceModel,
-              provider: isGeminiTtsModel(voiceModel) ? "google" : "wavespeed",
-              providerInputs: inputs,
-              voiceProfileVersion: c.voice.id,
-            },
-            points,
-            s,
-          ),
-        );
+          if (!c?.voice)
+            throw new FilmError(
+              `Duyệt giọng của ${c?.name || "người nói"} trước.`,
+            );
+          const voiceSettings = { ...(c.voice.settings || {}) };
+          const direction = voiceSettings.direction;
+          delete voiceSettings.designedProfile;
+          delete voiceSettings.provider;
+          delete voiceSettings.voicePreset;
+          delete voiceSettings.voiceName;
+          delete voiceSettings.direction;
+          const voiceModel = c.voice.model || FILM_MODELS.tts;
+          const inputs = isGeminiTtsModel(voiceModel)
+            ? {
+                text: line.dialogue,
+                voice: c.voice.voice_id,
+                direction: String(direction || "Nói tiếng Việt tự nhiên."),
+                language: "vi",
+              }
+            : {
+                text: line.dialogue,
+                voice_id: c.voice.voice_id,
+                ...voiceSettings,
+                format: "wav",
+                sample_rate: 44100,
+                channel: "1",
+                language_boost: "Vietnamese",
+              };
+          const points = isGeminiTtsModel(voiceModel)
+            ? estimateGeminiTtsPrice({
+                model: voiceModel,
+                text: line.dialogue,
+                requestedSeconds: line.endSeconds - line.startSeconds,
+              }).customerPoints
+            : await modelPrice(voiceModel, inputs);
+          tasks.push(
+            task(
+              "tts",
+              {
+                model: voiceModel,
+                provider: isGeminiTtsModel(voiceModel) ? "google" : "wavespeed",
+                providerInputs: inputs,
+                voiceProfileVersion: c.voice.id,
+                speakerCharacterId: line.speakerCharacterId,
+                beatIndex: line.beatIndex,
+                dialogue: line.dialogue,
+                subjectKey:
+                  plan.audio_mode === "fixed"
+                    ? `${s.id}:${s.version}:tts`
+                    : `${s.id}:${s.version}:tts:${line.beatIndex}`,
+              },
+              points,
+              s,
+            ),
+          );
+        }
       }
     }
   else if (stage === "frame") {
     for (const s of scenes) {
       const prev = plan.video_plan_scenes[s.scene_index - 1];
-      const clip =
-        prev &&
-        latest(
-          prev,
-          plan.audio_mode === "fixed" && prev.dialogue ? "lip_sync" : "video",
-        );
+      const clip = prev && latest(prev, finalClipKind(prev, plan.audio_mode));
       if (!clip || !accepted(clip))
         throw new FilmError("Duyệt clip cảnh trước để lấy khung nối tiếp.");
       tasks.push(
@@ -604,12 +625,7 @@ export async function quotePlan(
       if (latest(s, "video") && body.regenerate !== true) continue;
       if (s.follows_previous) {
         const prev = plan.video_plan_scenes[s.scene_index - 1];
-        const clip =
-          prev &&
-          latest(
-            prev,
-            plan.audio_mode === "fixed" && prev.dialogue ? "lip_sync" : "video",
-          );
+        const clip = prev && latest(prev, finalClipKind(prev, plan.audio_mode));
         if (
           !clip ||
           image?.kind !== "frame" ||
@@ -625,6 +641,13 @@ export async function quotePlan(
         throw new FilmError(
           `Nghe và duyệt thoại cảnh ${s.scene_index + 1} trước.`,
         );
+      const schedule =
+        plan.audio_mode === "dubbed" ? dubbingSchedule(eligible, s) : [];
+      if (
+        plan.audio_mode === "dubbed" &&
+        speechTasks(eligible, s).some((t) => !accepted(t))
+      )
+        throw new FilmError("Duyệt các lượt thoại trước khi tạo video.");
       const inputs = filmVideoInputs(
         s,
         plan.audio_mode,
@@ -640,6 +663,9 @@ export async function quotePlan(
           providerInputs: inputs,
           imageTaskId: image.id,
           audioTaskId: audio?.id,
+          audioTaskIds: schedule.map((cue) => cue.audioTaskId),
+          dubbingSchedule: schedule,
+          audioMode: plan.audio_mode,
           cast: s.cast_snapshot,
           dialogue: s.dialogue,
           speakerCharacterId: s.speaker_character_id,
@@ -655,21 +681,45 @@ export async function quotePlan(
   } else if (stage === "finish" || stage === "transcript") {
     for (const s of scenes) {
       const kind =
-        stage === "finish" && plan.audio_mode === "fixed" && s.dialogue
-          ? "lip_sync"
+        stage === "finish" && plan.audio_mode !== "native" && s.dialogue
+          ? finalClipKind(s, plan.audio_mode)
           : "transcribe";
       if (!s.dialogue || latest(s, kind)) continue;
       const video = latest(
         s,
-        kind === "transcribe" && plan.audio_mode === "fixed"
-          ? "lip_sync"
+        kind === "transcribe" && plan.audio_mode !== "native"
+          ? finalClipKind(s, plan.audio_mode)
           : "video",
       );
       const audio = latest(s, "tts");
       if (!video?.result?.path)
         throw new FilmError(`Cảnh ${s.scene_index + 1} chưa có clip nguồn.`);
       const inputVideo = await signed(a, String(video.result.path));
-      if (kind === "lip_sync") {
+      if (kind === "dub") {
+        const schedule = video.input.dubbingSchedule;
+        if (!Array.isArray(schedule) || !schedule.length)
+          throw new FilmError(
+            "Clip chưa có lịch lồng tiếng. Tạo bản chuyển động theo bản thoại đã duyệt.",
+          );
+        tasks.push(
+          task(
+            "dub",
+            {
+              model: "ffmpeg-dub-v1",
+              videoTaskId: video.id,
+              schedule,
+              duration: video.result.duration,
+              cast: s.cast_snapshot,
+              dialogue: s.dialogue,
+              storyboard: s.storyboard || null,
+              speakerCharacterId: s.speaker_character_id,
+            },
+            0,
+            s,
+            [video.id, ...schedule.map((cue) => String(cue.audioTaskId))],
+          ),
+        );
+      } else if (kind === "lip_sync") {
         if (!audio?.result?.path) throw new FilmError("Thiếu audio đã duyệt.");
         const inputs = {
           video: inputVideo,
@@ -721,10 +771,7 @@ export async function quotePlan(
     }
   } else if (stage === "render") {
     const clips = plan.video_plan_scenes.map((s) => {
-      const clip = latest(
-        s,
-        plan.audio_mode === "fixed" && s.dialogue ? "lip_sync" : "video",
-      );
+      const clip = latest(s, finalClipKind(s, plan.audio_mode));
       const transcript = latest(s, "transcribe");
       if (!clip || !accepted(clip))
         throw new FilmError(

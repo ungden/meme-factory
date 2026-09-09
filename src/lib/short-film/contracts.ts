@@ -174,6 +174,7 @@ export type FilmKind =
   | "voice_design"
   | "tts"
   | "video"
+  | "dub"
   | "lip_sync"
   | "transcribe"
   | "render"
@@ -226,7 +227,7 @@ export type FilmPlan = {
   caption: string;
   format: string;
   resolution: "720p" | "1080p";
-  audio_mode: "native" | "fixed";
+  audio_mode: "native" | "fixed" | "dubbed";
   subtitles: boolean;
   status: string;
   latest_content_output_id?: string | null;
@@ -278,13 +279,13 @@ export function shotDuration(audioSeconds: number, requested: number) {
 }
 export function compileFilmMotion(
   scene: FilmScene,
-  mode: "native" | "fixed",
+  mode: "native" | "fixed" | "dubbed",
   format: string,
 ) {
   if (scene.storyboard) {
-    if (mode !== "native")
+    if (mode === "fixed")
       throw new Error(
-        "STORYBOARD_NATIVE_REQUIRED: storyboard nhiều lượt nói dùng audio native.",
+        "Storyboard nhiều người dùng lồng tiếng theo lượt, không dùng đồng bộ môi một người.",
       );
     const board = validateStoryboard(
       scene.storyboard,
@@ -298,10 +299,12 @@ export function compileFilmMotion(
       `CAST: ${scene.cast_snapshot.map((c) => `${c.name}: ${c.description}`).join("; ")}. Không trộn người hoặc đổi giọng giữa các lượt.`,
       ...board.beats.map(
         (b) =>
-          `${b.startSeconds.toFixed(2)}–${b.endSeconds.toFixed(2)}s | ${b.action} | CAMERA: ${b.camera} | MOTION: ${b.motion} | ${b.dialogue ? `Chỉ ${name(b.speakerCharacterId)} nói nguyên văn tiếng Việt: “${b.dialogue}”. Các nhân vật còn lại nghe và phản ứng không lời, không cử động môi như đang nói.` : "Không có lời nói; diễn hành động/phản ứng đã mô tả."}`,
+          `${b.startSeconds.toFixed(2)}–${b.endSeconds.toFixed(2)}s | ${b.action} | CAMERA: ${b.camera} | MOTION: ${b.motion} | ${b.dialogue ? `Chỉ ${name(b.speakerCharacterId)} diễn lời thoại “${b.dialogue}” ${mode === "native" ? "với audio tiếng Việt" : "trong video im tiếng để lồng tiếng sau, không phát âm thanh"}. Các nhân vật còn lại nghe và phản ứng không lời, không cử động môi như đang nói.` : "Không có lời nói; diễn hành động/phản ứng đã mô tả."}`,
       ),
       "PACING: bắt đầu ngay giây 0, nói nhanh tự nhiên nhưng rõ, không kéo dài âm tiết, không slow motion, không lặp câu hoặc lặp động tác. Mốc thời gian định hướng nhịp diễn; nói trọn câu trước đổi lượt, không chồng lời. Người nghe phản ứng ngay trong lượt nói. Pan/cắt theo storyboard, giữ hướng nhìn và trục đối thoại; không chuyển cảnh trang trí hoặc đổi bối cảnh. Kết ở tư thế/hướng nhìn đã mô tả để nối đoạn sau.",
-      "AUDIO: giọng đúng người đang nói, rõ ở tiền cảnh; nhạc không lời vui vẻ, tinh nghịch nhẹ, âm lượng thấp. Không thêm lời thoại, chữ, phụ đề hoặc nhãn thời gian trong hình.",
+      mode === "native"
+        ? "AUDIO: giọng đúng người đang nói, rõ ở tiền cảnh; nhạc không lời vui vẻ, tinh nghịch nhẹ, âm lượng thấp. Không thêm lời thoại, chữ, phụ đề hoặc nhãn thời gian trong hình."
+        : "SILENT VIDEO: không phát lời thoại, không nhạc. Diễn môi và phản ứng theo đúng lịch từng người để lồng tiếng riêng. Không chữ, phụ đề hoặc nhãn thời gian.",
     ].join("\n");
   }
   const duration = Math.max(4, Math.min(30, scene.duration_seconds || 5));
@@ -347,7 +350,7 @@ export function compileFilmMotion(
 /** I2V takes a clean first frame; it has no reference_images/aspect_ratio fields. */
 export function filmVideoInputs(
   scene: FilmScene,
-  mode: "native" | "fixed",
+  mode: "native" | "fixed" | "dubbed",
   format: string,
   resolution: "720p" | "1080p",
   image: string,
@@ -369,7 +372,7 @@ export function currentSceneTask(
   tasks: FilmTask[],
   scene: FilmScene,
   kind: FilmKind,
-  audioMode: "native" | "fixed",
+  audioMode: "native" | "fixed" | "dubbed",
 ): FilmTask | undefined {
   const candidates = tasks.filter(
     (t) =>
@@ -386,8 +389,19 @@ export function currentSceneTask(
         t.input.imageTaskId === image?.id &&
         (!scene.dialogue ||
           audioMode === "native" ||
-          t.input.audioTaskId === audio?.id),
+          (audioMode === "dubbed"
+            ? speechTasks(tasks, scene).every(
+                (a) =>
+                  !!a &&
+                  Array.isArray(t.input.audioTaskIds) &&
+                  t.input.audioTaskIds.includes(a.id),
+              )
+            : t.input.audioTaskId === audio?.id)),
     );
+  }
+  if (kind === "dub") {
+    const video = currentSceneTask(tasks, scene, "video", audioMode);
+    return candidates.find((t) => !!video && t.input.videoTaskId === video.id);
   }
   if (kind === "lip_sync") {
     const video = currentSceneTask(tasks, scene, "video", audioMode),
@@ -404,7 +418,7 @@ export function currentSceneTask(
     const video = currentSceneTask(
       tasks,
       scene,
-      audioMode === "fixed" && scene.dialogue ? "lip_sync" : "video",
+      finalClipKind(scene, audioMode),
       audioMode,
     );
     return candidates.find((t) => !!video && t.input.videoTaskId === video.id);
@@ -424,4 +438,92 @@ export function assertFixedVoiceShot(
     throw new Error(
       "Cảnh có giọng riêng cần chỉ một nhân vật là người nói. Tách cảnh cả gia đình thành cảnh không thoại và các cận cảnh người nói trước khi tạo.",
     );
+}
+
+export function finalClipKind(
+  scene: Pick<FilmScene, "dialogue">,
+  mode: FilmPlan["audio_mode"],
+): FilmKind {
+  return !scene.dialogue || mode === "native"
+    ? "video"
+    : mode === "dubbed"
+      ? "dub"
+      : "lip_sync";
+}
+
+/** Every utterance owns a speaker and an approved voice version; never infer from array position. */
+export function speechLines(scene: FilmScene) {
+  const beats = scene.storyboard?.beats || [
+    {
+      startSeconds: 0,
+      endSeconds: scene.duration_seconds,
+      speakerCharacterId: scene.speaker_character_id,
+      dialogue: scene.dialogue,
+    },
+  ];
+  return beats.flatMap((b, beatIndex) => {
+    if (!b.dialogue.trim()) return [];
+    const cast = scene.cast_snapshot.find(
+      (c) => c.characterId === b.speakerCharacterId,
+    );
+    if (!cast?.voice)
+      throw new Error(`Duyệt giọng của ${cast?.name || "người nói"} trước.`);
+    return [
+      {
+        beatIndex,
+        dialogue: b.dialogue,
+        speakerCharacterId: cast.characterId,
+        voice: cast.voice,
+        startSeconds: b.startSeconds,
+        endSeconds: b.endSeconds,
+      },
+    ];
+  });
+}
+export function speechTasks(tasks: FilmTask[], scene: FilmScene) {
+  let lines: ReturnType<typeof speechLines>;
+  try {
+    lines = speechLines(scene);
+  } catch {
+    return [undefined];
+  }
+  return lines.map((line) =>
+    tasks.find(
+      (t) =>
+        t.kind === "tts" &&
+        t.scene_id === scene.id &&
+        t.scene_version === scene.version &&
+        t.status === "completed" &&
+        t.input.beatIndex === line.beatIndex &&
+        t.input.speakerCharacterId === line.speakerCharacterId &&
+        t.input.voiceProfileVersion === line.voice.id &&
+        (t.input.providerInputs as Record<string, unknown>)?.text ===
+          line.dialogue,
+    ),
+  );
+}
+/** Freeze an audio schedule only after durations have been measured. Never cut or speed up speech. */
+export function dubbingSchedule(tasks: FilmTask[], scene: FilmScene) {
+  const audio = speechTasks(tasks, scene);
+  return speechLines(scene).map((line, index) => {
+    const task = audio[index],
+      duration = Number(task?.result?.duration);
+    if (!task || !Number.isFinite(duration) || duration <= 0)
+      throw new Error("Thiếu audio đã đo thời lượng.");
+    if (duration + 0.1 > line.endSeconds - line.startSeconds)
+      throw new Error(
+        `Thoại lượt ${line.beatIndex + 1} dài hơn nhịp diễn. Rút gọn thoại hoặc sửa storyboard trước khi tạo video.`,
+      );
+    return {
+      audioTaskId: task.id,
+      beatIndex: line.beatIndex,
+      speakerCharacterId: line.speakerCharacterId,
+      voiceProfileVersion: line.voice.id,
+      voice: line.voice.voice_id,
+      dialogue: line.dialogue,
+      startSeconds: line.startSeconds,
+      endSeconds: line.endSeconds,
+      duration,
+    };
+  });
 }

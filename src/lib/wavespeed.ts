@@ -35,7 +35,7 @@ export function getSeedanceModel(input: Pick<VideoRequest, "mode">) {
 
 function providerInputs(input: VideoRequest) {
   const common = {
-    prompt: input.prompt,
+    prompt: input.generateAudio ? input.prompt : `${input.prompt}\nSILENT VIDEO: diễn hành động và biểu cảm tự nhiên, không phát lời thoại, không nhạc; tiếng Việt sẽ lồng riêng.`,
     duration: input.duration,
     resolution: input.resolution,
     generate_audio: input.generateAudio,

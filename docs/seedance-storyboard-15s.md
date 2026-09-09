@@ -16,3 +16,6 @@ Nguồn đọc ngày 10/09/2026:
 - https://wavespeed.ai/docs/docs-api/bytedance/bytedance-seedance-2.5-image-to-video — hợp đồng I2V, duration 4–30 giây và hướng dẫn prompt theo nhịp thời gian.
 
 Kiểm chứng: unit/integration kiểm tra nhóm, nguyên câu/ID, cast lạ, timeline lỗi, round-trip, phân phiên bản; SQL transaction chạy rollback, không tạo job media. Chất lượng diễn xuất thực tế của đoạn 15 giây vẫn cần canary có người xem/nghe; test hoặc triển khai không chứng minh chất lượng model.
+
+## Audio update
+New productions now use per-utterance Gemini dubbing rather than native Vietnamese speech. See [Gemini dubbing](gemini-dubbing.md) for the frozen voice schedule and recovery contract. Native examples above describe the earlier version; existing outputs are retained.

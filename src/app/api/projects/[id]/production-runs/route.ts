@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { access, fail, FilmError, readPlan } from "@/lib/short-film/server";
+import { speechLines } from "@/lib/short-film/contracts";
 import { fixedVoiceEnabled } from "@/lib/short-film/features";
 
 export async function GET(
@@ -45,7 +46,7 @@ export async function POST(
     if (body.planId) plan = await readPlan(a, String(body.planId));
     if (plan?.audio_mode === "fixed" && !fixedVoiceEnabled(a.project.id))
       throw new FilmError(
-        "Nhánh lồng tiếng riêng chưa qua canary. Hãy dùng audio native Seedance hoặc bật canary cho dự án.",
+        "Nhánh đồng bộ môi một người chưa qua canary. Chọn lồng tiếng theo từng nhân vật.",
         409,
       );
     if (
@@ -61,6 +62,13 @@ export async function POST(
         "Duyệt giọng của các nhân vật nói trong kịch bản trước.",
         409,
       );
+    if (plan?.audio_mode === "native")
+      throw new FilmError(
+        "Lưu kịch bản sang lồng tiếng trước khi tạo phim mới.",
+        409,
+      );
+    if (plan?.audio_mode === "dubbed")
+      plan.video_plan_scenes.forEach(speechLines);
     const key =
       typeof body.idempotencyKey === "string"
         ? body.idempotencyKey

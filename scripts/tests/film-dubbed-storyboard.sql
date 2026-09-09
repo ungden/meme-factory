@@ -4,7 +4,7 @@ declare p uuid; actor uuid; workspace int; plan uuid:=gen_random_uuid(); sid uui
  config jsonb; rowdata jsonb; board jsonb; v int;
 begin
  select id,user_id,workspace_version into strict p,actor,workspace from projects order by created_at limit 1;
- config:='{"title":"Storyboard transaction QA","brief":"QA","format":"16:9","resolution":"720p","audio_mode":"native","cast_snapshot":[],"target_duration_seconds":30}'::jsonb;
+ config:='{"title":"Dubbed storyboard transaction QA","brief":"QA","format":"16:9","resolution":"720p","audio_mode":"dubbed","cast_snapshot":[],"target_duration_seconds":30}'::jsonb;
  board:='{"version":1,"durationSeconds":15,"beats":[{"startSeconds":0,"endSeconds":15,"speakerCharacterId":null,"dialogue":"","action":"Reaction","camera":"Pan","motion":"Look up"}]}'::jsonb;
  rowdata:=jsonb_build_object('id',sid,'scene_index',0,'cast_snapshot','[]'::jsonb,'dialogue','','action','QA','setting','QA','camera','pan','duration_seconds',15,'follows_previous',false,'image_prompt','QA','motion_prompt','QA','source_mode','ai','input_hash','board-v1','storyboard',board);
  perform save_film_plan(p,actor,workspace,plan,null,config,jsonb_build_array(rowdata));
