@@ -32,6 +32,18 @@ export type GeminiTtsModel = (typeof GEMINI_TTS_MODELS)[number]["id"];
  * approved by a person.
  */
 export const GEMINI_VOICE_PRESETS = {
+  father_orus: {
+    label: "Bố · chắc, tinh nghịch",
+    voice: "Orus",
+    direction:
+      "Audio profile: Bố, một người cha Việt Nam khoảng 30 đến 38 tuổi. Giọng nam chắc, tự nhiên và tinh nghịch nhẹ; nói thân mật như đang trò chuyện với con trong gia đình. Không đọc quảng cáo, không phát thanh, không quá trầm và không già hóa giọng.",
+  },
+  mother_aoede: {
+    label: "Mẹ · thoáng, đáng yêu",
+    voice: "Aoede",
+    direction:
+      "Audio profile: Mẹ, một người mẹ Việt Nam khoảng 28 đến 36 tuổi. Giọng nữ thoáng, đáng yêu, ấm vừa và tự nhiên; nói thân mật như đang trò chuyện với con trong gia đình. Không đọc quảng cáo, không phát thanh và không dùng âm sắc trẻ em.",
+  },
   girl_leda: {
     label: "Bé gái · trong trẻo, tự nhiên",
     voice: "Leda",
