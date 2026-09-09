@@ -535,7 +535,8 @@ export default function ShortFilmPage() {
       const j = await api(`${base}/creative-assists/${jobId}`);
       if (j.job.status === "failed")
         throw new Error(
-          "AI chưa soạn được; bản trước vẫn giữ. Hãy thử hướng đơn giản hơn.",
+          j.job.error?.message ||
+            "AI chưa tìm được bản đủ tốt hoặc chưa hoàn tất lượt soạn. Bản trước vẫn được giữ.",
         );
       if (j.job.status === "completed") {
         if (g !== generation.current) throw new Error("Đã chuyển dự án.");

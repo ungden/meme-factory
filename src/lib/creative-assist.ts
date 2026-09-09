@@ -13,10 +13,20 @@ import {
   validateGeneratedFamilyStory,
   STORY_SCHEMA,
   type ChannelProfile,
-  type FamilyEditorialIssue,
   type Story,
   type RecentStory,
 } from "./family-catalogue";
+import {
+  FAMILY_EDITORIAL_BENCHMARK,
+  FAMILY_BENCHMARK_VERSION,
+  premiseSchema,
+  selectionSchema,
+  editorialReviewSchema,
+  validatePremises,
+  validateSelection,
+  validateEditorialReview,
+  type FamilyDevelopmentTrace,
+} from "./family-development";
 import { GoogleGenAI, type ThinkingLevel } from "@google/genai";
 import { getGeminiApiKey } from "@/lib/server-secrets";
 
@@ -296,11 +306,15 @@ export function validateCreativeAssist(
   return { kind, scenes, summary: text(result.summary, 700) };
 }
 
-function contextText(context: CreativeContext, selectedIds: string[]) {
+function contextText(
+  context: CreativeContext,
+  selectedIds: string[],
+  includeWritingPolicy = true,
+) {
   const selected = selectedIds.length
     ? context.characters.filter((item) => selectedIds.includes(item.id))
     : context.characters;
-  return `${context.channelProfile ? "HỒ SƠ KÊNH (giữ vai trò và tính cách, không tự đổi ảnh chuẩn): " + JSON.stringify(context.channelProfile) + "\n20 TẬP GẦN NHẤT (tránh lặp tình huống/format–cách tạo tương phản–chuỗi đối đáp/kết quả; không mặc định mọi tập có người thua): " + JSON.stringify(context.recentStories || []) + "\n" : ""}DỰ ÁN: ${context.projectName}\nGIỌNG VIẾT: ${context.channelProfile?.tone || context.brandVoice || "tự nhiên, rõ ràng"}\nĐỘC GIẢ: ${context.channelProfile?.audience || context.audience || "khán giả fanpage Việt Nam"}\nHƯỚNG DẪN: ${context.guidelines || ""}\nNHÂN VẬT ĐƯỢC PHÉP DÙNG (chỉ dùng ID trong danh sách):\n${selected.map((character) => `- ${character.name} | ID ${character.id} | ${character.description || "nhân vật 3D đã duyệt"}; ${context.channelProfile?.roles.find((role) => role.characterId === character.id)?.personality || character.personality || ""}`).join("\n") || "Không có nhân vật được chọn."}\nNỘI DUNG GẦN ĐÂY CẦN TRÁNH LẶP: ${context.recentContent.join(" | ") || "chưa có"}${context.channelProfile ? "\n\n" + FAMILY_WRITING_POLICY : ""}`;
+  return `${context.channelProfile ? "HỒ SƠ KÊNH (giữ vai trò và tính cách, không tự đổi ảnh chuẩn): " + JSON.stringify(context.channelProfile) + "\n20 TẬP GẦN NHẤT (tránh lặp tình huống/format–cách tạo tương phản–chuỗi đối đáp/kết quả; không mặc định mọi tập có người thua): " + JSON.stringify(context.recentStories || []) + "\n" : ""}DỰ ÁN: ${context.projectName}\nGIỌNG VIẾT: ${context.channelProfile?.tone || context.brandVoice || "tự nhiên, rõ ràng"}\nĐỘC GIẢ: ${context.channelProfile?.audience || context.audience || "khán giả fanpage Việt Nam"}\nHƯỚNG DẪN: ${context.guidelines || ""}\nNHÂN VẬT ĐƯỢC PHÉP DÙNG (chỉ dùng ID trong danh sách):\n${selected.map((character) => `- ${character.name} | ID ${character.id} | ${character.description || "nhân vật 3D đã duyệt"}; ${context.channelProfile?.roles.find((role) => role.characterId === character.id)?.personality || character.personality || ""}`).join("\n") || "Không có nhân vật được chọn."}\nNỘI DUNG GẦN ĐÂY CẦN TRÁNH LẶP: ${context.recentContent.join(" | ") || "chưa có"}${context.channelProfile && includeWritingPolicy ? "\n\n" + FAMILY_WRITING_POLICY : ""}`;
 }
 
 function schemaFor(kind: CreativeAssistKind) {
@@ -342,7 +356,11 @@ async function generateJson(
   prompt: string,
   responseJsonSchema?: unknown,
   modelOverride?: string,
+  deadline?: number,
+  temperature = 0.5,
 ) {
+  const remaining = deadline ? deadline - Date.now() : 45000;
+  if (remaining < 5000) throw new Error("FAMILY_WRITING_TIMEOUT");
   const ai = new GoogleGenAI({ apiKey: await getGeminiApiKey() });
   const model =
     modelOverride ||
@@ -362,93 +380,25 @@ async function generateJson(
               : {}),
           }
         : {}),
-      temperature: 0.5,
-      httpOptions: { timeout: responseJsonSchema ? 45000 : 35000 },
+      temperature,
+      httpOptions: {
+        timeout: Math.min(remaining, responseJsonSchema ? 45000 : 35000),
+      },
     },
   });
   return JSON.parse(response.text || "{}") as unknown;
 }
 
-const familyEditorialReviewSchema = {
-  type: "object",
-  properties: {
-    passed: { type: "boolean" },
-    evidence: {
-      type: "object",
-      properties: Object.fromEntries(["contrast", "motivation", "development", "ending", "originality"].map((key) => [key, { type: "string" }])),
-      required: ["contrast", "motivation", "development", "ending", "originality"],
-      additionalProperties: false,
-    },
-    issues: {
-      type: "array",
-      maxItems: 12,
-      items: {
-        type: "object",
-        properties: {
-          location: { type: "string" },
-          quote: { type: "string" },
-          reason: { type: "string" },
-        },
-        required: ["location", "quote", "reason"],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: ["passed", "evidence", "issues"],
-  additionalProperties: false,
+export type CreativeAssistOptions = {
+  onEditorialProgress?: (trace: FamilyDevelopmentTrace) => Promise<void>;
 };
 
-function unpackEditorialReview(value: unknown) {
-  const review = value as {
-    passed?: unknown;
-    evidence?: Record<string, unknown>;
-    issues?: unknown;
-  };
-  if (
-    typeof review?.passed !== "boolean" ||
-    !Array.isArray(review.issues) ||
-    !["contrast", "motivation", "development", "ending", "originality"].every(
-      (key) => typeof review.evidence?.[key] === "string" &&
-        (review.evidence[key] as string).trim().length > 10,
-    )
-  ) throw new Error("FAMILY_EDITORIAL_REVIEW_INVALID");
-  const issues = review.issues as FamilyEditorialIssue[];
-  if (
-    issues.length > 12 ||
-    issues.some((item) => !item ||
-      ![item.location, item.quote, item.reason].every(
-        (v) => typeof v === "string" && v.trim(),
-      ),
-    ) ||
-    (!review.passed && !issues.length)
-  ) throw new Error("FAMILY_EDITORIAL_REVIEW_INVALID");
-  return {
-    passed: review.passed && issues.length === 0,
-    issues,
-    evidence: review.evidence as Record<string, string>,
-  };
-}
-
-async function reviewFamilyStory(
-  story: Story,
-  context: CreativeContext,
-  allowed: string[],
-  model: string,
+export async function generateCreativeAssist(
+  input: CreativeAssistInput,
+  options: CreativeAssistOptions = {},
 ) {
-  return unpackEditorialReview(
-    await generateJson(
-      `${contextText(context, allowed)}
-Bạn là biên tập viên độc lập. Đánh giá toàn bộ câu chuyện sau, không viết lại: ${JSON.stringify(story)}
-${FAMILY_REVIEW_CRITERIA}`,
-      familyEditorialReviewSchema,
-      model,
-    ),
-  );
-}
-
-export async function generateCreativeAssist(input: CreativeAssistInput) {
   if (input.kind === "video_plan" && input.context.channelProfile)
-    return generateFamilyFilm(input);
+    return generateFamilyFilm(input, options);
   const prompt = `${instruction(input)}\n\nTrả về JSON ĐÚNG schema, không markdown:\n${schemaFor(input.kind)}`;
   let candidate: unknown;
   try {
@@ -472,8 +422,52 @@ export async function generateCreativeAssist(input: CreativeAssistInput) {
   }
 }
 
+export function buildFamilyEditorialPrompt(
+  input: CreativeAssistInput,
+  story: Story,
+) {
+  const allowed = input.selectedCharacterIds?.length
+    ? input.selectedCharacterIds
+    : input.context.characters.map((c) => c.id);
+  const context = {
+    ...input.context,
+    characters: input.context.characters.filter((c) => allowed.includes(c.id)),
+  };
+  const intent =
+    input.intent || "Chọn một chuyện mới từ gia đình và 20 tập gần nhất.";
+  const performance = {
+    setup: story.setup,
+    dialogue: story.dialogue,
+    reaction:
+      story.beats.find((b) => b.purpose === "reaction")?.description || "",
+  };
+  return `${contextText(context, allowed)}
+${FAMILY_EDITORIAL_BENCHMARK}
+Ý TƯỞNG PHẢI GIỮ: ${intent}
+BẢN DIỄN CẦN ĐÁNH GIÁ: ${JSON.stringify(performance)}
+${FAMILY_REVIEW_CRITERIA}
+Đây là bước chọn chất lượng, không chỉ dò lỗi. watchability.decision: ready_for_user khi đáng gửi cho người dùng chọn; revise nếu một sửa cụ thể có thể cứu phần đối đáp đang tốt; reject nếu tiền đề vẫn nhạt/dễ đoán/cần thay gốc. Được reject dù issues=[] vì bản không có lỗi cấu trúc nhưng không đáng xem.
+Trước khi quyết định, phản biện bản này như một biên tập viên phải từ chối bài nhạt. weakestMoment trích một câu/action NGUYÊN VĂN ở line tương ứng và why nêu nguy cơ cụ thể khiến người xem chán; không dùng "cần nghe diễn viên" hay "không có điểm yếu" để né đánh giá bản chữ. formatOnly=true nếu toàn sức hút vẫn chỉ là trẻ đóng vai người lớn hoặc gọi đồ nhỏ bằng từ sang, chưa có quan sát/đối đáp/hành động riêng đáng xem; khi đó không được ready_for_user. Đừng mặc định đúng format là xuất sắc. Có thể nhận xét một câu yếu dù tổng thể vẫn đạt.
+watchability.reason nêu căn cứ cụ thể, weakness nêu hạn chế còn lại. moments trích NGUYÊN VĂN đoạn thoại hoặc action, line là số lượt từ 1, kind=dialogue/action, why giải thích vì sao đoạn ấy thú vị hoặc phản ứng nào được tạo. ready_for_user cần ít nhất hai đoạn ở các lượt khác nhau (có thể là hành động/câu dẫn có tác dụng, không bắt hai punchline). Không chấp nhận lý do chỉ là đúng format/đảo vai. Câu trích của issues cũng phải có trong bản diễn.
+Không có lỗi chưa đủ để ready_for_user. Chỉ trả quyết định này khi bản đáng gửi người dùng và không còn issue cần sửa. Đây không phải người dùng duyệt; server tự suy trạng thái từ quyết định và bằng chứng, không cần một cờ passed riêng.`;
+}
+
 /** Story, dialogue, independent editorial review and shot planning. Never starts media. */
-async function generateFamilyFilm(input: CreativeAssistInput) {
+async function generateFamilyFilm(
+  input: CreativeAssistInput,
+  options: CreativeAssistOptions,
+) {
+  const deadline = Date.now() + 155000;
+  const trace: FamilyDevelopmentTrace = {
+    benchmarkVersion: FAMILY_BENCHMARK_VERSION,
+    stage: "premises",
+    candidates: [],
+    drafts: [],
+  };
+  const checkpoint = async (stage: FamilyDevelopmentTrace["stage"]) => {
+    trace.stage = stage;
+    await options.onEditorialProgress?.(structuredClone(trace));
+  };
   const profile = input.context.channelProfile!;
   const model = creativeAssistModel(input.kind, true);
   const allowed = input.selectedCharacterIds?.length
@@ -488,65 +482,124 @@ async function generateFamilyFilm(input: CreativeAssistInput) {
     prompt: string,
     validate: (v: unknown) => T,
     schema?: unknown,
+    temperature = 0.5,
   ): Promise<T> {
-    let candidate: unknown;
-    try {
-      candidate = await generateJson(prompt, schema, model);
-      return validate(candidate);
-    } catch (e) {
-      if (repairs++ >= 1) throw e;
-      candidate = await generateJson(
-        `${prompt}\nSửa bản vừa trả, không thay đề tài: ${JSON.stringify(candidate)}\nLỗi: ${e instanceof Error ? e.message : e}`,
-        schema,
-        model,
-      );
-      return validate(candidate);
+    while (true) {
+      let candidate: unknown;
+      try {
+        candidate = await generateJson(
+          prompt,
+          schema,
+          model,
+          deadline,
+          temperature,
+        );
+        return validate(candidate);
+      } catch (e) {
+        if (candidate === undefined && !(e instanceof SyntaxError)) throw e;
+        const error =
+          e instanceof Error ? e.message : "FAMILY_RESPONSE_INVALID";
+        trace.validationFailures = [
+          ...(trace.validationFailures || []),
+          { stage: trace.stage, error, response: candidate ?? null },
+        ];
+        await checkpoint(trace.stage);
+        if (repairs++ >= 1) throw e;
+        prompt = `${prompt}\nSửa bản vừa trả, không thay đề tài: ${JSON.stringify(candidate)}\nLỗi: ${error}`;
+      }
     }
   }
-  const draftStory = await checked(
-    `${contextText(context, allowed)}
-Viết CÂU CHUYỆN trước khi chia shot. Ý tưởng: ${input.intent || "Một chuyện nhỏ mới của gia đình"}.
-Tự cân nhắc vài tình huống khác nhau rồi chọn một tình huống đảo thường thức hoặc parody format người lớn có tương phản rõ nhất, giữ đúng ý tưởng/format đã yêu cầu; không bắt buộc xung đột hoặc gài bẫy, không xuất danh sách ý tưởng. Thời lượng dự kiến ${input.targetDurationSeconds || 35} giây; thường 8–12 lượt đối đáp cho khoảng 35 giây, nhưng được ít hơn nếu chuyện đã đủ. Tổng 15–120 đơn vị lời thoại (tách bằng khoảng trắng), mỗi lượt tối đa 35; thay đổi độ dài câu theo mục đích nói. Không cắt màn mặc cả hoặc giải thích có tác dụng để làm bản ngắn nhất.
-Ghi comicPremise trước: normalExpectation là tình huống hoặc format người lớn mà khán giả vốn quen, invertedReality là vai/quy mô/đồ vật được đảo hoặc thu về thế giới trẻ con, visibleContrast là tín hiệu format cùng lời/hành động/đạo cụ cho thấy độ lệch. Không chỉ đặt nhãn parody/đảo vai; bản chữ phải diễn nó. Parody không cần thêm bố mẹ hay việc nhà. Ghi wants cụ thể (có thể cùng muốn hoặc quan tâm nhau), setup là việc đang xảy ra, turns là tiến triển trong đối đáp/hiểu biết/quan hệ, payoff là điểm rơi cuối. Điểm rơi có thể là nhìn ra điều thương nhau, giữ thể diện hoặc nhận xét hóm hỉnh; không bắt buộc ai thua hay có cú lật. Mở ngay bằng yêu cầu/hành động, không giới thiệu gia đình.
-Tối đa 12 lượt thoại; nếu cần reaction riêng thì tối đa 11 lượt thoại + 1 reaction. Reaction để trống khi đã dừng đúng chỗ. Chỉ mô tả hành động nhìn thấy; không dùng nhãn cảm xúc thay việc diễn ra.
+  // Let the writer explore with a short positive brief. The rejection benchmark
+  // belongs to selection/review; feeding failed scripts to every stage anchors imitation.
+  const writerContext = `${contextText(context, allowed, false)}
+BẠN LÀ BIÊN KỊCH HÀI GIA ĐÌNH, viết để diễn như đang nói chuyện, không viết lời giới thiệu ý tưởng.
+Tìm một thói quen nhỏ rất thật: người đang vội vẫn nhờ thêm; khách hỏi chuyện vì chính họ tò mò; người khoe tự lộ điều mình coi là quan trọng. Đặt người lớn/trẻ con vào vai bị đảo, hoặc đặt quy mô trẻ con vào một format người lớn dễ nhận ra. Giữ nghiêm túc trong vai, sự quan tâm và vẻ tỉnh bơ.
+Hai người nghe nhau: câu vừa nghe hoặc việc vừa xảy ra cho họ điều cụ thể để hỏi, chống chế, đồng ý hay nhờ tiếp. Người hỏi có sự tò mò riêng, không chỉ "còn gì nữa?" để khách đọc danh sách. Câu kể được phép nếu tự cách kể bộc lộ tính cách; không bắt phải có tai nạn hay tranh cãi.
+Mở ngay ở việc đang diễn ra. Chọn chi tiết dễ hình dung, khẩu ngữ có nhịp dài ngắn. Dừng đúng lúc quan hệ hoặc cái lệch vừa lộ rõ; không cần thông điệp, hình phạt hay câu chốt thông minh. Thoại trẻ diễn người lớn vẫn được tự tin, hiểu chuyện, xưng hô theo vai. Chỉ dùng cast đã chọn, giữ quan hệ, giới tính và vóc dáng.`;
+  const intent =
+    input.intent || "Chọn một chuyện mới từ gia đình và 20 tập gần nhất.";
+  trace.candidates = await checked(
+    `${writerContext}
+Ý TƯỞNG NGƯỜI DÙNG: ${intent}
+Đề xuất ĐÚNG BA tình huống A/B/C trước khi viết kịch bản. Nếu đã có đề tài/format, cả ba giữ đề tài ấy nhưng phát triển bằng hành vi và quan hệ KHÁC NHAU; nếu để trống, chọn ba hướng khác nhau.
+Mỗi phương án gồm situation, familiarPattern (thường thức/format được nhận ra), observedBehavior (hành vi cụ thể đời thường), progression (2–4 việc/câu đáp làm tình huống tiếp diễn), ending, risk (vì sao có thể nhạt), sampleExchange (2–4 lượt thoại cùng hành động, đúng cast).
+Viết mẫu đối đáp thật để so sánh, không chỉ nhãn hài. Trước hết tìm thói quen nhỏ của con người (cách nhờ, hỏi vặn, giữ thể diện, chen nhu cầu), rồi đặt vào tình huống; đừng bắt đầu bằng danh sách thuật ngữ để đổi tên đồ chơi. Mẫu trao đổi phải cho thấy nét riêng của hai người đang nói. Mỗi progression phát triển cái vừa xảy ra/được kể, không chỉ chuyển sang tiện ích/chủ đề kế tiếp. Quan sát ý muốn, thói quen và cách nhân vật phản ứng trước người kia. Các phương án khác nhau về cách chuyện diễn ra, không chỉ thay đồ vật. Không chọn sẵn phương án thắng. Mỗi trường mô tả ngắn gọn, sampleExchange mỗi câu tối đa 25 từ.`,
+    (v) => validatePremises(v, allowed),
+    premiseSchema(allowed),
+    0.9,
+  );
+  await checkpoint("selection");
+  trace.selection = await checked(
+    `${writerContext}
+${FAMILY_EDITORIAL_BENCHMARK}
+Ý TƯỞNG PHẢI GIỮ: ${intent}
+Đây là ba phương án của một người viết khác: ${JSON.stringify(trace.candidates)}
+So sánh thực sự observedBehavior/progression/sampleExchange của cả ba. Cần lý do để xem tiếp ngoài hình bé + vai người lớn. Ai làm gì khiến người kia phải phản ứng khác? Phần nào chỉ lặp, kể lại, đổi tên đồ vật hoặc câu kết thêm cho có?
+Đánh giá từng A/B/C bằng develop hoặc reject, strongestDetail trích NGUYÊN VĂN một đoạn trong hành vi/diễn biến/kết/thoại của đúng phương án, weakness và reason cụ thể. Không tự chấm đạt vì đúng cơ chế. Loại phương án chỉ liệt kê ba ví dụ của tiền đề (gối=nhập khẩu, bánh=kho năng lượng, trùm chăn=bảo mật); nếu đổi thứ tự các câu mà không mất gì thì cần xem xét kỹ khả năng chỉ là danh mục. Câu dẫn bình thường vẫn được; đánh giá toàn cuộc tương tác và chi tiết về con người, không đếm thuật ngữ/punchline. selectedId chọn phương án develop mạnh nhất và reason phải giải thích vì sao hơn các phương án khác. Nếu cả ba nhạt thì selectedId=null; không bắt chọn phương án ít dở nhất. Không đề xuất thay đề tài người dùng.`,
+    (v) => validateSelection(v, trace.candidates),
+    selectionSchema,
+  );
+  await checkpoint("draft");
+  const selected = trace.candidates.find(
+    (c) => c.id === trace.selection?.selectedId,
+  );
+  if (!selected) throw new Error("FAMILY_PREMISES_NEED_REVIEW");
+  let story = await checked(
+    `${writerContext}
+Ý TƯỞNG PHẢI GIỮ: ${intent}
+TÌNH HUỐNG ĐÃ CHỌN: ${JSON.stringify(selected)}
+NHẬN XÉT SO SÁNH: ${JSON.stringify(trace.selection)}
+Viết bản đầy đủ bằng tiếng Việt, khai thác hành vi/quan hệ cụ thể đã chọn. Không chỉ minh họa một phép đảo vai hoặc gắn micro vào chuyện kể. Giữ các câu phản ứng có tác dụng, không bắt mỗi câu là một trò đùa. Khác biệt hai bé phải thể hiện qua cách xử lý/đối đáp, không chỉ đổi tên người nói.
+Thời lượng dự kiến ${input.targetDurationSeconds || 35} giây; đừng kéo chuyện cho đủ số lượt. Tổng 15–120 đơn vị lời thoại, mỗi lượt tối đa 35; tối đa 12 lượt kể cả reaction. Có thể không có reaction nếu đã đủ điểm dừng. Viết tình huống đang diễn ra, lời kể chỉ khi format cần và cách kể tự có sức hút.
+comicPremise ghi thường thức/format gốc, điều bị đảo/lệch và tín hiệu nhìn/nghe thấy. Phần thoại/action phải tự thể hiện, không dựa vào lời tác giả tự khen. Không thêm người ngoài cast, không ép parody thành việc chăm bố mẹ.
 Trả JSON: ${STORY_SCHEMA}`,
     (v) =>
-      validateGeneratedFamilyStory(unpackStory(v), profile, allowed, context.recentStories),
+      validateGeneratedFamilyStory(
+        unpackStory(v),
+        profile,
+        allowed,
+        context.recentStories,
+      ),
     storyResponseSchema(profile, allowed),
+    0.8,
   );
-  let story = await checked(
-    `${contextText(context, allowed)}
-Bạn là biên tập thoại cuối, không phải người viết quảng cáo. Đọc bản nháp sau thành tiếng và sửa trực tiếp: ${JSON.stringify(draftStory)}
-Giữ đề tài và cast, biên tập theo mục đích từng người và cách họ đáp lại nhau. Giữ những màn lý sự, giải thích, thăm dò và mặc cả đang có tác dụng; không rút mọi câu thành vài từ. Giữ phép đảo thường thức trong comicPremise. Nếu đoạn chưa có sức sống, làm rõ thường thức/format gốc và sự lệch vai/quy mô bằng chi tiết cụ thể. Giữ phong thái nghiêm túc của parody, không ép thành cảnh chăm bố mẹ, không tự thêm giao kèo hoặc câu chốt triết lý. Giữ ý tưởng của người dùng. Không luôn cho Bố chống chế, Mẹ bắt bài hay Đậu Đỏ chỉ hiểu nghĩa đen.
-Chỉ sửa phần làm gãy nhân quả hoặc khiến nhân vật nói hộ tác giả. Được sửa setup, mechanism, outcome, payoff và beats cho khớp thoại, giữ chi tiết đã gieo. Giữ điểm chốt quan tâm/nói khéo nếu đã được chuẩn bị; không tự đổi thành ích kỷ hoặc thêm đạo lý/hối lỗi. Không viết tiếp sau điểm dừng có ý nghĩa. Dùng toàn bộ QUY TẮC BIÊN KỊCH ở trên; sự tự nhiên không được suy từ tuổi.
-Trả toàn bộ JSON theo schema: ${STORY_SCHEMA}`,
-    (v) =>
-      validateGeneratedFamilyStory(unpackStory(v), profile, allowed, context.recentStories),
-    storyResponseSchema(profile, allowed),
-  );
-  let editorialEvidence: Record<string, string> | undefined;
-  for (let editorialAttempt = 0; editorialAttempt <= 2; editorialAttempt++) {
-    const review = await reviewFamilyStory(story, context, allowed, model);
-    if (review.passed) {
-      editorialEvidence = review.evidence;
-      break;
-    }
-    if (editorialAttempt === 2) {
-      throw new Error(
-        `FAMILY_EDITORIAL_NEEDS_REVIEW: ${JSON.stringify(review.issues)}`,
-      );
-    }
+  let review;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    trace.drafts.push({
+      dialogue: story.dialogue,
+      setup: story.setup,
+      payoff: story.payoff,
+    });
+    await checkpoint("review");
+    // Read the staged dialogue without the writer's self-justification or selection verdict.
+    review = await checked(
+      buildFamilyEditorialPrompt(input, story),
+      (v) => validateEditorialReview(v, story),
+      editorialReviewSchema,
+    );
+    trace.drafts[trace.drafts.length - 1].review = review;
+    await checkpoint("review");
+    if (review.passed) break;
+    if (review.watchability.decision === "reject" || attempt === 1)
+      throw new Error("FAMILY_EDITORIAL_NEEDS_REVIEW");
     story = await checked(
-      `${contextText(context, allowed)}
-Sửa kịch bản sau theo đúng nhận xét của biên tập viên, giữ đề tài, cast và quan hệ nhân quả: ${JSON.stringify(story)}
-NHẬN XÉT BẮT BUỘC SỬA (lượt ${editorialAttempt + 1}/2): ${JSON.stringify(review.issues)}
-
-Sửa đúng nguyên nhân được chỉ ra: động cơ, chiến thuật, nhân quả hoặc câu nói thiếu lý do. Giữ phần đối đáp đang hiệu quả, kể cả lời giải thích và cách nói người lớn có chủ ý. Không giải quyết mọi nhận xét bằng rút ngắn thoại. Được cắt reaction, câu thắng cuộc hoặc cả một lượt thoại nếu payoff đã rõ. Hành động chỉ mô tả cử chỉ nhìn thấy được. Không giảng đạo và không làm người bị hớ phải hối lỗi. Trả toàn bộ JSON theo schema: ${STORY_SCHEMA}`,
+      `${writerContext}
+Ý TƯỞNG PHẢI GIỮ: ${intent}
+BẢN CHỮ: ${JSON.stringify(story)}
+NHẬN XÉT BẮT BUỘC SỬA: ${JSON.stringify(review)}
+Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống. Không thêm câu chốt thông minh để che tiền đề yếu, không rút tất cả thoại thành câu cụt. Giữ nguyên đề tài, cast và format. Trả toàn bộ JSON: ${STORY_SCHEMA}`,
       (v) =>
-        validateGeneratedFamilyStory(unpackStory(v), profile, allowed, context.recentStories),
+        validateGeneratedFamilyStory(
+          unpackStory(v),
+          profile,
+          allowed,
+          context.recentStories,
+        ),
       storyResponseSchema(profile, allowed),
     );
   }
+  if (!review?.passed) throw new Error("FAMILY_EDITORIAL_NEEDS_REVIEW");
+  await checkpoint("shots");
   const hasReaction = story.beats.at(-1)?.purpose === "reaction";
   const shotCount = story.dialogue.length + (hasReaction ? 1 : 0);
   const result = await checked(
@@ -581,12 +634,14 @@ Chỉ trả title, summary và object shots với ${shotCount} khóa shot1 đế
     },
     shotResponseSchema(story, allowed),
   );
+  await checkpoint("complete");
   return {
     ...result,
     story: {
       ...story,
       writingPolicyVersion: FAMILY_WRITING_POLICY_VERSION,
-      editorialEvidence,
+      editorialEvidence: review.evidence,
+      development: trace,
       intendedShotSeconds: result.scenes.map(
         (s) => s.intendedDurationSeconds || s.durationSeconds,
       ),

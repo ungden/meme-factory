@@ -1,5 +1,5 @@
 /** Shared comic premise for family life and children's parodies of adult formats. */
-export const FAMILY_WRITING_POLICY_VERSION = "family-dialogue-5";
+export const FAMILY_WRITING_POLICY_VERSION = "family-dialogue-6";
 
 export const FAMILY_WRITING_POLICY = `LUẬT NỀN BIÊN KỊCH ${FAMILY_WRITING_POLICY_VERSION}: ĐẢO THƯỜNG THỨC VÀ PARODY THẾ GIỚI NGƯỜI LỚN
 Khán giả người lớn nhận ra một tình huống hoặc FORMAT quen thuộc, rồi thấy nó được diễn bởi những người/đồ vật lệch hẳn kỳ vọng. Bánh Bao & Đậu Đỏ vẫn là hai đứa CON NÍT về hình dáng và giọng, nhưng có thể gánh vai người lớn hoặc diễn những vai người lớn rất nghiêm túc. Sự tương phản phải nhìn/nghe thấy được; không cần thêm câu chơi chữ để giải thích nó.
@@ -39,4 +39,4 @@ export const FAMILY_REVIEW_CRITERIA = `Đánh giá ĐẢO THƯỜNG THỨC/PAROD
 4. ending: có điểm dừng giúp hưởng sự tương phản hoặc quan tâm? Cho phép câu trả lời tỉnh bơ, giữ thể diện, phản ứng im lặng. Không bắt thêm bẫy, hình phạt, nhận thua, thú nhận đang diễn hay bài học.
 5. originality: đối chiếu reference và 20 tập. Dùng cùng thể loại phỏng vấn/review hoặc cơ chế đảo vai không tự động là sao chép. Chặn bê nguyên chuỗi hỏi–đáp, cách lộ thông tin, chi tiết và câu chốt nguồn rồi thay tên/đồ vật. Không đánh đồng parody FORMAT với chép một KỊCH BẢN.
 Lỗi cần chặn: nhãn nói parody/đảo nhưng bản chữ không thể hiện; từ khó không có mục đích; đổi sự kiện vô cớ; tự chuyển ý tưởng parody thành việc nhà; giảng đạo/hạ nhục/sao chép. Không sửa sự vô lý CÓ CHỦ ĐÍCH của tình huống thành cuộc nói chuyện hợp lý nhưng hết hài.
-Trả evidence cho đủ năm mục từ thoại/action. Issue có location, quote NGUYÊN VĂN và reason theo ngữ cảnh; không đòi thêm người nói ngoài cast. Thiếu bằng chứng không pass; không bịa lỗi vì trẻ nói kiểu người lớn hoặc vì không có bố mẹ. Không có lỗi đáng kể thì passed=true, issues=[].`;
+Trả evidence cho đủ năm mục từ thoại/action. Issue có location, quote NGUYÊN VĂN và reason theo ngữ cảnh; không đòi thêm người nói ngoài cast. Thiếu bằng chứng không pass; không bịa lỗi vì trẻ nói kiểu người lớn hoặc vì không có bố mẹ. Bản đúng cấu trúc nhưng nhạt/dễ đoán vẫn cần revise hoặc reject. Chỉ ready_for_user khi có đoạn đối đáp/hành động cụ thể đáng xem và diễn biến phát triển ngoài tiền đề ban đầu. Không suy từ việc thiếu lỗi thành có chất lượng.`;

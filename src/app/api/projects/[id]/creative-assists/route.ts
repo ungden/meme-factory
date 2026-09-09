@@ -1,3 +1,4 @@
+import type { FamilyDevelopmentTrace } from "@/lib/family-development";
 import { FAMILY_WRITING_POLICY_VERSION } from "@/lib/family-writing-policy";
 import { after, NextRequest, NextResponse } from "next/server";
 import {
@@ -70,19 +71,20 @@ export async function POST(
       { status: 409 },
     );
 
-  const now = Date.now();
-  const [{ count: minuteCount }, { count: dayCount }] = await Promise.all([
-    supabase
-      .from("creative_assists")
-      .select("id", { count: "exact", head: true })
-      .eq("created_by", user.id)
-      .gte("created_at", new Date(now - 60_000).toISOString()),
-    supabase
-      .from("creative_assists")
-      .select("id", { count: "exact", head: true })
-      .eq("created_by", user.id)
-      .gte("created_at", new Date(now - 86_400_000).toISOString()),
-  ]);
+  const { data: usage, error: usageError } = await supabase.rpc(
+    "creative_assist_usage",
+  );
+  if (
+    usageError ||
+    !usage ||
+    !Number.isInteger(usage.minuteCount) ||
+    !Number.isInteger(usage.dayCount)
+  )
+    return NextResponse.json(
+      { error: "Chưa kiểm tra được hạn mức soạn. Hãy thử lại." },
+      { status: 503 },
+    );
+  const { minuteCount, dayCount } = usage;
   if ((minuteCount ?? 0) >= 5)
     return NextResponse.json(
       {
@@ -176,7 +178,9 @@ export async function POST(
     kind: body.kind,
     intent: typeof body.intent === "string" ? body.intent.slice(0, 4000) : "",
     channelProfileVersion: channel?.profile?.version ?? null,
-    writingPolicyVersion: channel?.profile ? FAMILY_WRITING_POLICY_VERSION : null,
+    writingPolicyVersion: channel?.profile
+      ? FAMILY_WRITING_POLICY_VERSION
+      : null,
     recentPlanIds: (recentPlans || []).map((p) => p.id),
     selectedCharacterIds: selectedIds,
     targetDurationSeconds: body.targetDurationSeconds || (channel ? 35 : 30),
@@ -215,46 +219,71 @@ export async function POST(
 
   after(async () => {
     const startedAt = Date.now();
+    let editorial: FamilyDevelopmentTrace | undefined;
     try {
-      const result = await generateCreativeAssist({
-        ...inputSnapshot,
-        kind: body.kind,
-        context: {
-          projectName: project.name,
-          channelProfile: channel?.profile,
-          recentStories: (recentPlans || [])
-            .map((p) => p.story)
-            .filter(Boolean)
-            .map((s) => ({
-              series: s.series,
-              comicPremise: s.comicPremise,
-              situation: s.situation,
-              mechanism: s.mechanism,
-              outcome: s.outcome,
-              wants: s.wants,
-              payoff: s.payoff,
-            })),
-          brandVoice: project.brand_voice,
-          audience: project.audience,
-          guidelines: project.content_guidelines,
-          characters: allowedCharacters,
-          recentContent: (recentSets ?? [])
-            .map((item) => `${item.title || ""} ${item.brief || ""}`.trim())
-            .filter(Boolean),
+      const result = await generateCreativeAssist(
+        {
+          ...inputSnapshot,
+          kind: body.kind,
+          context: {
+            projectName: project.name,
+            channelProfile: channel?.profile,
+            recentStories: (recentPlans || [])
+              .map((p) => p.story)
+              .filter(Boolean)
+              .map((s) => ({
+                series: s.series,
+                comicPremise: s.comicPremise,
+                situation: s.situation,
+                mechanism: s.mechanism,
+                outcome: s.outcome,
+                wants: s.wants,
+                payoff: s.payoff,
+              })),
+            brandVoice: project.brand_voice,
+            audience: project.audience,
+            guidelines: project.content_guidelines,
+            characters: allowedCharacters,
+            recentContent: (recentSets ?? [])
+              .map((item) => `${item.title || ""} ${item.brief || ""}`.trim())
+              .filter(Boolean),
+          },
+        } as CreativeAssistInput,
+        {
+          onEditorialProgress: async (trace) => {
+            editorial = trace;
+            const { error } = await supabase
+              .from("creative_assists")
+              .update({
+                usage: {
+                  duration_ms: Date.now() - startedAt,
+                  profile_version: channel?.profile?.version ?? null,
+                  editorial: trace,
+                },
+              })
+              .eq("id", job.id)
+              .select("id")
+              .single();
+            if (error) throw new Error("FAMILY_CHECKPOINT_SAVE_FAILED");
+          },
         },
-      } as CreativeAssistInput);
-      await supabase
+      );
+      const { error: saveError } = await supabase
         .from("creative_assists")
         .update({
           status: "completed",
           result,
           completed_at: new Date().toISOString(),
           usage: {
+            editorial,
             duration_ms: Date.now() - startedAt,
             profile_version: channel?.profile?.version ?? null,
           },
         })
-        .eq("id", job.id);
+        .eq("id", job.id)
+        .select("id")
+        .single();
+      if (saveError) throw new Error("CREATIVE_RESULT_SAVE_FAILED");
     } catch (error) {
       await supabase
         .from("creative_assists")
@@ -263,9 +292,13 @@ export async function POST(
           error: {
             code:
               error instanceof Error ? error.message : "CREATIVE_ASSIST_FAILED",
+            message: editorial
+              ? "AI chưa tìm được bản đủ tốt hoặc chưa hoàn tất lượt soạn. Bản nháp trước của bạn vẫn được giữ."
+              : "Không thể hoàn tất lượt soạn AI.",
           },
           completed_at: new Date().toISOString(),
           usage: {
+            editorial,
             duration_ms: Date.now() - startedAt,
             profile_version: channel?.profile?.version ?? null,
           },

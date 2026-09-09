@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   generateCreativeAssist,
   type CreativeContext,
+  type CreativeAssistOptions,
 } from "../creative-assist";
 import {
   compactStory,
@@ -44,7 +45,9 @@ function frozenPlan(run: Run): FilmPlan | null {
   const value = run.input_snapshot?.plan;
   if (!value || typeof value !== "object") return null;
   const plan = value as FilmPlan;
-  return plan.id === run.plan_id && plan.version === run.plan_version ? plan : null;
+  return plan.id === run.plan_id && plan.version === run.plan_version
+    ? plan
+    : null;
 }
 
 async function heartbeatRun(admin: SupabaseClient, run: Run) {
@@ -137,21 +140,28 @@ async function creativeContext(a: Access) {
   return { context, profile };
 }
 
-async function createAutomaticPlan(a: Access, run: Run) {
+async function createAutomaticPlan(
+  a: Access,
+  run: Run,
+  options: CreativeAssistOptions,
+) {
   const { context, profile } = await creativeContext(a);
   if (!profile) throw new Error("CHANNEL_PROFILE_REQUIRED");
   const selected = profile.roles
     .map((r) => r.characterId)
     .filter((id) => context.characters.some((c) => c.id === id));
-  const result = await generateCreativeAssist({
-    kind: "video_plan",
-    intent:
-      run.intent ||
-      "Tự đề xuất một chuyện gia đình mới, không lặp 20 tập gần nhất.",
-    context,
-    selectedCharacterIds: selected,
-    targetDurationSeconds: 35,
-  });
+  const result = await generateCreativeAssist(
+    {
+      kind: "video_plan",
+      intent:
+        run.intent ||
+        "Tự đề xuất một chuyện gia đình mới, không lặp 20 tập gần nhất.",
+      context,
+      selectedCharacterIds: selected,
+      targetDurationSeconds: 35,
+    },
+    options,
+  );
   if (result.kind !== "video_plan") throw new Error("SCRIPT_RESULT_INVALID");
   const plan = await savePlan(a, {
     title: result.title,
@@ -292,8 +302,12 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
     if (heartbeating || leaseLost) return;
     heartbeating = true;
     void heartbeatRun(admin, run)
-      .catch(() => { leaseLost = true; })
-      .finally(() => { heartbeating = false; });
+      .catch(() => {
+        leaseLost = true;
+      })
+      .finally(() => {
+        heartbeating = false;
+      });
   }, 30_000);
   const assertLease = () => {
     if (leaseLost) throw new Error("RUN_LEASE_LOST");
@@ -302,7 +316,16 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
     let plan: FilmPlan;
     let profile: ChannelProfile | null = null;
     if (!run.plan_id) {
-      const made = await createAutomaticPlan(a, run);
+      const made = await createAutomaticPlan(a, run, {
+        onEditorialProgress: async (editorial) => {
+          assertLease();
+          await patchRun(admin, run, {
+            snapshot: { editorial },
+            release: false,
+          });
+          assertLease();
+        },
+      });
       plan = made.plan;
       profile = made.profile;
       run.plan_id = plan.id;

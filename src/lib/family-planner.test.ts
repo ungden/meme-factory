@@ -12,7 +12,9 @@ vi.mock("@google/genai", () => ({
     models = {
       generateContent: async (r: { contents: { text: string }[] }) => {
         calls.prompts.push(r.contents[0].text);
-        return { text: JSON.stringify(calls.responses.shift()) };
+        const response = calls.responses.shift();
+        if (response instanceof Error) throw response;
+        return { text: JSON.stringify(response) };
       },
     };
   },
@@ -33,34 +35,54 @@ const cast = Object.keys(familyPersonalities).map((name, i) => ({
 const reversalPremise = {
   normalExpectation: "Bố mẹ thường chuẩn bị đồ cho con ra khỏi nhà.",
   invertedReality: "Hai bé chuẩn bị túi cơm, thìa và nước cho bố đi làm.",
-  visibleContrast: "Hai bé kiểm đồ cho bố, nhắc bố đi giày vì sợ bố lại gọi nhờ.",
+  visibleContrast:
+    "Hai bé kiểm đồ cho bố, nhắc bố đi giày vì sợ bố lại gọi nhờ.",
 };
-const { profile, plans } = buildFamilyPilot(cast, [testPilot[0]].map(p => ({
-  ...p,
-  situation: "Hai bé soạn túi đồ cho bố đi làm",
-  mechanism: "Dáng trẻ con, vai phụ huynh lo đồ người lớn",
-  outcome: "Hai bé còn phải kiểm tra xem bố đã đi giày chưa",
-  setup: "Túi cơm của bố đang để trước cửa",
-  payoff: "Lo xong đồ vẫn phải giục bố chuẩn bị",
-  turns: [
-    ["Bánh Bao", "Đậu Đỏ, em lấy túi cơm cho bố chưa?", "Kiểm túi nhỏ trước cửa"],
-    ["Đậu Đỏ", "Rồi. Em còn cho thìa vào nữa.", "Chỉ chiếc thìa trong túi"],
-    ["Bánh Bao", "Bình nước đâu?", "Nhìn ngăn trống"],
-    ["Đậu Đỏ", "Bố bảo mang nặng lắm.", "Nhấc bình lên cho chị nhìn"],
-    ["Bánh Bao", "Không mang rồi trưa lại gọi hai chị em mình.", "Đưa bình vào túi bố"],
-    ["Đậu Đỏ", "Chị giữ túi đi. Em xem bố đã đi giày chưa.", "Bước tới cửa phòng"],
-  ],
-  reaction: "Hai bé nhìn đôi giày của bố còn nguyên trước cửa",
-})));
-plans.forEach(p => { p.story.comicPremise = reversalPremise; });
+const { profile, plans } = buildFamilyPilot(
+  cast,
+  [testPilot[0]].map((p) => ({
+    ...p,
+    situation: "Hai bé soạn túi đồ cho bố đi làm",
+    mechanism: "Dáng trẻ con, vai phụ huynh lo đồ người lớn",
+    outcome: "Hai bé còn phải kiểm tra xem bố đã đi giày chưa",
+    setup: "Túi cơm của bố đang để trước cửa",
+    payoff: "Lo xong đồ vẫn phải giục bố chuẩn bị",
+    turns: [
+      [
+        "Bánh Bao",
+        "Đậu Đỏ, em lấy túi cơm cho bố chưa?",
+        "Kiểm túi nhỏ trước cửa",
+      ],
+      ["Đậu Đỏ", "Rồi. Em còn cho thìa vào nữa.", "Chỉ chiếc thìa trong túi"],
+      ["Bánh Bao", "Bình nước đâu?", "Nhìn ngăn trống"],
+      ["Đậu Đỏ", "Bố bảo mang nặng lắm.", "Nhấc bình lên cho chị nhìn"],
+      [
+        "Bánh Bao",
+        "Không mang rồi trưa lại gọi hai chị em mình.",
+        "Đưa bình vào túi bố",
+      ],
+      [
+        "Đậu Đỏ",
+        "Chị giữ túi đi. Em xem bố đã đi giày chưa.",
+        "Bước tới cửa phòng",
+      ],
+    ],
+    reaction: "Hai bé nhìn đôi giày của bố còn nguyên trước cửa",
+  })),
+);
+plans.forEach((p) => {
+  p.story.comicPremise = reversalPremise;
+});
 const evidence = {
-  contrast: "Hai bé chuẩn bị túi cơm và kiểm việc bố đi giày, đảo việc bố mẹ thường lo cho con.",
+  contrast:
+    "Hai bé chuẩn bị túi cơm và kiểm việc bố đi giày, đảo việc bố mẹ thường lo cho con.",
   motivation: "Hai bé cùng muốn bố đủ đồ để đi làm, không phải tranh lượt.",
   development: "Soạn cơm xong hai bé nhắc bình nước, rồi còn kiểm giày của bố.",
   ending: "Đôi giày còn trước cửa cho thấy hai bé còn phải giục bố chuẩn bị.",
-  originality: "Không dùng chuỗi đấu giá hay đổi tên bộ phận cơ thể của reference.",
+  originality:
+    "Không dùng chuỗi đấu giá hay đổi tên bộ phận cơ thể của reference.",
 };
-const editorialPass = { passed: true, evidence, issues: [] };
+
 const shotResult = (p: (typeof plans)[number]) => ({
   title: p.title,
   summary: p.brief,
@@ -77,11 +99,91 @@ const input = {
   },
   targetDurationSeconds: 35 as const,
 };
+const candidates = [
+  {
+    id: "A",
+    situation: "Hai bé kiểm túi đồ của bố trước giờ đi làm",
+    familiarPattern: "Cha mẹ lo đồ đi học cho con",
+    observedBehavior: "Bố sợ mang bình nước nặng nên hai bé phải kiểm lại",
+    progression: [
+      "Hai bé kiểm túi cơm đã có thìa",
+      "Bố giấu bình vì sợ nặng nhưng trưa sẽ lại nhờ con",
+    ],
+    ending: "Đồ đã đủ nhưng giày của bố vẫn chưa đi",
+    risk: "Có thể thành liệt kê đồ nếu không có phản ứng cụ thể",
+    sampleExchange: plans[0].story.dialogue.slice(0, 2),
+  },
+  {
+    id: "B",
+    situation: "Mẹ đòi ăn kem trước bữa tối của gia đình",
+    familiarPattern: "Trẻ đòi món ngọt trước cơm",
+    observedBehavior: "Mẹ giấu que kem sau hộp rau trong tủ lạnh",
+    progression: [
+      "Hai bé tìm rau và thấy kem của mẹ",
+      "Mẹ xin ăn nốt vì kem đang chảy ra tay",
+    ],
+    ending: "Hai bé phải lấy bát hứng kem cho mẹ",
+    risk: "Tránh biến thành hai bé lên lớp mẹ",
+    sampleExchange: plans[0].story.dialogue.slice(2, 4),
+  },
+  {
+    id: "C",
+    situation: "Hai bé dẫn một buổi phỏng vấn chủ nhà gối",
+    familiarPattern: "Dẫn tour căn nhà sang trọng",
+    observedBehavior: "Chủ nhà phải bò qua cửa bằng gối mới vào được",
+    progression: [
+      "Người dẫn hỏi lối vào nhà",
+      "Khách phải cúi rồi bò trong khi vẫn giữ micro",
+    ],
+    ending: "Chủ nhà vẫn đứng nghiêm chờ khách bò xong",
+    risk: "Tránh chỉ đặt tên sang cho đồ chơi",
+    sampleExchange: plans[0].story.dialogue.slice(4, 6),
+  },
+];
+const selection = {
+  selectedId: "A",
+  reason:
+    "A có thao tác kiểm túi và phản ứng của bố cụ thể hơn hai phương án còn lại",
+  evaluations: candidates.map((c) => ({
+    candidateId: c.id,
+    decision: c.id === "A" ? "develop" : "reject",
+    strongestDetail: c.observedBehavior,
+    weakness: c.risk,
+    reason: "Đánh giá dựa vào các hành vi và đối đáp đã mô tả trong phương án",
+  })),
+};
+const reviewFor = (story = plans[0].story, decision = "ready_for_user") => ({
+  passed: decision === "ready_for_user",
+  evidence,
+  issues: [],
+  watchability: {
+    decision,
+    formatOnly: false,
+    weakestMoment: {
+      line: 1,
+      quote: story.dialogue[0].text,
+      why: "Câu dẫn cần gắn với thao tác kiểm đồ để tránh trở thành liệt kê",
+    },
+    reason:
+      "Các thao tác và câu đáp cụ thể phát triển từ việc soạn đồ tới phải giục bố",
+    weakness: "Cần nghe nhịp nói trước khi chọn bản này để sản xuất",
+    moments: story.dialogue.slice(0, 2).map((d, i) => ({
+      line: i + 1,
+      kind: "dialogue",
+      quote: d.text,
+      why: "Câu này tạo phản ứng cụ thể từ người đối diện trong việc đang làm",
+    })),
+  },
+});
+const queue = (...afterSelection: unknown[]) => {
+  calls.responses = [{ candidates }, selection, ...afterSelection];
+};
 beforeEach(() => {
   calls.prompts = [];
   calls.responses = [];
 });
-it("uses the higher quality family writing model without changing other assists", () => {
+
+it("keeps existing text models", () => {
   expect(creativeAssistModel("video_plan", true)).toBe(
     "gemini-3.1-pro-preview",
   );
@@ -89,257 +191,286 @@ it("uses the higher quality family writing model without changing other assists"
     "gemini-3-flash-preview",
   );
 });
-it("writes story then shots, carries caption and freezes exact dialogue", async () => {
+it("records all alternatives and comparison, then freezes reviewed dialogue into shots", async () => {
+  queue(plans[0].story, reviewFor(), shotResult(plans[0]));
+  const checkpoints: unknown[] = [];
+  const result = await generateCreativeAssist(input, {
+    onEditorialProgress: async (t) => {
+      checkpoints.push(t);
+    },
+  });
+  expect(calls.prompts).toHaveLength(5);
+  if (result.kind !== "video_plan") throw Error("Wrong kind");
+  expect(result.story?.profileVersion).toBe(6);
+  expect(result.story?.development?.candidates).toHaveLength(3);
+  expect(result.story?.development?.selection?.selectedId).toBe("A");
+  expect(result.story?.development?.stage).toBe("complete");
+  expect(result.story?.development?.drafts).toHaveLength(1);
+  expect(result.scenes.map((s) => s.dialogue).filter(Boolean)).toEqual(
+    plans[0].story.dialogue.map((d) => d.text),
+  );
+  expect(checkpoints.length).toBeGreaterThan(3);
+  // Reviewer must not see the author's labels or the premise winner as an endorsement.
+  expect(calls.prompts[3]).not.toContain('"selectedId":"A"');
+});
+it("stops before drafting when no premise merits development and retains the comparison", async () => {
   calls.responses = [
-    plans[0].story,
-    plans[0].story,
-    editorialPass,
-    shotResult(plans[0]),
+    { candidates },
+    {
+      ...selection,
+      selectedId: null,
+      evaluations: selection.evaluations.map((e) => ({
+        ...e,
+        decision: "reject",
+      })),
+    },
   ];
-  const result = await generateCreativeAssist(input);
+  const checkpoints: unknown[] = [];
+  await expect(
+    generateCreativeAssist(input, {
+      onEditorialProgress: async (t) => {
+        checkpoints.push(t);
+      },
+    }),
+  ).rejects.toThrow("FAMILY_PREMISES_NEED_REVIEW");
+  expect(calls.prompts).toHaveLength(2);
+  expect(checkpoints.at(-1)).toMatchObject({
+    candidates,
+    selection: { selectedId: null },
+  });
+});
+it("rejects a structurally valid but dull script without inventing a structural error or planning media", async () => {
+  queue(plans[0].story, reviewFor(plans[0].story, "reject"));
+  const checkpoints: unknown[] = [];
+  await expect(
+    generateCreativeAssist(input, {
+      onEditorialProgress: async (t) => {
+        checkpoints.push(t);
+      },
+    }),
+  ).rejects.toThrow("FAMILY_EDITORIAL_NEEDS_REVIEW");
   expect(calls.prompts).toHaveLength(4);
-  expect(result.kind === "video_plan" && result.story?.profileVersion).toBe(5);
-  expect(result.kind === "video_plan" && result.caption).toBe(
-    plans[0].story.caption,
+  expect(checkpoints.at(-1)).toMatchObject({
+    stage: "review",
+    drafts: [{ review: { issues: [], watchability: { decision: "reject" } } }],
+  });
+});
+it("revises only after a concrete review, preserving both drafts", async () => {
+  const stiff = {
+    ...plans[0].story,
+    dialogue: plans[0].story.dialogue.map((d, i) =>
+      i === 1 ? { ...d, text: "Vụn bánh đang nhảy múa đó!" } : d,
+    ),
+  };
+  const fail = {
+    ...reviewFor(stiff, "revise"),
+    issues: [
+      {
+        location: "dialogue.2",
+        quote: stiff.dialogue[1].text,
+        reason: "Ví von không đáp lại câu vừa hỏi",
+      },
+    ],
+  };
+  queue(stiff, fail, plans[0].story, reviewFor(), shotResult(plans[0]));
+  const result = await generateCreativeAssist(input);
+  expect(
+    result.kind === "video_plan" && result.story?.development?.drafts,
+  ).toHaveLength(2);
+  expect(calls.prompts).toHaveLength(7);
+});
+it("does not continue an unproductive revision loop", async () => {
+  queue(
+    plans[0].story,
+    reviewFor(plans[0].story, "revise"),
+    plans[0].story,
+    reviewFor(plans[0].story, "revise"),
+  );
+  await expect(generateCreativeAssist(input)).rejects.toThrow(
+    "FAMILY_EDITORIAL_NEEDS_REVIEW",
+  );
+  expect(calls.prompts).toHaveLength(6);
+});
+it("retains reviewed work when checkpoint storage fails before shot planning", async () => {
+  queue(plans[0].story, reviewFor(), shotResult(plans[0]));
+  await expect(
+    generateCreativeAssist(input, {
+      onEditorialProgress: async (t) => {
+        if (t.stage === "shots") throw Error("storage down");
+      },
+    }),
+  ).rejects.toThrow("storage down");
+  expect(calls.prompts).toHaveLength(4);
+});
+it("normalizes provider durations without altering the editorial timing or exact speakers", async () => {
+  queue(
+    plans[0].story,
+    reviewFor(),
+    shotResult({
+      ...plans[0],
+      scenes: plans[0].scenes.map((s) => ({
+        ...s,
+        durationSeconds: 1.5,
+        dialogue: "changed",
+        speakerCharacterId: "foreign",
+      })),
+    }),
+  );
+  const r = await generateCreativeAssist(input);
+  if (r.kind !== "video_plan") throw Error("Wrong kind");
+  expect(r.scenes.every((s) => s.durationSeconds >= 4)).toBe(true);
+  expect(r.story?.intendedShotSeconds?.at(-1)).toBe(1.5);
+  expect(r.scenes[0].dialogue).toBe(plans[0].story.dialogue[0].text);
+  expect(r.scenes[0].speakerCharacterId).toBe(
+    plans[0].story.dialogue[0].characterId,
   );
 });
-it("allows only one repair across both passes and never drops bad shots", async () => {
-  const bad = {
-    ...plans[0],
-    scenes: plans[0].scenes.map((s) => ({
-      ...s,
-      imagePrompt: "",
-    })),
-  };
-  calls.responses = [
-    {},
+it("does not force total generated clip seconds to equal edited duration", async () => {
+  queue(
     plans[0].story,
-    plans[0].story,
-    editorialPass,
-    shotResult(bad),
-  ];
-  await expect(generateCreativeAssist(input)).rejects.toThrow("INVALID");
-  expect(calls.prompts).toHaveLength(5);
-});
-
-it("does not confuse generated clip duration with edited film duration", async () => {
-  calls.responses = [
-    plans[0].story,
-    plans[0].story,
-    editorialPass,
+    reviewFor(),
     shotResult({
       ...plans[0],
       scenes: plans[0].scenes.map((s) => ({ ...s, durationSeconds: 9 })),
     }),
-  ];
-  const result = await generateCreativeAssist(input);
+  );
+  const r = await generateCreativeAssist(input);
   expect(
-    result.kind === "video_plan" &&
-      result.scenes.reduce((n, s) => n + s.durationSeconds, 0),
+    r.kind === "video_plan" &&
+      r.scenes.reduce((n, s) => n + s.durationSeconds, 0),
   ).toBe(63);
 });
-
-it("normalizes short acting beats to provider minimum without changing the editorial timing", async () => {
-  const shots = plans[0].scenes.map((s) => ({ ...s, durationSeconds: 1.5 }));
-  calls.responses = [
-    plans[0].story,
-    plans[0].story,
-    editorialPass,
-    shotResult({ ...plans[0], scenes: shots }),
-  ];
-  const result = await generateCreativeAssist(input);
-  expect(
-    result.kind === "video_plan" &&
-      result.scenes.every((s) => s.durationSeconds >= 4),
-  ).toBe(true);
-  expect(
-    result.kind === "video_plan" && result.story?.intendedShotSeconds?.at(-1),
-  ).toBe(1.5);
-});
-
-it("compiles dialogue and speakers from the story even if the shot response tries to change them", async () => {
-  const altered = shotResult({
+it("limits malformed response repair globally and never drops invalid shots", async () => {
+  const bad = shotResult({
     ...plans[0],
-    scenes: plans[0].scenes.map((s) => ({
-      ...s,
-      dialogue: "khác",
-      speakerCharacterId: "foreign",
-      characterIds: ["foreign"],
-    })),
+    scenes: plans[0].scenes.map((s) => ({ ...s, imagePrompt: "" })),
   });
-  calls.responses = [plans[0].story, plans[0].story, editorialPass, altered];
-  const r = await generateCreativeAssist(input);
-  expect(r.kind === "video_plan" && r.scenes[0].dialogue).toBe(
-    plans[0].story.dialogue[0].text,
-  );
-  expect(r.kind === "video_plan" && r.scenes[0].characterIds).toEqual([
-    plans[0].story.dialogue[0].characterId,
-  ]);
-});
-
-it("repairs written jokes before planning shots", async () => {
-  const stiff = {
-    ...plans[0].story,
-    caption: "Khi cái má không cùng phe với cái miệng",
-    dialogue: plans[0].story.dialogue.map((line, index) =>
-      index === 1 ? { ...line, text: "Vụn bánh đang nhảy múa đó!" } : line,
-    ),
-  };
   calls.responses = [
+    {},
+    { candidates },
+    selection,
     plans[0].story,
-    stiff,
-    { passed: false, evidence, issues: [{ location: "dialogue.2", quote: "Vụn bánh đang nhảy múa đó!", reason: "Câu này không đáp lời chị hoặc giúp em giấu việc ăn vụng; thay cuộc đối đáp bằng ví von của tác giả." }] },
-    plans[0].story,
-    editorialPass,
-    shotResult(plans[0]),
+    reviewFor(),
+    bad,
   ];
-  const result = await generateCreativeAssist(input);
-  expect(result.kind).toBe("video_plan");
+  await expect(generateCreativeAssist(input)).rejects.toThrow("INVALID");
+  expect(calls.prompts).toHaveLength(6);
+});
+it("preserves a sibling-only staged parody without inventing a parent or final reaction", async () => {
+  const story = {
+    ...plans[0].story,
+    dialogue: plans[0].story.dialogue.slice(0, 3).map((d, i) => ({
+      ...d,
+      text: [
+        "Mời anh giới thiệu lối vào của căn nhà này.",
+        "Cửa chính đây. Anh cúi đầu thấp một chút nữa nhé.",
+        "Thấp nữa à? Tôi đang ngồi xổm rồi đấy.",
+      ][i],
+    })),
+    beats: [
+      { purpose: "hook" as const, description: "Micro trước nhà gối" },
+      { purpose: "payoff" as const, description: "Khách cần bò qua cửa" },
+    ],
+  };
+  const scenes = plans[0].scenes.slice(0, 3).map((s) => ({
+    ...s,
+    listenerCharacterIds: [story.dialogue[1].characterId],
+  }));
+  queue(story, reviewFor(story), shotResult({ ...plans[0], scenes }));
+  const r = await generateCreativeAssist({
+    ...input,
+    selectedCharacterIds: [cast[0].characterId, cast[1].characterId],
+  });
+  if (r.kind !== "video_plan") throw Error("Wrong kind");
+  expect(r.scenes).toHaveLength(3);
+  expect(r.scenes.map((s) => s.dialogue)).toEqual(
+    story.dialogue.map((d) => d.text),
+  );
   expect(
-    calls.prompts.some((prompt) => prompt.includes("NHẬN XÉT BẮT BUỘC SỬA")),
+    r.scenes
+      .flatMap((s) => s.characterIds)
+      .every((id) => [cast[0].characterId, cast[1].characterId].includes(id)),
   ).toBe(true);
 });
-
-it("refuses a family script when the independent final review still fails", async () => {
+it("keeps the general idea assist single-call and preserves identities", async () => {
   calls.responses = [
-    plans[0].story,
-    plans[0].story,
     {
-      passed: false,
-      evidence,
-      issues: [
-        {
-          location: "dialogue.2",
-          quote: "gượng",
-          reason: "không giống lời nói thật",
-        },
-      ],
-    },
-    plans[0].story,
-    {
-      passed: false,
-      evidence,
-      issues: [
-        { location: "dialogue.2", quote: "gượng", reason: "vẫn chưa tự nhiên" },
-      ],
-    },
-    plans[0].story,
-    {
-      passed: false,
-      evidence,
-      issues: [
-        {
-          location: "dialogue.2",
-          quote: "gượng",
-          reason: "vẫn chưa tự nhiên sau hai lượt sửa",
-        },
-      ],
+      ideas: [1, 2, 3].map((i) => ({
+        title: `Ý tưởng ${i}`,
+        idea: `Một ý tưởng cụ thể ${i}`,
+        why: "Tình huống phù hợp với gia đình",
+      })),
     },
   ];
-  await expect(generateCreativeAssist(input)).rejects.toThrow(
-    "FAMILY_EDITORIAL_NEEDS_REVIEW",
-  );
+  await generateCreativeAssist({ ...input, kind: "idea_suggestions" });
+  expect(calls.prompts).toHaveLength(1);
+  expect(calls.prompts[0]).toContain("family-dialogue-6");
 });
-
-it("keeps a listener in a native dialogue shot and does not invent a final reaction", () => {
+it("compiles listener reactions without inventing extra dialogue", () => {
   const story = {
     ...plans[0].story,
     dialogue: plans[0].story.dialogue.slice(0, 4),
     beats: [
-      { purpose: "hook" as const, description: "Hai bé tranh lượt" },
-      { purpose: "payoff" as const, description: "Cả hai quên trò ban đầu" },
+      { purpose: "hook" as const, description: "Bắt đầu việc đang làm" },
+      { purpose: "payoff" as const, description: "Đến điểm dừng của chuyện" },
     ],
   };
   const shots = Object.fromEntries(
-    story.dialogue.map((_, i) => [
+    plans[0].scenes.slice(0, 4).map((s, i) => [
       `shot${i + 1}`,
       {
-        action: "Đối đáp",
-        setting: "Phòng chơi",
-        camera: "Hai người trong trung cảnh",
-        durationSeconds: 4,
-        imagePrompt: "Hai bé nhìn nhau",
-        motionPrompt: "Một người nói, một người nghe",
+        ...s,
         listenerCharacterIds: [story.dialogue[(i + 1) % 2].characterId],
       },
     ]),
   );
-  const result = compileStoryShots(
-    { title: "Tự nhiên", summary: "Đối đáp", shots },
+  const r = compileStoryShots(
+    { title: "Đối đáp", summary: "Hai bé", shots },
     story,
     cast.map((c) => ({ id: c.characterId, name: c.name })),
   );
-  expect(result.scenes).toHaveLength(4);
-  expect(result.scenes[0].characterIds).toHaveLength(2);
-  expect(result.scenes[0].speakerCharacterId).toBe(
-    story.dialogue[0].characterId,
-  );
+  expect(r.scenes).toHaveLength(4);
+  expect(r.scenes[0].characterIds).toHaveLength(2);
 });
 
- it.each([
-   { passed: true, issues: [] },
-   { passed: true, evidence: { motivation: evidence.motivation, development: evidence.development, ending: evidence.ending, originality: evidence.originality }, issues: [] },
-   { passed: true, evidence, issues: [{ location: "dialogue.1" }] },
-   { passed: false, evidence, issues: [] },
- ])("fails closed on malformed or unsupported editorial approval %j", async review => {
-   calls.responses = [plans[0].story, plans[0].story, review];
-   await expect(generateCreativeAssist(input)).rejects.toThrow("FAMILY_EDITORIAL_REVIEW_INVALID");
-   expect(calls.prompts).toHaveLength(3);
- });
+it("stops at the time budget with the current draft checkpoint intact", async () => {
+  queue(plans[0].story, reviewFor(), shotResult(plans[0]));
+  let time = 1000;
+  const clock = vi.spyOn(Date, "now").mockImplementation(() => time);
+  let saved: { stage: string; drafts: unknown[] } | undefined;
+  try {
+    await expect(
+      generateCreativeAssist(input, {
+        onEditorialProgress: async (trace) => {
+          saved = trace;
+          if (trace.stage === "review") time += 156000;
+        },
+      }),
+    ).rejects.toThrow("FAMILY_WRITING_TIMEOUT");
+    expect(calls.prompts).toHaveLength(3);
+    expect(saved?.stage).toBe("review");
+    expect(saved?.drafts).toHaveLength(1);
+  } finally {
+    clock.mockRestore();
+  }
+});
 
- it("applies one writing policy to ideation and preserves child identities", async () => {
-   const ideas = { ideas: [1,2,3].map(i => ({ title: `Câu chuyện ${i}`, idea: `Hai bé bàn cách giành lượt chơi ${i}`, why: "Hai mong muốn khác nhau" })) };
-   calls.responses = [ideas];
-   await generateCreativeAssist({ ...input, kind: "idea_suggestions" });
-   expect(calls.prompts[0]).toContain("family-dialogue-5");
-   expect(calls.prompts[0]).toContain("KHÔNG giới hạn khả năng lập luận");
- });
-
-it("keeps a sibling-only adult-format parody and its staged pronouns through shot planning", async () => {
-  const ids = [cast[0].characterId, cast[1].characterId];
-  const story = {
-    ...plans[0].story,
-    comicPremise: {
-      normalExpectation: "Người dẫn giới thiệu một căn nhà sang trọng cho chủ nhà.",
-      invertedReality: "Hai bé làm chương trình tham quan căn nhà dựng bằng gối.",
-      visibleContrast: "Micro và động tác dẫn tour nghiêm túc trước căn nhà nhỏ bằng gối sofa.",
-    },
-    series: "Chuyện người lớn phiên bản nhí",
-    situation: "Hai bé quay chương trình giới thiệu căn nhà bằng gối",
-    mechanism: "Parody tour nhà sang trọng với quy mô đồ chơi",
-    outcome: "Lối đi được chủ nhà hướng dẫn bằng cách bò",
-    setup: "Người dẫn cầm micro đứng bên cửa nhà gối",
-    payoff: "Khách cần bò mới vào được cửa chính",
-    dialogue: [
-      { characterId: ids[0], text: "Mời anh giới thiệu lối vào.", action: "Cầm micro hướng vào cửa nhà gối" },
-      { characterId: ids[1], text: "Cửa chính đây. Anh cúi thấp một chút.", action: "Vén tấm chăn che cửa" },
-      { characterId: ids[0], text: "Thấp nữa à?", action: "Ngồi xổm trước cửa, micro vẫn hướng về khách" },
-    ],
-    beats: [
-      { purpose: "hook" as const, description: "Micro trước căn nhà bằng gối" },
-      { purpose: "turn" as const, description: "Chủ nhà hướng dẫn lối vào" },
-      { purpose: "payoff" as const, description: "Cửa nhỏ khiến người dẫn phải bò" },
-    ],
-  };
-  const shots = Object.fromEntries(story.dialogue.map((d, i) => [`shot${i + 1}`, {
-    action: d.action, setting: "Nhà gối trong phòng khách", camera: "Trung cảnh như dẫn tour",
-    durationSeconds: 4, imagePrompt: "Hai bé cùng micro trước nhà gối nhỏ",
-    motionPrompt: d.action, listenerCharacterIds: [ids[(i + 1) % 2]],
-  }]));
-  calls.responses = [story, story, {
-    passed: true, issues: [], evidence: {
-      contrast: "Micro và cách dẫn tour trang trọng nhưng nhà làm bằng gối nhỏ.",
-      motivation: "Người dẫn hỏi lối vào, chủ nhà hướng dẫn đi qua cửa.",
-      development: "Câu hướng dẫn cúi dẫn tới người dẫn ngồi xổm vẫn chưa vào được.",
-      ending: "Câu thấp nữa à giữ nghiêm túc trong tình thế phải bò vào nhà gối.",
-      originality: "Không dùng chuỗi hỏi nghề nghiệp hoặc câu chốt của phỏng vấn xe.",
-    },
-  }, { title: "Mời vào nhà", summary: "Tour nhà gối", shots }];
-  const result = await generateCreativeAssist({ ...input, selectedCharacterIds: ids, intent: "Hai bé parody một chương trình tham quan nhà" });
+it("repairs malformed JSON once but does not retry transport failures", async () => {
+  calls.responses = [
+    new SyntaxError("Unexpected token"),
+    { candidates },
+    selection,
+    plans[0].story,
+    reviewFor(),
+    shotResult(plans[0]),
+  ];
+  const result = await generateCreativeAssist(input);
   expect(result.kind).toBe("video_plan");
-  if (result.kind !== "video_plan") throw new Error("Expected a video plan");
-  expect(result.scenes.map(s => s.dialogue)).toEqual(story.dialogue.map(d => d.text));
-  expect(result.scenes.map(s => s.speakerCharacterId)).toEqual(story.dialogue.map(d => d.characterId));
-  expect(result.scenes.flatMap(s => s.characterIds).every(id => ids.includes(id))).toBe(true);
-  expect(result.story?.comicPremise).toEqual(story.comicPremise);
+  expect(calls.prompts).toHaveLength(6);
+  calls.prompts = [];
+  calls.responses = [new Error("connection closed")];
+  await expect(generateCreativeAssist(input)).rejects.toThrow(
+    "connection closed",
+  );
+  expect(calls.prompts).toHaveLength(1);
 });
