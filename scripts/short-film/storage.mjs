@@ -49,7 +49,7 @@ function metadataHeader(values) {
 }
 
 function retryable(status) {
-  return status === 409 || status === 423 || status === 429 || status >= 500;
+  return status === 423 || status === 429 || status >= 500;
 }
 
 const delay = (milliseconds) =>
@@ -72,7 +72,12 @@ async function retryRequest(run, label) {
 
 async function objectInfo(storage, storagePath) {
   const { data, error } = await storage.info(storagePath);
-  if (error) return null;
+  if (error) {
+    const status = Number(error.status || error.statusCode || 0);
+    if (status === 404 || /not found|does not exist|missing/i.test(String(error.message)))
+      return null;
+    throw error;
+  }
   return data;
 }
 
@@ -180,6 +185,8 @@ async function tusUpload(options) {
     });
     offset = 0;
   }
+  if (offset > size)
+    throw new Error("Supabase trả tiến độ upload vượt kích thước file.");
   await onCheckpoint?.({ uploadUrl, storagePath, sha256, size, offset });
   const handle = await open(file, "r");
   try {
@@ -188,22 +195,45 @@ async function tusUpload(options) {
       const chunk = Buffer.allocUnsafe(length);
       const { bytesRead } = await handle.read(chunk, 0, length, offset);
       if (bytesRead !== length) throw new Error("Không đọc đủ dữ liệu upload.");
-      const response = await retryRequest(
-        () =>
-          fetchImpl(uploadUrl, {
-            method: "PATCH",
-            headers: {
-              authorization: `Bearer ${serviceRoleKey}`,
-              "tus-resumable": "1.0.0",
-              "upload-offset": String(offset),
-              "content-type": "application/offset+octet-stream",
-            },
-            body: chunk,
-            signal: AbortSignal.timeout(120000),
-          }),
-        "Upload media",
-      );
+      let response;
+      try {
+        // Never blindly retry PATCH. A timeout can happen after the server
+        // accepted the bytes, and resending at the old offset corrupts the
+        // resumable session. HEAD below is the recovery authority.
+        response = await fetchImpl(uploadUrl, {
+          method: "PATCH",
+          headers: {
+            authorization: `Bearer ${serviceRoleKey}`,
+            "tus-resumable": "1.0.0",
+            "upload-offset": String(offset),
+            "content-type": "application/offset+octet-stream",
+          },
+          body: chunk,
+          signal: AbortSignal.timeout(120000),
+        });
+      } catch (error) {
+        // A connection can die after Supabase accepted a chunk. Reconcile
+        // with HEAD before retrying so the same bytes are never sent twice.
+        const remote = await readTusOffset(uploadUrl, endpoint, serviceRoleKey, fetchImpl);
+        if (remote === offset + bytesRead) {
+          offset = remote;
+          await onCheckpoint?.({ uploadUrl, storagePath, sha256, size, offset });
+          continue;
+        }
+        if (remote === offset)
+          throw new Error("Upload chưa được xác nhận; worker sẽ thử lại từ checkpoint.");
+        throw error;
+      }
       if (!response.ok) {
+        if (response.status === 409) {
+          const remote = await readTusOffset(uploadUrl, endpoint, serviceRoleKey, fetchImpl);
+          if (remote === offset + bytesRead) {
+            offset = remote;
+            await onCheckpoint?.({ uploadUrl, storagePath, sha256, size, offset });
+            continue;
+          }
+          throw new Error("Upload bị xung đột với offset không thể đối soát.");
+        }
         if (response.status === 404 || response.status === 410)
           throw new Error("Phiên upload đã hết hạn; worker sẽ tạo phiên mới.");
         throw new Error(`Upload media thất bại (${response.status}).`);

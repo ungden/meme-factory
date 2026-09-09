@@ -35,9 +35,25 @@ type Run = {
   status: string;
   phase: string;
   snapshot: Record<string, unknown>;
+  input_snapshot?: Record<string, unknown>;
   created_by: string;
   lease_owner: string;
 };
+
+function frozenPlan(run: Run): FilmPlan | null {
+  const value = run.input_snapshot?.plan;
+  if (!value || typeof value !== "object") return null;
+  const plan = value as FilmPlan;
+  return plan.id === run.plan_id && plan.version === run.plan_version ? plan : null;
+}
+
+async function heartbeatRun(admin: SupabaseClient, run: Run) {
+  const { data, error } = await admin.rpc("heartbeat_film_production_run", {
+    p_id: run.id,
+    p_owner: run.lease_owner,
+  });
+  if (error || !data) throw new Error(error?.message || "RUN_LEASE_LOST");
+}
 
 async function accessForRun(admin: SupabaseClient, run: Run): Promise<Access> {
   const { data: project, error } = await admin
@@ -270,6 +286,18 @@ async function patchRun(
 
 export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
   const a = await accessForRun(admin, run);
+  let leaseLost = false;
+  let heartbeating = false;
+  const timer = setInterval(() => {
+    if (heartbeating || leaseLost) return;
+    heartbeating = true;
+    void heartbeatRun(admin, run)
+      .catch(() => { leaseLost = true; })
+      .finally(() => { heartbeating = false; });
+  }, 30_000);
+  const assertLease = () => {
+    if (leaseLost) throw new Error("RUN_LEASE_LOST");
+  };
   try {
     let plan: FilmPlan;
     let profile: ChannelProfile | null = null;
@@ -285,17 +313,29 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
         plan_id: plan.id,
         plan_version: plan.version,
         snapshot: { generatedPlan: true },
+        input_snapshot: { plan, channelProfile: made.profile },
         delay_seconds: 3,
       });
       return;
     }
-    plan = await readPlan(a, run.plan_id);
+    plan = frozenPlan(run) || (await readPlan(a, run.plan_id));
     if (plan.version !== run.plan_version)
       throw new Error("PLAN_VERSION_CHANGED");
+    if (!frozenPlan(run)) {
+      const { profile: channelProfile } = await creativeContext(a);
+      await patchRun(admin, run, {
+        input_snapshot: { plan, channelProfile },
+        release: false,
+      });
+      assertLease();
+    }
     if (plan.video_plan_scenes.some((scene) => scene.follows_previous))
       throw new Error("AUTO_CONTINUOUS_SCENE_NEEDS_REVIEW");
     if (run.snapshot?.scriptCheck !== "passed") {
-      if (!profile) profile = (await creativeContext(a)).profile;
+      if (!profile)
+        profile =
+          (run.input_snapshot?.channelProfile as ChannelProfile | null) ||
+          (await creativeContext(a)).profile;
       const check = plan.script_review
         ? {
             status: "passed" as const,
@@ -402,6 +442,7 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
       });
       return;
     }
+    assertLease();
     const quote = await quotePlan(a, plan, {
       workspaceVersion: run.workspace_version,
       expectedVersion: plan.version,
@@ -411,7 +452,11 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
     const { error } = await admin.rpc("accept_film_quote", {
       p_quote: quote.id,
       p_actor: run.created_by,
-      p_key: crypto.randomUUID(),
+      p_key: crypto
+        .createHash("md5")
+        .update(`${run.id}:${plan.id}:${plan.version}:${stage}`)
+        .digest("hex")
+        .replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, "$1-$2-$3-$4-$5"),
     });
     if (error) {
       if (
@@ -442,5 +487,7 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
       phase: run.phase,
       error: message.slice(0, 1000),
     }).catch(() => {});
+  } finally {
+    clearInterval(timer);
   }
 }

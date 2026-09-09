@@ -1,8 +1,8 @@
 FROM node:22-alpine
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci
 RUN apk add --no-cache ffmpeg font-noto
-COPY scripts/wavespeed-worker.mjs ./scripts/wavespeed-worker.mjs
-COPY scripts/short-film ./scripts/short-film
-CMD ["node", "scripts/wavespeed-worker.mjs"]
+COPY . .
+RUN npm run build
+CMD ["node", "scripts/railway-worker-entrypoint.mjs"]

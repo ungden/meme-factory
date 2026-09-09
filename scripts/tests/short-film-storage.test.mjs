@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
@@ -83,5 +83,43 @@ describe("Supabase resumable upload", () => {
     expect(storage.upload).not.toHaveBeenCalled();
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(checkpoints.at(-1)).toMatchObject({ offset: size, completed: true });
+  });
+
+  it("reconciles a lost PATCH response with HEAD before sending another chunk", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "aida-tus-conflict-test-"));
+    dirs.push(dir);
+    const file = path.join(dir, "video.mp4");
+    await writeFile(file, Buffer.alloc(STANDARD_UPLOAD_MAX_BYTES + 9, 3));
+    const bytes = (await stat(file)).size;
+    const sha256 = await sha256File(file);
+    const storagePath = `project/task/${sha256.slice(0, 16)}-video.mp4`;
+    const uploadUrl = "https://project.storage.supabase.co/storage/v1/upload/resumable/id";
+    let offset = 0, patches = 0;
+    const storage = {
+      info: vi.fn(async () => offset === bytes ? { data: { size: bytes }, error: null } : { data: null, error: new Error("missing") }),
+      upload: vi.fn(),
+    };
+    const fetchImpl = vi.fn(async (_url, options) => {
+      if (options.method === "HEAD")
+        return new Response(null, { status: 200, headers: { "upload-offset": String(offset) } });
+      if (options.method === "PATCH") {
+        patches += 1;
+        if (patches === 1) {
+          offset += options.body.length; // server accepted; response was lost
+          throw new Error("connection reset");
+        }
+        expect(Number(options.headers["upload-offset"])).toBe(offset);
+        offset += options.body.length;
+        return new Response(null, { status: 204, headers: { "upload-offset": String(offset) } });
+      }
+      throw new Error("unexpected request");
+    });
+    await uploadMedia({
+      db: { storage: { from: () => storage } }, prefix: "project/task", file, name: "video.mp4", mime: "video/mp4",
+      previous: { uploadUrl, storagePath, sha256, size: bytes, offset: 0 },
+      supabaseUrl: "https://project.supabase.co", serviceRoleKey: "service-role-test", fetchImpl,
+    });
+    expect(offset).toBe(bytes);
+    expect(patches).toBe(2);
   });
 });

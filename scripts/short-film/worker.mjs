@@ -103,7 +103,7 @@ export function makeFilmWorker(db) {
     let r;
     try {
       r = await fetch(
-        `${API}/${t.input.model}?webhook=${encodeURIComponent(`${process.env.AIDA_BASE_URL || "https://aida.vn"}/api/webhooks/wavespeed`)}`,
+          `${API}/${t.input.model}?webhook=${encodeURIComponent(`${process.env.AIDA_PUBLIC_BASE_URL || "https://aida.vn"}/api/webhooks/wavespeed`)}`,
         {
           method: "POST",
           headers: {
