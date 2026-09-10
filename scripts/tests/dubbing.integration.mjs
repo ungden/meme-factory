@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { dubArguments, transcriptMatchesClip, validateDubCue } from '../short-film/dubbing.mjs';
+import { dubArguments, lockedTranscriptSegments, transcriptMatchesClip, validateDubCue } from '../short-film/dubbing.mjs';
 import { ffmpeg, probe } from '../short-film/media.mjs';
 const cue = { startSeconds: 0, endSeconds: 2, duration: 0.5, beatIndex: 0, speakerCharacterId: 'bao', voiceProfileVersion: 'v1', voice: 'Aoede', dialogue: 'Đi thôi' };
 const video = { project_id: 'p', scene_id: 's', scene_version: 2 };
@@ -43,6 +43,19 @@ test('uses the same transcript threshold as dubbed QA without weakening native a
     false,
   );
   assert.equal(transcriptMatchesClip(transcript, 'other'), false);
+});
+test('builds subtitle text from the locked TTS schedule, not ASR homophones', () => {
+  assert.deepEqual(
+    lockedTranscriptSegments([
+      { startSeconds: 0, duration: 1.25, dialogue: 'Con đếm đến ba.' },
+      { startSeconds: 2, duration: 0.8, dialogue: 'Dạ.' },
+    ]),
+    [
+      { start: 0, end: 1.25, text: 'Con đếm đến ba.' },
+      { start: 2, end: 2.8, text: 'Dạ.' },
+    ],
+  );
+  assert.equal(lockedTranscriptSegments([{ startSeconds: 0, duration: 0, dialogue: '' }]), null);
 });
 test('actual FFmpeg preserves video length and removes original audio mapping', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'aida-dub-qa-'));

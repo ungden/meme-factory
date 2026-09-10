@@ -1,6 +1,7 @@
 import {
   validateDubCue,
   dubArguments,
+  lockedTranscriptSegments,
   transcriptMatchesClip,
 } from "./dubbing.mjs";
 import { speechRange, shiftTranscript } from "./edit-range.mjs";
@@ -622,8 +623,21 @@ export function makeFilmWorker(db) {
               data = await readFile(file, "utf8");
             }
             const parsed = parseTranscript(data, Number(t.input.duration));
+            const locked =
+              t.input.audioMode === "dubbed"
+                ? lockedTranscriptSegments(t.input.dubbingSchedule)
+                : null;
             result = {
               ...parsed,
+              ...(locked
+                ? {
+                    rawText: parsed.text,
+                    rawSegments: parsed.segments,
+                    text: locked.map((segment) => segment.text).join(" "),
+                    segments: locked,
+                    transcriptSource: "locked_tts_schedule",
+                  }
+                : {}),
               speechError: speechError(t.input.dialogue, parsed.text),
               videoTaskId: t.input.videoTaskId,
               review: "pending_speaker_and_lips_review",

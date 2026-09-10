@@ -85,3 +85,21 @@ export function transcriptMatchesClip(transcript, clipId) {
     Number(transcript.result.speechError) <= threshold
   );
 }
+
+export function lockedTranscriptSegments(schedule) {
+  if (!Array.isArray(schedule) || !schedule.length) return null;
+  const segments = schedule.map((cue) => ({
+    start: Number(cue.startSeconds),
+    end: Number(cue.startSeconds) + Number(cue.duration),
+    text: String(cue.dialogue || "").trim(),
+  }));
+  return segments.every(
+    (segment) =>
+      Number.isFinite(segment.start) &&
+      Number.isFinite(segment.end) &&
+      segment.end > segment.start &&
+      segment.text.length > 0,
+  )
+    ? segments
+    : null;
+}

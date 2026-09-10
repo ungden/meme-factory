@@ -762,6 +762,8 @@ export async function quotePlan(
               videoTaskId: video.id,
               dialogue: s.dialogue,
               audioMode: plan.audio_mode,
+              dubbingSchedule:
+                plan.audio_mode === "dubbed" ? video.input.schedule : null,
               speakerCharacterId: s.speaker_character_id,
               storyboard: s.storyboard || null,
               duration: video.result.duration,
