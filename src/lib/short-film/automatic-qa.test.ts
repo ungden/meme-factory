@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkTechnicalTask } from "./automatic-qa";
+import { checkTechnicalTask, visualEvidencePath } from "./automatic-qa";
 import type { FilmTask } from "./contracts";
 
 function task(
@@ -66,5 +66,19 @@ describe("automatic short-film evidence checks", () => {
     expect(checkTechnicalTask(task("image", { path: "p.png" })).status).toBe(
       "needs_review",
     );
+  });
+
+  it("checks moving media through its lightweight full-duration proxy", () => {
+    expect(
+      visualEvidencePath(
+        task("video", {
+          path: "master.mp4",
+          qaPreviewPath: "qa-preview.mp4",
+        }),
+      ),
+    ).toBe("qa-preview.mp4");
+    expect(
+      visualEvidencePath(task("image", { path: "first-frame.png" })),
+    ).toBe("first-frame.png");
   });
 });

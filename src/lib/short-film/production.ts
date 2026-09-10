@@ -15,6 +15,7 @@ import {
   checkProductionScript,
   checkTechnicalTask,
   checkVisualTask,
+  visualEvidencePath,
 } from "./automatic-qa";
 import {
   speechTasks,
@@ -220,7 +221,7 @@ async function ensureTaskCheck(a: Access, run: Run, task: FilmTask) {
   if (["image", "frame", "video", "lip_sync", "dub"].includes(task.kind)) {
     // Speaker routing cannot be proven from a static contact sheet. Feed the
     // actual clip to the multimodal check; oversized clips stay needs_review.
-    const path = String(task.result?.path || "");
+    const path = visualEvidencePath(task);
     if (!path)
       check = {
         status: "needs_review" as const,

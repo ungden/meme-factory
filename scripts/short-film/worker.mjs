@@ -326,7 +326,8 @@ export function makeFilmWorker(db) {
     await checkpoint(t, {});
     const checked = await probe(output);
     if (!checked.video || !checked.audio || checked.width !== inspection.width || checked.height !== inspection.height || Math.abs(checked.duration - inspection.duration) > 0.1) throw new Error("DUB_OUTPUT_INVALID");
-    const result = { ...checked, path: await upload(t, output, "dubbed.mp4", "video/mp4"), schedule: t.input.schedule, review: "pending_speaker_and_lip_review", sourceVideoTaskId: video.id };
+    const qaPreviewPath = await qaPreview(t, output, dir, true);
+    const result = { ...checked, path: await upload(t, output, "dubbed.mp4", "video/mp4"), qaPreviewPath, schedule: t.input.schedule, review: "pending_speaker_and_lip_review", sourceVideoTaskId: video.id };
     await checkpoint(t, { checkpoint: { persisted: result } });
     return result;
   }
@@ -508,6 +509,31 @@ export function makeFilmWorker(db) {
     ]);
     return upload(t, sheet, "qa-contact-sheet.jpg", "image/jpeg");
   }
+  async function qaPreview(t, video, dir, hasAudio) {
+    const preview = path.join(dir, "qa-preview.mp4");
+    await ffmpeg([
+      "-i",
+      video,
+      "-vf",
+      "scale=min(960\\,iw):-2,fps=18",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-crf",
+      "30",
+      ...(hasAudio
+        ? ["-c:a", "aac", "-b:a", "80k", "-ac", "1"]
+        : ["-an"]),
+      "-movflags",
+      "+faststart",
+      preview,
+    ]);
+    const checked = await probe(preview);
+    if (!checked.video || (hasAudio && !checked.audio))
+      throw new Error("QA_PREVIEW_INVALID");
+    return upload(t, preview, "qa-preview.mp4", "video/mp4");
+  }
   async function processTask(t) {
     const dir = await mkdtemp(path.join(tmpdir(), "aida-film-"));
     let heartbeatBusy = false,
@@ -635,6 +661,9 @@ export function makeFilmWorker(db) {
             const qaFramePath = audio
               ? undefined
               : await qaContactSheet(t, file, dir, inspection.duration);
+            const qaPreviewPath = audio
+              ? undefined
+              : await qaPreview(t, file, dir, inspection.audio === true);
             result = {
               path: await upload(
                 t,
@@ -644,6 +673,7 @@ export function makeFilmWorker(db) {
               ),
               ...inspection,
               ...(qaFramePath ? { qaFramePath } : {}),
+              ...(qaPreviewPath ? { qaPreviewPath } : {}),
               review: "pending_review",
             };
           }

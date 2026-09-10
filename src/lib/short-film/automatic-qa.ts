@@ -128,6 +128,15 @@ export async function checkVisualTask(
   }
 }
 
+/** Moving media is checked through a full-duration proxy. The delivery master
+ * remains untouched and can be much larger than Gemini's inline payload. */
+export function visualEvidencePath(task: FilmTask): string {
+  const result = task.result || {};
+  if (["video", "lip_sync", "dub"].includes(task.kind))
+    return String(result.qaPreviewPath || result.path || "");
+  return String(result.path || "");
+}
+
 export function checkTechnicalTask(task: FilmTask): Check {
   const r = task.result || {};
   if (task.kind === "tts")
