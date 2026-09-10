@@ -505,15 +505,26 @@ export function speechTasks(tasks: FilmTask[], scene: FilmScene) {
 /** Freeze an audio schedule only after durations have been measured. Never cut or speed up speech. */
 export function dubbingSchedule(tasks: FilmTask[], scene: FilmScene) {
   const audio = speechTasks(tasks, scene);
+  let spokenUntil = 0;
   return speechLines(scene).map((line, index) => {
     const task = audio[index],
       duration = Number(task?.result?.duration);
     if (!task || !Number.isFinite(duration) || duration <= 0)
       throw new Error("Thiếu audio đã đo thời lượng.");
-    if (duration + 0.1 > line.endSeconds - line.startSeconds)
+
+    // Storyboard timestamps are editorial targets. TTS is the timing source of
+    // truth, so let a line borrow unused time later in the same scene instead
+    // of rejecting a natural read for crossing an arbitrary beat boundary.
+    // We preserve the planned start when possible and never overlap, cut or
+    // speed up speech.
+    const startSeconds = Math.max(line.startSeconds, spokenUntil);
+    const spokenEnd = startSeconds + duration;
+    const endSeconds = spokenEnd + 0.1;
+    if (endSeconds > scene.duration_seconds + 0.05)
       throw new Error(
-        `Thoại lượt ${line.beatIndex + 1} dài hơn nhịp diễn. Rút gọn thoại hoặc sửa storyboard trước khi tạo video.`,
+        `Thoại đến lượt ${line.beatIndex + 1} dài hơn toàn cảnh. Rút gọn thoại hoặc tăng thời lượng cảnh trước khi tạo video.`,
       );
+    spokenUntil = spokenEnd;
     return {
       audioTaskId: task.id,
       beatIndex: line.beatIndex,
@@ -521,8 +532,8 @@ export function dubbingSchedule(tasks: FilmTask[], scene: FilmScene) {
       voiceProfileVersion: line.voice.id,
       voice: line.voice.voice_id,
       dialogue: line.dialogue,
-      startSeconds: line.startSeconds,
-      endSeconds: line.endSeconds,
+      startSeconds,
+      endSeconds,
       duration,
     };
   });

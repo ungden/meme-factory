@@ -115,10 +115,18 @@ describe("per-turn dubbing", () => {
     expect(speechTasks(tasks, missing)).toEqual([undefined]);
     expect(() => speechLines(missing)).toThrow("Duyệt giọng");
   });
-  it("stops before buying video when actual speech exceeds its beat", () => {
+  it("borrows later scene time when a natural read crosses a storyboard beat", () => {
     const tasks = audios();
     tasks[0].result!.duration = 7;
-    expect(() => dubbingSchedule(tasks, scene)).toThrow("dài hơn nhịp diễn");
+    const schedule = dubbingSchedule(tasks, scene);
+    expect(schedule[0].startSeconds).toBe(0);
+    expect(schedule[1].startSeconds).toBe(7);
+    expect(schedule[1].endSeconds).toBeLessThanOrEqual(scene.duration_seconds);
+  });
+  it("stops before buying video when measured speech exceeds the whole scene", () => {
+    const tasks = audios();
+    tasks[0].result!.duration = 14;
+    expect(() => dubbingSchedule(tasks, scene)).toThrow("dài hơn toàn cảnh");
   });
   it("requests silent 15s I2V and keeps 16:9 storyboard direction", () => {
     const input = filmVideoInputs(scene, "dubbed", "16:9", "720p", "frame");
