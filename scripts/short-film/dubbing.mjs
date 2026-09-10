@@ -76,3 +76,12 @@ export function dubArguments(video, audioFiles, schedule, duration, output) {
     output,
   ];
 }
+
+export function transcriptMatchesClip(transcript, clipId) {
+  const threshold = transcript?.input?.audioMode === "dubbed" ? 0.3 : 0.2;
+  return (
+    transcript?.input?.videoTaskId === clipId &&
+    Number.isFinite(Number(transcript?.result?.speechError)) &&
+    Number(transcript.result.speechError) <= threshold
+  );
+}

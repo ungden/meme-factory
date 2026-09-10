@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { dubArguments, validateDubCue } from '../short-film/dubbing.mjs';
+import { dubArguments, transcriptMatchesClip, validateDubCue } from '../short-film/dubbing.mjs';
 import { ffmpeg, probe } from '../short-film/media.mjs';
 const cue = { startSeconds: 0, endSeconds: 2, duration: 0.5, beatIndex: 0, speakerCharacterId: 'bao', voiceProfileVersion: 'v1', voice: 'Aoede', dialogue: 'Đi thôi' };
 const video = { project_id: 'p', scene_id: 's', scene_version: 2 };
@@ -28,6 +28,21 @@ test('accepts measured speech that exactly fills its frozen schedule window', ()
   };
   validateDubCue(exact, exactAudio, video, 4.28);
   assert.doesNotThrow(() => dubArguments('v', ['a'], [exact], 5, 'out'));
+});
+test('uses the same transcript threshold as dubbed QA without weakening native audio', () => {
+  const transcript = {
+    input: { videoTaskId: 'dub', audioMode: 'dubbed' },
+    result: { speechError: 0.24 },
+  };
+  assert.equal(transcriptMatchesClip(transcript, 'dub'), true);
+  assert.equal(
+    transcriptMatchesClip(
+      { ...transcript, input: { videoTaskId: 'dub', audioMode: 'native' } },
+      'dub',
+    ),
+    false,
+  );
+  assert.equal(transcriptMatchesClip(transcript, 'other'), false);
 });
 test('actual FFmpeg preserves video length and removes original audio mapping', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'aida-dub-qa-'));

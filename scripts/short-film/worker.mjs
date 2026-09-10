@@ -1,4 +1,8 @@
-import { validateDubCue, dubArguments } from "./dubbing.mjs";
+import {
+  validateDubCue,
+  dubArguments,
+  transcriptMatchesClip,
+} from "./dubbing.mjs";
 import { speechRange, shiftTranscript } from "./edit-range.mjs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -355,11 +359,7 @@ export function makeFilmWorker(db) {
       const transcript = spec.transcriptTaskId
         ? await source(spec.transcriptTaskId, t.project_id)
         : null;
-      if (
-        transcript &&
-        (transcript.input.videoTaskId !== clip.id ||
-          transcript.result.speechError > 0.2)
-      )
+      if (transcript && !transcriptMatchesClip(transcript, clip.id))
         throw new Error("Lời thoại hoặc nguồn transcript chưa đạt để dựng.");
       const originalReport = await probe(original);
       const range = speechRange(
