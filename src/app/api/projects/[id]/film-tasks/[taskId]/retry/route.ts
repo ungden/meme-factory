@@ -20,7 +20,7 @@ export async function POST(
       t.status !== "failed" ||
       (!t.checkpoint?.providerCompleted &&
         !t.checkpoint?.generatedImage &&
-        !["render", "frame"].includes(t.kind))
+        !["render", "frame", "dub"].includes(t.kind))
     )
       throw new FilmError(
         "Chỉ thử lại lưu/xử lý; lượt sinh lỗi cần báo giá mới.",
