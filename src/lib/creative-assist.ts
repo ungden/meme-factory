@@ -419,7 +419,7 @@ export async function generateCreativeAssist(
   const boardRevision =
     input.kind === "scene_revision" &&
     input.currentScenes?.some((s) => s.storyboard);
-  const prompt = `${instruction(input)}\n\nTrả về JSON ĐÚNG schema, không markdown:\n${schemaFor(input.kind)}${boardRevision ? "\nVới scene có storyboard, giữ thêm toàn bộ storyboard (version, durationSeconds và beats). Chỉ sửa beat được yêu cầu; giữ timeline 0–15, cast/người nói hợp lệ. dialogue của scene là nối các beat.dialogue có chữ bằng newline, speakerCharacterId của scene=null. Không được bỏ storyboard hoặc đổi đoạn thành clip một câu." : ""}`;
+  const prompt = `${instruction(input)}\n\nTrả về JSON ĐÚNG schema, không markdown:\n${schemaFor(input.kind)}${boardRevision ? "\nVới scene có storyboard, giữ thêm toàn bộ storyboard (version, durationSeconds, contentEndSeconds nếu có và beats). Chỉ sửa beat được yêu cầu; giữ timeline liên tục từ 0 đến contentEndSeconds hoặc durationSeconds hiện tại, cast/người nói hợp lệ. dialogue của scene là nối các beat.dialogue có chữ bằng newline, speakerCharacterId của scene=null. Không được bỏ storyboard, ép clip về 15 giây hoặc đổi đoạn thành clip một câu." : ""}`;
   const validate = (value: unknown) => {
     const result = validateCreativeAssist(
       input.kind,

@@ -171,7 +171,7 @@ export function compileStoryShots(
   return { title: v.title, summary: v.summary, scenes };
 }
 
-/** Panels are planned per story beat, but provider jobs are 15-second sequences. */
+/** Panels are planned per story beat; each provider clip is sized to its content. */
 export function compileStoryboards(
   value: unknown,
   story: Story,
@@ -190,7 +190,7 @@ export function compileStoryboards(
       if (!story.dialogue[i]) return 1.2;
       // Speech is the timing source of truth. Give each turn only enough room
       // for its real delivery plus a short reaction/action beat; the provider
-      // may return 15s, but the finished film must not inherit that padding.
+      // may contain tail padding, but the finished film must not inherit it.
       return Math.max(
         spokenSeconds(story.dialogue[i].text) + 0.7,
         Math.min(4.5, Number(shot.durationSeconds) || 0),

@@ -1549,7 +1549,9 @@ export default function ShortFilmPage() {
                       className={`min-h-11 rounded-lg border th-border px-3 text-sm ${selected === i ? "th-bg-accent-light th-text-accent" : "th-text-primary"}`}
                     >
                       {s.storyboard ? "Đoạn" : "Cảnh"} {i + 1}
-                      {s.storyboard ? " · 15s" : ""}
+                      {s.storyboard
+                        ? ` · ${s.storyboard.durationSeconds}s nguồn`
+                        : ""}
                     </button>
                   ))}
                   <button
