@@ -10,10 +10,14 @@ export type StoryboardBeat = {
 };
 export type FilmStoryboard = {
   version: 1;
-  durationSeconds: 15;
+  /** Exact Seedance request duration, chosen from the provider's 4-30s range. */
+  durationSeconds: number;
+  /** End of useful story action inside the provider source clip. */
+  contentEndSeconds?: number;
   beats: StoryboardBeat[];
 };
-export const STORYBOARD_SECONDS = 15;
+export const STORYBOARD_MIN_SECONDS = 4;
+export const STORYBOARD_MAX_SECONDS = 30;
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
 export const spokenSeconds = (s: string) =>
   Math.max(1.2, words(s) / 2.6 + 0.25);
@@ -34,13 +38,15 @@ export function validateStoryboard(
   if (
     !b ||
     b.version !== 1 ||
-    b.durationSeconds !== 15 ||
+    !Number.isInteger(b.durationSeconds) ||
+    b.durationSeconds < STORYBOARD_MIN_SECONDS ||
+    b.durationSeconds > STORYBOARD_MAX_SECONDS ||
     !Array.isArray(b.beats) ||
     !b.beats.length ||
     b.beats.length > 12
   )
     throw new Error(
-      "STORYBOARD_INVALID: cần storyboard 15 giây có nhịp diễn rõ ràng.",
+      "STORYBOARD_INVALID: cần storyboard 4-30 giây có nhịp diễn rõ ràng.",
     );
   let end = 0;
   for (const beat of b.beats) {
@@ -50,7 +56,7 @@ export function validateStoryboard(
       !Number.isFinite(beat.endSeconds) ||
       Math.abs(beat.startSeconds - end) > 0.011 ||
       beat.endSeconds <= beat.startSeconds ||
-      beat.endSeconds > 15 ||
+      beat.endSeconds > b.durationSeconds ||
       ["dialogue", "action", "camera", "motion"].some(
         (k) => typeof beat[k as keyof StoryboardBeat] !== "string",
       ) ||
@@ -73,23 +79,38 @@ export function validateStoryboard(
       );
     end = beat.endSeconds;
   }
-  if (end !== 15 || storyboardDialogue(b).length > 700)
+  const contentEnd = b.contentEndSeconds ?? b.durationSeconds;
+  if (
+    !Number.isFinite(contentEnd) ||
+    contentEnd <= 0 ||
+    contentEnd > b.durationSeconds ||
+    Math.abs(end - contentEnd) > 0.011 ||
+    storyboardDialogue(b).length > 700
+  )
     throw new Error(
-      "STORYBOARD_DURATION_INVALID: cần đủ 15 giây và thoại vừa thời lượng.",
+      "STORYBOARD_DURATION_INVALID: nhịp nội dung phải nằm trọn trong clip nguồn.",
     );
   return b;
 }
 
-/** Minimum number of clips, balanced contiguous groups, never split a sentence. */
+/**
+ * Minimum number of provider clips, balanced contiguous groups, never split a
+ * sentence. Keep at most two spoken turns in one provider clip so a complete
+ * exchange becomes enough visual material instead of being rushed into one
+ * static shot. A final silent reaction may share that last clip.
+ */
 export function storyboardGroups(
   lines: { text: string }[],
   reaction: boolean,
 ): number[][] {
   const weights = lines.map((l) => spokenSeconds(l.text));
   if (reaction) weights.push(1.2);
-  if (!weights.length || weights.some((w) => w > 14.5))
+  if (
+    !weights.length ||
+    weights.some((w) => w > STORYBOARD_MAX_SECONDS - 0.5)
+  )
     throw new Error(
-      "STORYBOARD_LINE_TOO_LONG: rút gọn câu thoại để nói trọn trong đoạn 15 giây.",
+      "STORYBOARD_LINE_TOO_LONG: rút gọn câu thoại để nói trọn trong một clip 30 giây.",
     );
   for (let count = 1; count <= weights.length; count++) {
     const target = weights.reduce((n, w) => n + w, 0) / count;
@@ -103,7 +124,7 @@ export function storyboardGroups(
     ): { score: number; groups: number[][] } | null => {
       if (!remaining)
         return from === weights.length ? { score: 0, groups: [] } : null;
-      // Never buy a separate 15s clip merely to hold a 1s final reaction.
+      // Never buy a separate provider clip merely to hold a 1s final reaction.
       if (reaction && remaining === 1 && from === weights.length - 1)
         return null;
       const key = `${from}:${remaining}`;
@@ -111,8 +132,11 @@ export function storyboardGroups(
       let best: { score: number; groups: number[][] } | null = null,
         sum = 0;
       for (let to = from; to <= weights.length - remaining; to++) {
+        const includesReaction = reaction && to === weights.length - 1;
+        const spokenTurns = to - from + 1 - (includesReaction ? 1 : 0);
+        if (spokenTurns > 2) break;
         sum += weights[to];
-        if (sum > 14.5) break;
+        if (sum > STORYBOARD_MAX_SECONDS - 0.5) break;
         const next = search(to + 1, remaining - 1);
         if (!next) continue;
         const score = next.score + (sum - target) ** 2;

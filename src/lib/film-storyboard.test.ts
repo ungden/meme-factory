@@ -44,11 +44,13 @@ const panels = {
 };
 const compiled = () => compileStoryboards(panels, story, characters);
 
-describe("15-second storyboard production", () => {
+describe("content-sized Seedance storyboard production", () => {
   it("packs contiguous full turns once, with balanced groups and no invented dialogue", () => {
     const result = compiled();
     expect(result.scenes.length).toBeLessThan(story.dialogue.length);
-    expect(result.scenes.every((s) => s.durationSeconds === 15)).toBe(true);
+    expect(result.scenes.every((s) => s.durationSeconds >= 4)).toBe(true);
+    expect(result.scenes.every((s) => s.durationSeconds <= 30)).toBe(true);
+    expect(result.scenes.some((s) => s.durationSeconds !== 15)).toBe(true);
     expect(
       result.scenes.flatMap((s) =>
         s.storyboard.beats.map((b) => [b.speakerCharacterId, b.dialogue]),
@@ -62,15 +64,22 @@ describe("15-second storyboard production", () => {
       expect(normalizeScene(s).storyboard).toEqual(s.storyboard);
     }
   });
+  it("never packs more than two spoken turns into one provider clip", () => {
+    expect(storyboardGroups(story.dialogue, false)).toEqual([
+      [0, 1],
+      [2, 3],
+      [4, 5],
+    ]);
+  });
   it("keeps a planned silent ending inside the final clip and rejects a sentence that cannot fit", () => {
     const groups = storyboardGroups(story.dialogue, true);
     expect(groups.flat()).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(groups.at(-1)!.length).toBeGreaterThan(1);
     expect(() =>
-      storyboardGroups([{ text: "word ".repeat(37) }], true),
+      storyboardGroups([{ text: "word ".repeat(80) }], true),
     ).toThrow();
     expect(() =>
-      storyboardGroups([{ text: "word ".repeat(45) }], false),
+      storyboardGroups([{ text: "word ".repeat(90) }], false),
     ).toThrow("TOO_LONG");
   });
   it("rejects foreign speakers, overlap, truncated timeline, stale text and overlong edited speech", () => {
@@ -124,10 +133,12 @@ describe("15-second storyboard production", () => {
       "prompt",
       "resolution",
     ]);
-    expect(inputs.duration).toBe(15);
+    expect(inputs.duration).toBe(s.storyboard.durationSeconds);
     expect(inputs.generate_audio).toBe(true);
     const prompt = inputs.prompt;
-    expect(prompt).toContain("15 giây 16:9");
+    expect(prompt).toContain(
+      `clip nguồn ${s.storyboard.durationSeconds} giây 16:9`,
+    );
     expect(prompt).toContain("Chỉ Bánh Bao diễn lời thoại");
     expect(prompt).toContain("Chỉ Đậu Đỏ diễn lời thoại");
     expect(prompt).not.toContain("một shot liên tục");

@@ -260,11 +260,12 @@ export async function savePlan(
       body.trimSpeech === undefined
         ? old?.trim_speech !== false
         : body.trimSpeech !== false,
-    target_duration_seconds: [15, 30, 35, 40, 60].includes(
-      Number(body.targetDurationSeconds),
-    )
-      ? Number(body.targetDurationSeconds)
-      : 30,
+    target_duration_seconds:
+      Number.isInteger(Number(body.targetDurationSeconds)) &&
+      Number(body.targetDurationSeconds) >= 15 &&
+      Number(body.targetDurationSeconds) <= 120
+        ? Number(body.targetDurationSeconds)
+        : 30,
     cast_snapshot: cast,
   };
   const { data, error } = await a.admin.rpc("save_film_plan", {
@@ -486,7 +487,7 @@ export async function quotePlan(
     ? existing.filter(
         (candidate) =>
           candidate.production_run_id === productionRunId ||
-          Boolean(candidate.approved_at),
+          Boolean(candidate.approved_at || candidate.auto_accepted_at),
       )
     : existing;
   const tasks: QuotedTask[] = [];
@@ -789,7 +790,8 @@ export async function quotePlan(
         transcriptTaskId: transcript?.id,
         sceneId: s.id,
         version: s.version,
-        trimSpeech: !!plan.trim_speech && !!s.dialogue && !s.storyboard,
+        trimSpeech: !!plan.trim_speech && !!s.dialogue,
+        minimumOutSeconds: s.storyboard?.contentEndSeconds || 0,
       };
     });
     tasks.push(

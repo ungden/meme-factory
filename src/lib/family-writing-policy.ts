@@ -1,5 +1,5 @@
 /** Shared comic premise for family life and children's parodies of adult formats. */
-export const FAMILY_WRITING_POLICY_VERSION = "family-dialogue-8";
+export const FAMILY_WRITING_POLICY_VERSION = "family-dialogue-9";
 
 export const FAMILY_WRITING_POLICY = `LUẬT NỀN BIÊN KỊCH ${FAMILY_WRITING_POLICY_VERSION}: ĐẢO THƯỜNG THỨC VÀ PARODY THẾ GIỚI NGƯỜI LỚN
 Khán giả người lớn nhận ra một tình huống hoặc FORMAT quen thuộc, rồi thấy nó được diễn bởi những người/đồ vật lệch hẳn kỳ vọng. Bánh Bao & Đậu Đỏ vẫn là hai đứa CON NÍT về hình dáng và giọng, nhưng có thể gánh vai người lớn hoặc diễn những vai người lớn rất nghiêm túc. Sự tương phản phải nhìn/nghe thấy được; không cần thêm câu chơi chữ để giải thích nó.
@@ -15,6 +15,7 @@ CÁCH DỰNG MỘT TẬP:
 3. Cho thấy tương phản ngay trong mở cảnh qua đạo cụ, bố cục, vai người nói/nghe và câu mở phù hợp format. Không thuyết minh ở nhà này mọi thứ đều ngược, chúng ta đang parody hoặc trẻ con mà như người lớn.
 4. Phát triển cùng một tình huống. Nhánh A: gọi rồi xin thêm chút, giục mà còn quên đồ. Nhánh B: câu hỏi tiếp theo/thao tác tiếp theo của format làm lộ thêm chi tiết nhỏ bé trong thế giới trẻ, trong khi cả hai vẫn giữ phong thái. Không cần phạt, bóc mẽ, nhận thua hay lật lần cuối.
 5. Dừng ngay khi câu cuối đã làm tương phản hoặc quan hệ đủ rõ. Kết chớt quớt, tình huống chưa được giải quyết và người lớn vẫn ngủ/nhân vật vẫn giữ ý đều được. “Chưa giải quyết hậu quả” không đồng nghĩa “kịch bản chưa xong”. Một câu đáp tỉnh bơ hay khoảng nhìn có thể đủ. Không thêm vấn đề mới ở câu cuối, không nối thêm punchline thứ hai, thú nhận diễn trò, bài học hoặc cả nhà cùng cười. Nếu bỏ câu cuối mà điểm rơi vẫn nguyên hoặc gọn hơn, câu đó là đuôi thừa.
+6. Nếu người dùng nêu rõ một diễn biến hoặc kết thúc, đó là phần bắt buộc của câu chuyện: phải xảy ra thật trong dialogue/action trước điểm cắt. Không được thay bằng một hành động gần giống ở đoạn trước hoặc chỉ ghi trong outcome/payoff. Hoàn tất câu chuyện quan trọng hơn mốc thời lượng dự kiến. Viết đủ lượt để đi tới điểm kết, rồi mới chia storyboard; không dừng vì đã dùng đủ 30/45/60 giây và không kéo thêm lời để chạm một bội số thời gian.
 Khi gợi ý không có chủ đề, đưa các tình huống/format đa dạng, không chỉ ba việc nhà. Nếu người dùng đã chọn chủ đề/format thì giữ nó. Đối chiếu 20 tập gần nhất: dùng lại một format được, lặp nguyên chuỗi đối đáp/cách lộ chi tiết và kết quả rồi thay đồ thì không.
 
 TÍNH CÁCH, DIỄN VÀ ĐỐI ĐÁP:
@@ -29,7 +30,7 @@ TÍNH CÁCH, DIỄN VÀ ĐỐI ĐÁP:
 - Neo chi tiết vào đúng người/đạo cụ: việc bố nhờ, đồ mẹ quên, đặc điểm của đồ chơi được đối xử như tài sản lớn. Không chỉ dọn đồ chung chung hoặc gắn một micro vào cuộc nói chuyện bất kỳ rồi gọi là parody.
 - Giữ tương phản VUI VẺ; không biến thành liệt kê việc nhà, than vất vả, hạ nhục bố mẹ hoặc khoe tài tác giả. Thông thường một không gian và một việc/format chính là đủ. Không nhét nhiều tiểu phẩm độc lập, không dựng flashback cho mọi việc được kể.
 - Lấy cơ chế từ reference, không chép lời/cú chốt rồi đổi tên. Ref phỏng vấn là parody format phỏng vấn người giàu/xe sang; không chỉ là tập dạy bé chăm lo. Được dùng lại format phỏng vấn với cuộc đối đáp mới; không bê nguyên chuỗi hỏi/đáp và câu kết nguồn. Ref chia bánh cho phép quan tâm thật; ref sính lễ chỉ lấy tương phản/cách giữ thể diện cho chủ đề gia đình khác, không mang đùa bạo hành/hôn nhân trẻ em vào kênh.
-Viết tình huống trước, chia shot sau; khẩu ngữ Việt có câu dài/ngắn tự nhiên. Không ép câu 3–5 từ hoặc kéo thoại cho đủ giây. Giữ đúng ý tưởng người dùng, không biến mọi format thành một bài học gia đình.`;
+Viết tình huống trước, hoàn tất đúng diễn biến được yêu cầu rồi mới chia shot; khẩu ngữ Việt có câu dài/ngắn tự nhiên. Clip nguồn được chọn linh hoạt 4–30 giây và phim cuối kết ở đúng lúc thoại/hành động kết thúc, không bị ép thành bội số nào. Không ép câu 3–5 từ hoặc kéo thoại cho đủ giây. Giữ đúng ý tưởng người dùng, không biến mọi format thành một bài học gia đình.`;
 
 export const FAMILY_REVIEW_CRITERIA = `Đánh giá ĐẢO THƯỜNG THỨC/PARODY, không mặc định tất cả kịch bản phải là con chăm bố mẹ.
 Đọc dialogue/action trước. comicPremise/wants/mechanism/outcome là lời tự mô tả; phải đối chiếu bằng chứng trong bản chữ.

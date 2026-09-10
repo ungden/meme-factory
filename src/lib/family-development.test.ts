@@ -50,6 +50,12 @@ const review = {
     quote: story.dialogue[0].text,
     reason: "Người nói dùng cách xưng hô phù hợp với người nghe trong cảnh.",
   },
+  intentCheck: {
+    status: "faithful",
+    evidence: story.dialogue.at(-1)!.text,
+    reason:
+      "Bản diễn giữ tình huống kiểm đồ và đi tới đúng việc bố còn quên đồ.",
+  },
   watchability: {
     decision: "ready_for_user",
     formatOnly: false,
@@ -140,6 +146,22 @@ it("grounds visible acting evidence separately from spoken text", () => {
     },
   };
   expect(validateEditorialReview(r, story).passed).toBe(true);
+});
+it("cannot pass when the story omits an explicit requested outcome", () => {
+  const r = validateEditorialReview(
+    {
+      ...review,
+      intentCheck: {
+        status: "needs_revision",
+        evidence: story.dialogue[0].text,
+        reason:
+          "Bản diễn mới bắt đầu kiểm đồ nhưng chưa thực hiện kết thúc đã được yêu cầu.",
+      },
+    },
+    story,
+  );
+  expect(r.passed).toBe(false);
+  expect(r.watchability.decision).toBe("revise");
 });
 const candidates = ["A", "B", "C"].map((id, i) => ({
   id,

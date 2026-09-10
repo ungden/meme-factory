@@ -185,20 +185,31 @@ export function compileStoryboards(
   const scenes = groups.map((group) => {
     const shots = group.map((i) => planned.scenes[i]);
     const characterIds = [...new Set(shots.flatMap((s) => s.characterIds))];
-    const weights = group.map((i) =>
-      story.dialogue[i] ? spokenSeconds(story.dialogue[i].text) : 1.2,
-    );
+    const weights = group.map((i) => {
+      const shot = raw[`shot${i + 1}`];
+      if (!story.dialogue[i]) return 1.2;
+      // Speech is the timing source of truth. Give each turn only enough room
+      // for its real delivery plus a short reaction/action beat; the provider
+      // may return 15s, but the finished film must not inherit that padding.
+      return Math.max(
+        spokenSeconds(story.dialogue[i].text) + 0.7,
+        Math.min(4.5, Number(shot.durationSeconds) || 0),
+      );
+    });
     const sum = weights.reduce((n, w) => n + w, 0);
-    // Distribute movement/reaction space, not artificial slow speech or a long tail hold.
+    if (sum > 29.5)
+      throw new Error(
+        "STORYBOARD_GROUP_TOO_LONG: chia thêm clip để giữ trọn lời và nhịp diễn.",
+      );
+    const providerDuration = Math.max(4, Math.min(30, Math.ceil(sum + 0.5)));
+    // Pack useful action at the start of the provider clip. Any short source
+    // tail is discarded during render instead of becoming dead air.
     let cursor = 0;
     const beats: StoryboardBeat[] = group.map((i, j) => {
       const shot = raw[`shot${i + 1}`],
         line = story.dialogue[i];
       const startSeconds = cursor;
-      cursor =
-        j === group.length - 1
-          ? 15
-          : Math.round((cursor + (weights[j] / sum) * 15) * 100) / 100;
+      cursor = Math.round((cursor + weights[j]) * 100) / 100;
       return {
         startSeconds,
         endSeconds: cursor,
@@ -215,7 +226,12 @@ export function compileStoryboards(
       };
     });
     const storyboard = validateStoryboard(
-      { version: 1, durationSeconds: 15, beats },
+      {
+        version: 1,
+        durationSeconds: providerDuration,
+        contentEndSeconds: Math.round(sum * 100) / 100,
+        beats,
+      },
       characterIds,
     );
     const first = raw[`shot${group[0] + 1}`];
@@ -229,7 +245,7 @@ export function compileStoryboards(
       action: String(first.action),
       setting: String(first.setting),
       camera: String(first.camera),
-      durationSeconds: 15,
+      durationSeconds: providerDuration,
       followsPrevious: false,
       storyboard,
       imagePrompt: `${first.imagePrompt}\nKhung đầu sạch của đoạn đối đáp: có đủ ${names} từ ảnh chuẩn, vị trí và hướng nhìn rõ theo trục đối thoại, đúng tỷ lệ vóc dáng. Chưa diễn ra hành động hoặc kết quả ở nhịp sau. Không lưới, nhãn, mũi tên, chữ hoặc nhiều bản sao nhân vật.`,

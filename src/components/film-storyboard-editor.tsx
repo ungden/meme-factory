@@ -18,10 +18,14 @@ export function FilmStoryboardEditor({
       beats: board.beats.map((b, i) => (i === index ? { ...b, ...patch } : b)),
     });
   return (
-    <section aria-label="Storyboard 15 giây" className="space-y-3">
+    <section
+      aria-label={`Storyboard ${board.durationSeconds} giây`}
+      className="space-y-3"
+    >
       <p className="text-xs th-text-secondary">
-        Các nhịp dưới đây được tạo trong cùng một clip 15 giây. Mốc giây là dự
-        kiến; phụ đề sẽ lấy từ tiếng thực tế.
+        Các nhịp dưới đây được tạo trong cùng một clip nguồn {board.durationSeconds} giây.
+        Nội dung kết ở {board.contentEndSeconds ?? board.durationSeconds} giây;
+        phụ đề và điểm cắt cuối lấy từ tiếng thực tế.
       </p>
       {board.beats.map((beat, i) => (
         <div key={i} className="space-y-2 border-l-2 th-border pl-3">

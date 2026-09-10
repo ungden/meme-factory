@@ -294,14 +294,14 @@ export function compileFilmMotion(
     const name = (id: string | null) =>
       scene.cast_snapshot.find((c) => c.characterId === id)?.name;
     return [
-      `STORYBOARD: một đoạn phim 15 giây ${format}, nhiều nhịp đối đáp/hành động liên tục theo thứ tự sau. Bối cảnh ${scene.setting}.`,
+      `STORYBOARD: clip nguồn ${board.durationSeconds} giây ${format}; câu chuyện hữu ích kết thúc ở ${Number(board.contentEndSeconds ?? board.durationSeconds).toFixed(2)} giây và phần nguồn còn lại sẽ bị cắt. Diễn nhiều nhịp đối đáp/hành động liên tục theo thứ tự sau. Bối cảnh ${scene.setting}.`,
       "FIRST FRAME: ảnh đầu là một khung sạch, không phải lưới storyboard. Giữ đúng diện mạo, vóc dáng, trang phục, vị trí và hướng nhìn của từng người trong ảnh.",
       `CAST: ${scene.cast_snapshot.map((c) => `${c.name}: ${c.description}`).join("; ")}. Không trộn người hoặc đổi giọng giữa các lượt.`,
       ...board.beats.map(
         (b) =>
           `${b.startSeconds.toFixed(2)}–${b.endSeconds.toFixed(2)}s | ${b.action} | CAMERA: ${b.camera} | MOTION: ${b.motion} | ${b.dialogue ? `Chỉ ${name(b.speakerCharacterId)} diễn lời thoại “${b.dialogue}” ${mode === "native" ? "với audio tiếng Việt" : "trong video im tiếng để lồng tiếng sau, không phát âm thanh"}. Các nhân vật còn lại nghe và phản ứng không lời, không cử động môi như đang nói.` : "Không có lời nói; diễn hành động/phản ứng đã mô tả."}`,
       ),
-      "PACING: bắt đầu ngay giây 0, nói nhanh tự nhiên nhưng rõ, không kéo dài âm tiết, không slow motion, không lặp câu hoặc lặp động tác. Mốc thời gian định hướng nhịp diễn; nói trọn câu trước đổi lượt, không chồng lời. Người nghe phản ứng ngay trong lượt nói. Pan/cắt theo storyboard, giữ hướng nhìn và trục đối thoại; không chuyển cảnh trang trí hoặc đổi bối cảnh. Kết ở tư thế/hướng nhìn đã mô tả để nối đoạn sau.",
+      `PACING: bắt đầu ngay giây 0, nói nhanh tự nhiên nhưng rõ, không kéo dài âm tiết, không slow motion, không lặp câu hoặc lặp động tác. Hoàn tất toàn bộ diễn biến ở ${Number(board.contentEndSeconds ?? board.durationSeconds).toFixed(2)} giây; sau đó chỉ giữ tư thế kết, tuyệt đối không thêm hành động hoặc lời mới. Mốc thời gian định hướng nhịp diễn; nói trọn câu trước đổi lượt, không chồng lời. Người nghe phản ứng ngay trong lượt nói. Pan/cắt theo storyboard, giữ hướng nhìn và trục đối thoại; không chuyển cảnh trang trí hoặc đổi bối cảnh.`,
       mode === "native"
         ? "AUDIO: giọng đúng người đang nói, rõ ở tiền cảnh; nhạc không lời vui vẻ, tinh nghịch nhẹ, âm lượng thấp. Không thêm lời thoại, chữ, phụ đề hoặc nhãn thời gian trong hình."
         : "SILENT VIDEO: không phát lời thoại, không nhạc. Diễn môi và phản ứng theo đúng lịch từng người để lồng tiếng riêng. Không chữ, phụ đề hoặc nhãn thời gian.",
@@ -360,7 +360,7 @@ export function filmVideoInputs(
     prompt: compileFilmMotion(scene, mode, format),
     image,
     duration: scene.storyboard
-      ? 15
+      ? scene.storyboard.durationSeconds
       : shotDuration(audioDuration, scene.duration_seconds),
     resolution,
     generate_audio: mode === "native",

@@ -174,6 +174,19 @@ export async function POST(
       { status: 400 },
     );
 
+  const requestedTarget = Number(
+    body.targetDurationSeconds ?? (channel ? 35 : 30),
+  );
+  if (
+    !Number.isInteger(requestedTarget) ||
+    requestedTarget < 15 ||
+    requestedTarget > 120
+  )
+    return NextResponse.json(
+      { error: "Thời lượng dự kiến phải từ 15 đến 120 giây." },
+      { status: 400 },
+    );
+
   const inputSnapshot = {
     kind: body.kind,
     intent: typeof body.intent === "string" ? body.intent.slice(0, 4000) : "",
@@ -183,7 +196,7 @@ export async function POST(
       : null,
     recentPlanIds: (recentPlans || []).map((p) => p.id),
     selectedCharacterIds: selectedIds,
-    targetDurationSeconds: body.targetDurationSeconds || (channel ? 35 : 30),
+    targetDurationSeconds: requestedTarget,
     imageMode: body.imageMode,
     sourceImageDescription:
       typeof body.sourceImageDescription === "string"

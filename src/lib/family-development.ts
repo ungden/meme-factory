@@ -1,6 +1,6 @@
 import type { Story, FamilyEditorialIssue } from "./family-catalogue";
 
-export const FAMILY_BENCHMARK_VERSION = "family-editorial-4";
+export const FAMILY_BENCHMARK_VERSION = "family-editorial-5";
 /** User rejected these assistant-written demos; they are negative anchors, not templates. */
 export const FAMILY_EDITORIAL_BENCHMARK = `MẪU ĐỐI CHIẾU ${FAMILY_BENCHMARK_VERSION}:
 REF người dùng thích — phỏng vấn xe đồ chơi: mở nhận ra phỏng vấn chủ xe sang; tiếp xúc khách sáo, giới thiệu nghề, hỏi cụ thể và nói về người em lần lượt lộ cách nhân vật nhìn mình và tận dụng việc nhỏ trong gia đình. Không chỉ gọi đồ chơi bằng tên sang. Giữ thái độ thật với vai, câu hỏi dẫn có tác dụng. Học cách phát triển, không chép chuỗi hỏi/đáp.
@@ -62,6 +62,11 @@ export type EditorialReview = {
     status: "natural" | "needs_revision";
     line: number;
     quote: string;
+    reason: string;
+  };
+  intentCheck: {
+    status: "faithful" | "needs_revision";
+    evidence: string;
     reason: string;
   };
   watchability: Watchability;
@@ -160,6 +165,11 @@ export const editorialReviewSchema = object({
     status: { type: "string", enum: ["natural", "needs_revision"] },
     line: { type: "integer", minimum: 1 },
     quote: string,
+    reason: string,
+  }),
+  intentCheck: object({
+    status: { type: "string", enum: ["faithful", "needs_revision"] },
+    evidence: string,
     reason: string,
   }),
   watchability: object({
@@ -322,6 +332,13 @@ export function validateEditorialReview(
   const w = r.watchability;
   const ending = r.endingCheck;
   const speech = r.speechCheck;
+  const intent = r.intentCheck;
+  const storyEvidence = [
+    story.setup,
+    story.payoff,
+    ...story.beats.map((b) => b.description),
+    ...story.dialogue.flatMap((d) => [d.text, d.action, `${d.text} (${d.action})`]),
+  ];
   if (
     !ending ||
     !["clean_stop", "forced_tail", "unfinished"].includes(ending.status) ||
@@ -343,6 +360,11 @@ export function validateEditorialReview(
       story.dialogue[speech.line - 1].text,
       story.dialogue[speech.line - 1].action,
     ].some((text) => text.includes(speech.quote)) ||
+    !intent ||
+    !["faithful", "needs_revision"].includes(intent.status) ||
+    !hasText(intent.evidence, 2) ||
+    !hasText(intent.reason, 15) ||
+    !groundedQuote(intent.evidence, storyEvidence) ||
     !w ||
     !["ready_for_user", "revise", "reject"].includes(w.decision) ||
     !hasText(w.reason, 15) ||
@@ -377,9 +399,11 @@ export function validateEditorialReview(
     ending.status === "clean_stop" &&
     ending.lastNecessaryLine === story.dialogue.length;
   const speechIsNatural = speech.status === "natural";
+  const intentIsFaithful = intent.status === "faithful";
   const decision = w.formatOnly
     ? "reject"
-    : (!endingIsClean || !speechIsNatural) && w.decision === "ready_for_user"
+    : (!endingIsClean || !speechIsNatural || !intentIsFaithful) &&
+        w.decision === "ready_for_user"
       ? "revise"
       : w.decision;
   return {
@@ -388,6 +412,7 @@ export function validateEditorialReview(
     passed:
       endingIsClean &&
       speechIsNatural &&
+      intentIsFaithful &&
       !w.formatOnly &&
       r.issues.length === 0 &&
       decision === "ready_for_user",

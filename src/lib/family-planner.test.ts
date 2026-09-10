@@ -176,6 +176,12 @@ const reviewFor = (story = plans[0].story, decision = "ready_for_user") => ({
     reason:
       "Người nói dùng đại từ và khẩu ngữ phù hợp với người đang nghe trong cảnh.",
   },
+  intentCheck: {
+    status: "faithful",
+    evidence: story.dialogue.at(-1)!.text,
+    reason:
+      "Bản diễn giữ đầy đủ tình huống và đi tới đúng kết quả mà ý tưởng yêu cầu.",
+  },
   watchability: {
     decision,
     formatOnly: false,
@@ -390,8 +396,11 @@ it("normalizes provider durations without altering the editorial timing or exact
   );
   const r = await generateCreativeAssist(input);
   if (r.kind !== "video_plan") throw Error("Wrong kind");
-  expect(r.scenes.every((s) => s.durationSeconds === 15)).toBe(true);
-  expect(r.story?.intendedShotSeconds).toEqual([15, 15]);
+  expect(r.scenes.every((s) => s.durationSeconds >= 4)).toBe(true);
+  expect(r.scenes.every((s) => s.durationSeconds <= 30)).toBe(true);
+  expect(r.story?.intendedShotSeconds).toEqual(
+    r.scenes.map((s) => s.storyboard?.durationSeconds),
+  );
   expect(r.scenes[0].storyboard?.beats[0].dialogue).toBe(
     plans[0].story.dialogue[0].text,
   );
@@ -399,7 +408,7 @@ it("normalizes provider durations without altering the editorial timing or exact
     plans[0].story.dialogue[0].characterId,
   );
 });
-it("does not force total generated clip seconds to equal edited duration", async () => {
+it("sizes provider clips from complete dialogue instead of a fixed multiple", async () => {
   queue(
     plans[0].story,
     reviewFor(),
@@ -409,10 +418,10 @@ it("does not force total generated clip seconds to equal edited duration", async
     }),
   );
   const r = await generateCreativeAssist(input);
-  expect(
-    r.kind === "video_plan" &&
-      r.scenes.reduce((n, s) => n + s.durationSeconds, 0),
-  ).toBe(30);
+  if (r.kind !== "video_plan") throw Error("Wrong kind");
+  expect(r.scenes).toHaveLength(3);
+  expect(r.scenes.some((s) => s.durationSeconds !== 15)).toBe(true);
+  expect(r.scenes.every((s) => s.durationSeconds >= 4 && s.durationSeconds <= 30)).toBe(true);
 });
 it("limits malformed response repair globally and never drops invalid shots", async () => {
   const bad = shotResult({
@@ -463,7 +472,7 @@ it("preserves a sibling-only staged parody without inventing a parent or final r
     selectedCharacterIds: [cast[0].characterId, cast[1].characterId],
   });
   if (r.kind !== "video_plan") throw Error("Wrong kind");
-  expect(r.scenes).toHaveLength(1);
+  expect(r.scenes).toHaveLength(2);
   expect(
     r.scenes.flatMap((s) => s.storyboard?.beats || []).map((b) => b.dialogue),
   ).toEqual(story.dialogue.map((d) => d.text));
@@ -485,7 +494,7 @@ it("keeps the general idea assist single-call and preserves identities", async (
   ];
   await generateCreativeAssist({ ...input, kind: "idea_suggestions" });
   expect(calls.prompts).toHaveLength(1);
-  expect(calls.prompts[0]).toContain("family-dialogue-8");
+  expect(calls.prompts[0]).toContain("family-dialogue-9");
 });
 it("compiles listener reactions without inventing extra dialogue", () => {
   const story = {

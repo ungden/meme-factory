@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { dubArguments, lockedTranscriptSegments, transcriptMatchesClip, validateDubCue } from '../short-film/dubbing.mjs';
+import { speechRange } from '../short-film/edit-range.mjs';
 import { ffmpeg, probe } from '../short-film/media.mjs';
 const cue = { startSeconds: 0, endSeconds: 2, duration: 0.5, beatIndex: 0, speakerCharacterId: 'bao', voiceProfileVersion: 'v1', voice: 'Aoede', dialogue: 'Đi thôi' };
 const video = { project_id: 'p', scene_id: 's', scene_version: 2 };
@@ -56,6 +57,15 @@ test('builds subtitle text from the locked TTS schedule, not ASR homophones', ()
     ],
   );
   assert.equal(lockedTranscriptSegments([{ startSeconds: 0, duration: 0, dialogue: '' }]), null);
+});
+test('cuts source clips at the real ending rather than provider duration multiples', () => {
+  const first = speechRange(17, [{ start: 0.3, end: 6.8, text: 'Lời thoại thật' }], true, 8.25);
+  assert.ok(Math.abs(first.inSeconds - 0.1) < 0.001);
+  assert.equal(first.outSeconds, 8.25);
+  assert.equal(
+    speechRange(17, [{ start: 0.3, end: 9.2, text: 'Lời dài hơn' }], true, 8.25).outSeconds,
+    9.7,
+  );
 });
 test('actual FFmpeg preserves video length and removes original audio mapping', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'aida-dub-qa-'));

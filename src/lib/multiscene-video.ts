@@ -60,11 +60,11 @@ export function normalizeScene(scene: SceneInput): Required<
       : validateStoryboard(scene.storyboard, scene.characterIds || []);
   if (
     storyboard &&
-    (scene.durationSeconds !== 15 ||
+    (scene.durationSeconds !== storyboard.durationSeconds ||
       scene.dialogue !== storyboardDialogue(storyboard))
   )
     throw new Error(
-      "STORYBOARD_DERIVED_FIELDS_CONFLICT: lưu thoại từ các nhịp storyboard và thời lượng 15 giây.",
+      "STORYBOARD_DERIVED_FIELDS_CONFLICT: lưu thoại và thời lượng đúng từ các nhịp storyboard.",
     );
   return {
     storyboard,

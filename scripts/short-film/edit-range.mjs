@@ -1,5 +1,10 @@
 /** Clip ranges use independent ASR from this exact source clip, never planned dialogue. */
-export function speechRange(duration, segments, enabled) {
+export function speechRange(
+  duration,
+  segments,
+  enabled,
+  minimumOutSeconds = 0,
+) {
   if (!Number.isFinite(duration) || duration <= 0)
     throw new Error("INVALID_CLIP_DURATION");
   if (!enabled) return { inSeconds: 0, outSeconds: duration };
@@ -18,9 +23,18 @@ export function speechRange(duration, segments, enabled) {
       throw new Error("INVALID_TRANSCRIPT_TIMING");
     previous = s.end;
   }
+  if (
+    !Number.isFinite(minimumOutSeconds) ||
+    minimumOutSeconds < 0 ||
+    minimumOutSeconds > duration + 0.05
+  )
+    throw new Error("INVALID_MINIMUM_EDIT_OUT");
   return {
     inSeconds: Math.max(0, segments[0].start - 0.2),
-    outSeconds: Math.min(duration, segments.at(-1).end + 0.5),
+    outSeconds: Math.min(
+      duration,
+      Math.max(minimumOutSeconds, segments.at(-1).end + 0.5),
+    ),
   };
 }
 export function shiftTranscript(segments, range, offset) {

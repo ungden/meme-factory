@@ -459,7 +459,9 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
     const tasks = await tasksForPlan(a, plan.id);
     const own = tasks.filter((t) => t.production_run_id === run.id);
     const eligible = tasks.filter(
-      (task) => task.production_run_id === run.id || Boolean(task.approved_at),
+      (task) =>
+        task.production_run_id === run.id ||
+        Boolean(task.approved_at || task.auto_accepted_at),
     );
     if (own.some((t) => t.status === "reconciling")) {
       await patchRun(admin, run, {

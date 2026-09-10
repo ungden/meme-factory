@@ -1284,22 +1284,28 @@ export default function ShortFilmPage() {
                   ))}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <select
+                  <div className="relative">
+                  <input
+                    type="number"
+                    min={15}
+                    max={120}
+                    step={1}
                     aria-label="Thời lượng phim"
                     value={draft.targetDurationSeconds}
-                    className={control}
+                    className={`${control} pr-12`}
                     onChange={(e) =>
-                      change({ targetDurationSeconds: Number(e.target.value) })
+                      change({
+                        targetDurationSeconds: Math.max(
+                          15,
+                          Math.min(120, Number(e.target.value) || 15),
+                        ),
+                      })
                     }
-                  >
-                    {(channel ? [30, 35, 40, 60] : [15, 30, 35, 40, 60]).map(
-                      (n) => (
-                        <option key={n} value={n}>
-                          {n} giây dự kiến
-                        </option>
-                      ),
-                    )}
-                  </select>
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm th-text-muted">
+                    giây dự kiến
+                  </span>
+                  </div>
                   <button
                     disabled={!ready || !!busy}
                     onClick={() => act("AI viết", write)}
@@ -1326,9 +1332,9 @@ export default function ShortFilmPage() {
                     onChange={(e) => change({ trimSpeech: e.target.checked })}
                     className="mt-1"
                   />
-                  Rút phần đệm trước/sau thoại theo transcript, giữ 0,2 giây
-                  trước và 0,5 giây sau. Cảnh phản ứng và storyboard 15 giây giữ
-                  nguyên.
+                  Cắt phần đệm theo transcript và điểm kết storyboard, giữ 0,2
+                  giây trước thoại và ít nhất 0,5 giây sau. Phim hoàn chỉnh
+                  không bị ép theo độ dài clip nguồn.
                 </label>
                 <details className="mt-4 border-t pt-3">
                   <summary className="cursor-pointer text-sm font-semibold th-text-primary">
@@ -1524,7 +1530,7 @@ export default function ShortFilmPage() {
                         })
                       }
                     >
-                      Gom thành storyboard 15 giây
+                      Gom thoại thành storyboard động
                     </button>
                   )}
                 {draft.scenes.some((s) => s.storyboard) && (
