@@ -143,6 +143,37 @@ const labels: Record<string, string> = {
   transcribe: "Kiểm tra lời",
   render: "Phim hoàn chỉnh",
 };
+const phaseLabels: Record<string, string> = {
+  script: "Viết kịch bản",
+  script_check: "Kiểm tra kịch bản",
+  prepare: "Chuẩn bị hình và tiếng",
+  frame: "Lấy khung nối tiếp",
+  video: "Tạo chuyển động",
+  finish: "Lồng tiếng và hoàn thiện cảnh",
+  transcript: "Kiểm tra lời",
+  clip_check: "Kiểm tra cảnh",
+  render: "Ghép phim",
+  ready_review: "Sẵn sàng duyệt",
+};
+function displayPhase(phase: string) {
+  if (phaseLabels[phase]) return phaseLabels[phase];
+  if (phase.endsWith("_check")) {
+    const kind = phase.slice(0, -6);
+    return `Kiểm tra ${(labels[kind] || kind).toLocaleLowerCase("vi")}`;
+  }
+  return "Đang hoàn thiện";
+}
+const statusLabels: Record<string, string> = {
+  queued: "Đã nhận",
+  scripting: "Đang viết kịch bản",
+  running: "Đang sản xuất",
+  paused: "Đã tạm dừng",
+  budget_blocked: "Cần cập nhật hạn mức",
+  needs_review: "Cần xem lại",
+  completed: "Hoàn tất",
+  failed: "Lỗi",
+  cancelled: "Đã hủy",
+};
 async function api(url: string, body?: unknown, method = "POST") {
   const r = await fetch(url, {
     method: body === undefined ? "GET" : method,
@@ -722,44 +753,71 @@ export default function ShortFilmPage() {
         (s) => s.id === t.scene_id && s.version === t.scene_version,
       ),
   );
+  const displayTasks = [...currentTasks, ...voiceTasks].sort((a, b) => {
+    const rank = (task: FilmTask) =>
+      task.kind === "render"
+        ? 0
+        : ["running", "queued", "reconciling"].includes(task.status)
+          ? 1
+          : task.scene_id
+            ? 2
+            : 3;
+    return rank(a) - rank(b);
+  });
   const hasRunning = [...currentTasks, ...voiceTasks].some((t) =>
     ["queued", "running", "reconciling"].includes(t.status),
   );
   const latest = (s: FilmScene, k: FilmKind) =>
     currentSceneTask(currentTasks, s, k, draft.audioMode);
   let stage = "prepare";
+  let stageSceneIds: string[] | undefined;
   if (plan?.video_plan_scenes.length && !dirty) {
     const ss = plan.video_plan_scenes;
-    const prepared = ss.every(
-      (s) =>
-        latest(s, "image")?.approved_at &&
-        (!s.dialogue ||
-          draft.audioMode === "native" ||
-          (draft.audioMode === "dubbed"
-            ? speechTasks(currentTasks, s).every((t) => t?.approved_at)
-            : latest(s, "tts")?.approved_at)),
+    const speechReady = (s: FilmScene) =>
+      !s.dialogue ||
+      draft.audioMode === "native" ||
+      (draft.audioMode === "dubbed"
+        ? speechTasks(currentTasks, s).length > 0 &&
+          speechTasks(currentTasks, s).every((t) => t?.approved_at)
+        : !!latest(s, "tts")?.approved_at);
+    const prepare = ss.filter(
+      (s) => (!s.follows_previous && !latest(s, "image")?.approved_at) || !speechReady(s),
     );
-    if (prepared) stage = "video";
-    if (prepared && ss.every((s) => latest(s, "video"))) stage = "finish";
-    if (
-      stage === "finish" &&
-      draft.audioMode !== "native" &&
-      ss.every(
-        (s) => !s.dialogue || latest(s, finalClipKind(s, draft.audioMode)),
-      )
-    )
-      stage = "transcript";
-    if (
-      ss.every(
-        (s) =>
-          latest(s, finalClipKind(s, draft.audioMode))?.approved_at &&
-          (!s.dialogue || latest(s, "transcribe")),
-      )
-    )
-      stage = "render";
+    const frame = ss.filter((s) => {
+      if (!s.follows_previous || latest(s, "image")?.approved_at) return false;
+      const previous = ss.find((candidate) => candidate.scene_index === s.scene_index - 1);
+      return !!(
+        previous &&
+        latest(previous, finalClipKind(previous, draft.audioMode))?.approved_at
+      );
+    });
+    const video = ss.filter(
+      (s) => latest(s, "image")?.approved_at && !latest(s, "video"),
+    );
+    const finish = ss.filter(
+      (s) =>
+        !!latest(s, "video") &&
+        draft.audioMode !== "native" &&
+        !!s.dialogue &&
+        !latest(s, finalClipKind(s, draft.audioMode)),
+    );
+    const transcript = ss.filter(
+      (s) =>
+        !!s.dialogue &&
+        !!latest(s, finalClipKind(s, draft.audioMode)) &&
+        !latest(s, "transcribe"),
+    );
+    if (prepare.length) [stage, stageSceneIds] = ["prepare", prepare.map((s) => s.id)];
+    else if (frame.length) [stage, stageSceneIds] = ["frame", frame.map((s) => s.id)];
+    else if (video.length) [stage, stageSceneIds] = ["video", video.map((s) => s.id)];
+    else if (finish.length) [stage, stageSceneIds] = ["finish", finish.map((s) => s.id)];
+    else if (transcript.length)
+      [stage, stageSceneIds] = [draft.audioMode === "native" ? "finish" : "transcript", transcript.map((s) => s.id)];
+    else [stage, stageSceneIds] = ["render", ss.map((s) => s.id)];
   }
   const stageNames: Record<string, string> = {
     prepare: "Chuẩn bị ảnh và thoại",
+    frame: "Lấy khung nối tiếp",
     video: "Tạo chuyển động",
     finish:
       draft.audioMode === "dubbed"
@@ -1050,18 +1108,9 @@ export default function ShortFilmPage() {
                     : "Tạo ngay"}
                 </strong>
                 {" · "}
-                {(
-                  {
-                    script: "Viết kịch bản",
-                    script_check: "Kiểm tra kịch bản",
-                    prepare: "Chuẩn bị hình và tiếng",
-                    video: "Tạo cảnh",
-                    finish: "Chép lời và làm phụ đề",
-                    transcript: "Kiểm tra lời",
-                    render: "Ghép phim",
-                    ready_review: "Sẵn sàng duyệt",
-                  } as Record<string, string>
-                )[productionRuns[0].phase] || productionRuns[0].phase}
+                {displayPhase(productionRuns[0].phase)}
+                {" · "}
+                {statusLabels[productionRuns[0].status] || "Đang xử lý"}
                 {" · "}
                 {productionRuns[0].points_committed}/
                 {productionRuns[0].max_points_per_film} điểm tối đa
@@ -1782,7 +1831,7 @@ export default function ShortFilmPage() {
                           const generated = await write();
                           await save(generated);
                         } else if (dirty || !plan) await save();
-                        else await getQuote(stage);
+                        else await getQuote(stage, stageSceneIds);
                       })
                     }
                     className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-3 font-semibold text-[var(--text-on-accent)] disabled:opacity-60"
@@ -1815,13 +1864,13 @@ export default function ShortFilmPage() {
               <h2 className="mb-3 text-lg font-semibold th-text-primary">
                 Kết quả và duyệt
               </h2>
-              {![...tasks, ...voiceTasks].length && (
+              {!displayTasks.length && (
                 <div className="rounded-xl border th-border p-8 text-center th-text-secondary">
                   Ảnh cảnh, bản nghe thử và phim sẽ xuất hiện ở đây.
                 </div>
               )}
               <div className="grid gap-4 xl:grid-cols-2">
-                {[...voiceTasks, ...tasks].map((t) => (
+                {displayTasks.map((t) => (
                   <article
                     key={t.id}
                     className={`min-w-0 rounded-xl border th-border p-3 th-bg-card ${t.kind === "render" ? "xl:col-span-2" : ""}`}

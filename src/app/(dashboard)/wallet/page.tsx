@@ -48,6 +48,7 @@ export default function WalletPage() {
   const [customAmount, setCustomAmount] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [buyingPackage, setBuyingPackage] = useState<PointPackage | null>(null);
+  const [purchaseKey, setPurchaseKey] = useState<string | null>(null);
   const [isBuying, setIsBuying] = useState(false);
   const toast = useToast();
 
@@ -78,6 +79,7 @@ export default function WalletPage() {
     if (balance < buyingPackage.price) {
       toast.error(`Số dư không đủ. Cần ${formatVND(buyingPackage.price)}, hiện có ${formatVND(balance)}.`);
       setBuyingPackage(null);
+      setPurchaseKey(null);
       return;
     }
 
@@ -98,7 +100,7 @@ export default function WalletPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ packageId: buyingPackage.id, expectedPrice: buyingPackage.price, expectedPoints: buyingPackage.points }),
+        body: JSON.stringify({ packageId: buyingPackage.id, expectedPrice: buyingPackage.price, expectedPoints: buyingPackage.points, idempotencyKey: purchaseKey || crypto.randomUUID() }),
       });
 
       const data = await res.json();
@@ -109,11 +111,12 @@ export default function WalletPage() {
 
       toast.success(`Đã mua gói ${data.packageName} — +${data.purchased} points!`);
       await refreshBalance();
+      setBuyingPackage(null);
+      setPurchaseKey(null);
     } catch (e: unknown) {
       toast.error((e as Error).message || "Lỗi mua points");
     } finally {
       setIsBuying(false);
-      setBuyingPackage(null);
     }
   };
 
@@ -222,7 +225,10 @@ export default function WalletPage() {
                   {POINT_PACKAGES.map((pkg) => (
                     <button
                       key={pkg.id}
-                      onClick={() => setBuyingPackage(pkg)}
+                      onClick={() => {
+                        setBuyingPackage(pkg);
+                        setPurchaseKey(crypto.randomUUID());
+                      }}
                       className={`w-full p-4 rounded-xl border text-left transition-all th-bg-hover relative ${
                         pkg.popular ? "ring-2" : ""
                       }`}
@@ -368,7 +374,11 @@ export default function WalletPage() {
         {/* Buy Points Confirm Modal */}
         <ConfirmModal
           isOpen={!!buyingPackage}
-          onClose={() => setBuyingPackage(null)}
+          onClose={() => {
+            if (isBuying) return;
+            setBuyingPackage(null);
+            setPurchaseKey(null);
+          }}
           onConfirm={handleBuyPoints}
           title={`Mua gói ${buyingPackage?.name}?`}
           message={`Bạn sẽ nhận ${buyingPackage?.points} points với giá ${buyingPackage ? formatVND(buyingPackage.price) : ""}. Số tiền sẽ được trừ từ số dư ví (hiện có ${formatVND(balance)}).`}

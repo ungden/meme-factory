@@ -18,14 +18,14 @@ import { createClient } from "@/lib/supabase/client";
 const formats = [
   { icon: Sparkle, label: "Nhân vật 3D", note: "Duyệt ảnh chuẩn trước khi dùng" },
   { icon: ImagesSquare, label: "Tạo ảnh", note: "Ý tưởng, nhân vật và tỷ lệ" },
-  { icon: ImagesSquare, label: "Tạo video", note: "Một clip hoặc nhiều cảnh" },
-  { icon: Sparkle, label: "Thư viện", note: "Lưu ảnh và video đã tạo" },
+  { icon: ImagesSquare, label: "Tạo video", note: "Một clip nhanh từ mô tả hoặc ảnh" },
+  { icon: Sparkle, label: "Tạo phim ngắn", note: "AI viết, dựng cảnh, lồng tiếng và ghép phim" },
 ];
 
 const steps = [
   ["01", "Chọn nhân vật", "Khoá diện mạo, cá tính và giọng nói để dùng lại mỗi ngày."],
   ["02", "Nói ý tưởng", "AIDA hỗ trợ viết mở đầu, chú thích và hướng dẫn dựng cảnh bằng tiếng Việt."],
-  ["03", "Tạo và duyệt", "Tạo ảnh hoặc video, sau đó duyệt kết quả trước khi tải."],
+  ["03", "Tạo và duyệt", "Tạo ảnh, video hoặc phim hoàn chỉnh, sau đó duyệt trước khi tải."],
 ];
 
 export default function Home() {
@@ -186,7 +186,7 @@ export default function Home() {
                   <label className="media-select flex min-w-[178px] cursor-pointer items-center gap-2 rounded-[15px] px-3 py-2">
                     <span className="media-select-icon">AI</span>
                     <span className="min-w-0 flex-1"><small>Công cụ</small><strong>{output}</strong></span>
-                    <select aria-label="Chọn công cụ" value={output} onChange={(event) => setOutput(event.target.value)}><option>Tạo ảnh</option><option>Tạo video</option></select>
+                    <select aria-label="Chọn công cụ" value={output} onChange={(event) => setOutput(event.target.value)}><option>Tạo ảnh</option><option>Tạo video</option><option>Tạo phim ngắn</option></select>
                     <CaretDown size={14} />
                   </label>
                 </div>

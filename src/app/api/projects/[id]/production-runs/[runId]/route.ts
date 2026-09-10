@@ -76,12 +76,17 @@ export async function PATCH(
         "Không thể thực hiện thao tác ở trạng thái hiện tại.",
         409,
       );
-    const { data, error } = await a.admin.rpc("control_film_production_run", {
+    const hasBudgetUpdate =
+      Number.isInteger(body.maxPointsPerFilm) &&
+      Number.isInteger(body.maxPointsPerDay);
+    const { data, error } = await a.admin.rpc("control_film_production_run_v2", {
       p_id: run.id,
       p_actor: a.user.id,
       p_workspace: a.project.workspace_version,
       p_action: action,
       p_expected_updated_at: run.updated_at,
+      p_max_film: action === "resume" && hasBudgetUpdate ? body.maxPointsPerFilm : null,
+      p_max_day: action === "resume" && hasBudgetUpdate ? body.maxPointsPerDay : null,
     });
     if (error) throw new FilmError(error.message, error.message.includes("CONFLICT") ? 409 : 400);
     return NextResponse.json({ run: data });

@@ -2,7 +2,7 @@ import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Điều khoản sử dụng (Terms of Service) | AIDA",
-  description: "Điều khoản sử dụng dịch vụ của AIDA Meme Factory.",
+  description: "Điều khoản sử dụng dịch vụ AIDA Media Studio.",
 };
 
 export default function TermsOfService() {
@@ -12,7 +12,7 @@ export default function TermsOfService() {
         <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl mb-8">
           Điều khoản sử dụng (Terms of Service)
         </h1>
-        <p className="text-gray-500 mb-8">Cập nhật lần cuối: 20/03/2026</p>
+        <p className="text-gray-500 mb-8">Cập nhật lần cuối: 10/09/2026</p>
 
         <section className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">1. Chấp nhận điều khoản</h2>
@@ -24,7 +24,7 @@ export default function TermsOfService() {
         <section className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">2. Mô tả dịch vụ</h2>
           <p className="text-gray-600 mb-4">
-            AIDA là nền tảng giúp người dùng tạo, quản lý và lưu trữ các nội dung truyện tranh, meme, hình ảnh được tạo ra bởi trí tuệ nhân tạo (AI).
+            AIDA là nền tảng giúp người dùng tạo, quản lý và lưu trữ văn bản, hình ảnh, video và phim ngắn được hỗ trợ bởi trí tuệ nhân tạo (AI).
           </p>
           <p className="text-gray-600 mb-4">
             Mọi nội dung do AI tạo ra đều có tính chất tham khảo. Chúng tôi không cam kết tính hoàn hảo tuyệt đối của kết quả đầu ra. Việc tạo nội dung yêu cầu tiêu hao “points” (điểm) theo tỷ lệ được quy định trên hệ thống.
@@ -54,9 +54,9 @@ export default function TermsOfService() {
         <section className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">5. Thanh toán và Điểm (Points)</h2>
           <ul className="list-disc pl-6 text-gray-600 space-y-2 mb-4">
-            <li>Points (điểm) được sử dụng để thực hiện các tính năng như tạo hình ảnh AI.</li>
+            <li>Points (điểm) được sử dụng cho các công đoạn AI như tạo hình ảnh, giọng nói, video và phim ngắn. Báo giá được hiển thị trước khi chạy công đoạn tính phí.</li>
             <li>Points được mua bằng tiền thật và không thể quy đổi ngược lại thành tiền mặt (Non-refundable), trừ các trường hợp do lỗi kỹ thuật nghiêm trọng từ phía hệ thống (được chúng tôi xác minh).</li>
-            <li>Nếu yêu cầu tạo AI bị lỗi do hệ thống, lượng points tương ứng sẽ được tự động hoàn lại vào tài khoản của bạn.</li>
+            <li>Điểm của công đoạn chưa gửi tới nhà cung cấp hoặc lỗi kỹ thuật đã được xác minh sẽ được hoàn theo trạng thái đối soát. Yêu cầu chưa xác định đã được nhà cung cấp tiếp nhận hay chưa sẽ được giữ ở trạng thái đối soát để tránh tạo và tính phí trùng.</li>
           </ul>
         </section>
 
@@ -64,7 +64,7 @@ export default function TermsOfService() {
           <h2 className="text-2xl font-bold text-gray-900 mb-4">6. Quyền Sở hữu trí tuệ</h2>
           <p className="text-gray-600 mb-4">
             Hệ thống, giao diện, phần mềm và nhận diện thương hiệu của AIDA là tài sản sở hữu trí tuệ của chúng tôi. 
-            Bạn được cấp quyền sử dụng thương mại đối với các hình ảnh và nội dung mà bạn TẠO RA thông qua Dịch vụ (tương ứng với số points bạn đã chi trả), với điều kiện nội dung đó không vi phạm quy định tại Mục 4.
+            Bạn được cấp quyền sử dụng thương mại đối với nội dung mà bạn tạo ra thông qua Dịch vụ, trong phạm vi quyền mà nhà cung cấp AI áp dụng và với điều kiện nội dung đó không vi phạm quy định tại Mục 4.
           </p>
         </section>
 

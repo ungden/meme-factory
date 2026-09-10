@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { packageId } = body;
+    const { packageId, idempotencyKey } = body;
 
     const pkg = POINT_PACKAGES.find((p) => p.id === packageId);
     if (!pkg) {
@@ -25,13 +25,18 @@ export async function POST(req: Request) {
     if (body.expectedPrice !== pkg.price || body.expectedPoints !== pkg.points) {
       return NextResponse.json({ error: "Bảng giá đã thay đổi. Tải lại trang Ví tiền để xem và chọn lại gói.", code: "PRICE_CHANGED" }, { status: 409 });
     }
+    if (typeof idempotencyKey !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
+      return NextResponse.json({ error: "Thiếu mã xác nhận mua. Hãy chọn lại gói." }, { status: 400 });
+    }
 
     // Atomic: deduct balance + add points + record transaction — all in one DB call
-    const { data: result, error: rpcError } = await supabaseAdmin.rpc("atomic_buy_points", {
-      _user_id: user.id,
-      _price: pkg.price,
-      _points_to_add: pkg.points,
-      _description: `Mua gói ${pkg.name} (${pkg.points} points)`,
+    const { data: result, error: rpcError } = await supabaseAdmin.rpc("buy_points_idempotent", {
+      p_user: user.id,
+      p_key: idempotencyKey,
+      p_package: pkg.id,
+      p_price: pkg.price,
+      p_points: pkg.points,
+      p_description: `Mua gói ${pkg.name} (${pkg.points} points)`,
     });
 
     if (rpcError) {

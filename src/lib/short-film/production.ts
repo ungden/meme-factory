@@ -257,43 +257,72 @@ async function ensureTaskCheck(a: Access, run: Run, task: FilmTask) {
 function accepted(task?: FilmTask) {
   return !!(task?.approved_at || task?.auto_accepted_at);
 }
-function stageFor(plan: FilmPlan, tasks: FilmTask[]) {
+type StageSelection = {
+  stage: "prepare" | "frame" | "video" | "finish" | "transcript" | "check" | "render" | "completed";
+  sceneIds: string[];
+};
+
+export function nextProductionStage(plan: FilmPlan, tasks: FilmTask[]): StageSelection {
   const latest = (
     s: FilmPlan["video_plan_scenes"][number],
     kind: Parameters<typeof currentSceneTask>[2],
   ) => currentSceneTask(tasks, s, kind, plan.audio_mode);
   const scenes = plan.video_plan_scenes;
-  const prepared = scenes.every(
-    (s) =>
-      accepted(latest(s, "image")) &&
-      (!s.dialogue ||
-        plan.audio_mode === "native" ||
-        (plan.audio_mode === "dubbed"
-          ? speechTasks(tasks, s).every(accepted)
-          : accepted(latest(s, "tts")))),
+  const speechReady = (s: FilmPlan["video_plan_scenes"][number]) =>
+    !s.dialogue ||
+    plan.audio_mode === "native" ||
+    (plan.audio_mode === "dubbed"
+      ? speechTasks(tasks, s).length > 0 && speechTasks(tasks, s).every(accepted)
+      : accepted(latest(s, "tts")));
+  const prepare = scenes.filter(
+    (s) => (!s.follows_previous && !accepted(latest(s, "image"))) || !speechReady(s),
   );
-  if (!prepared) return "prepare";
-  if (!scenes.every((s) => latest(s, "video"))) return "video";
-  if (
-    plan.audio_mode !== "native" &&
-    !scenes.every(
-      (s) => !s.dialogue || latest(s, finalClipKind(s, plan.audio_mode)),
-    )
-  )
-    return "finish";
-  if (!scenes.every((s) => !s.dialogue || latest(s, "transcribe")))
-    return plan.audio_mode !== "native" ? "transcript" : "finish";
-  if (
-    !scenes.every((s) => accepted(latest(s, finalClipKind(s, plan.audio_mode))))
-  )
-    return "check";
+  if (prepare.length) return { stage: "prepare", sceneIds: prepare.map((s) => s.id) };
+
+  const frame = scenes.filter((s) => {
+    if (!s.follows_previous || accepted(latest(s, "image"))) return false;
+    const previous = scenes.find((candidate) => candidate.scene_index === s.scene_index - 1);
+    return accepted(previous ? latest(previous, finalClipKind(previous, plan.audio_mode)) : undefined);
+  });
+  if (frame.length) return { stage: "frame", sceneIds: frame.map((s) => s.id) };
+
+  const video = scenes.filter((s) => accepted(latest(s, "image")) && !latest(s, "video"));
+  if (video.length) return { stage: "video", sceneIds: video.map((s) => s.id) };
+
+  const finish = scenes.filter(
+    (s) =>
+      !!latest(s, "video") &&
+      plan.audio_mode !== "native" &&
+      !!s.dialogue &&
+      !latest(s, finalClipKind(s, plan.audio_mode)),
+  );
+  if (finish.length) return { stage: "finish", sceneIds: finish.map((s) => s.id) };
+
+  const transcript = scenes.filter(
+    (s) =>
+      !!s.dialogue &&
+      !!latest(s, finalClipKind(s, plan.audio_mode)) &&
+      !latest(s, "transcribe"),
+  );
+  if (transcript.length)
+    return {
+      stage: plan.audio_mode !== "native" ? "transcript" : "finish",
+      sceneIds: transcript.map((s) => s.id),
+    };
+
+  const check = scenes.filter(
+    (s) => !accepted(latest(s, finalClipKind(s, plan.audio_mode))),
+  );
+  if (check.length) return { stage: "check", sceneIds: check.map((s) => s.id) };
   const render = tasks.find(
     (t) =>
       t.kind === "render" &&
       t.plan_version === plan.version &&
       t.status === "completed",
   );
-  return render ? "completed" : "render";
+  return render
+    ? { stage: "completed", sceneIds: [] }
+    : { stage: "render", sceneIds: scenes.map((s) => s.id) };
 }
 
 async function patchRun(
@@ -367,8 +396,6 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
       });
       assertLease();
     }
-    if (plan.video_plan_scenes.some((scene) => scene.follows_previous))
-      throw new Error("AUTO_CONTINUOUS_SCENE_NEEDS_REVIEW");
     if (run.snapshot?.scriptCheck !== "passed") {
       if (!profile)
         profile =
@@ -459,7 +486,8 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
       }
       task.auto_accepted_at = new Date().toISOString();
     }
-    const stage = stageFor(plan, eligible);
+    const selection = nextProductionStage(plan, eligible);
+    const { stage } = selection;
     if (stage === "check") {
       await patchRun(admin, run, {
         status: "needs_review",
@@ -485,6 +513,7 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
       workspaceVersion: run.workspace_version,
       expectedVersion: plan.version,
       stage,
+      sceneIds: selection.sceneIds,
       productionRunId: run.id,
     });
     const { error } = await admin.rpc("accept_film_quote", {
@@ -492,7 +521,9 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
       p_actor: run.created_by,
       p_key: crypto
         .createHash("md5")
-        .update(`${run.id}:${plan.id}:${plan.version}:${stage}`)
+        .update(
+          `${run.id}:${plan.id}:${plan.version}:${stage}:${[...selection.sceneIds].sort().join(",")}`,
+        )
         .digest("hex")
         .replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, "$1-$2-$3-$4-$5"),
     });

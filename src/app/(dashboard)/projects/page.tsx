@@ -38,6 +38,13 @@ export default function ProjectsPage() {
   const searchParams = useSearchParams();
   const toast = useToast();
   const [summaries, setSummaries] = useState<Record<string, { characterCount: number; outputCount: number; draftCount: number }>>({});
+  const requestedDestination = () => {
+    const output = searchParams.get("output");
+    if (output === "Tạo phim ngắn") return "short-films";
+    if (output === "Tạo video") return "video";
+    if (output === "Tạo ảnh") return "generate";
+    return "";
+  };
 
   useEffect(() => {
     if (IS_MOCK_MODE || !projects.length) return;
@@ -62,8 +69,8 @@ export default function ProjectsPage() {
       setNewProject({ name: "", description: "", style_prompt: "" });
       toast.success(`Đã tạo dự án "${project.name}"`);
       const query = searchParams.toString();
-      const destination = searchParams.get("output") === "Tạo video" ? "video" : "generate";
-      router.push(`/projects/${project.slug}/${destination}${query ? `?${query}` : ""}`);
+      const destination = requestedDestination();
+      router.push(`/projects/${project.slug}${destination ? `/${destination}` : ""}${query ? `?${query}` : ""}`);
     } else {
       toast.error("Không thể tạo dự án. Vui lòng thử lại.");
     }
@@ -129,9 +136,9 @@ export default function ProjectsPage() {
                   className="group overflow-hidden rounded-2xl border transition hover:-translate-y-1 hover:shadow-2xl"
                   style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
                 >
-                  <button onClick={() => { const query = searchParams.toString(); const destination = searchParams.get("output") === "Tạo video" ? "video" : "generate"; router.push(`/projects/${projectRef}/${destination}${query ? `?${query}` : ""}`); }} className="block w-full text-left" aria-label={`Mở dự án ${project.name}`}>
+                  <button onClick={() => { const query = searchParams.toString(); const destination = requestedDestination(); router.push(`/projects/${projectRef}${destination ? `/${destination}` : ""}${query ? `?${query}` : ""}`); }} className="block w-full text-left" aria-label={`Mở dự án ${project.name}`}>
                     <div className="relative aspect-[16/8.6] overflow-hidden" style={{ background: "linear-gradient(135deg, var(--bg-tertiary), color-mix(in srgb, var(--accent-primary) 16%, var(--bg-tertiary)))" }}>
-                      {cover ? <Image src={cover} alt={`Ảnh bìa dự án ${project.name}`} fill priority={index === 0} sizes="(max-width: 1280px) 50vw, 33vw" className="object-cover transition duration-500 group-hover:scale-[1.03]" /> : <div className="absolute inset-0 flex items-center justify-center"><span className="rounded-2xl border px-4 py-3 text-center text-sm font-semibold th-text-secondary" style={{ borderColor: "var(--border-primary)", background: "color-mix(in srgb, var(--bg-card) 82%, transparent)" }}>Thiết lập nhân vật<br /><small className="font-normal th-text-tertiary">để bắt đầu dự án</small></span></div>}
+                      {cover ? <Image src={cover} alt={`Ảnh bìa dự án ${project.name}`} fill priority={index === 0} sizes="(max-width: 1280px) 50vw, 33vw" className="object-cover transition duration-500 group-hover:scale-[1.03]" /> : <div className="absolute inset-0 flex items-center justify-center"><span className="rounded-2xl border px-4 py-3 text-center text-2xl font-bold th-text-primary" style={{ borderColor: "var(--border-primary)", background: "color-mix(in srgb, var(--bg-card) 82%, transparent)" }}>{project.name.trim().slice(0, 2).toLocaleUpperCase("vi")}<small className="mt-1 block text-xs font-normal th-text-tertiary">{summary && (summary.characterCount > 0 || summary.outputCount > 0) ? `${summary.characterCount} nhân vật · ${summary.outputCount} đầu ra` : "Dự án mới"}</small></span></div>}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
                       <div className="absolute bottom-3 left-3 flex gap-2">
                         <span className="rounded-full border border-white/25 bg-black/45 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-md">FANPAGE</span>
@@ -165,7 +172,7 @@ export default function ProjectsPage() {
 
                     <div className="mt-5 flex items-center justify-between border-t pt-4 text-xs th-text-muted" style={{ borderColor: "var(--border-primary)" }}>
                       <div className="flex gap-4"><span className="flex items-center gap-1.5"><Users size={13} /> {summary ? `${summary.characterCount} nhân vật` : "Đang tải"}</span><span className="flex items-center gap-1.5"><Images size={13} /> {summary ? `${summary.outputCount} đầu ra` : ""}</span></div>
-                      <button onClick={() => router.push(`/projects/${projectRef}/generate`)} className="flex items-center gap-1.5 font-semibold text-blue-500 hover:text-blue-400">Tạo nội dung <ArrowRight size={13} /></button>
+                      <button onClick={() => router.push(`/projects/${projectRef}`)} className="flex items-center gap-1.5 font-semibold th-text-accent">Mở dự án <ArrowRight size={13} /></button>
                     </div>
                     {summary && summary.draftCount > 0 && <button onClick={() => router.push(`/projects/${projectRef}/generate`)} className="mt-3 text-xs font-medium text-amber-600">{summary.draftCount} bộ nội dung đang làm dở · Tiếp tục</button>}
                   </div>
