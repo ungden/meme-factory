@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { access, savePlan, fail } from "@/lib/short-film/server";
 import { fixedVoiceEnabled } from "@/lib/short-film/features";
+import { normalizeFamilyFatherTerms } from "@/lib/family-terminology";
 export async function GET(
   r: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -36,7 +37,7 @@ export async function GET(
       .order("version", { ascending: false })
       .limit(1)
       .maybeSingle();
-    return NextResponse.json({
+    const payload = {
       channelProfile: channel?.profile || null,
       latestAssist: assist,
       plans: data?.map((p) => ({
@@ -55,7 +56,12 @@ export async function GET(
       accountId: a.user.id,
       workspaceVersion: a.project.workspace_version,
       fixedVoiceEnabled: fixedVoiceEnabled(a.project.id),
-    });
+    };
+    return NextResponse.json(
+      a.project.name === "Bánh Bao & Đậu Đỏ"
+        ? normalizeFamilyFatherTerms(payload)
+        : payload,
+    );
   } catch (e) {
     return fail(e);
   }

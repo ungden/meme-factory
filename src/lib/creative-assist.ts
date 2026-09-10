@@ -35,6 +35,7 @@ import {
 } from "./family-development";
 import { GoogleGenAI, type ThinkingLevel } from "@google/genai";
 import { getGeminiApiKey } from "@/lib/server-secrets";
+import { normalizeFamilyFatherTerms } from "./family-terminology";
 
 /**
  * The shot schema and validation approach were adapted from Rocklore commit
@@ -227,6 +228,8 @@ export function validateCreativeAssist(
   context: CreativeContext,
   targetDurationSeconds?: number,
 ): CreativeAssistResult {
+  if (context.channelProfile?.roles.some((role) => role.name === "Bố"))
+    value = normalizeFamilyFatherTerms(value);
   if (!value || typeof value !== "object")
     throw new Error("CREATIVE_ASSIST_INVALID_JSON");
   const result = value as Record<string, unknown>;
@@ -332,7 +335,7 @@ function contextText(
   const selected = selectedIds.length
     ? context.characters.filter((item) => selectedIds.includes(item.id))
     : context.characters;
-  return `${context.channelProfile ? "HỒ SƠ KÊNH (giữ vai trò và tính cách, không tự đổi ảnh chuẩn): " + JSON.stringify(context.channelProfile) + "\n20 TẬP GẦN NHẤT (tránh lặp tình huống/format–cách tạo tương phản–chuỗi đối đáp/kết quả; không mặc định mọi tập có người thua): " + JSON.stringify(context.recentStories || []) + "\n" : ""}DỰ ÁN: ${context.projectName}\nGIỌNG VIẾT: ${context.channelProfile?.tone || context.brandVoice || "tự nhiên, rõ ràng"}\nĐỘC GIẢ: ${context.channelProfile?.audience || context.audience || "khán giả fanpage Việt Nam"}\nHƯỚNG DẪN: ${context.guidelines || ""}\nNHÂN VẬT ĐƯỢC PHÉP DÙNG (chỉ dùng ID trong danh sách):\n${selected.map((character) => `- ${character.name} | ID ${character.id} | ${character.description || "nhân vật 3D đã duyệt"}; ${context.channelProfile?.roles.find((role) => role.characterId === character.id)?.personality || character.personality || ""}`).join("\n") || "Không có nhân vật được chọn."}\nNỘI DUNG GẦN ĐÂY CẦN TRÁNH LẶP: ${context.recentContent.join(" | ") || "chưa có"}${context.channelProfile && includeWritingPolicy ? "\n\n" + FAMILY_WRITING_POLICY : ""}`;
+  return `${context.channelProfile ? "HỒ SƠ KÊNH (giữ vai trò và tính cách, không tự đổi ảnh chuẩn): " + JSON.stringify(context.channelProfile) + "\n20 TẬP GẦN NHẤT (tránh lặp tình huống/format–cách tạo tương phản–chuỗi đối đáp/kết quả; không mặc định mọi tập có người thua): " + JSON.stringify(context.recentStories || []) + "\n" : ""}DỰ ÁN: ${context.projectName}\nGIỌNG VIẾT: ${context.channelProfile?.tone || context.brandVoice || "tự nhiên, rõ ràng"}\nĐỘC GIẢ: ${context.channelProfile?.audience || context.audience || "khán giả fanpage Việt Nam"}\nHƯỚNG DẪN: ${context.guidelines || ""}\nNHÂN VẬT ĐƯỢC PHÉP DÙNG (chỉ dùng ID trong danh sách):\n${selected.map((character) => `- ${character.name} | ID ${character.id} | ${character.description || "nhân vật 3D đã duyệt"}; ${context.channelProfile?.roles.find((role) => role.characterId === character.id)?.personality || character.personality || ""}`).join("\n") || "Không có nhân vật được chọn."}\nQUY ƯỚC GIA ĐÌNH: luôn gọi người cha là Bố/bố; không dùng Ba/ba để chỉ người cha. Từ “ba” chỉ giữ khi là số đếm.\nNỘI DUNG GẦN ĐÂY CẦN TRÁNH LẶP: ${context.recentContent.join(" | ") || "chưa có"}${context.channelProfile && includeWritingPolicy ? "\n\n" + FAMILY_WRITING_POLICY : ""}`;
 }
 
 function schemaFor(kind: CreativeAssistKind) {
@@ -597,7 +600,7 @@ comicPremise ghi thường thức/format gốc, điều bị đảo/lệch và t
 Trả JSON: ${STORY_SCHEMA}`,
     (v) =>
       validateGeneratedFamilyStory(
-        unpackStory(v),
+        normalizeFamilyFatherTerms(unpackStory(v)),
         profile,
         allowed,
         context.recentStories,
@@ -633,7 +636,7 @@ NHẬN XÉT BẮT BUỘC SỬA: ${JSON.stringify(review)}
 Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống. Nếu intentCheck=needs_revision, khôi phục đầy đủ chi tiết/điểm kết người dùng đã yêu cầu và cho nó diễn ra trong thoại hoặc hành động; không thay bằng một kết gần giống xảy ra sớm hơn. Nếu endingCheck=forced_tail, cắt từ sau lastNecessaryLine rồi cập nhật endingPlan; không thay đuôi thừa bằng một câu chốt mới. Nếu unfinished, phát triển đúng việc đang diễn trước khi chọn điểm cắt. Nếu speechCheck=needs_revision, sửa đúng ngôi nói/khẩu ngữ ở câu được trích và rà cùng lỗi trong các câu khác; không đổi diễn biến chỉ để chữa đại từ. Không thêm câu chốt thông minh để che tiền đề yếu, không rút tất cả thoại thành câu cụt. Giữ nguyên đề tài, cast và format. Trả toàn bộ JSON: ${STORY_SCHEMA}`,
       (v) =>
         validateGeneratedFamilyStory(
-          unpackStory(v),
+          normalizeFamilyFatherTerms(unpackStory(v)),
           profile,
           allowed,
           context.recentStories,

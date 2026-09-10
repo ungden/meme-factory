@@ -227,7 +227,7 @@ it("records all alternatives and comparison, then freezes reviewed dialogue into
   });
   expect(calls.prompts).toHaveLength(5);
   if (result.kind !== "video_plan") throw Error("Wrong kind");
-  expect(result.story?.profileVersion).toBe(8);
+  expect(result.story?.profileVersion).toBe(9);
   expect(result.story?.development?.candidates).toHaveLength(3);
   expect(result.story?.development?.selection?.selectedId).toBe("A");
   expect(result.story?.development?.stage).toBe("complete");
@@ -494,7 +494,7 @@ it("keeps the general idea assist single-call and preserves identities", async (
   ];
   await generateCreativeAssist({ ...input, kind: "idea_suggestions" });
   expect(calls.prompts).toHaveLength(1);
-  expect(calls.prompts[0]).toContain("family-dialogue-9");
+  expect(calls.prompts[0]).toContain("family-dialogue-10");
 });
 it("compiles listener reactions without inventing extra dialogue", () => {
   const story = {

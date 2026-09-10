@@ -35,6 +35,7 @@ import {
   seedanceImageModel,
   seedanceMaxDuration,
 } from "../video-models";
+import { normalizeFamilyFatherTerms } from "../family-terminology";
 export const hash = (v: unknown) =>
   crypto.createHash("sha256").update(JSON.stringify(v)).digest("hex");
 export class FilmError extends Error {
@@ -183,7 +184,13 @@ export async function savePlan(
     );
   const ids = [...new Set(inputs.flatMap((s) => s.characterIds || []))];
   const cast = await freezeCast(a, ids, old?.cast_snapshot);
-  const rows = inputs.map((raw, i) => {
+  const canonicalFamily =
+    a.project.name === "Bánh Bao & Đậu Đỏ" ||
+    cast.some((character) => character.name === "Bố");
+  const normalizedInputs = canonicalFamily
+    ? normalizeFamilyFatherTerms(inputs)
+    : inputs;
+  const rows = normalizedInputs.map((raw, i) => {
     let s: ReturnType<typeof normalizeScene>;
     try {
       s = normalizeScene(raw);
@@ -230,6 +237,7 @@ export async function savePlan(
     };
   });
   let story = body.story === undefined ? old?.story : body.story;
+  if (canonicalFamily) story = normalizeFamilyFatherTerms(story);
   if (story != null) {
     if (JSON.stringify(story).length > 25000)
       throw new FilmError("Câu chuyện quá dài.");
@@ -251,9 +259,17 @@ export async function savePlan(
     }
   }
   const plan = {
-    title: String(body.title || "Phim ngắn").slice(0, 160),
-    brief: String(body.brief || "").slice(0, 4000),
-    caption: String(body.caption || "").slice(0, 5000),
+    title: canonicalFamily
+      ? normalizeFamilyFatherTerms(
+          String(body.title || "Phim ngắn").slice(0, 160),
+        )
+      : String(body.title || "Phim ngắn").slice(0, 160),
+    brief: canonicalFamily
+      ? normalizeFamilyFatherTerms(String(body.brief || "").slice(0, 4000))
+      : String(body.brief || "").slice(0, 4000),
+    caption: canonicalFamily
+      ? normalizeFamilyFatherTerms(String(body.caption || "").slice(0, 5000))
+      : String(body.caption || "").slice(0, 5000),
     format: ["9:16", "1:1", "16:9", "4:5"].includes(String(body.format))
       ? body.format
       : "16:9",
