@@ -326,6 +326,22 @@ export function nextProductionStage(plan: FilmPlan, tasks: FilmTask[]): StageSel
     : { stage: "render", sceneIds: scenes.map((s) => s.id) };
 }
 
+export function completedRenderOutputId(
+  tasks: FilmTask[],
+  planVersion: number,
+): string | null {
+  const render = tasks.find(
+    (task) =>
+      task.kind === "render" &&
+      task.plan_version === planVersion &&
+      task.status === "completed" &&
+      typeof task.result?.outputId === "string",
+  );
+  return typeof render?.result?.outputId === "string"
+    ? render.result.outputId
+    : null;
+}
+
 async function patchRun(
   admin: SupabaseClient,
   run: Run,
@@ -499,12 +515,18 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
       return;
     }
     if (stage === "completed") {
+      const outputId =
+        completedRenderOutputId(own, plan.version) ||
+        completedRenderOutputId(eligible, plan.version) ||
+        plan.latest_content_output_id ||
+        null;
+      if (!outputId) throw new Error("RENDER_OUTPUT_NOT_LINKED");
       await patchRun(admin, run, {
         status: "completed",
         phase: "ready_review",
         snapshot: {
           scriptCheck: "passed",
-          outputId: plan.latest_content_output_id,
+          outputId,
         },
       });
       return;

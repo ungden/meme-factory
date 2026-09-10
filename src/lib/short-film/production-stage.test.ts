@@ -64,4 +64,29 @@ describe("automatic production continuity", () => {
       sceneIds: [next.id],
     });
   });
+
+  it("uses the completed render task output when the frozen plan is stale", async () => {
+    const { completedRenderOutputId } = await import("./production");
+    const tasks = [
+      {
+        id: "render-current",
+        kind: "render",
+        status: "completed",
+        plan_version: 3,
+        result: { outputId: "output-current" },
+        input: {},
+      },
+      {
+        id: "render-old",
+        kind: "render",
+        status: "completed",
+        plan_version: 2,
+        result: { outputId: "output-old" },
+        input: {},
+      },
+    ] as FilmTask[];
+
+    expect(completedRenderOutputId(tasks, 3)).toBe("output-current");
+    expect(completedRenderOutputId(tasks, 4)).toBeNull();
+  });
 });
