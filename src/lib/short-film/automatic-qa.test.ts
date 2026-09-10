@@ -37,6 +37,15 @@ describe("automatic short-film evidence checks", () => {
     ).toBe("needs_review");
   });
 
+  it("allows minor Vietnamese ASR homophones for a voice-locked dubbed track", () => {
+    const dubbed = task("transcribe", {
+      speechError: 0.24,
+      segments: [{ start: 0, end: 1, text: "Còn đêm đến ba" }],
+    });
+    dubbed.input = { audioMode: "dubbed", dialogue: "Con đếm đến ba" };
+    expect(checkTechnicalTask(dubbed).status).toBe("passed");
+  });
+
   it("requires every final artifact and actual audio/video evidence", () => {
     expect(
       checkTechnicalTask(

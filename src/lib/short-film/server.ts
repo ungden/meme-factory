@@ -751,6 +751,7 @@ export async function quotePlan(
           language: "vi",
           task: "transcribe",
           enable_timestamps: true,
+          prompt: s.dialogue,
         };
         tasks.push(
           task(
@@ -760,6 +761,7 @@ export async function quotePlan(
               providerInputs: inputs,
               videoTaskId: video.id,
               dialogue: s.dialogue,
+              audioMode: plan.audio_mode,
               speakerCharacterId: s.speaker_character_id,
               storyboard: s.storyboard || null,
               duration: video.result.duration,

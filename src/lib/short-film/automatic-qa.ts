@@ -148,7 +148,8 @@ export function checkTechnicalTask(task: FilmTask): Check {
         }
       : { status: "failed", issues: ["TTS thiếu audio hợp lệ."], evidence: r };
   if (task.kind === "transcribe")
-    return Number(r.speechError) <= 0.2 &&
+    return Number(r.speechError) <=
+      (task.input.audioMode === "dubbed" ? 0.3 : 0.2) &&
       Array.isArray(r.segments) &&
       (!task.input.dialogue || r.segments.length > 0)
       ? {
@@ -157,6 +158,7 @@ export function checkTechnicalTask(task: FilmTask): Check {
           evidence: {
             speechError: r.speechError,
             segmentCount: r.segments.length,
+            threshold: task.input.audioMode === "dubbed" ? 0.3 : 0.2,
           },
         }
       : {
