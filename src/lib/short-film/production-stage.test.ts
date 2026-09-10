@@ -3,6 +3,21 @@ import type { FilmPlan, FilmScene, FilmTask } from "./contracts";
 
 vi.mock("server-only", () => ({}));
 
+const filmTask = (overrides: Partial<FilmTask>): FilmTask => ({
+  id: "task",
+  kind: "image",
+  scene_id: null,
+  scene_version: null,
+  plan_version: 1,
+  status: "completed",
+  input: {},
+  result: null,
+  error: null,
+  approved_at: null,
+  created_at: "2026-09-10T00:00:00Z",
+  ...overrides,
+});
+
 describe("automatic production continuity", () => {
   it("extracts an accepted previous clip before producing a continuous scene", async () => {
     const { nextProductionStage } = await import("./production");
@@ -25,40 +40,36 @@ describe("automatic production continuity", () => {
       audio_mode: "dubbed",
       video_plan_scenes: [first, next],
     } as FilmPlan;
-    const image = {
+    const image = filmTask({
       id: "image-first",
       kind: "image",
-      status: "completed",
       approved_at: "2026-09-10T00:00:00Z",
       scene_id: first.id,
       scene_version: 1,
-      input: {},
-    } as FilmTask;
-    const video = {
+    });
+    const video = filmTask({
       id: "video-first",
       kind: "video",
-      status: "completed",
       approved_at: "2026-09-10T00:00:00Z",
       scene_id: first.id,
       scene_version: 1,
       input: { imageTaskId: image.id },
-    } as FilmTask;
+    });
 
     expect(nextProductionStage(plan, [image, video])).toEqual({
       stage: "frame",
       sceneIds: [next.id],
     });
 
-    const frame = {
+    const frame = filmTask({
       id: "frame-next",
       kind: "frame",
-      status: "completed",
       approved_at: "2026-09-10T00:00:00Z",
       scene_id: next.id,
       scene_version: 1,
       input: { videoTaskId: video.id },
       result: { fromTaskId: video.id },
-    } as FilmTask;
+    });
     expect(nextProductionStage(plan, [image, video, frame])).toEqual({
       stage: "video",
       sceneIds: [next.id],
@@ -68,23 +79,19 @@ describe("automatic production continuity", () => {
   it("uses the completed render task output when the frozen plan is stale", async () => {
     const { completedRenderOutputId } = await import("./production");
     const tasks = [
-      {
+      filmTask({
         id: "render-current",
         kind: "render",
-        status: "completed",
         plan_version: 3,
         result: { outputId: "output-current" },
-        input: {},
-      },
-      {
+      }),
+      filmTask({
         id: "render-old",
         kind: "render",
-        status: "completed",
         plan_version: 2,
         result: { outputId: "output-old" },
-        input: {},
-      },
-    ] as FilmTask[];
+      }),
+    ];
 
     expect(completedRenderOutputId(tasks, 3)).toBe("output-current");
     expect(completedRenderOutputId(tasks, 4)).toBeNull();

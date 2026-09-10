@@ -220,6 +220,7 @@ export default function ShortFilmPage() {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [voiceQuote, setVoiceQuote] = useState<Quote | null>(null);
   const [productionRuns, setProductionRuns] = useState<ProductionRun[]>([]);
+  const [openingPlanId, setOpeningPlanId] = useState<string | null>(null);
   const [maxFilm, setMaxFilm] = useState("");
   const [maxDay, setMaxDay] = useState("");
   const [autoEnabled, setAutoEnabled] = useState(false);
@@ -292,6 +293,7 @@ export default function ShortFilmPage() {
     setDirty(false);
     setNote("");
     setPlan(null);
+    setOpeningPlanId(null);
     setQuote(null);
     setError("");
     api(`${base}/video-plans`)
@@ -498,57 +500,95 @@ export default function ShortFilmPage() {
     setDirty(false);
     edited.current = false;
     setQuote(null);
-    if (!currentPlan && storageKey)
+    if (storageKey) {
       localStorage.removeItem(`${storageKey}:new-draft`);
+      localStorage.removeItem(
+        `${storageKey}:draft:${currentPlan?.id || j.plan.id}`,
+      );
+    }
     setNote("Đã lưu. Kết quả cũ vẫn giữ trong lịch sử.");
     return j.plan as FilmPlan;
+  }
+  async function saveCurrent() {
+    if (draft.scenes.length) return save();
+    if (!draft.brief.trim())
+      throw new Error("Nhập ý tưởng hoặc chọn gợi ý trước khi lưu kịch bản.");
+    return save(await write());
   }
   async function openEpisode(id: string) {
     if (id === (plan?.id || "")) return;
     if (dirty && plan && draft.scenes.length) await save();
-    else if (dirty && plan)
-      throw new Error(
-        "Kịch bản đang sửa cần ít nhất một cảnh trước khi đổi tập.",
-      );
     else if (dirty && storageKey)
       localStorage.setItem(
-        `${storageKey}:new-draft`,
-        JSON.stringify({ draft, cast, savedAt: new Date().toISOString() }),
+        plan
+          ? `${storageKey}:draft:${plan.id}`
+          : `${storageKey}:new-draft`,
+        JSON.stringify({
+          draft,
+          cast,
+          version: plan?.version || null,
+          savedAt: new Date().toISOString(),
+        }),
       );
     generation.current++;
-    const next = id ? await api(`${base}/video-plans/${id}`) : null;
-    let nextDraft = next
-      ? fromPlan(next.plan)
+    const nextPlan = id ? plans.find((candidate) => candidate.id === id) : null;
+    if (id && !nextPlan)
+      throw new Error("Kịch bản không còn trong workspace hiện tại.");
+    let nextDraft = nextPlan
+      ? fromPlan(nextPlan)
       : { ...blank(), targetDurationSeconds: 35 };
     let nextCast =
-      next?.plan.cast_snapshot.map(
+      nextPlan?.cast_snapshot.map(
         (c: { characterId: string }) => c.characterId,
       ) || [];
     let nextDirty = false;
-    if (!next && storageKey) {
+    if (storageKey) {
       try {
         const saved = JSON.parse(
-          localStorage.getItem(`${storageKey}:new-draft`) || "null",
+          localStorage.getItem(
+            nextPlan
+              ? `${storageKey}:draft:${nextPlan.id}`
+              : `${storageKey}:new-draft`,
+          ) || "null",
         );
-        if (saved?.draft) {
-          nextDraft = { ...saved.draft, audioMode: saved.draft.audioMode === "native" ? "dubbed" : saved.draft.audioMode };
+        if (
+          saved?.draft &&
+          (!nextPlan || saved.version === nextPlan.version)
+        ) {
+          nextDraft = {
+            ...saved.draft,
+            audioMode:
+              saved.draft.audioMode === "native"
+                ? "dubbed"
+                : saved.draft.audioMode,
+          };
           nextCast = Array.isArray(saved.cast) ? saved.cast : [];
           nextDirty = true;
         }
       } catch {
-        localStorage.removeItem(`${storageKey}:new-draft`);
+        localStorage.removeItem(
+          nextPlan
+            ? `${storageKey}:draft:${nextPlan.id}`
+            : `${storageKey}:new-draft`,
+        );
       }
     }
-    setPlan(next?.plan || null);
+    setPlan(nextPlan || null);
     setDraft(nextDraft);
-    setTasks(next?.tasks || []);
+    setTasks([]);
     setCast(nextCast);
     setQuote(null);
     setSelected(0);
     setDirty(nextDirty);
     edited.current = nextDirty;
     setAssistId(null);
-    setNote(next ? "" : nextDirty ? "Đã khôi phục ý tưởng của Tập mới." : "");
+    setNote(
+      nextDirty
+        ? nextPlan
+          ? "Đã khôi phục phần chưa lưu của kịch bản này."
+          : "Đã khôi phục ý tưởng của Tập mới."
+        : "",
+    );
   }
   async function suggest() {
     const g = generation.current;
@@ -851,11 +891,19 @@ export default function ShortFilmPage() {
               <select
                 aria-label="Chọn kịch bản"
                 className={control}
-                value={plan?.id || ""}
+                value={openingPlanId ?? plan?.id ?? ""}
                 disabled={!!busy || !ready}
-                onChange={(e) =>
-                  act("Mở kịch bản", () => openEpisode(e.target.value))
-                }
+                onChange={(e) => {
+                  const nextId = e.target.value;
+                  setOpeningPlanId(nextId);
+                  void act("Mở kịch bản", async () => {
+                    try {
+                      await openEpisode(nextId);
+                    } finally {
+                      setOpeningPlanId(null);
+                    }
+                  });
+                }}
               >
                 <option value="">Tập mới</option>
                 {plans.map((p) => (
@@ -871,6 +919,19 @@ export default function ShortFilmPage() {
               onClick={() => act("Tập mới", () => openEpisode(""))}
             >
               + Tập mới
+            </button>
+            <button
+              className="min-h-11 rounded-lg px-3 text-sm font-semibold text-[var(--text-on-accent)] disabled:opacity-60"
+              style={{ background: "var(--accent)" }}
+              disabled={
+                !!busy ||
+                !ready ||
+                !dirty ||
+                (!draft.scenes.length && !draft.brief.trim())
+              }
+              onClick={() => act("Lưu kịch bản", saveCurrent)}
+            >
+              {busy === "Lưu kịch bản" ? "Đang lưu…" : "Lưu kịch bản"}
             </button>
           </div>
           {channel && (
@@ -1831,7 +1892,7 @@ export default function ShortFilmPage() {
                         else if (!draft.scenes.length) {
                           const generated = await write();
                           await save(generated);
-                        } else if (dirty || !plan) await save();
+                        } else if (dirty || !plan) await saveCurrent();
                         else await getQuote(stage, stageSceneIds);
                       })
                     }
