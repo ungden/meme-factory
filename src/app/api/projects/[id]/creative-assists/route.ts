@@ -8,6 +8,10 @@ import {
   type CreativeAssistKind,
 } from "@/lib/creative-assist";
 import { getRequestUser } from "@/lib/supabase/request-auth";
+import {
+  seedanceImageModel,
+  seedanceMaxDuration,
+} from "@/lib/video-models";
 
 export const maxDuration = 180;
 
@@ -187,6 +191,8 @@ export async function POST(
       { status: 400 },
     );
 
+  const videoModel = seedanceImageModel(body.videoModel);
+
   const inputSnapshot = {
     kind: body.kind,
     intent: typeof body.intent === "string" ? body.intent.slice(0, 4000) : "",
@@ -197,6 +203,8 @@ export async function POST(
     recentPlanIds: (recentPlans || []).map((p) => p.id),
     selectedCharacterIds: selectedIds,
     targetDurationSeconds: requestedTarget,
+    videoModel,
+    maxVideoDurationSeconds: seedanceMaxDuration(videoModel),
     imageMode: body.imageMode,
     sourceImageDescription:
       typeof body.sourceImageDescription === "string"

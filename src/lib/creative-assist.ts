@@ -127,6 +127,7 @@ export type CreativeAssistInput = {
   context: CreativeContext;
   selectedCharacterIds?: string[];
   targetDurationSeconds?: number;
+  maxVideoDurationSeconds?: number;
   imageMode?: "text" | "image";
   sourceImageDescription?: string;
   currentScenes?: PlannedScene[];
@@ -644,18 +645,28 @@ Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống
   await checkpoint("shots");
   const hasReaction = story.beats.at(-1)?.purpose === "reaction";
   const shotCount = story.dialogue.length + (hasReaction ? 1 : 0);
-  const groups = storyboardGroups(story.dialogue, hasReaction);
+  const maxVideoDuration = input.maxVideoDurationSeconds || 30;
+  const groups = storyboardGroups(
+    story.dialogue,
+    hasReaction,
+    maxVideoDuration,
+  );
   const result = await checked(
     `${contextText(context, allowed)}
 CÂU CHUYỆN ĐÃ SOẠN: ${JSON.stringify(story)}
-DỰNG STORYBOARD: chia thành ${groups.length} clip nguồn. Server tự chọn duration nguyên 4–30 giây cho từng request Seedance từ lượng thoại và hành động; phim cuối tiếp tục cắt ở đúng contentEndSeconds. Các nhịp thoại/panel được nhóm sẵn (chỉ số từ 1): ${JSON.stringify(groups.map((g) => g.map((i) => i + 1)))}. Mỗi panel là một nhịp bên trong đoạn, KHÔNG phải một job video riêng. GIỮ NGUYÊN câu thoại, thứ tự và người nói. Không thêm lời. durationSeconds ở panel chỉ là nhịp diễn dự kiến; server xếp timeline đủ cho lời và hành động, không kéo giãn theo mốc cố định.
+DỰNG STORYBOARD: chia thành ${groups.length} clip nguồn. Server tự chọn duration nguyên 4–${maxVideoDuration} giây cho từng request Seedance từ lượng thoại và hành động; phim cuối tiếp tục cắt ở đúng contentEndSeconds. Các nhịp thoại/panel được nhóm sẵn (chỉ số từ 1): ${JSON.stringify(groups.map((g) => g.map((i) => i + 1)))}. Mỗi panel là một nhịp bên trong đoạn, KHÔNG phải một job video riêng. GIỮ NGUYÊN câu thoại, thứ tự và người nói. Không thêm lời. durationSeconds ở panel chỉ là nhịp diễn dự kiến; server xếp timeline đủ cho lời và hành động, không kéo giãn theo mốc cố định.
 Trong cùng đoạn: cùng bối cảnh, ánh sáng, vị trí nhân vật, hướng nhìn và trục máy. Có thể pan theo người nói hoặc cắt đối đáp theo storyboard; không đổi cảnh ngẫu nhiên. Hành động bắt đầu ngay, người nghe phản ứng trong khi người kia nói, không đứng đợi tới lượt. Viết motionPrompt cho từng nhịp bằng hành động cụ thể, KHÔNG thêm mốc giây riêng; server gắn mốc liên tục theo lượng thoại và hành động. Chỉ một người nói tại mỗi thời điểm, đến nhịp sau mới đổi người. Không slow motion, kéo dài âm tiết, khoảng chờ mở đầu hoặc lặp động tác để đủ thời lượng.
 Panel đầu mỗi đoạn là một khung sạch có đủ người sẽ xuất hiện trong đoạn đó; đủ ảnh chuẩn từng người, đúng tỷ lệ, trang phục và vị trí. Không dùng grid/storyboard sheet làm ảnh đầu video. Các panel sau mô tả diễn tiến hành động/camera. Kết đoạn có tư thế, đạo cụ và hướng nhìn khớp đầu đoạn tiếp; giữ trục đối thoại để nối bằng hard cut. Không cố thêm reaction sau điểm dừng đã chọn. Với parody giữ tín hiệu nhận diện format.
-Chỉ trả title, summary và shots với ${shotCount} khóa shot1..shot${shotCount}. Mỗi panel có action, setting, camera, durationSeconds, imagePrompt, motionPrompt và listenerCharacterIds. shot1..shot${story.dialogue.length} tương ứng các lượt thoại; ${hasReaction ? "panel cuối phản ứng im lặng đã có trong story" : "không thêm panel kết"}. imagePrompt tối đa 300 ký tự, motionPrompt tối đa 600. Không viết lại dialogue/speaker. ${input.targetDurationSeconds || 35} giây là mục tiêu kể chuyện, không phải độ dài bắt buộc; mỗi clip nguồn dùng đúng số giây cần thiết trong khoảng 4–30 và được cắt theo nội dung/transcript thật, không bịa transcript.`,
+Chỉ trả title, summary và shots với ${shotCount} khóa shot1..shot${shotCount}. Mỗi panel có action, setting, camera, durationSeconds, imagePrompt, motionPrompt và listenerCharacterIds. shot1..shot${story.dialogue.length} tương ứng các lượt thoại; ${hasReaction ? "panel cuối phản ứng im lặng đã có trong story" : "không thêm panel kết"}. imagePrompt tối đa 300 ký tự, motionPrompt tối đa 600. Không viết lại dialogue/speaker. ${input.targetDurationSeconds || 35} giây là mục tiêu kể chuyện, không phải độ dài bắt buộc; mỗi clip nguồn dùng đúng số giây cần thiết trong khoảng 4–${maxVideoDuration} và được cắt theo nội dung/transcript thật, không bịa transcript.`,
     (v) => {
       const r = validateCreativeAssist(
         "video_plan",
-        compileStoryboards(v, story, context.characters),
+        compileStoryboards(
+          v,
+          story,
+          context.characters,
+          maxVideoDuration,
+        ),
         context,
         input.targetDurationSeconds || 35,
       );

@@ -5,6 +5,11 @@ import { getRequestUser } from "@/lib/supabase/request-auth";
 import { getSupabaseAdmin } from "@/lib/admin";
 import { getSeedanceModel, submitSeedanceVideo } from "@/lib/wavespeed";
 import type { VideoRequest } from "@/lib/wavespeed";
+import {
+  SEEDANCE_VARIANTS,
+  seedanceVariant,
+  validSeedanceDuration,
+} from "@/lib/video-models";
 
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -26,7 +31,7 @@ export async function POST(
     typeof body.prompt !== "string" ||
     !body.prompt.trim() ||
     (mode === "image" && typeof body.image !== "string") ||
-    ![5, 10, 15, 30].includes(Number(body.duration)) ||
+    !validSeedanceDuration(body.duration, body.model) ||
     !["720p", "1080p"].includes(body.resolution) ||
     (mode === "text" &&
       !["9:16", "1:1", "16:9"].includes(body.aspect_ratio ?? "9:16"))
@@ -56,6 +61,7 @@ export async function POST(
     );
   try {
     const video: VideoRequest = {
+      model: seedanceVariant(body.model),
       mode,
       prompt: body.prompt.trim(),
       image: typeof body.image === "string" ? body.image : undefined,
@@ -70,7 +76,7 @@ export async function POST(
         body.aspect_ratio === "1:1" || body.aspect_ratio === "16:9"
           ? body.aspect_ratio
           : "9:16",
-      duration: Number(body.duration) as 5 | 10 | 15 | 30,
+      duration: Number(body.duration),
       resolution: body.resolution as "720p" | "1080p",
       generateAudio: false,
     };
@@ -171,6 +177,7 @@ export async function POST(
         reference_manifest: referenceManifest,
         manifest_hash: manifestHash,
         requested_output: {
+          model,
           mode: video.mode,
           duration: video.duration,
           resolution: video.resolution,
@@ -211,7 +218,7 @@ export async function POST(
         _project_id: projectId,
         _actor_user_id: user.id,
         _cost: quote.customerPoints,
-        _description: `Tạo video Seedance 2.5 ${video.duration}s ${video.resolution} (-${quote.customerPoints} điểm)`,
+        _description: `Tạo video ${SEEDANCE_VARIANTS.find((item) => item.id === video.model)?.label} ${video.duration}s ${video.resolution} (-${quote.customerPoints} điểm)`,
         _request_id: requestId,
         _ai_action: "video",
         _metadata: {
@@ -247,6 +254,7 @@ export async function POST(
         script: video.prompt,
         duration_seconds: video.duration,
         source_snapshot: {
+          model,
           mode: video.mode,
           image: video.image ?? null,
           lastImage: video.lastImage ?? null,

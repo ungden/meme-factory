@@ -31,6 +31,10 @@ import {
   tasksForPlan,
   type Access,
 } from "./server";
+import {
+  seedanceImageModel,
+  seedanceMaxDuration,
+} from "../video-models";
 
 type Run = {
   id: string;
@@ -46,6 +50,7 @@ type Run = {
   input_snapshot?: Record<string, unknown>;
   created_by: string;
   lease_owner: string;
+  video_model?: string;
 };
 
 function frozenPlan(run: Run): FilmPlan | null {
@@ -157,6 +162,15 @@ async function createAutomaticPlan(
   const selected = profile.roles
     .map((r) => r.characterId)
     .filter((id) => context.characters.some((c) => c.id === id));
+  const { data: automation } = await a.admin
+    .from("short_film_automation_settings")
+    .select("default_config")
+    .eq("project_id", a.project.id)
+    .eq("workspace_version", a.project.workspace_version)
+    .maybeSingle();
+  const videoModel = seedanceImageModel(
+    run.video_model || automation?.default_config?.videoModel,
+  );
   const result = await generateCreativeAssist(
     {
       kind: "video_plan",
@@ -166,16 +180,11 @@ async function createAutomaticPlan(
       context,
       selectedCharacterIds: selected,
       targetDurationSeconds: 35,
+      maxVideoDurationSeconds: seedanceMaxDuration(videoModel),
     },
     options,
   );
   if (result.kind !== "video_plan") throw new Error("SCRIPT_RESULT_INVALID");
-  const { data: automation } = await a.admin
-    .from("short_film_automation_settings")
-    .select("default_config")
-    .eq("project_id", a.project.id)
-    .eq("workspace_version", a.project.workspace_version)
-    .maybeSingle();
   const configuredFormat = String(
     automation?.default_config?.format ||
       (a.project as Record<string, unknown>).default_format ||
@@ -192,6 +201,7 @@ async function createAutomaticPlan(
     targetDurationSeconds: 35,
     format,
     resolution: "720p",
+    videoModel,
     audioMode: "dubbed",
     subtitles: true,
     scenes: result.scenes.map((s) => ({

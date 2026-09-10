@@ -15,6 +15,12 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import { useCharacters, useMemes, useProject } from "@/lib/use-store";
+import {
+  SEEDANCE_VARIANTS,
+  seedanceMaxDuration,
+  seedanceVariant,
+  type SeedanceVariant,
+} from "@/lib/video-models";
 
 type VideoMode = "text" | "image";
 type Quote = { customerPoints: number; providerCostUsd: number };
@@ -44,6 +50,7 @@ export default function VideoStudioPage() {
   const [mode, setMode] = useState<VideoMode>(
     query.get("image") ? "image" : "text",
   );
+  const [model, setModel] = useState<SeedanceVariant>("seedance-2.5");
   const shouldLoadMedia = mode === "image" || Boolean(query.get("image"));
   const { memes, loading: memesLoading } = useMemes(
     projectRef,
@@ -103,6 +110,7 @@ export default function VideoStudioPage() {
   const payload = useMemo(
     () => ({
       mode,
+      model,
       prompt,
       caption,
       image,
@@ -117,6 +125,7 @@ export default function VideoStudioPage() {
     }),
     [
       mode,
+      model,
       prompt,
       caption,
       image,
@@ -138,7 +147,9 @@ export default function VideoStudioPage() {
     lastImage.length > 0;
 
   const applyDraft = (draft: Record<string, unknown>) => {
+    const restoredModel = seedanceVariant(draft.model);
     setMode(draft.mode === "image" ? "image" : "text");
+    setModel(restoredModel);
     setPrompt(typeof draft.prompt === "string" ? draft.prompt : "");
     setCaption(typeof draft.caption === "string" ? draft.caption : "");
     setImage(typeof draft.image === "string" ? draft.image : "");
@@ -150,10 +161,15 @@ export default function VideoStudioPage() {
           )
         : [],
     );
+    const restoredDuration = DURATIONS.includes(
+      draft.duration as (typeof DURATIONS)[number],
+    )
+      ? (draft.duration as (typeof DURATIONS)[number])
+      : 5;
     setDuration(
-      DURATIONS.includes(draft.duration as (typeof DURATIONS)[number])
-        ? (draft.duration as (typeof DURATIONS)[number])
-        : 5,
+      restoredDuration <= seedanceMaxDuration(restoredModel)
+        ? restoredDuration
+        : 15,
     );
     setResolution(
       RESOLUTIONS.includes(draft.resolution as (typeof RESOLUTIONS)[number])
@@ -445,6 +461,7 @@ export default function VideoStudioPage() {
 
   const config = () => ({
     mode,
+    model,
     prompt: prompt.trim(),
     ...(image ? { image } : {}),
     ...(lastImage ? { last_image: lastImage } : {}),
@@ -619,6 +636,33 @@ export default function VideoStudioPage() {
                   </button>
                 ))}
               </div>
+              <div className="mb-5">
+                <p className="text-sm font-semibold th-text-primary">Model</p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {SEEDANCE_VARIANTS.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        markEdited();
+                        setModel(item.id);
+                        if (duration > item.maxDurationSeconds)
+                          setDuration(item.maxDurationSeconds);
+                      }}
+                      className={`rounded-lg border px-3 py-2 text-left text-xs ${model === item.id ? "th-bg-accent-light th-text-accent" : "th-text-secondary"}`}
+                      style={{
+                        borderColor:
+                          model === item.id
+                            ? "var(--accent)"
+                            : "var(--border-primary)",
+                      }}
+                    >
+                      <strong className="block text-sm">{item.label}</strong>
+                      <span>{item.description}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="flex items-center justify-between gap-3">
                 <label className="block text-sm font-semibold th-text-primary">
                   Bạn muốn làm nội dung gì?
@@ -752,7 +796,9 @@ export default function VideoStudioPage() {
                     Thời lượng
                   </p>
                   <div className="mt-2 flex gap-2">
-                    {DURATIONS.map((value) => (
+                    {DURATIONS.filter(
+                      (value) => value <= seedanceMaxDuration(model),
+                    ).map((value) => (
                       <button
                         key={value}
                         onClick={() => {
@@ -892,7 +938,7 @@ export default function VideoStudioPage() {
                       ? "Chưa đồng bộ; vẫn giữ bản trên thiết bị này"
                       : quote
                         ? "Giá đã khoá trong 5 phút"
-                        : "5 giây · 720p · lồng tiếng Gemini"}
+                        : `${duration} giây · ${resolution} · ${SEEDANCE_VARIANTS.find((item) => item.id === model)?.label} · lồng tiếng Gemini`}
                 </p>
               </div>
             </section>

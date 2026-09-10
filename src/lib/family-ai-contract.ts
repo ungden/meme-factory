@@ -176,10 +176,15 @@ export function compileStoryboards(
   value: unknown,
   story: Story,
   characters: { id: string; name: string }[] = [],
+  maxProviderSeconds = 30,
 ) {
   const planned = compileStoryShots(value, story, characters);
   const hasReaction = story.beats.at(-1)?.purpose === "reaction";
-  const groups = storyboardGroups(story.dialogue, hasReaction);
+  const groups = storyboardGroups(
+    story.dialogue,
+    hasReaction,
+    maxProviderSeconds,
+  );
   const raw = (value as { shots: Record<string, Record<string, unknown>> })
     .shots;
   const scenes = groups.map((group) => {
@@ -197,11 +202,14 @@ export function compileStoryboards(
       );
     });
     const sum = weights.reduce((n, w) => n + w, 0);
-    if (sum > 29.5)
+    if (sum > maxProviderSeconds - 0.5)
       throw new Error(
         "STORYBOARD_GROUP_TOO_LONG: chia thêm clip để giữ trọn lời và nhịp diễn.",
       );
-    const providerDuration = Math.max(4, Math.min(30, Math.ceil(sum + 0.5)));
+    const providerDuration = Math.max(
+      4,
+      Math.min(maxProviderSeconds, Math.ceil(sum + 0.5)),
+    );
     // Pack useful action at the start of the provider clip. Any short source
     // tail is discarded during render instead of becoming dead air.
     let cursor = 0;
@@ -233,6 +241,7 @@ export function compileStoryboards(
         beats,
       },
       characterIds,
+      maxProviderSeconds,
     );
     const first = raw[`shot${group[0] + 1}`];
     const names = characterIds

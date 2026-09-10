@@ -1,11 +1,17 @@
 import { validateStoryboard, type FilmStoryboard } from "../film-storyboard";
 import type { Story } from "../family-catalogue";
+import {
+  SEEDANCE_25_IMAGE_MODEL,
+  seedanceMaxDuration,
+  validSeedanceDuration,
+  type FilmVideoModel,
+} from "../video-models";
 export const FILM_MODELS = {
   image: "gemini-3.1-flash-image",
   tts: "minimax/speech-2.6-hd",
   designed_tts: "minimax/speech-02-hd",
   voice_design: "minimax/voice-design",
-  video: "bytedance/seedance-2.5/image-to-video",
+  video: SEEDANCE_25_IMAGE_MODEL,
   lip_sync: "sync/lipsync-2-pro",
   transcribe: "wavespeed-ai/openai-whisper-with-video",
 } as const;
@@ -227,6 +233,7 @@ export type FilmPlan = {
   caption: string;
   format: string;
   resolution: "720p" | "1080p";
+  video_model: FilmVideoModel;
   audio_mode: "native" | "fixed" | "dubbed";
   subtitles: boolean;
   status: string;
@@ -355,13 +362,19 @@ export function filmVideoInputs(
   resolution: "720p" | "1080p",
   image: string,
   audioDuration = 0,
+  videoModel: FilmVideoModel = FILM_MODELS.video,
 ) {
+  const duration = scene.storyboard
+    ? scene.storyboard.durationSeconds
+    : shotDuration(audioDuration, scene.duration_seconds);
+  if (!validSeedanceDuration(duration, videoModel))
+    throw new Error(
+      `Clip ${duration} giây vượt giới hạn ${seedanceMaxDuration(videoModel)} giây của model đã chọn. Hãy soạn lại storyboard.`,
+    );
   return {
     prompt: compileFilmMotion(scene, mode, format),
     image,
-    duration: scene.storyboard
-      ? scene.storyboard.durationSeconds
-      : shotDuration(audioDuration, scene.duration_seconds),
+    duration,
     resolution,
     generate_audio: mode === "native",
   };

@@ -6,34 +6,47 @@ import {
   AI_PRICING_USD_VND,
   BILLING_POINT_FLOOR_VND,
 } from "@/lib/ai-pricing";
+import {
+  SEEDANCE_25_IMAGE_MODEL,
+  SEEDANCE_25_TEXT_MODEL,
+  seedanceModel,
+  seedanceVariant,
+  validSeedanceDuration,
+  type SeedanceVariant,
+} from "@/lib/video-models";
 
 const API = "https://api.wavespeed.ai/api/v3";
 export const WAVESPEED_SEEDANCE_IMAGE_TO_VIDEO_MODEL =
-  "bytedance/seedance-2.5/image-to-video";
+  SEEDANCE_25_IMAGE_MODEL;
 export const WAVESPEED_SEEDANCE_TEXT_TO_VIDEO_MODEL =
-  "bytedance/seedance-2.5/text-to-video";
+  SEEDANCE_25_TEXT_MODEL;
 // Kept as a compatibility export for jobs created before the separate video tool.
 export const WAVESPEED_SEEDANCE_MODEL = WAVESPEED_SEEDANCE_IMAGE_TO_VIDEO_MODEL;
 
 export type VideoRequest = {
+  model: SeedanceVariant;
   mode: "text" | "image";
   prompt: string;
   image?: string;
   lastImage?: string;
   referenceImages?: string[];
   aspectRatio?: "9:16" | "1:1" | "16:9";
-  duration: 5 | 10 | 15 | 30;
+  duration: number;
   resolution: "720p" | "1080p";
   generateAudio: boolean;
 };
 
-export function getSeedanceModel(input: Pick<VideoRequest, "mode">) {
-  return input.mode === "text"
-    ? WAVESPEED_SEEDANCE_TEXT_TO_VIDEO_MODEL
-    : WAVESPEED_SEEDANCE_IMAGE_TO_VIDEO_MODEL;
+export function getSeedanceModel(input: Pick<VideoRequest, "mode" | "model">) {
+  return seedanceModel(seedanceVariant(input.model), input.mode);
 }
 
 function providerInputs(input: VideoRequest) {
+  if (!validSeedanceDuration(input.duration, input.model))
+    throw new Error(
+      input.model === "seedance-2.0-fast"
+        ? "Seedance 2.0 Fast hỗ trợ clip từ 4 đến 15 giây."
+        : "Seedance 2.5 hỗ trợ clip từ 4 đến 30 giây.",
+    );
   const common = {
     prompt: input.generateAudio ? input.prompt : `${input.prompt}\nSILENT VIDEO: diễn hành động và biểu cảm tự nhiên, không phát lời thoại, không nhạc; tiếng Việt sẽ lồng riêng.`,
     duration: input.duration,
@@ -111,10 +124,7 @@ export async function submitSeedanceVideo(
   input: VideoRequest,
   webhook: string,
 ) {
-  const endpoint =
-    input.mode === "text"
-      ? "/bytedance/seedance-2.5/text-to-video"
-      : "/bytedance/seedance-2.5/image-to-video";
+  const endpoint = `/${getSeedanceModel(input)}`;
   return request(`${endpoint}?webhook=${encodeURIComponent(webhook)}`, {
     method: "POST",
     body: JSON.stringify(providerInputs(input)),

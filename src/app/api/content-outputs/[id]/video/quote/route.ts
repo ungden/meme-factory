@@ -4,6 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/supabase/request-auth";
 import { quoteSeedanceVideo } from "@/lib/wavespeed";
 import type { VideoRequest } from "@/lib/wavespeed";
+import {
+  seedanceVariant,
+  validSeedanceDuration,
+} from "@/lib/video-models";
 
 function validInput(body: Record<string, unknown>) {
   const mode =
@@ -12,7 +16,7 @@ function validInput(body: Record<string, unknown>) {
     typeof body.prompt === "string" &&
     body.prompt.trim().length > 0 &&
     (mode === "text" || typeof body.image === "string") &&
-    [5, 10, 15, 30].includes(Number(body.duration)) &&
+    validSeedanceDuration(body.duration, body.model) &&
     ["720p", "1080p"].includes(String(body.resolution)) &&
     (mode !== "text" ||
       ["9:16", "1:1", "16:9"].includes(String(body.aspect_ratio ?? "9:16")))
@@ -49,6 +53,7 @@ export async function POST(
   try {
     const mode: VideoRequest["mode"] = body.mode === "text" ? "text" : "image";
     const config: VideoRequest = {
+      model: seedanceVariant(body.model),
       mode,
       prompt: body.prompt.trim(),
       image: typeof body.image === "string" ? body.image : undefined,
@@ -63,7 +68,7 @@ export async function POST(
         body.aspect_ratio === "1:1" || body.aspect_ratio === "16:9"
           ? body.aspect_ratio
           : "9:16",
-      duration: Number(body.duration) as 5 | 10 | 15 | 30,
+      duration: Number(body.duration),
       resolution: body.resolution as "720p" | "1080p",
       generateAudio: false,
     };

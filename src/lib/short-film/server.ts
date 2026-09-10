@@ -31,6 +31,10 @@ import {
   isGeminiTtsModel,
 } from "./contracts";
 import { fixedVoiceEnabled } from "./features";
+import {
+  seedanceImageModel,
+  seedanceMaxDuration,
+} from "../video-models";
 export const hash = (v: unknown) =>
   crypto.createHash("sha256").update(JSON.stringify(v)).digest("hex");
 export class FilmError extends Error {
@@ -169,6 +173,8 @@ export async function savePlan(
 ) {
   checkVersion(a, body, old);
   const inputs = body.scenes as (SceneInput & { camera?: string })[];
+  const videoModel = seedanceImageModel(body.videoModel ?? old?.video_model);
+  const maxVideoDuration = seedanceMaxDuration(videoModel);
   if (!Array.isArray(inputs) || inputs.length < 1 || inputs.length > 12)
     throw new FilmError("Cần 1–12 cảnh.");
   if (inputs.some((s) => s.storyboard) && body.audioMode === "fixed")
@@ -186,6 +192,10 @@ export async function savePlan(
         e instanceof Error ? e.message : "Storyboard không hợp lệ.",
       );
     }
+    if (s.durationSeconds > maxVideoDuration)
+      throw new FilmError(
+        `Cảnh ${i + 1} dài ${s.durationSeconds} giây, vượt giới hạn ${maxVideoDuration} giây của model đã chọn. Hãy dùng AI soạn lại storyboard.`,
+      );
     if (
       s.characterIds.some((id) => !ids.includes(id)) ||
       (s.speakerCharacterId &&
@@ -248,6 +258,7 @@ export async function savePlan(
       ? body.format
       : "16:9",
     resolution: body.resolution === "1080p" ? "1080p" : "720p",
+    video_model: videoModel,
     audio_mode:
       body.audioMode === "native"
         ? "native"
@@ -657,11 +668,12 @@ export async function quotePlan(
         plan.resolution,
         await signed(a, String(image.result?.path)),
         plan.audio_mode === "fixed" ? Number(audio?.result?.duration || 0) : 0,
+        plan.video_model,
       );
       const v = task(
         "video",
         {
-          model: FILM_MODELS.video,
+          model: plan.video_model,
           providerInputs: inputs,
           imageTaskId: image.id,
           audioTaskId: audio?.id,
@@ -675,7 +687,7 @@ export async function quotePlan(
           format: plan.format,
           resolution: plan.resolution,
         },
-        await modelPrice(FILM_MODELS.video, inputs),
+        await modelPrice(plan.video_model, inputs),
         s,
       );
       tasks.push(v);

@@ -33,6 +33,7 @@ export function storyboardDialogue(board: FilmStoryboard) {
 export function validateStoryboard(
   value: unknown,
   castIds: string[],
+  maxSeconds = STORYBOARD_MAX_SECONDS,
 ): FilmStoryboard {
   const b = value as FilmStoryboard;
   if (
@@ -40,13 +41,13 @@ export function validateStoryboard(
     b.version !== 1 ||
     !Number.isInteger(b.durationSeconds) ||
     b.durationSeconds < STORYBOARD_MIN_SECONDS ||
-    b.durationSeconds > STORYBOARD_MAX_SECONDS ||
+    b.durationSeconds > maxSeconds ||
     !Array.isArray(b.beats) ||
     !b.beats.length ||
     b.beats.length > 12
   )
     throw new Error(
-      "STORYBOARD_INVALID: cần storyboard 4-30 giây có nhịp diễn rõ ràng.",
+      `STORYBOARD_INVALID: cần storyboard ${STORYBOARD_MIN_SECONDS}-${maxSeconds} giây có nhịp diễn rõ ràng.`,
     );
   let end = 0;
   for (const beat of b.beats) {
@@ -102,15 +103,16 @@ export function validateStoryboard(
 export function storyboardGroups(
   lines: { text: string }[],
   reaction: boolean,
+  maxSeconds = STORYBOARD_MAX_SECONDS,
 ): number[][] {
   const weights = lines.map((l) => spokenSeconds(l.text));
   if (reaction) weights.push(1.2);
   if (
     !weights.length ||
-    weights.some((w) => w > STORYBOARD_MAX_SECONDS - 0.5)
+    weights.some((w) => w > maxSeconds - 0.5)
   )
     throw new Error(
-      "STORYBOARD_LINE_TOO_LONG: rút gọn câu thoại để nói trọn trong một clip 30 giây.",
+      `STORYBOARD_LINE_TOO_LONG: rút gọn câu thoại để nói trọn trong một clip ${maxSeconds} giây.`,
     );
   for (let count = 1; count <= weights.length; count++) {
     const target = weights.reduce((n, w) => n + w, 0) / count;
@@ -136,7 +138,7 @@ export function storyboardGroups(
         const spokenTurns = to - from + 1 - (includesReaction ? 1 : 0);
         if (spokenTurns > 2) break;
         sum += weights[to];
-        if (sum > STORYBOARD_MAX_SECONDS - 0.5) break;
+        if (sum > maxSeconds - 0.5) break;
         const next = search(to + 1, remaining - 1);
         if (!next) continue;
         const score = next.score + (sum - target) ** 2;

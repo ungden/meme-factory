@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { access, fail, FilmError } from "@/lib/short-film/server";
 import { fixedVoiceEnabled } from "@/lib/short-film/features";
+import { seedanceImageModel } from "@/lib/video-models";
 
 export async function GET(
   request: NextRequest,
@@ -87,6 +88,14 @@ export async function PUT(
         max_points_per_film: maxFilm,
         max_points_per_day: maxDay,
         queued_plan_ids: ids,
+        default_config: {
+          duration: 35,
+          format: "16:9",
+          resolution: "720p",
+          audioMode: "dubbed",
+          subtitles: true,
+          videoModel: seedanceImageModel(body.videoModel),
+        },
         created_by: a.user.id,
         updated_at: new Date().toISOString(),
       })

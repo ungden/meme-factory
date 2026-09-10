@@ -4,6 +4,7 @@ import {
   type FilmStoryboard,
 } from "./film-storyboard";
 import type { VideoRequest } from "@/lib/wavespeed";
+import type { SeedanceVariant } from "@/lib/video-models";
 
 export const MULTISCENE_DURATIONS = [5, 10, 15, 30] as const;
 export const MULTISCENE_RESOLUTIONS = ["720p", "1080p"] as const;
@@ -155,10 +156,12 @@ export function sceneVideoRequest(
   },
   resolution: "720p" | "1080p",
   generateAudio: boolean,
+  model: SeedanceVariant = "seedance-2.5",
 ): VideoRequest {
   if (!isSceneDuration(scene.durationSeconds))
     throw new Error("Thời lượng từng cảnh phải là 5, 10, 15 hoặc 30 giây.");
   return {
+    model,
     mode: "image",
     prompt: scene.prompt,
     image: scene.startImageUrl,

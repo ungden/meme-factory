@@ -71,6 +71,35 @@ describe("content-sized Seedance storyboard production", () => {
       [4, 5],
     ]);
   });
+  it("splits the same complete story into shorter source clips for Seedance 2.0 Fast", () => {
+    const longStory = {
+      ...story,
+      dialogue: story.dialogue.map((line) => ({
+        ...line,
+        text: `${line.text} thêm nhiều từ để mỗi lượt thoại cần thời gian diễn tự nhiên`,
+      })),
+    } as Story;
+    const longPanels = {
+      ...panels,
+      shots: Object.fromEntries(
+        longStory.dialogue.map((_, i) => [
+          `shot${i + 1}`,
+          panels.shots[`shot${i + 1}`],
+        ]),
+      ),
+    };
+    const standard = compileStoryboards(longPanels, longStory, characters, 30);
+    const fast = compileStoryboards(longPanels, longStory, characters, 15);
+    expect(fast.scenes.length).toBeGreaterThan(standard.scenes.length);
+    expect(fast.scenes.every((scene) => scene.durationSeconds <= 15)).toBe(
+      true,
+    );
+    expect(
+      fast.scenes.flatMap((scene) =>
+        scene.storyboard.beats.map((beat) => beat.dialogue),
+      ),
+    ).toEqual(longStory.dialogue.map((line) => line.text));
+  });
   it("keeps a planned silent ending inside the final clip and rejects a sentence that cannot fit", () => {
     const groups = storyboardGroups(story.dialogue, true);
     expect(groups.flat()).toEqual([0, 1, 2, 3, 4, 5, 6]);

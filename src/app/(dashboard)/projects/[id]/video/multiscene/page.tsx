@@ -30,6 +30,12 @@ import {
   type FilmScene,
   type FilmTask,
 } from "@/lib/short-film/contracts";
+import {
+  SEEDANCE_VARIANTS,
+  seedanceImageModel,
+  seedanceMaxDuration,
+  type FilmVideoModel,
+} from "@/lib/video-models";
 
 type DraftScene = {
   storyboard?: FilmStoryboard | null;
@@ -56,6 +62,7 @@ type Draft = {
   targetDurationSeconds: number;
   format: string;
   resolution: string;
+  videoModel: FilmVideoModel;
   audioMode: "native" | "fixed" | "dubbed";
   subtitles: boolean;
   scenes: DraftScene[];
@@ -85,6 +92,7 @@ const blank = (): Draft => ({
   targetDurationSeconds: 30,
   format: "16:9",
   resolution: "720p",
+  videoModel: seedanceImageModel(null),
   audioMode: "dubbed",
   subtitles: true,
   scenes: [],
@@ -128,6 +136,7 @@ const fromPlan = (p: FilmPlan): Draft => ({
   targetDurationSeconds: p.target_duration_seconds || 30,
   format: p.format,
   resolution: p.resolution,
+  videoModel: seedanceImageModel(p.video_model),
   audioMode: p.audio_mode === "native" ? "dubbed" : p.audio_mode,
   subtitles: p.subtitles,
   scenes: p.video_plan_scenes.map(fromScene),
@@ -336,6 +345,7 @@ export default function ShortFilmPage() {
             ) {
               initial = {
                 ...saved.draft,
+                videoModel: seedanceImageModel(saved.draft.videoModel),
                 audioMode:
                   saved.draft.audioMode === "native"
                     ? "dubbed"
@@ -557,6 +567,7 @@ export default function ShortFilmPage() {
         ) {
           nextDraft = {
             ...saved.draft,
+            videoModel: seedanceImageModel(saved.draft.videoModel),
             audioMode:
               saved.draft.audioMode === "native"
                 ? "dubbed"
@@ -656,6 +667,7 @@ export default function ShortFilmPage() {
       intent: draft.brief,
       selectedCharacterIds: cast,
       targetDurationSeconds: draft.targetDurationSeconds,
+      videoModel: draft.videoModel,
       workspaceVersion: workspace,
     });
     setAssistId(start.jobId);
@@ -685,6 +697,7 @@ export default function ShortFilmPage() {
       intent: selectedPlan ? "" : draft.brief,
       maxPointsPerFilm: filmCap,
       maxPointsPerDay: dayCap,
+      videoModel: draft.videoModel,
       idempotencyKey: key,
     });
     setNote(`Đã nhận lượt sản xuất ${response.runId}. Có thể rời trang.`);
@@ -710,6 +723,7 @@ export default function ShortFilmPage() {
         localTime: autoTime,
         maxPointsPerFilm: filmCap,
         maxPointsPerDay: dayCap,
+        videoModel: draft.videoModel,
         queuedPlanIds,
       },
       "PUT",
@@ -1314,6 +1328,37 @@ export default function ShortFilmPage() {
                     <Wand2 size={17} /> AI viết phim
                   </button>
                 </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {SEEDANCE_VARIANTS.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => change({ videoModel: item.imageModel })}
+                      className={`min-h-14 rounded-lg border px-3 py-2 text-left text-sm ${draft.videoModel === item.imageModel ? "th-bg-accent-light th-text-accent" : "th-text-secondary"}`}
+                      style={{
+                        borderColor:
+                          draft.videoModel === item.imageModel
+                            ? "var(--accent)"
+                            : "var(--border-primary)",
+                      }}
+                    >
+                      <strong className="block">{item.label}</strong>
+                      <span className="text-xs">
+                        {item.description} · tối đa {item.maxDurationSeconds}s/clip
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {draft.scenes.some(
+                  (scene) =>
+                    scene.durationSeconds >
+                    seedanceMaxDuration(draft.videoModel),
+                ) && (
+                  <p className="mt-2 text-sm text-amber-700">
+                    Storyboard hiện có đoạn dài hơn giới hạn model. Bấm AI viết
+                    phim để chia lại, nội dung và điểm kết vẫn được giữ.
+                  </p>
+                )}
                 {assistId && (
                   <button
                     disabled={!!busy}
@@ -1518,6 +1563,7 @@ export default function ShortFilmPage() {
                             },
                             story,
                             characters,
+                            seedanceMaxDuration(draft.videoModel),
                           );
                           change({
                             audioMode: "dubbed",

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { access, fail, FilmError, readPlan } from "@/lib/short-film/server";
 import { speechLines } from "@/lib/short-film/contracts";
 import { fixedVoiceEnabled } from "@/lib/short-film/features";
+import { seedanceImageModel } from "@/lib/video-models";
 
 export async function GET(
   request: NextRequest,
@@ -73,7 +74,7 @@ export async function POST(
       typeof body.idempotencyKey === "string"
         ? body.idempotencyKey
         : crypto.randomUUID();
-    const { data, error } = await a.admin.rpc("create_film_production_run", {
+    const { data, error } = await a.admin.rpc("create_film_production_run_v2", {
       p_project: a.project.id,
       p_actor: a.user.id,
       p_workspace: a.project.workspace_version,
@@ -85,6 +86,7 @@ export async function POST(
       p_key: key,
       p_source: "manual",
       p_schedule_date: null,
+      p_video_model: plan?.video_model || seedanceImageModel(body.videoModel),
     });
     if (error)
       throw new FilmError(
