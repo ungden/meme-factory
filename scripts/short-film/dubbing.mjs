@@ -20,7 +20,7 @@ export function validateDubCue(cue, audio, videoTask, measuredDuration) {
     !Number.isFinite(measuredDuration) ||
     measuredDuration <= 0 ||
     Math.abs(measuredDuration - cue.duration) > 0.08 ||
-    measuredDuration + 0.1 > cue.endSeconds - cue.startSeconds
+    measuredDuration > cue.endSeconds - cue.startSeconds + 0.02
   )
     throw new Error("DUB_DURATION_MISMATCH: thoại không vừa nhịp diễn.");
 }
@@ -41,7 +41,7 @@ export function dubArguments(video, audioFiles, schedule, duration, output) {
       cue.startSeconds < priorEnd ||
       cue.duration <= 0 ||
       cue.endSeconds > duration + 0.05 ||
-      cue.duration + 0.1 > cue.endSeconds - cue.startSeconds
+      cue.duration > cue.endSeconds - cue.startSeconds + 0.02
     )
       throw new Error("DUB_OVERLAP_OR_OVERFLOW");
     priorEnd = cue.startSeconds + cue.duration;

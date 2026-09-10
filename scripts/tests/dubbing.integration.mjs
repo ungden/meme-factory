@@ -15,6 +15,20 @@ test('reject wrong voice, text, project, duration and overlapping cues', () => {
   assert.throws(() => validateDubCue(cue, audio, video, 3));
   assert.throws(() => dubArguments('v', ['a','b'], [cue, { ...cue, startSeconds: 0.2 }], 3, 'out'));
 });
+test('accepts measured speech that exactly fills its frozen schedule window', () => {
+  const exact = { ...cue, endSeconds: 4.38, duration: 4.28 };
+  const exactAudio = {
+    ...video,
+    kind: 'tts',
+    status: 'completed',
+    input: {
+      ...exact,
+      providerInputs: { text: exact.dialogue, voice: exact.voice },
+    },
+  };
+  validateDubCue(exact, exactAudio, video, 4.28);
+  assert.doesNotThrow(() => dubArguments('v', ['a'], [exact], 5, 'out'));
+});
 test('actual FFmpeg preserves video length and removes original audio mapping', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'aida-dub-qa-'));
   try {
