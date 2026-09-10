@@ -841,7 +841,8 @@ export default function ShortFilmPage() {
             </h1>
             <p className="mt-1 text-sm th-text-secondary">
               Seedance tạo chuyển động; Gemini lồng tiếng theo từng nhân vật.
-              AIDA chép audio thật để làm phụ đề và ghép phim.
+              AIDA đối chiếu audio thực tế; phụ đề dùng lời TTS đã khóa và mốc
+              thời gian của từng lượt thoại.
             </p>
           </header>
           <div className="mb-4 flex min-w-0 flex-wrap items-center gap-2">
@@ -1922,7 +1923,10 @@ export default function ShortFilmPage() {
                     {t.kind === "transcribe" && (
                       <p className="text-sm th-text-primary">
                         {String(t.result?.text || "Đang chép lời thực tế…")}{" "}
-                        {Number(t.result?.speechError) > 0.2
+                        {Number(t.result?.speechError) >
+                        (t.result?.transcriptSource === "locked_tts_schedule"
+                          ? 0.3
+                          : 0.2)
                           ? "· Lời khác kịch bản, cần kiểm tra."
                           : ""}
                       </p>
