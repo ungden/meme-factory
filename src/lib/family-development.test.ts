@@ -324,6 +324,38 @@ it("grounds ellipsis-separated excerpts without permitting paraphrases", () => {
   ).toThrow("FAMILY_EDITORIAL_REVIEW_INVALID");
 });
 
+it("grounds intent evidence that cites multiple quoted lines", () => {
+  const result = validateEditorialReview(
+    {
+      ...review,
+      intentCheck: {
+        status: "faithful",
+        evidence:
+          "Bánh Bao hỏi về ‘Bố đã mang đủ đồ chưa?’, còn Đậu Đỏ nhắc ‘Bố còn để bình nước ở đây này.’",
+        reason:
+          "Hai lượt thoại đều giữ đúng chi tiết người dùng yêu cầu trong tình huống.",
+      },
+    },
+    story,
+  );
+  expect(result.passed).toBe(true);
+  expect(() =>
+    validateEditorialReview(
+      {
+        ...review,
+        intentCheck: {
+          status: "faithful",
+          evidence:
+            "Bánh Bao hỏi về ‘Bố đã mang đủ đồ chưa?’, còn Đậu Đỏ nhắc ‘một câu bịa thêm’.",
+          reason:
+            "Một phần trích dẫn không xuất hiện trong bản diễn và phải bị từ chối.",
+        },
+      },
+      story,
+    ),
+  ).toThrow("FAMILY_EDITORIAL_REVIEW_INVALID");
+});
+
 it("derives acceptance from the editorial verdict, not a second contradictory flag", () => {
   expect(
     validateEditorialReview({ ...review, passed: false }, story).passed,

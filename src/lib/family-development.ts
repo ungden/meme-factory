@@ -218,6 +218,26 @@ function groundedQuote(quote: string, sources: string[]) {
     )
   );
 }
+
+// Editorial evidence often cites more than one short line in a sentence, for
+// example: `line 1 “...” and line 3 “...”`.  Treat each quoted excerpt as a
+// separate citation.  The old whole-string check is kept as the first path so
+// plain, single-line evidence remains strict and invented excerpts still fail.
+function groundedEvidence(evidence: string, sources: string[]) {
+  if (groundedQuote(evidence, sources)) return true;
+  const excerpts = [
+    ...evidence.matchAll(/[“”]([^“”]{2,})[“”]/g),
+    ...evidence.matchAll(/"([^\"]{2,})"/g),
+    ...evidence.matchAll(/[‘’]([^‘’]{2,})[‘’]/g),
+    ...evidence.matchAll(/'([^']{2,})'/g),
+  ]
+    .map((match) => match[1]?.trim())
+    .filter((quote): quote is string => Boolean(quote));
+  return (
+    excerpts.length > 0 &&
+    excerpts.every((quote) => groundedQuote(quote, sources))
+  );
+}
 export function validatePremises(
   value: unknown,
   ids: string[],
@@ -364,7 +384,7 @@ export function validateEditorialReview(
     !["faithful", "needs_revision"].includes(intent.status) ||
     !hasText(intent.evidence, 2) ||
     !hasText(intent.reason, 15) ||
-    !groundedQuote(intent.evidence, storyEvidence) ||
+    !groundedEvidence(intent.evidence, storyEvidence) ||
     !w ||
     !["ready_for_user", "revise", "reject"].includes(w.decision) ||
     !hasText(w.reason, 15) ||
