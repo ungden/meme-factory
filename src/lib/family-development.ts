@@ -359,6 +359,13 @@ export function validateEditorialReview(
     ...story.beats.map((b) => b.description),
     ...story.dialogue.flatMap((d) => [d.text, d.action, `${d.text} (${d.action})`]),
   ];
+  // Keep the failure actionable for the single repair pass. Models sometimes
+  // cite a phrase from the user's brief instead of the exact line they wrote;
+  // that must become `needs_revision`, rather than a second identical review.
+  if (intent && !groundedEvidence(intent.evidence, storyEvidence))
+    throw new Error(
+      "FAMILY_EDITORIAL_REVIEW_INVALID: intentCheck.evidence phải trích nguyên văn từ bản diễn; nếu chi tiết yêu cầu chưa xảy ra, đặt status=needs_revision và trích câu/hành động thực tế",
+    );
   if (
     !ending ||
     !["clean_stop", "forced_tail", "unfinished"].includes(ending.status) ||
