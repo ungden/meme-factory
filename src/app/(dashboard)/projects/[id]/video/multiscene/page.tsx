@@ -239,6 +239,7 @@ export default function ShortFilmPage() {
   const lock = useRef(false),
     edited = useRef(false),
     generation = useRef(0);
+  const familyVoicesLocked = project?.name === "Bánh Bao & Đậu Đỏ";
   const requestKeys = useRef<Record<string, string>>({});
   const change = (patch: Partial<Draft>) => {
     edited.current = true;
@@ -1443,13 +1444,21 @@ export default function ShortFilmPage() {
                       thực để làm phụ đề. Khớp môi cần xem lại trên thành phẩm.
                     </p>
                   )}
-                  {draft.audioMode === "fixed" && !enabled && (
+                  {!familyVoicesLocked &&
+                    draft.audioMode === "fixed" &&
+                    !enabled && (
                     <p className="mt-3 text-xs th-text-secondary">
                       Có thể nghe và duyệt mẫu Gemini; nhánh lồng tiếng và
                       lip-sync chỉ mở sau bài kiểm chứng.
                     </p>
                   )}
-                  {draft.audioMode !== "native" &&
+                  {familyVoicesLocked ? (
+                    <div className="col-span-2 mt-3 rounded-lg border th-border bg-[var(--surface-muted)] px-3 py-2 text-sm th-text-secondary">
+                      Giọng Bánh Bao, Đậu Đỏ, Bố và Mẹ đã được chốt cho dự án
+                      này. Tất cả cảnh sẽ dùng đúng phiên bản đã duyệt; không có
+                      lựa chọn giọng thử hoặc giọng chờ duyệt.
+                    </div>
+                  ) : draft.audioMode !== "native" &&
                     characters
                       .filter((c) => cast.includes(c.id))
                       .map((c) => (
@@ -1512,7 +1521,7 @@ export default function ShortFilmPage() {
                           </p>
                         </div>
                       ))}
-                  {voiceQuote && (
+                  {!familyVoicesLocked && voiceQuote && (
                     <button
                       disabled={!!busy}
                       onClick={() =>

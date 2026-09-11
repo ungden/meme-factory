@@ -35,6 +35,10 @@ export async function GET(
       .eq("workspace_version", a.project.workspace_version)
       .order("version", { ascending: false });
     if (error) throw error;
+    const familyVoicesLocked = a.project.name === "Bánh Bao & Đậu Đỏ";
+    const visibleVoices = familyVoicesLocked
+      ? (voices || []).filter((voice) => !!voice.approved_at)
+      : voices || [];
     const { data: tasks } = await a.admin
       .from("short_film_tasks")
       .select("*")
@@ -45,21 +49,25 @@ export async function GET(
       .order("created_at", { ascending: false })
       .limit(40);
     return NextResponse.json({
-      voices,
-      options: VOICES,
-      geminiModels: GEMINI_TTS_MODELS,
-      geminiVoices: GEMINI_VOICE_PRESETS,
-      tasks: await publicTasks(
-        a,
-        ((tasks as FilmTask[]) || []).map((t) => ({
-          ...t,
-          input: {
-            ...t.input,
-            displayName: voices?.find((v) => v.id === t.input.voiceVersionId)
-              ?.characters?.name,
-          },
-        })),
-      ),
+      voices: visibleVoices,
+      options: familyVoicesLocked ? [] : VOICES,
+      geminiModels: familyVoicesLocked ? [] : GEMINI_TTS_MODELS,
+      geminiVoices: familyVoicesLocked ? {} : GEMINI_VOICE_PRESETS,
+      voicesLocked: familyVoicesLocked,
+      tasks: familyVoicesLocked
+        ? []
+        : await publicTasks(
+            a,
+            ((tasks as FilmTask[]) || []).map((t) => ({
+              ...t,
+              input: {
+                ...t.input,
+                displayName: visibleVoices.find(
+                  (v) => v.id === t.input.voiceVersionId,
+                )?.characters?.name,
+              },
+            })),
+          ),
     });
   } catch (e) {
     return fail(e);
@@ -73,6 +81,11 @@ export async function POST(
     const a = await access(r, (await params).id);
     const body = await r.json();
     checkVersion(a, body);
+    if (a.project.name === "Bánh Bao & Đậu Đỏ")
+      throw new FilmError(
+        "Giọng của bốn nhân vật trong dự án đã được chốt; không tạo hoặc duyệt thêm giọng ở đây.",
+        409,
+      );
     if (body.quoteId) {
       const { data: q } = await a.admin
         .from("short_film_quotes")
