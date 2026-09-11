@@ -36,6 +36,11 @@ import {
 import { GoogleGenAI, type ThinkingLevel } from "@google/genai";
 import { getGeminiApiKey } from "@/lib/server-secrets";
 import { normalizeFamilyFatherTerms } from "./family-terminology";
+import {
+  PERFORMANCE_LANES,
+  assertPerformanceDirection,
+  type PerformanceDirection,
+} from "./performance-direction";
 
 /**
  * The shot schema and validation approach were adapted from Rocklore commit
@@ -52,7 +57,8 @@ export type CreativeAssistKind =
   | "image_plan"
   | "video_clip_plan"
   | "video_plan"
-  | "scene_revision";
+  | "scene_revision"
+  | "performance_revision";
 
 export type CreativeCharacter = {
   id: string;
@@ -86,6 +92,7 @@ export type PlannedScene = {
   imagePrompt: string;
   motionPrompt: string;
   followsPrevious: boolean;
+  performanceDirection?: PerformanceDirection | null;
 };
 
 export type CreativeAssistResult =
@@ -120,7 +127,8 @@ export type CreativeAssistResult =
       story?: Story;
       scenes: PlannedScene[];
     }
-  | { kind: "scene_revision"; scenes: PlannedScene[]; summary: string };
+  | { kind: "scene_revision"; scenes: PlannedScene[]; summary: string }
+  | { kind: "performance_revision"; scenes: PlannedScene[]; summary: string };
 
 export type CreativeAssistInput = {
   kind: CreativeAssistKind;
@@ -173,6 +181,12 @@ function plannedScene(
   )
     return null;
   const intendedDuration = Number(item.durationSeconds);
+  let performanceDirection: PerformanceDirection | null = null;
+  if (item.performanceDirection != null) {
+    performanceDirection = assertPerformanceDirection(
+      item.performanceDirection as PerformanceDirection,
+    );
+  }
   const dialogue = text(item.dialogue, 700);
   // Editorial shot length is not a provider contract. Round UP before quoting,
   // without inventing an edit boundary or clipping a spoken sentence.
@@ -219,6 +233,7 @@ function plannedScene(
     imagePrompt: text(item.imagePrompt, 1600),
     motionPrompt: text(item.motionPrompt, 1600),
     followsPrevious: item.followsPrevious === true,
+    ...(performanceDirection ? { performanceDirection } : {}),
   };
 }
 
@@ -324,7 +339,7 @@ export function validateCreativeAssist(
     };
   }
   if (!scenes.length) throw new Error("CREATIVE_ASSIST_REVISION_INVALID");
-  return { kind, scenes, summary: text(result.summary, 700) };
+  return { kind, scenes, summary: text(result.summary, 700) } as CreativeAssistResult;
 }
 
 function contextText(
@@ -346,7 +361,9 @@ function schemaFor(kind: CreativeAssistKind) {
   if (kind === "video_clip_plan")
     return '{"prompt":"","caption":"","dialogue":"","speakerCharacterId":"uuid or null","action":"","setting":""}';
   if (kind === "video_plan")
-    return '{"title":"","summary":"","scenes":[{"characterIds":["uuid"],"speakerCharacterId":"uuid or null","dialogue":"","action":"","setting":"","camera":"","durationSeconds":5,"imagePrompt":"","motionPrompt":"","followsPrevious":false}]}';
+    return '{"title":"","summary":"","scenes":[{"characterIds":["uuid"],"speakerCharacterId":"uuid or null","dialogue":"","action":"","setting":"","camera":"","durationSeconds":5,"imagePrompt":"","motionPrompt":"","followsPrevious":false,"performanceDirection":{"version":1,"lane":"deadpan_reversal","comicObjective":"","statusBefore":"","statusAfter":"","hook":"","beats":[{"physicalAction":"","expressionChange":"","gesture":"","propInteraction":"","reactionTarget":"","cameraMove":""},{"physicalAction":"","expressionChange":"","gesture":"","propInteraction":"","reactionTarget":"","cameraMove":""}],"revealOrCut":""}}]}';
+  if (kind === "performance_revision")
+    return '{"summary":"","scenes":[{"characterIds":["uuid"],"speakerCharacterId":"uuid or null","dialogue":"","action":"","setting":"","camera":"","durationSeconds":5,"imagePrompt":"","motionPrompt":"","followsPrevious":false,"performanceDirection":{"version":1,"lane":"deadpan_reversal","comicObjective":"","statusBefore":"","statusAfter":"","hook":"","beats":[{"physicalAction":"","expressionChange":"","gesture":"","propInteraction":"","reactionTarget":"","cameraMove":""},{"physicalAction":"","expressionChange":"","gesture":"","propInteraction":"","reactionTarget":"","cameraMove":""}],"revealOrCut":""}}]}';
   return '{"summary":"","scenes":[{"characterIds":["uuid"],"speakerCharacterId":"uuid or null","dialogue":"","action":"","setting":"","camera":"","durationSeconds":5,"imagePrompt":"","motionPrompt":"","followsPrevious":false}]}';
 }
 
@@ -360,8 +377,9 @@ function instruction(input: CreativeAssistInput) {
   if (input.kind === "video_clip_plan")
     return `${base}\n\nSoạn một clip ${input.imageMode === "image" ? "từ ảnh đầu đã chọn" : "từ mô tả"}. prompt phải đủ hành động, máy quay, ánh sáng, người nói và câu thoại nếu có. Một clip chỉ một lượt nói; lời thoại vừa với thời lượng. Caption tách riêng.`;
   if (input.kind === "video_plan")
-    return `${base}\n\nViết video nhiều cảnh tổng khoảng ${target} giây, tối thiểu ba cảnh. Có mở đầu, diễn biến và điểm chốt. Mỗi cảnh chỉ một người nói và một câu thoại ngắn nếu cần. Shot có thoại dùng cận cảnh chỉ một người trong characterIds để đồng bộ môi; cảnh nhiều người dành cho hành động, mở cảnh hoặc phản ứng không thoại. Mỗi durationSeconds là số nguyên từ 4 đến 30; lời thoại không quá 2.6 từ/giây. Tổng durationSeconds phải trong ±5 giây so với ${target}. imagePrompt chỉ khóa ảnh đầu, vị trí và hướng nhìn. motionPrompt chỉ đạo chuyển động bằng các mốc thời gian liên tục từ 0.0s tới hết durationSeconds: hành động chính bắt đầu ngay ở 0.0s, có ít nhất ba nhịp hành động/cảm xúc, camera chuyển động có chủ đích và trạng thái kết rõ để cắt. Không dùng mở cảnh đứng yên, stable camera hoặc gentle push-in chung chung. Dùng cảnh độc lập trừ khi hành động thực sự nối tiếp.`;
-  return `${base}\n\nChỉ sửa các cảnh mà yêu cầu nhắc tới. Cảnh khoá (chỉ số từ 1): ${(input.lockedSceneIndexes || []).map((index) => index + 1).join(", ") || "không có"}. Giữ nguyên nguyên văn các cảnh khoá. Cảnh hiện tại:\n${JSON.stringify(input.currentScenes || [])}`;
+    return `${base}\n\nViết video nhiều cảnh tổng khoảng ${target} giây, tối thiểu ba cảnh. Có mở đầu, diễn biến và điểm chốt. Chọn đúng một lane biểu cảm trong [${PERFORMANCE_LANES.join(", ")}], không trộn cơ chế. Mỗi cảnh chỉ một người nói và một câu thoại ngắn nếu cần. Shot có thoại dùng cận cảnh chỉ một người trong characterIds để đồng bộ môi; cảnh nhiều người dành cho hành động, mở cảnh hoặc phản ứng không thoại. Mỗi durationSeconds là số nguyên từ 4 đến 30; lời thoại không quá 2.6 từ/giây. Tổng durationSeconds phải trong ±5 giây so với ${target}. imagePrompt chỉ mô tả tư thế và đạo cụ TRƯỚC hành động, không đặt nhân vật ở kết quả. motionPrompt phải có hành vi nhìn thấy được: ít nhất hai hành động vật lý khác nhau, thay đổi quyền chủ động, phản ứng hướng vào người/đạo cụ cụ thể và điểm lộ/cắt. Không dùng riêng các nhãn “tự nhiên”, “nghiêm túc”, “ngây thơ”, “đáng yêu”, “gật đầu”, “nhìn ngơ”. Không dùng mở cảnh đứng yên, stable camera hoặc gentle push-in chung chung. Dùng cảnh độc lập trừ khi hành động thực sự nối tiếp.`;
+  const performanceOnly = input.kind === "performance_revision";
+  return `${base}\n\n${performanceOnly ? "Tối ưu biểu cảm cho từng cảnh: giữ nguyên characterIds, speakerCharacterId, dialogue, setting, durationSeconds, imagePrompt và thứ tự. Chỉ sửa action/camera/motionPrompt và performanceDirection. Mỗi cảnh bắt buộc có một lane, hook trong 0–1 giây, tối thiểu hai hành động vật lý khác nhau, thay đổi quyền chủ động, phản ứng hướng vào người/đạo cụ cụ thể và revealOrCut. Không thêm thoại, không đổi cast và không gọi provider." : "Chỉ sửa các cảnh mà yêu cầu nhắc tới."} Cảnh khoá (chỉ số từ 1): ${(input.lockedSceneIndexes || []).map((index) => index + 1).join(", ") || "không có"}. Giữ nguyên nguyên văn các cảnh khoá. Cảnh hiện tại:\n${JSON.stringify(input.currentScenes || [])}`;
 }
 
 export function creativeAssistModel(
@@ -421,7 +439,7 @@ export async function generateCreativeAssist(
   if (input.kind === "video_plan" && input.context.channelProfile)
     return generateFamilyFilm(input, options);
   const boardRevision =
-    input.kind === "scene_revision" &&
+    (input.kind === "scene_revision" || input.kind === "performance_revision") &&
     input.currentScenes?.some((s) => s.storyboard);
   const prompt = `${instruction(input)}\n\nTrả về JSON ĐÚNG schema, không markdown:\n${schemaFor(input.kind)}${boardRevision ? "\nVới scene có storyboard, giữ thêm toàn bộ storyboard (version, durationSeconds, contentEndSeconds nếu có và beats). Chỉ sửa beat được yêu cầu; giữ timeline liên tục từ 0 đến contentEndSeconds hoặc durationSeconds hiện tại, cast/người nói hợp lệ. dialogue của scene là nối các beat.dialogue có chữ bằng newline, speakerCharacterId của scene=null. Không được bỏ storyboard, ép clip về 15 giây hoặc đổi đoạn thành clip một câu." : ""}`;
   const validate = (value: unknown) => {
@@ -432,8 +450,8 @@ export async function generateCreativeAssist(
       input.targetDurationSeconds,
     );
     if (
-      input.kind === "scene_revision" &&
-      result.kind === "scene_revision" &&
+      (input.kind === "scene_revision" || input.kind === "performance_revision") &&
+      (result.kind === "scene_revision" || result.kind === "performance_revision") &&
       input.currentScenes
     ) {
       if (result.scenes.length !== input.currentScenes.length)
@@ -441,6 +459,8 @@ export async function generateCreativeAssist(
       input.currentScenes.forEach((previous, i) => {
         if (previous.storyboard && !result.scenes[i].storyboard)
           throw new Error("CREATIVE_REVISION_STORYBOARD_LOST");
+        if (input.kind === "performance_revision" && !result.scenes[i].performanceDirection)
+          throw new Error("CREATIVE_PERFORMANCE_DIRECTION_MISSING");
         if (input.lockedSceneIndexes?.includes(i)) {
           const normalized = plannedScene(previous, input.context);
           if (JSON.stringify(result.scenes[i]) !== JSON.stringify(normalized))
@@ -594,6 +614,7 @@ So sánh thực sự observedBehavior/progression/sampleExchange của cả ba. 
 TÌNH HUỐNG ĐÃ CHỌN: ${JSON.stringify(selected)}
 NHẬN XÉT SO SÁNH: ${JSON.stringify(trace.selection)}
 Viết bản đầy đủ bằng tiếng Việt, khai thác hành vi/quan hệ cụ thể đã chọn. Không chỉ minh họa một phép đảo vai hoặc gắn micro vào chuyện kể. Giữ các câu phản ứng có tác dụng, không bắt mỗi câu là một trò đùa. Khác biệt hai bé phải thể hiện qua cách xử lý/đối đáp, không chỉ đổi tên người nói.
+Chọn performanceLane đúng một trong: ${PERFORMANCE_LANES.join(", ")}. Mô tả lane bằng hành động trong thoại/action; không tự khen bản thân là hài.
 Thời lượng ${input.targetDurationSeconds || 35} giây chỉ là mục tiêu gần đúng. Hoàn tất trọn diễn biến và kết thúc người dùng yêu cầu trước; nếu câu chuyện tự nhiên cần dài hơn thì viết thêm lượt đến đúng điểm kết, nếu xong sớm thì dừng, tuyệt đối không cắt mất kết hoặc kéo lời để chạm mốc. Tổng 15–120 đơn vị lời thoại, mỗi lượt tối đa 35; tối đa 12 lượt kể cả reaction. Có thể không có reaction nếu đã đủ điểm dừng. Viết tình huống đang diễn ra, lời kể chỉ khi format cần và cách kể tự có sức hút.
 endingPlan.mode chọn hard_cut, silent_reaction hoặc resolved. stopAfterLine bắt buộc bằng đúng số lượt thoại; anchorQuote trích nguyên văn từ thoại/action lượt cuối; reason nói vì sao phép đảo/quan hệ hạ đúng ở đó. payoff và beats.payoff là mô tả điểm dừng để tương thích dữ liệu, KHÔNG phải yêu cầu punchline. Nếu dùng silent_reaction thì beats.reaction mô tả phản ứng không thoại; hai mode còn lại để reaction rỗng. Trước khi trả, thử xóa lần lượt các câu cuối: cắt mọi câu không làm mất điểm rơi. Không thêm câu mở vấn đề mới sau khi chuyện đã hạ, không nối câu đùa thứ hai để “finish”. Trước khi trả, đọc từng câu từ góc nhìn người đang nói: hai chị em nói với nhau dùng chị/em, “chị em mình/tụi mình”; nói với bố mẹ dùng “tụi con”; không để một bé tự gọi cả hai là “hai đứa”.
 comicPremise ghi thường thức/format gốc, điều bị đảo/lệch và tín hiệu nhìn/nghe thấy. Phần thoại/action phải tự thể hiện, không dựa vào lời tác giả tự khen. Không thêm người ngoài cast, không ép parody thành việc chăm bố mẹ.
@@ -657,6 +678,7 @@ Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống
   const result = await checked(
     `${contextText(context, allowed)}
 CÂU CHUYỆN ĐÃ SOẠN: ${JSON.stringify(story)}
+LỚP ĐẠO DIỄN BIỂU CẢM: lane=${story.performanceLane || "deadpan_reversal"}. Mỗi panel phải trả performanceDirection với comicObjective, statusBefore/statusAfter, hook, tối thiểu hai beat hành động vật lý, reactionTarget cụ thể và revealOrCut. Dùng hành vi nhìn thấy được; không dùng riêng các nhãn “tự nhiên”, “nghiêm túc”, “ngây thơ”, “đáng yêu”, “gật đầu”, “nhìn ngơ”.
 DỰNG STORYBOARD: chia thành ${groups.length} clip nguồn. Server tự chọn duration nguyên 4–${maxVideoDuration} giây cho từng request Seedance từ lượng thoại và hành động; phim cuối tiếp tục cắt ở đúng contentEndSeconds. Các nhịp thoại/panel được nhóm sẵn (chỉ số từ 1): ${JSON.stringify(groups.map((g) => g.map((i) => i + 1)))}. Mỗi panel là một nhịp bên trong đoạn, KHÔNG phải một job video riêng. GIỮ NGUYÊN câu thoại, thứ tự và người nói. Không thêm lời. durationSeconds ở panel chỉ là nhịp diễn dự kiến; server xếp timeline đủ cho lời và hành động, không kéo giãn theo mốc cố định.
 Trong cùng đoạn: cùng bối cảnh, ánh sáng, vị trí nhân vật, hướng nhìn và trục máy. Có thể pan theo người nói hoặc cắt đối đáp theo storyboard; không đổi cảnh ngẫu nhiên. Hành động bắt đầu ngay, người nghe phản ứng trong khi người kia nói, không đứng đợi tới lượt. Viết motionPrompt cho từng nhịp bằng hành động cụ thể, KHÔNG thêm mốc giây riêng; server gắn mốc liên tục theo lượng thoại và hành động. Chỉ một người nói tại mỗi thời điểm, đến nhịp sau mới đổi người. Không slow motion, kéo dài âm tiết, khoảng chờ mở đầu hoặc lặp động tác để đủ thời lượng.
 Panel đầu mỗi đoạn là một khung sạch có đủ người sẽ xuất hiện trong đoạn đó; đủ ảnh chuẩn từng người, đúng tỷ lệ, trang phục và vị trí. Không dùng grid/storyboard sheet làm ảnh đầu video. Các panel sau mô tả diễn tiến hành động/camera. Kết đoạn có tư thế, đạo cụ và hướng nhìn khớp đầu đoạn tiếp; giữ trục đối thoại để nối bằng hard cut. Không cố thêm reaction sau điểm dừng đã chọn. Với parody giữ tín hiệu nhận diện format.

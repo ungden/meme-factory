@@ -6,6 +6,12 @@ import {
   type StoryboardBeat,
 } from "./film-storyboard";
 import type { ChannelProfile, Story } from "./family-catalogue";
+import {
+  PERFORMANCE_LANES,
+  mergePerformanceDirections,
+  compilePerformanceDirection,
+  type PerformanceDirection,
+} from "./performance-direction";
 const string = { type: "string" };
 const object = (properties: Record<string, unknown>) => ({
   type: "object",
@@ -16,6 +22,7 @@ const object = (properties: Record<string, unknown>) => ({
 export function storyResponseSchema(profile: ChannelProfile, ids: string[]) {
   const characterId = { type: "string", enum: ids };
   return object({
+    performanceLane: { type: "string", enum: PERFORMANCE_LANES },
     comicPremise: object({
       normalExpectation: string,
       invertedReality: string,
@@ -100,6 +107,28 @@ export function shotResponseSchema(story: Story, ids: string[] = []) {
         "Khung ĐẦU trước hành động; chưa diễn ra kết quả chuyển động. Người nói phải rõ mặt; có thể giữ một người nghe trong khung để lấy phản ứng; không chữ hoặc lưới.",
     },
     motionPrompt: string,
+    performanceDirection: object({
+      version: { type: "integer", enum: [1] },
+      lane: { type: "string", enum: PERFORMANCE_LANES },
+      comicObjective: string,
+      statusBefore: string,
+      statusAfter: string,
+      hook: string,
+      beats: {
+        type: "array",
+        minItems: 2,
+        maxItems: 6,
+        items: object({
+          physicalAction: string,
+          expressionChange: string,
+          gesture: string,
+          propInteraction: string,
+          reactionTarget: string,
+          cameraMove: string,
+        }),
+      },
+      revealOrCut: string,
+    }),
     listenerCharacterIds: {
       type: "array",
       maxItems: 1,
@@ -143,8 +172,12 @@ export function compileStoryShots(
       throw new Error(
         `STORY_SHOT_${i + 1}_INVALID: cần đủ hành động, bối cảnh, camera và hai prompt`,
       );
+    const performanceDirection = shot.performanceDirection as
+      | PerformanceDirection
+      | undefined;
     return {
       ...shot,
+      ...(performanceDirection ? { performanceDirection } : {}),
       ...(line
         ? {
             imagePrompt: `${shot.imagePrompt || ""}\nRàng buộc: ${characters.find((c) => c.id === line.characterId)?.name || "người nói"} là người duy nhất nói và phải nhìn rõ mặt. Người nghe chỉ hiện khi cần cho phản ứng tự nhiên; không chữ hay lưới ảnh.`,
@@ -231,14 +264,25 @@ export function compileStoryboards(
             " ",
           )
           .trim(),
+        ...(shot.performanceDirection &&
+        typeof shot.performanceDirection === "object"
+          ? {
+              performance: (shot.performanceDirection as PerformanceDirection)
+                .beats[0],
+            }
+          : {}),
       };
     });
+    const performanceDirection = mergePerformanceDirections(
+      shots.map((shot) => shot.performanceDirection as PerformanceDirection | undefined),
+    );
     const storyboard = validateStoryboard(
       {
-        version: 1,
+        version: 2,
         durationSeconds: providerDuration,
         contentEndSeconds: Math.round(sum * 100) / 100,
         beats,
+        performanceDirection,
       },
       characterIds,
       maxProviderSeconds,
@@ -258,8 +302,10 @@ export function compileStoryboards(
       followsPrevious: false,
       storyboard,
       imagePrompt: `${first.imagePrompt}\nKhung đầu sạch của đoạn đối đáp: có đủ ${names} từ ảnh chuẩn, vị trí và hướng nhìn rõ theo trục đối thoại, đúng tỷ lệ vóc dáng. Chưa diễn ra hành động hoặc kết quả ở nhịp sau. Không lưới, nhãn, mũi tên, chữ hoặc nhiều bản sao nhân vật.`,
-      motionPrompt:
-        "Thực hiện lần lượt các nhịp storyboard, giữ nhịp đối đáp tự nhiên và liên tục; mốc thời gian là chỉ dẫn diễn xuất, không phải phụ đề.",
+      motionPrompt: performanceDirection
+        ? compilePerformanceDirection(performanceDirection)
+        : "Thực hiện lần lượt các nhịp storyboard, giữ nhịp đối đáp tự nhiên và liên tục; mốc thời gian là chỉ dẫn diễn xuất, không phải phụ đề.",
+      performanceDirection: storyboard.performanceDirection,
     };
   });
   return { title: planned.title, summary: planned.summary, scenes };

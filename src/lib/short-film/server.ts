@@ -36,6 +36,7 @@ import {
   seedanceMaxDuration,
 } from "../video-models";
 import { normalizeFamilyFatherTerms } from "../family-terminology";
+import { performanceCheck } from "../performance-direction";
 export const hash = (v: unknown) =>
   crypto.createHash("sha256").update(JSON.stringify(v)).digest("hex");
 export class FilmError extends Error {
@@ -215,6 +216,7 @@ export async function savePlan(
       id: raw.id || crypto.randomUUID(),
       scene_index: i,
       storyboard: s.storyboard,
+      performance_direction: s.performanceDirection || s.storyboard?.performanceDirection || null,
       cast_snapshot: cast.filter((c) => s.characterIds.includes(c.characterId)),
       speaker_character_id: s.speakerCharacterId,
       dialogue: s.dialogue,
@@ -523,6 +525,15 @@ export async function quotePlan(
     currentSceneTask(eligible, s, kind, plan.audio_mode);
   if (stage === "prepare")
     for (const s of scenes) {
+      const performance = s.performance_direction || s.storyboard?.performanceDirection;
+      if (performance) {
+        const check = performanceCheck(performance);
+        if (check.status !== "passed")
+          throw new FilmError(
+            `Hướng biểu cảm cảnh ${s.scene_index + 1} cần chỉnh trước khi tạo: ${check.issues.map((issue) => issue.reason).join(" ")}`,
+            422,
+          );
+      }
       if (
         (!accepted(latest(s, "image")) || body.regenerate === true) &&
         !s.follows_previous
@@ -545,7 +556,8 @@ export async function quotePlan(
           cast: s.cast_snapshot,
           dialogue: s.dialogue,
           speakerCharacterId: s.speaker_character_id,
-          storyboard: s.storyboard || null,
+            storyboard: s.storyboard || null,
+          performanceDirection: s.performance_direction || s.storyboard?.performanceDirection || null,
           format: plan.format,
         };
         const p = input.importPath
@@ -701,6 +713,7 @@ export async function quotePlan(
           dialogue: s.dialogue,
           speakerCharacterId: s.speaker_character_id,
           storyboard: s.storyboard || null,
+          performanceDirection: s.performance_direction || s.storyboard?.performanceDirection || null,
           format: plan.format,
           resolution: plan.resolution,
         },
@@ -743,6 +756,7 @@ export async function quotePlan(
               cast: s.cast_snapshot,
               dialogue: s.dialogue,
               storyboard: s.storyboard || null,
+              performanceDirection: s.performance_direction || s.storyboard?.performanceDirection || null,
               speakerCharacterId: s.speaker_character_id,
             },
             0,
@@ -769,6 +783,7 @@ export async function quotePlan(
               dialogue: s.dialogue,
               speakerCharacterId: s.speaker_character_id,
               storyboard: s.storyboard || null,
+              performanceDirection: s.performance_direction || s.storyboard?.performanceDirection || null,
               cast: s.cast_snapshot,
             },
             await modelPrice(FILM_MODELS.lip_sync, inputs),

@@ -2,6 +2,7 @@ import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { getGeminiApiKey } from "@/lib/server-secrets";
 import type { ChannelProfile, Story } from "../family-catalogue";
 import type { FilmPlan, FilmTask } from "./contracts";
+import { performanceCheck } from "../performance-direction";
 
 type Check = {
   status: "passed" | "needs_review" | "failed";
@@ -67,11 +68,31 @@ export async function checkProductionScript(
       evidence: {},
     };
   const story = plan.story as Story;
-  return judge([
+  const check = await judge([
     {
       text: `Bạn kiểm duyệt kịch bản family catalogue trước khi hệ thống chi tiền sinh media. Chỉ passed khi câu chuyện rõ trong 2 giây đầu, setup/payoff có quan hệ nhân quả, hành động khả thi theo tuổi/vóc dáng và mọi người nói thuộc cast. Đọc từng câu như lời nói thật: đánh dấu needs_review và nêu đúng câu nếu nó là văn hành chính, ẩn dụ/chơi chữ gượng, giải thích điều khán giả vừa thấy, hoặc có thể đổi người nói mà không đổi tính cách. Trẻ có thể nói như người lớn khi bắt chước để đạt một lợi ích trẻ con; không được nói câu đối đẹp hay bài học chỉ để kết êm. Payoff không được dựa vào việc nhân vật đột ngột quên hoặc làm trái điều vừa hiểu. Không bắt buộc cú lật, hòa giải hay reaction cuối; đánh dấu reaction thừa nếu bỏ nó thì kết hay hơn. Đặc biệt đánh dấu needs_review nếu trẻ nhỏ phải cõng/nâng trẻ lớn hơn, hành động nguy hiểm, lặp mô-típ gần đây, hoặc nhiều câu liên tiếp không làm tình thế thay đổi. Không sửa kịch bản.\nHỒ SƠ: ${JSON.stringify(profile)}\nKỊCH BẢN: ${JSON.stringify(story)}\nCẢNH: ${JSON.stringify(plan.video_plan_scenes.map((s) => ({ speaker: s.speaker_character_id, storyboard: s.storyboard, dialogue: s.dialogue, action: s.action, cast: s.cast_snapshot.map((c) => c.characterId) })))}`,
     },
   ]);
+  const directions = plan.video_plan_scenes.map((scene) =>
+    scene.performance_direction || scene.storyboard?.performanceDirection || null,
+  );
+  const checks = directions.map((direction) =>
+    direction ? performanceCheck(direction) : null,
+  );
+  const directionIssues = checks.flatMap((item, index) =>
+    item && item.status !== "passed"
+      ? item.issues.map((issue) => `Cảnh ${index + 1}: ${issue.reason}`)
+      : [],
+  );
+  return {
+    ...check,
+    status:
+      directionIssues.length && check.status === "passed"
+        ? "needs_review"
+        : check.status,
+    issues: [...check.issues, ...directionIssues].slice(0, 8),
+    evidence: { ...check.evidence, performanceCheck: checks },
+  };
 }
 
 async function inline(url: string) {

@@ -21,6 +21,7 @@ const KINDS: CreativeAssistKind[] = [
   "video_clip_plan",
   "video_plan",
   "scene_revision",
+  "performance_revision",
 ];
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -254,6 +255,7 @@ export async function POST(
               .filter(Boolean)
               .map((s) => ({
                 series: s.series,
+                performanceLane: s.performanceLane,
                 comicPremise: s.comicPremise,
                 situation: s.situation,
                 mechanism: s.mechanism,

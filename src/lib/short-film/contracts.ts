@@ -1,6 +1,10 @@
 import { validateStoryboard, type FilmStoryboard } from "../film-storyboard";
 import type { Story } from "../family-catalogue";
 import {
+  compilePerformanceDirection,
+  type PerformanceDirection,
+} from "../performance-direction";
+import {
   SEEDANCE_25_IMAGE_MODEL,
   seedanceMaxDuration,
   validSeedanceDuration,
@@ -206,6 +210,7 @@ export type FilmScene = {
   input_hash: string;
   media_links: Partial<Record<FilmKind, string>>;
   deleted_at: string | null;
+  performance_direction?: PerformanceDirection | null;
 };
 export type FilmCast = {
   characterId: string;
@@ -311,6 +316,13 @@ export function compileFilmMotion(
       `STORYBOARD: clip nguồn ${board.durationSeconds} giây ${format}; câu chuyện hữu ích kết thúc ở ${Number(board.contentEndSeconds ?? board.durationSeconds).toFixed(2)} giây và phần nguồn còn lại sẽ bị cắt. Diễn nhiều nhịp đối đáp/hành động liên tục theo thứ tự sau. Bối cảnh ${scene.setting}.`,
       "FIRST FRAME: ảnh đầu là một khung sạch, không phải lưới storyboard. Giữ đúng diện mạo, vóc dáng, trang phục, vị trí và hướng nhìn của từng người trong ảnh.",
       `CAST: ${scene.cast_snapshot.map((c) => `${c.name}: ${c.description}`).join("; ")}. Không trộn người hoặc đổi giọng giữa các lượt.`,
+      ...(scene.storyboard.performanceDirection || scene.performance_direction
+        ? [
+            compilePerformanceDirection(
+              scene.storyboard.performanceDirection || scene.performance_direction!,
+            ),
+          ]
+        : []),
       ...board.beats.map(
         (b) =>
           `${b.startSeconds.toFixed(2)}–${b.endSeconds.toFixed(2)}s | ${b.action} | CAMERA: ${b.camera} | MOTION: ${b.motion} | ${b.dialogue ? `Chỉ ${name(b.speakerCharacterId)} diễn lời thoại “${b.dialogue}” ${mode === "native" ? "với audio tiếng Việt" : "trong video im tiếng để lồng tiếng sau, không phát âm thanh"}. Các nhân vật còn lại nghe và phản ứng không lời, không cử động môi như đang nói.` : "Không có lời nói; diễn hành động/phản ứng đã mô tả."}`,
@@ -349,6 +361,9 @@ export function compileFilmMotion(
     `FIRST FRAME: dùng nguyên bố cục, vị trí và diện mạo trong ảnh đầu; hành động bắt đầu ở giây 0, không mở bằng cảnh đứng yên.`,
     `ACTION TIMELINE (${duration.toFixed(1)} giây): ${plannedTimeline}`,
     `CAMERA: ${camera}`,
+    ...(scene.performance_direction
+      ? [compilePerformanceDirection(scene.performance_direction)]
+      : []),
     `CONTINUITY: chỉ có ${scene.cast_snapshot.map((c) => c.name).join(", ")}; giữ nguyên mặt, tóc, trang phục, tỷ lệ và hướng nhìn từ ảnh đầu. Không thêm người, không đổi vai hoặc đổi vị trí vô lý.`,
     scene.dialogue
       ? `ACTIVE SPEAKER: ${speaker || "người nói đã chỉ định"} là người nói duy nhất và là người duy nhất cử động môi theo lời. Người nghe giữ miệng đóng, chỉ phản ứng bằng mắt, nét mặt và cơ thể. ${mode === "native" ? `Nói đúng một câu nguyên văn tiếng Việt, không thêm tiếng đệm hoặc câu đáp: “${scene.dialogue}”.` : "Tập trung rõ gương mặt người nói; không phát lời vì audio sẽ được đồng bộ riêng."}`

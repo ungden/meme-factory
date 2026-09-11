@@ -1,3 +1,9 @@
+import {
+  validatePerformanceDirection,
+  type PerformanceBeat,
+  type PerformanceDirection,
+} from "./performance-direction";
+
 /** Planned timings direct the model; they are never subtitle timestamps. */
 export type StoryboardBeat = {
   startSeconds: number;
@@ -7,14 +13,17 @@ export type StoryboardBeat = {
   action: string;
   camera: string;
   motion: string;
+  /** Optional v2 acting direction; v1 storyboards remain readable. */
+  performance?: PerformanceBeat;
 };
 export type FilmStoryboard = {
-  version: 1;
+  version: 1 | 2;
   /** Exact Seedance request duration, chosen from the provider's 4-30s range. */
   durationSeconds: number;
   /** End of useful story action inside the provider source clip. */
   contentEndSeconds?: number;
   beats: StoryboardBeat[];
+  performanceDirection?: PerformanceDirection;
 };
 export const STORYBOARD_MIN_SECONDS = 4;
 export const STORYBOARD_MAX_SECONDS = 30;
@@ -38,7 +47,7 @@ export function validateStoryboard(
   const b = value as FilmStoryboard;
   if (
     !b ||
-    b.version !== 1 ||
+    ![1, 2].includes(b.version) ||
     !Number.isInteger(b.durationSeconds) ||
     b.durationSeconds < STORYBOARD_MIN_SECONDS ||
     b.durationSeconds > maxSeconds ||
@@ -50,6 +59,7 @@ export function validateStoryboard(
       `STORYBOARD_INVALID: cần storyboard ${STORYBOARD_MIN_SECONDS}-${maxSeconds} giây có nhịp diễn rõ ràng.`,
     );
   let end = 0;
+  if (b.performanceDirection) validatePerformanceDirection(b.performanceDirection);
   for (const beat of b.beats) {
     if (
       !beat ||

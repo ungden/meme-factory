@@ -5,6 +5,7 @@ import {
 } from "./film-storyboard";
 import type { VideoRequest } from "@/lib/wavespeed";
 import type { SeedanceVariant } from "@/lib/video-models";
+import type { PerformanceDirection } from "@/lib/performance-direction";
 
 export const MULTISCENE_DURATIONS = [5, 10, 15, 30] as const;
 export const MULTISCENE_RESOLUTIONS = ["720p", "1080p"] as const;
@@ -15,6 +16,7 @@ export const MAX_BATCH_PLANS = 10;
 
 export type SceneInput = {
   storyboard?: FilmStoryboard | null;
+  performanceDirection?: PerformanceDirection | null;
   id?: string;
   dialogue?: string;
   action?: string;
@@ -69,6 +71,7 @@ export function normalizeScene(scene: SceneInput): Required<
     );
   return {
     storyboard,
+    performanceDirection: scene.performanceDirection || storyboard?.performanceDirection || null,
     dialogue:
       typeof scene.dialogue === "string"
         ? scene.dialogue.trim().slice(0, 700)

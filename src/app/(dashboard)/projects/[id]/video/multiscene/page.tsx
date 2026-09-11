@@ -4,6 +4,7 @@ import Image from "next/image";
 import { FilmStoryboardEditor } from "@/components/film-storyboard-editor";
 import { storyboardDialogue, type FilmStoryboard } from "@/lib/film-storyboard";
 import { compileStoryboards } from "@/lib/family-ai-contract";
+import type { PerformanceDirection } from "@/lib/performance-direction";
 import type { ChannelProfile, Story } from "@/lib/family-catalogue";
 import { notifyProjectBalanceChanged } from "@/lib/client-fetch";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -16,6 +17,7 @@ import {
   Wand2,
   ArrowUp,
   ArrowDown,
+  Sparkles,
 } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import { useCharacters, useProject } from "@/lib/use-store";
@@ -39,6 +41,7 @@ import {
 
 type DraftScene = {
   storyboard?: FilmStoryboard | null;
+  performanceDirection?: PerformanceDirection | null;
   id?: string;
   characterIds: string[];
   speakerCharacterId: string | null;
@@ -114,6 +117,7 @@ const sceneBlank = (): DraftScene => ({
 const fromScene = (s: FilmScene): DraftScene => ({
   id: s.id,
   storyboard: s.storyboard,
+  performanceDirection: s.performance_direction || s.storyboard?.performanceDirection || null,
   characterIds: s.cast_snapshot.map((c) => c.characterId),
   speakerCharacterId: s.speaker_character_id,
   dialogue: s.dialogue,
@@ -800,6 +804,46 @@ export default function ShortFilmPage() {
     });
     setAssistId(start.jobId);
     return readAssist(start.jobId);
+  }
+  async function optimizePerformance(): Promise<Draft> {
+    if (!draft.scenes.length)
+      throw new Error("Hãy AI viết phim hoặc mở một kịch bản trước.");
+    const start = await api(`${base}/creative-assists`, {
+      kind: "performance_revision",
+      intent:
+        "Tối ưu biểu cảm cho toàn bộ cảnh: giữ nguyên thoại, người nói, cast, bối cảnh, ảnh đầu và thứ tự. Tạo hành vi hài dễ nhớ, có hook nhìn thấy ngay, leo thang, phản ứng có mục tiêu và điểm cắt. Không thêm thoại.",
+      selectedCharacterIds: cast,
+      currentScenes: draft.scenes,
+      lockedSceneIndexes: [],
+      targetDurationSeconds: draft.targetDurationSeconds,
+      videoModel: draft.videoModel,
+      workspaceVersion: workspace,
+    });
+    const g = generation.current;
+    for (let n = 0; n < 110; n++) {
+      if (g !== generation.current) throw new Error("Đã chuyển dự án.");
+      const j = await api(`${base}/creative-assists/${start.jobId}`);
+      if (j.job.status === "failed")
+        throw new Error(
+          j.job.error?.message ||
+            "Chưa tối ưu được biểu cảm. Bản nháp trước vẫn được giữ.",
+        );
+      if (j.job.status === "completed") {
+        const scenes = j.job.result.scenes.map((s: DraftScene, i: number) => ({
+          ...draft.scenes[i],
+          ...s,
+          id: draft.scenes[i]?.id,
+        }));
+        const next = { ...draft, scenes };
+        edited.current = true;
+        setDirty(true);
+        setQuote(null);
+        setDraft(next);
+        return next;
+      }
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    throw new Error("AI vẫn đang tối ưu. Hãy dùng nút lấy lại bản AI sau.");
   }
   async function createFilm() {
     const filmCap = Number(maxFilm),
@@ -1563,6 +1607,17 @@ export default function ShortFilmPage() {
                     <Wand2 size={17} /> AI viết phim
                   </button>
                 </div>
+                {draft.scenes.length > 0 && (
+                  <button
+                    type="button"
+                    disabled={!ready || !!busy}
+                    onClick={() => act("Tối ưu biểu cảm", optimizePerformance)}
+                    className="mt-3 min-h-11 w-full rounded-lg border th-border px-3 text-sm font-semibold th-text-accent disabled:opacity-60"
+                  >
+                    <Sparkles className="mr-2 inline-block" size={16} />
+                    Tối ưu biểu cảm · giữ nguyên thoại và cast
+                  </button>
+                )}
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   {SEEDANCE_VARIANTS.map((item) => (
                     <button

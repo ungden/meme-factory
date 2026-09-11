@@ -1,5 +1,9 @@
 import type { FamilyDevelopmentTrace } from "./family-development";
 import { FAMILY_WRITING_POLICY_VERSION } from "./family-writing-policy";
+import {
+  PERFORMANCE_LANES,
+  type PerformanceLane,
+} from "./performance-direction";
 /** Editorial references describe mechanisms only; no source dialogue or media is copied. */
 export const FAMILY_SERIES = [
   "Liên minh bí mật",
@@ -30,6 +34,7 @@ export type ChannelProfile = {
 };
 export type RecentStory = Pick<
   Story,
+  | "performanceLane"
   | "series"
   | "situation"
   | "mechanism"
@@ -39,6 +44,7 @@ export type RecentStory = Pick<
   | "comicPremise"
 >;
 export type Story = {
+  performanceLane?: PerformanceLane;
   intendedShotSeconds?: number[];
   writingPolicyVersion?: string;
   profileVersion: number;
@@ -71,6 +77,7 @@ export type Story = {
 };
 export function compactStory(story: Story): RecentStory {
   return {
+    ...(story.performanceLane ? { performanceLane: story.performanceLane } : {}),
     series: story.series,
     ...(story.comicPremise ? { comicPremise: story.comicPremise } : {}),
     situation: story.situation,
@@ -194,6 +201,8 @@ export function validateStory(
   recent: Pick<Story, "situation" | "mechanism" | "outcome">[] = [],
 ): Story {
   const s = value as Story;
+  if (s?.performanceLane !== undefined && !PERFORMANCE_LANES.includes(s.performanceLane))
+    throw new Error("STORY_PERFORMANCE_LANE_INVALID");
   if (
     s?.comicPremise !== undefined &&
     (!s.comicPremise ||
@@ -311,7 +320,8 @@ export function validateGeneratedFamilyStory(
   const story = validateStory(value, profile, allowed, recent);
   if (!story.comicPremise) throw new Error("STORY_COMIC_PREMISE_REQUIRED");
   if (!story.endingPlan) throw new Error("STORY_ENDING_REQUIRED");
-  return story;
+  // Keep old fixtures/drafts readable while new planner responses declare a lane.
+  return { ...story, performanceLane: story.performanceLane || "deadpan_reversal" };
 }
 export const STORY_SCHEMA =
-  '{"comicPremise":{"normalExpectation":"","invertedReality":"","visibleContrast":""}, "series":"", "situation":"", "mechanism":"", "outcome":"", "wants":[{"characterId":"uuid","want":""}], "beats":{"hook":"","turns":[],"payoff":"","reaction":""}, "endingPlan":{"mode":"hard_cut|silent_reaction|resolved","stopAfterLine":1,"anchorQuote":"nguyên văn từ lượt cuối","reason":"vì sao dừng đúng ở đây"}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid","text":"","action":""}]}';
+  '{"performanceLane":"deadpan_reversal|adult_format_parody|literal_logic|physical_escalation|cinematic_cool", "comicPremise":{"normalExpectation":"","invertedReality":"","visibleContrast":""}, "series":"", "situation":"", "mechanism":"", "outcome":"", "wants":[{"characterId":"uuid","want":""}], "beats":{"hook":"","turns":[],"payoff":"","reaction":""}, "endingPlan":{"mode":"hard_cut|silent_reaction|resolved","stopAfterLine":1,"anchorQuote":"nguyên văn từ lượt cuối","reason":"vì sao dừng đúng ở đây"}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid","text":"","action":""}]}';
