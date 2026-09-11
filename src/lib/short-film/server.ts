@@ -78,6 +78,7 @@ export async function readPlan(a: Access, id: string) {
     .eq("id", id)
     .eq("project_id", a.project.id)
     .eq("workspace_version", a.project.workspace_version)
+    .is("archived_at", null)
     .single();
   if (error || !data)
     throw new FilmError("Không tìm thấy phim trong workspace hiện tại.", 404);

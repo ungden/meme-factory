@@ -238,6 +238,13 @@ export type FilmPlan = {
   subtitles: boolean;
   status: string;
   latest_content_output_id?: string | null;
+  /** Lightweight metadata returned by the plan list for episode picking. */
+  has_video?: boolean;
+  video_status?: "draft" | "running" | "ready" | "needs_review" | "failed";
+  video_output_count?: number;
+  has_production_history?: boolean;
+  archived_at?: string | null;
+  updated_at?: string;
   target_duration_seconds: number;
   story?: Story | null;
   script_review?: { version: number; reviewed_at: string } | null;

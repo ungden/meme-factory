@@ -183,6 +183,45 @@ const statusLabels: Record<string, string> = {
   failed: "Lỗi",
   cancelled: "Đã hủy",
 };
+type EpisodePickerStatus = "draft" | "running" | "ready" | "failed";
+function episodePickerStatus(plan: FilmPlan): EpisodePickerStatus {
+  if (
+    plan.has_video ||
+    plan.latest_content_output_id ||
+    plan.video_output_count ||
+    plan.video_status === "ready"
+  )
+    return "ready";
+  if (plan.video_status === "failed" || ["failed", "cancelled"].includes(plan.status))
+    return "failed";
+  if (
+    plan.video_status === "running" ||
+    ["queued", "scripting", "running", "paused"].includes(plan.status)
+  )
+    return "running";
+  return "draft";
+}
+function episodeHasHistory(plan: FilmPlan) {
+  return Boolean(
+    plan.has_production_history ||
+      plan.has_video ||
+      plan.latest_content_output_id ||
+      plan.video_output_count ||
+      plan.video_status === "ready",
+  );
+}
+const episodePickerLabels: Record<EpisodePickerStatus, string> = {
+  draft: "Chưa có video",
+  running: "Đang sản xuất",
+  ready: "Đã có video",
+  failed: "Cần xem lại",
+};
+const episodePickerClasses: Record<EpisodePickerStatus, string> = {
+  draft: "bg-slate-100 text-slate-600",
+  running: "bg-blue-50 text-blue-700",
+  ready: "bg-emerald-50 text-emerald-700",
+  failed: "bg-red-50 text-red-700",
+};
 async function api(url: string, body?: unknown, method = "POST") {
   const r = await fetch(url, {
     method: body === undefined ? "GET" : method,
@@ -192,7 +231,8 @@ async function api(url: string, body?: unknown, method = "POST") {
     cache: "no-store",
     signal: AbortSignal.timeout(20000),
   });
-  const j = await r.json();
+  const raw = await r.text();
+  const j = raw ? JSON.parse(raw) : {};
   if (!r.ok)
     throw new Error(j.error || "Không kết nối được. Nội dung vẫn được giữ.");
   return j;
@@ -230,6 +270,10 @@ export default function ShortFilmPage() {
   const [voiceQuote, setVoiceQuote] = useState<Quote | null>(null);
   const [productionRuns, setProductionRuns] = useState<ProductionRun[]>([]);
   const [openingPlanId, setOpeningPlanId] = useState<string | null>(null);
+  const [planPickerOpen, setPlanPickerOpen] = useState(false);
+  const [planQuery, setPlanQuery] = useState("");
+  const [planFilter, setPlanFilter] = useState<"all" | EpisodePickerStatus>("all");
+  const [nextPlansOffset, setNextPlansOffset] = useState<number | null>(null);
   const [maxFilm, setMaxFilm] = useState("");
   const [maxDay, setMaxDay] = useState("");
   const [autoEnabled, setAutoEnabled] = useState(false);
@@ -247,6 +291,22 @@ export default function ShortFilmPage() {
     setQuote(null);
     setDraft((d) => ({ ...d, ...patch, audioMode: (patch.audioMode || d.audioMode) === "native" ? "dubbed" : (patch.audioMode || d.audioMode) }));
   };
+  const visiblePlans = plans.filter((candidate) => {
+    const state = episodePickerStatus(candidate);
+    const query = planQuery.trim().toLocaleLowerCase("vi");
+    const matchesQuery =
+      !query ||
+      `${candidate.title} ${candidate.brief}`.toLocaleLowerCase("vi").includes(query);
+    return (planFilter === "all" || state === planFilter) && matchesQuery;
+  });
+  useEffect(() => {
+    if (!planPickerOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPlanPickerOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [planPickerOpen]);
   const editScene = (patch: Partial<DraftScene>) =>
     change({
       scenes: draft.scenes.map((s, i) =>
@@ -310,6 +370,7 @@ export default function ShortFilmPage() {
       .then((j) => {
         if (g !== generation.current) return;
         setPlans(j.plans || []);
+        setNextPlansOffset(j.nextOffset ?? null);
         setChannel(j.channelProfile);
         const savedId = (() => {
           try {
@@ -505,20 +566,30 @@ export default function ShortFilmPage() {
       },
       currentPlan ? "PUT" : "POST",
     );
-    setPlan(j.plan);
-    setPlans((ps) => [j.plan, ...ps.filter((p) => p.id !== j.plan.id)]);
-    setDraft(fromPlan(j.plan));
+    const savedPlan = {
+      ...j.plan,
+      has_video:
+        j.plan.latest_content_output_id
+          ? true
+          : currentPlan?.has_video || false,
+      video_status: currentPlan?.video_status,
+      video_output_count: currentPlan?.video_output_count,
+      has_production_history: currentPlan?.has_production_history,
+    } as FilmPlan;
+    setPlan(savedPlan);
+    setPlans((ps) => [savedPlan, ...ps.filter((p) => p.id !== savedPlan.id)]);
+    setDraft(fromPlan(savedPlan));
     setDirty(false);
     edited.current = false;
     setQuote(null);
     if (storageKey) {
       localStorage.removeItem(`${storageKey}:new-draft`);
       localStorage.removeItem(
-        `${storageKey}:draft:${currentPlan?.id || j.plan.id}`,
+        `${storageKey}:draft:${currentPlan?.id || savedPlan.id}`,
       );
     }
     setNote("Đã lưu. Kết quả cũ vẫn giữ trong lịch sử.");
-    return j.plan as FilmPlan;
+    return savedPlan;
   }
   async function saveCurrent() {
     if (draft.scenes.length) return save();
@@ -601,6 +672,62 @@ export default function ShortFilmPage() {
           : "Đã khôi phục ý tưởng của Tập mới."
         : "",
     );
+  }
+  async function removeCurrentPlan() {
+    if (!plan) return;
+    const hasHistory = episodeHasHistory(plan);
+    if (
+      !window.confirm(
+        hasHistory
+          ? `Ẩn “${plan.title}” khỏi danh sách kịch bản? Video và lịch sử sản xuất vẫn được giữ.`
+          : `Xóa kịch bản “${plan.title}”? Thao tác này không thể hoàn tác.`,
+      )
+    )
+      return;
+    await act(hasHistory ? "Ẩn kịch bản" : "Xóa kịch bản", async () => {
+      await api(
+        `${base}/video-plans/${plan.id}`,
+        {
+          action: hasHistory ? "archive" : "delete",
+          workspaceVersion: workspace,
+          expectedVersion: plan.version,
+        },
+        hasHistory ? "PATCH" : "DELETE",
+      );
+      setPlans((current) => current.filter((candidate) => candidate.id !== plan.id));
+      if (storageKey) {
+        localStorage.removeItem(`${storageKey}:draft:${plan.id}`);
+        const current = JSON.parse(localStorage.getItem(storageKey) || "null");
+        if (current?.planId === plan.id) localStorage.removeItem(storageKey);
+      }
+      setPlan(null);
+      setDraft({ ...blank(), targetDurationSeconds: channel ? 35 : 30 });
+      setCast([]);
+      setTasks([]);
+      setQuote(null);
+      setDirty(false);
+      edited.current = false;
+      setPlanPickerOpen(false);
+      setNote(
+        hasHistory
+          ? "Đã ẩn kịch bản. Video và lịch sử vẫn còn trong thư viện."
+          : "Đã xóa kịch bản.",
+      );
+    });
+  }
+  async function loadMorePlans() {
+    if (nextPlansOffset === null) return;
+    await act("Tải thêm kịch bản", async () => {
+      const j = await api(`${base}/video-plans?offset=${nextPlansOffset}`);
+      setPlans((current) => {
+        const seen = new Set(current.map((candidate) => candidate.id));
+        return [
+          ...current,
+          ...(j.plans || []).filter((candidate: FilmPlan) => !seen.has(candidate.id)),
+        ];
+      });
+      setNextPlansOffset(j.nextOffset ?? null);
+    });
   }
   async function suggest() {
     const g = generation.current;
@@ -900,34 +1027,131 @@ export default function ShortFilmPage() {
               thời gian của từng lượt thoại.
             </p>
           </header>
-          <div className="mb-4 flex min-w-0 flex-wrap items-center gap-2">
-            <label className="min-w-0 flex-1 text-sm th-text-secondary">
-              Kịch bản đã lưu · {plans.length}
-              <select
-                aria-label="Chọn kịch bản"
-                className={control}
-                value={openingPlanId ?? plan?.id ?? ""}
+          <div className="mb-4 flex min-w-0 flex-wrap items-end gap-2">
+            <div className="relative min-w-0 flex-1 text-sm th-text-secondary">
+              <span className="mb-1 block">Kịch bản đã lưu · {plans.length}</span>
+              <button
+                type="button"
+                aria-label="Mở bộ chọn kịch bản"
+                aria-haspopup="dialog"
+                aria-expanded={planPickerOpen}
                 disabled={!!busy || !ready}
-                onChange={(e) => {
-                  const nextId = e.target.value;
-                  setOpeningPlanId(nextId);
-                  void act("Mở kịch bản", async () => {
-                    try {
-                      await openEpisode(nextId);
-                    } finally {
-                      setOpeningPlanId(null);
-                    }
-                  });
-                }}
+                className={`${control} flex min-h-11 items-center justify-between gap-3 text-left disabled:opacity-60`}
+                onClick={() => setPlanPickerOpen((open) => !open)}
               >
-                <option value="">Tập mới</option>
-                {plans.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title} · bản {p.version}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <span className="min-w-0 truncate th-text-primary">
+                  {openingPlanId
+                    ? "Đang mở…"
+                    : plan
+                      ? `${plan.title} · bản ${plan.version}`
+                      : "Tập mới"}
+                </span>
+                <span className="shrink-0 text-xs th-text-secondary">
+                  {plan ? (
+                    <span className={`rounded-full px-2 py-1 ${episodePickerClasses[episodePickerStatus(plan)]}`}>
+                      {episodePickerLabels[episodePickerStatus(plan)]}
+                    </span>
+                  ) : (
+                    "Chưa lưu"
+                  )}
+                  <span className="ml-2">⌄</span>
+                </span>
+              </button>
+              {planPickerOpen && (
+                <div
+                  role="dialog"
+                  aria-label="Danh sách kịch bản"
+                  className="absolute z-30 mt-2 w-full rounded-xl border th-border th-bg-card p-3 shadow-xl"
+                >
+                  <input
+                    autoFocus
+                    aria-label="Tìm kịch bản"
+                    value={planQuery}
+                    onChange={(e) => setPlanQuery(e.target.value)}
+                    placeholder="Tìm theo tên hoặc ý tưởng…"
+                    className={`${control} mb-2`}
+                  />
+                  <div className="mb-2 flex flex-wrap gap-1" role="tablist" aria-label="Lọc kịch bản">
+                    {(["all", "draft", "running", "ready", "failed"] as const).map((filter) => (
+                      <button
+                        key={filter}
+                        type="button"
+                        role="tab"
+                        aria-selected={planFilter === filter}
+                        className={`rounded-md px-2 py-1 text-xs ${planFilter === filter ? "th-bg-selected font-semibold th-text-primary" : "th-text-secondary"}`}
+                        onClick={() => setPlanFilter(filter)}
+                      >
+                        {filter === "all" ? "Tất cả" : episodePickerLabels[filter]}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="max-h-72 space-y-1 overflow-y-auto" role="listbox" aria-label="Kịch bản">
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={!plan}
+                      className="w-full rounded-lg border th-border px-3 py-2 text-left text-sm hover:th-bg-selected"
+                      onClick={() => {
+                        setPlanPickerOpen(false);
+                        setPlanQuery("");
+                        void act("Tập mới", () => openEpisode(""));
+                      }}
+                    >
+                      <span className="block font-medium th-text-primary">+ Tập mới</span>
+                      <span className="text-xs th-text-secondary">Bắt đầu một kịch bản chưa lưu</span>
+                    </button>
+                    {visiblePlans.map((candidate) => {
+                      const state = episodePickerStatus(candidate);
+                      return (
+                        <button
+                          key={candidate.id}
+                          type="button"
+                          role="option"
+                          aria-selected={candidate.id === plan?.id}
+                          className="w-full rounded-lg border th-border px-3 py-2 text-left hover:th-bg-selected"
+                          onClick={() => {
+                            setPlanPickerOpen(false);
+                            setPlanQuery("");
+                            setOpeningPlanId(candidate.id);
+                            void act("Mở kịch bản", async () => {
+                              try {
+                                await openEpisode(candidate.id);
+                              } finally {
+                                setOpeningPlanId(null);
+                              }
+                            });
+                          }}
+                        >
+                          <span className="flex items-center justify-between gap-2">
+                            <span className="min-w-0 truncate font-medium th-text-primary">{candidate.title}</span>
+                            <span className="shrink-0 text-xs th-text-secondary">bản {candidate.version}</span>
+                          </span>
+                          <span className="mt-1 block text-xs th-text-secondary">
+                            <span className={`rounded-full px-2 py-0.5 ${episodePickerClasses[state]}`}>
+                              {episodePickerLabels[state]}
+                            </span>
+                            {candidate.updated_at ? ` · ${new Date(candidate.updated_at).toLocaleDateString("vi-VN")}` : ""}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    {!visiblePlans.length && (
+                      <p className="px-2 py-4 text-center text-sm th-text-secondary">Không tìm thấy kịch bản phù hợp.</p>
+                    )}
+                    {nextPlansOffset !== null && (
+                      <button
+                        type="button"
+                        className="w-full rounded-lg px-3 py-2 text-sm font-medium th-text-accent hover:th-bg-selected disabled:opacity-60"
+                        disabled={!!busy}
+                        onClick={() => void loadMorePlans()}
+                      >
+                        {busy === "Tải thêm kịch bản" ? "Đang tải…" : "Tải thêm kịch bản cũ"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             <button
               className="min-h-11 rounded-lg border th-border px-3 text-sm th-text-primary"
               disabled={!!busy || !ready}
@@ -948,6 +1172,16 @@ export default function ShortFilmPage() {
             >
               {busy === "Lưu kịch bản" ? "Đang lưu…" : "Lưu kịch bản"}
             </button>
+            {plan && (
+              <button
+                type="button"
+                className="min-h-11 rounded-lg border border-red-200 px-3 text-sm text-red-600 disabled:opacity-60"
+                disabled={!!busy || !ready}
+                onClick={() => void removeCurrentPlan()}
+              >
+                {episodeHasHistory(plan) ? "Ẩn kịch bản" : "Xóa kịch bản"}
+              </button>
+            )}
           </div>
           {channel && (
             <details className="mb-3 text-sm th-text-secondary">
