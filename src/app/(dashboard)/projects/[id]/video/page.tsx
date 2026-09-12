@@ -600,6 +600,7 @@ export default function VideoStudioPage() {
             <p className="mt-1 text-sm th-text-tertiary">
               Tạo một clip ngắn từ mô tả hoặc ảnh trong dự án.
             </p>
+            <Link href={`/projects/${projectRef}/brand`} className="mt-2 inline-flex min-h-10 items-center text-sm th-text-accent hover:underline">Watermark của dự án ↗</Link>
           </header>
           <div className="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(360px,1.08fr)]">
             <section

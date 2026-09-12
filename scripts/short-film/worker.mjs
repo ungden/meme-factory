@@ -1,3 +1,4 @@
+import { watermarkFilters } from "./watermark.mjs";
 import {
   validateDubCue,
   dubArguments,
@@ -424,27 +425,13 @@ export function makeFilmWorker(db) {
     const final = path.join(dir, "final.mp4"),
       args = ["-i", merged];
     const filters = [];
-    const [w] = dimensions(t.input.format, t.input.resolution);
+    const [w, h] = dimensions(t.input.format, t.input.resolution);
     const brand = t.input.brand;
     if (brand?.watermark_url) {
       const wm = path.join(dir, "watermark.png");
       await download(brand.watermark_url, wm, 10 * 1024 * 1024);
       args.push("-i", wm);
-      const pos = brand.watermark_position || "bottom-right";
-      const x = pos.includes("left")
-        ? "24"
-        : pos === "center"
-          ? "(W-w)/2"
-          : "W-w-24";
-      const y = pos.includes("top")
-        ? "24"
-        : pos === "center"
-          ? "(H-h)/2"
-          : "H-h-24";
-      filters.push(
-        `[1:v]scale=${Math.round(w * 0.24)}:-1,format=rgba,colorchannelmixer=aa=${Math.max(0.05, Math.min(1, Number(brand.watermark_opacity || 0.8)))}[wm]`,
-        `[0:v][wm]overlay=${x}:${y}[branded]`,
-      );
+      filters.push(...watermarkFilters(brand, w, h));
     }
     const base = filters.length ? "[branded]" : "[0:v]";
     if (t.input.subtitles && allSegments.length)

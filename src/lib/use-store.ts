@@ -199,8 +199,8 @@ export function useProject(projectId: string) {
     const target = isUuid(projectId)
       ? supabase.from("projects").update(patch).eq("id", projectId)
       : supabase.from("projects").update(patch).eq("slug", projectId);
-    const { error } = await target;
-    if (error) throw new Error(error.message);
+    const { data, error } = await target.select("id").single();
+    if (error || !data) throw new Error(error?.message || "Không có quyền cập nhật dự án.");
     await load();
   }, [projectId, load]);
 

@@ -1,3 +1,4 @@
+import { applyVideoWatermark } from "./short-film/watermark.mjs";
 import { dubStandaloneClip } from "./short-film/clip-dubbing.mjs";
 import { makeFilmWorker } from "./short-film/worker.mjs";
 import { download as downloadMedia } from "./short-film/media.mjs";
@@ -8,7 +9,7 @@ import {
 } from "./short-film/storage.mjs";
 /* Durable Railway worker: polls provider jobs and renders completed multi-scene plans. */
 import { createClient } from "@supabase/supabase-js";
-import { unlink, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { tmpdir } from "node:os";
@@ -118,7 +119,8 @@ async function downloadAndPersist(sourceUrl, job) {
       if (error || !data) throw new Error("MEDIA_SIGN_FAILED");
       return data.signedUrl;
     }, apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY });
-  const filePath = `/tmp/${job.id}.mp4`;
+  const dir = await mkdtemp(path.join(tmpdir(), "aida-clip-"));
+  const filePath = path.join(dir, "source.mp4");
   try {
     await streamUrlToFile(sourceUrl, filePath);
     const inspection = await probeVideo(filePath);
@@ -132,14 +134,16 @@ async function downloadAndPersist(sourceUrl, job) {
       throw new Error(
         "Video được yêu cầu có âm thanh nhưng file trả về không có audio.",
       );
-    const saved = await persistMedia(job, filePath, "video.mp4", "video/mp4");
+    const branded = await applyVideoWatermark(filePath, job.checkpoint?.brand, dir);
+    await saveJobCheckpoint(job, {});
+    const saved = await persistMedia(job, branded, "video.mp4", "video/mp4");
     return {
       storagePath: saved.storagePath,
       duration: Math.round(inspection.duration),
       hasAudio: inspection.hasAudio,
     };
   } finally {
-    await unlink(filePath).catch(() => {});
+    await rm(dir, { recursive: true, force: true });
   }
 }
 function heartbeat(job) {

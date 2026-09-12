@@ -1,3 +1,4 @@
+import { applyVideoWatermark } from "./watermark.mjs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -106,7 +107,9 @@ export async function dubStandaloneClip({
       Math.abs(checked.duration - video.duration) > 0.1
     )
       throw new Error("DUB_OUTPUT_INVALID");
-    const saved = await persist(output, "video.mp4", "video/mp4");
+    const branded = await applyVideoWatermark(output, job.checkpoint.brand, dir);
+    await save({});
+    const saved = await persist(branded, "video.mp4", "video/mp4");
     const result = {
       storagePath: saved.storagePath,
       duration: checked.duration,

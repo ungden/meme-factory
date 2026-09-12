@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { FilmStoryboardEditor } from "@/components/film-storyboard-editor";
 import { storyboardDialogue, type FilmStoryboard } from "@/lib/film-storyboard";
 import { compileStoryboards } from "@/lib/family-ai-contract";
@@ -1070,6 +1071,7 @@ export default function ShortFilmPage() {
               AIDA đối chiếu audio thực tế; phụ đề dùng lời TTS đã khóa và mốc
               thời gian của từng lượt thoại.
             </p>
+            <Link href={`/projects/${ref}/brand`} className="mt-2 inline-flex min-h-10 items-center text-sm th-text-accent hover:underline">Watermark của dự án ↗</Link>
           </header>
           <div className="mb-4 flex min-w-0 flex-wrap items-end gap-2">
             <div className="relative min-w-0 flex-1 text-sm th-text-secondary">

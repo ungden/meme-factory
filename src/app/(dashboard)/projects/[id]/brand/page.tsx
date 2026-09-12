@@ -12,7 +12,6 @@ import Textarea from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { ControlRow, Slider } from "@/components/editor/control-primitives";
 import WatermarkGrid from "@/components/editor/watermark-grid";
-import { createClient } from "@/lib/supabase/client";
 import { useProject } from "@/lib/use-store";
 import { FORMAT_DIMENSIONS, type MemeFormat, type WatermarkPosition } from "@/types/database";
 
@@ -57,18 +56,17 @@ export default function BrandSettingsPage() {
   const uploadLogo = async (file: File) => {
     setUploading(true);
     try {
-      const supabase = createClient();
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) throw new Error("Phiên đăng nhập đã hết hạn");
-
-      // First path segment is the user id so the bucket's delete policy matches.
-      const extension = file.name.split(".").pop() || "png";
-      const path = `${userData.user.id}/${Date.now()}.${extension}`;
-      const { error } = await supabase.storage.from("watermarks").upload(path, file, { upsert: false });
-      if (error) throw new Error(error.message);
-
-      const { data } = supabase.storage.from("watermarks").getPublicUrl(path);
-      setWatermarkUrl(data.publicUrl);
+      if (!project) throw new Error("Dự án chưa tải xong");
+      if (!["image/png", "image/webp"].includes(file.type))
+        throw new Error("Chọn PNG hoặc WebP có nền trong suốt. Không nhận JPG hoặc SVG.");
+      if (file.size > 3 * 1024 * 1024) throw new Error("Watermark tối đa 3 MB.");
+      const form = new FormData();
+      form.append("file", file);
+      form.append("workspaceVersion", String(project.workspace_version ?? 1));
+      const response = await fetch(`/api/projects/${project.id}/watermark`, { method: "POST", body: form });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Tải watermark thất bại");
+      setWatermarkUrl(result.url);
       toast.success("Đã tải logo lên, nhớ bấm Lưu");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Tải logo thất bại");
@@ -105,7 +103,7 @@ export default function BrandSettingsPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold th-text-primary">Thương hiệu</h1>
           <p className="th-text-tertiary mt-1">
-            Watermark và khổ ảnh mặc định cho mọi meme mới của dự án này.
+            Watermark và phong cách dùng chung cho ảnh, video và phim ngắn của dự án.
           </p>
         </div>
 
@@ -121,7 +119,7 @@ export default function BrandSettingsPage() {
                 <input
                   ref={fileRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/png,image/webp"
                   className="hidden"
                   onChange={(event) => {
                     const file = event.target.files?.[0];
@@ -132,10 +130,10 @@ export default function BrandSettingsPage() {
 
                 {watermarkUrl ? (
                   <div className="flex items-center gap-3 rounded-xl border th-border-secondary p-3">
-                    <div className="relative h-12 w-12 shrink-0 th-bg-tertiary">
+                    <div className="relative h-16 w-36 shrink-0 rounded-lg bg-slate-700">
                       <Image src={watermarkUrl} alt="Watermark" fill className="object-contain" unoptimized />
                     </div>
-                    <span className="flex-1 truncate text-xs th-text-tertiary">Logo đã lưu</span>
+                    <span className="flex-1 truncate text-xs th-text-tertiary">Watermark đang chọn</span>
                     <Button size="sm" variant="ghost" aria-label="Bỏ logo" onClick={() => setWatermarkUrl(null)}>
                       <Trash2 size={14} />
                     </Button>
@@ -148,10 +146,29 @@ export default function BrandSettingsPage() {
                     className="flex w-full flex-col items-center gap-1 rounded-xl border border-dashed th-border-secondary p-5 th-text-tertiary th-bg-hover"
                   >
                     <Upload size={18} />
-                    <span className="text-xs">{uploading ? "Đang tải…" : "Tải logo PNG / JPG / SVG"}</span>
+                    <span className="text-xs">{uploading ? "Đang tải…" : "Tải watermark PNG / WebP trong suốt"}</span>
                   </button>
                 )}
 
+                {watermarkUrl && (
+                  <Button size="sm" variant="secondary" loading={uploading} onClick={() => fileRef.current?.click()}>
+                    <Upload size={14} /> Thay watermark
+                  </Button>
+                )}
+                <p className="text-xs th-text-tertiary">
+                  PNG hoặc WebP không có nền, tối đa 3 MB. Ảnh nền trắng hoặc nền caro sẽ bị từ chối.
+                </p>
+                <div aria-label="Xem trước watermark trên video" className="relative aspect-video overflow-hidden rounded-lg bg-slate-800">
+                  <span className="absolute left-3 top-3 text-xs text-slate-300">Xem trước 16:9</span>
+                  {watermarkUrl && <div className="absolute" style={{
+                    width: "24%", height: "16%", opacity,
+                    left: position.includes("left") ? "2%" : !position.includes("right") ? "50%" : undefined,
+                    right: position.includes("right") ? "2%" : undefined,
+                    top: position.includes("top") ? "3%" : !position.includes("bottom") ? "50%" : undefined,
+                    bottom: position.includes("bottom") ? "3%" : undefined,
+                    transform: `translate(${!position.includes("left") && !position.includes("right") ? "-50%" : "0"}, ${!position.includes("top") && !position.includes("bottom") ? "-50%" : "0"})`,
+                  }}><Image src={watermarkUrl} alt="Watermark xem trước" width={400} height={200} className="h-full w-full object-contain" unoptimized /></div>}
+                </div>
                 <ControlRow label="Vị trí">
                   <WatermarkGrid value={position} onChange={setPosition} />
                 </ControlRow>
@@ -167,7 +184,7 @@ export default function BrandSettingsPage() {
                 </ControlRow>
 
                 <p className="text-xs th-text-tertiary">
-                  Không có logo thì editor dùng handle bên cạnh làm watermark chữ.
+                  Bấm Lưu để áp dụng cho các lượt tạo tiếp theo. Video và ảnh đã hoàn tất vẫn giữ watermark cũ.
                 </p>
               </CardContent>
             </Card>
@@ -232,7 +249,7 @@ export default function BrandSettingsPage() {
         )}
 
         <div className="mt-5 max-w-4xl">
-          <Button onClick={save} loading={saving} disabled={loading}>
+          <Button onClick={save} loading={saving} disabled={loading || uploading || !project}>
             Lưu cài đặt
           </Button>
         </div>

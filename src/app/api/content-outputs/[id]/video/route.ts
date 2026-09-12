@@ -137,6 +137,10 @@ export async function POST(
       providerCostUsd: savedQuote.providerCostUsd,
     };
     const projectId = output.content_sets.project_id as string;
+    const { data: brand, error: brandError } = await supabase.from("projects")
+      .select("watermark_url,watermark_position,watermark_opacity")
+      .eq("id", projectId).single();
+    if (brandError || !brand) throw new Error("Không tải được thương hiệu dự án.");
     const manifestHash = await crypto.subtle
       .digest(
         "SHA-256",
@@ -190,6 +194,7 @@ export async function POST(
         estimated_cost_usd: quote.providerCostUsd,
         created_by: user.id,
         checkpoint: {
+          brand,
           dubbing,
           quote,
           requestId,
