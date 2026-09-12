@@ -52,7 +52,28 @@ function identity(scene: FilmScene, beat: StoryboardBeat, index: number) {
 }
 
 function sourceForScene(tasks: FilmTask[], scene: FilmScene, plan: FilmPlan) {
-  return currentSceneTask(tasks, scene, finalClipKind(scene, plan.audio_mode), plan.audio_mode);
+  const finished = currentSceneTask(
+    tasks,
+    scene,
+    finalClipKind(scene, plan.audio_mode),
+    plan.audio_mode,
+  );
+  if (finished) return finished;
+  // Historical productions sometimes mixed their locked voices only in the
+  // final render and therefore have no standalone `dub` task. Their completed
+  // motion clip is still the exact footage the editor must be able to inspect
+  // and trim. Paid regeneration continues to require an approved source below.
+  return (
+    currentSceneTask(tasks, scene, "video", plan.audio_mode) ||
+    tasks.find(
+      (candidate) =>
+        candidate.kind === "video" &&
+        candidate.scene_id === scene.id &&
+        candidate.scene_version === scene.version &&
+        candidate.status === "completed" &&
+        Boolean(candidate.result?.path),
+    )
+  );
 }
 
 function activeVoice(scene: FilmScene, beat: StoryboardBeat) {
