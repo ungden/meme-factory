@@ -43,12 +43,17 @@ describe("Gemini TTS", () => {
       voice: "Leda",
       direction: "Giọng bé gái Việt Nam.",
       text: "Xin chào.",
+      previousInteractionId: "interaction-before",
       fetchImpl,
     });
     expect(result.interactionId).toBe("interaction-1");
     expect(result.audio.subarray(0, 4).toString()).toBe("RIFF");
     const [, options] = fetchImpl.mock.calls[0];
     const body = JSON.parse(options.body);
+    expect(body.input).toContain("### AUDIO PROFILE AND DIRECTOR'S NOTES");
+    expect(body.input).toContain("### TRANSCRIPT — SPEAK ONLY THE TEXT BELOW");
+    expect(body.input).toContain("Xin chào.");
+    expect(body.previous_interaction_id).toBe("interaction-before");
     expect(body.response_format).toEqual({ type: "audio" });
     expect(body.generation_config.speech_config[0]).toMatchObject({
       voice: "Leda",

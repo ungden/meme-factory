@@ -226,6 +226,7 @@ export type FilmCast = {
     voice_id: string;
     model: string;
     settings: Record<string, unknown>;
+    source?: "approved" | "auto_guest";
   };
 };
 export type FilmPlan = {
@@ -271,6 +272,7 @@ export type FilmTask = {
   approved_at: string | null;
   auto_accepted_at?: string | null;
   production_run_id?: string | null;
+  provider_id?: string | null;
   url?: string;
   posterUrl?: string;
   srtUrl?: string;
@@ -528,7 +530,17 @@ export function speechDirection(
 ) {
   const base = String(baseDirection || "Nói tiếng Việt tự nhiên.").trim();
   const beat = scene.storyboard?.beats[beatIndex];
-  if (!beat) return base;
+  const speaker = beat
+    ? scene.cast_snapshot.find(
+        (character) => character.characterId === beat.speakerCharacterId,
+      )
+    : undefined;
+  const identityLock = [
+    `VOICE IDENTITY LOCK: đây luôn là đúng giọng của ${speaker?.name || "nhân vật"}.`,
+    "Giữ nguyên tuyệt đối tuổi, giới tính, cao độ nền, âm sắc, độ vang và khẩu âm như Audio profile ở mọi câu trong cùng phim.",
+    "Cảm xúc chỉ thay đổi nhịp, hơi thở, cường độ và khoảng ngắt; không biến thành một người nói khác.",
+  ].join(" ");
+  if (!beat) return [base, identityLock].join("\n");
   const performance = beat.performance;
   const acting = [
     beat.action,
@@ -540,9 +552,10 @@ export function speechDirection(
     .filter(Boolean)
     .join(" ")
     .slice(0, 1800);
-  if (!acting) return base;
+  if (!acting) return [base, identityLock].join("\n");
   return [
     base,
+    identityLock,
     `Hướng diễn riêng cho câu này: ${acting}`,
     "Thể hiện cảm xúc bằng nhịp thở, lực giọng và ngắt nghỉ tự nhiên; vẫn nói trọn đúng nguyên văn, không thêm tiếng hoặc lời ngoài kịch bản.",
   ].join("\n");

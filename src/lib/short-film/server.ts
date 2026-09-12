@@ -42,6 +42,7 @@ import {
 } from "../video-models";
 import { normalizeFamilyFatherTerms } from "../family-terminology";
 import { performanceCheck } from "../performance-direction";
+import { automaticGuestVoice } from "./guest-voices";
 export const hash = (v: unknown) =>
   crypto.createHash("sha256").update(JSON.stringify(v)).digest("hex");
 export class FilmError extends Error {
@@ -129,8 +130,31 @@ export async function freezeCast(
     .in("id", ids);
   if (error || chars?.length !== ids.length)
     throw new FilmError("Nhân vật không thuộc dự án.");
+  const { data: channel } = await a.admin
+    .from("channel_profiles")
+    .select("profile")
+    .eq("project_id", a.project.id)
+    .eq("workspace_version", a.project.workspace_version)
+    .order("version", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const coreCharacterIds = new Set(
+    Array.isArray(channel?.profile?.roles)
+      ? channel.profile.roles
+          .map((role: { characterId?: unknown }) => String(role.characterId || ""))
+          .filter(Boolean)
+      : [],
+  );
+  const usedVoices = new Set(
+    previous
+      .map((character) => character.voice?.voice_id)
+      .filter((voice): voice is string => Boolean(voice)),
+  );
   const cast: FilmCast[] = [];
-  for (const c of chars) {
+  const orderedChars = ids.map(
+    (id) => chars.find((character) => character.id === id)!,
+  );
+  for (const c of orderedChars) {
     const old = previous.find((x) => x.characterId === c.id);
     const { data: v } = await a.admin
       .from("asset_versions")
@@ -154,6 +178,19 @@ export async function freezeCast(
       .order("version", { ascending: false })
       .limit(1)
       .maybeSingle();
+    const oldVoice = old?.voice;
+    const frozenVoice = voice
+      ? { ...voice, source: "approved" as const }
+      : oldVoice ||
+        (!coreCharacterIds.has(c.id)
+          ? automaticGuestVoice({
+              projectId: a.project.id,
+              workspaceVersion: a.project.workspace_version,
+              character: c,
+              usedVoices,
+            })
+          : undefined);
+    if (frozenVoice?.voice_id) usedVoices.add(frozenVoice.voice_id);
     // Never mix a locked reference set with mutable avatars or expression grids.
     cast.push({
       ...old,
@@ -169,7 +206,7 @@ export async function freezeCast(
             assetVersion: v!.version,
           }
         : {}),
-      ...(voice ? { voice } : {}),
+      ...(frozenVoice ? { voice: frozenVoice } : {}),
     } as FilmCast);
   }
   return cast;
@@ -626,6 +663,7 @@ export async function quotePlan(
       )
     : existing;
   const tasks: QuotedTask[] = [];
+  const lastVoiceTaskByKey = new Map<string, string>();
   const latest = (s: FilmScene, kind: FilmKind) =>
     currentSceneTask(eligible, s, kind, plan.audio_mode);
   if (stage === "prepare")
@@ -679,20 +717,25 @@ export async function quotePlan(
       }
       if (s.dialogue && plan.audio_mode !== "native") {
         for (const line of speechLines(s)) {
+          const c = s.cast_snapshot.find(
+            (character) => character.characterId === line.speakerCharacterId,
+          );
+          if (!c?.voice)
+            throw new FilmError(
+              `Duyệt giọng của ${c?.name || "người nói"} trước.`,
+            );
+          const voiceContinuityKey = `${plan.id}:${c.voice.id}:${line.speakerCharacterId}`;
           const prior =
             plan.audio_mode === "fixed"
               ? latest(s, "tts")
               : speechTasks(eligible, s).find(
                   (t) => t?.input.beatIndex === line.beatIndex,
                 );
-          if (accepted(prior) && body.regenerate !== true) continue;
-          const c = s.cast_snapshot.find(
-            (c) => c.characterId === line.speakerCharacterId,
-          );
-          if (!c?.voice)
-            throw new FilmError(
-              `Duyệt giọng của ${c?.name || "người nói"} trước.`,
-            );
+          if (accepted(prior) && body.regenerate !== true) {
+            if (prior?.provider_id)
+              lastVoiceTaskByKey.set(voiceContinuityKey, prior.id);
+            continue;
+          }
           const voiceSettings = { ...(c.voice.settings || {}) };
           const direction = speechDirection(
             s,
@@ -705,6 +748,10 @@ export async function quotePlan(
           delete voiceSettings.voiceName;
           delete voiceSettings.direction;
           const voiceModel = c.voice.model || FILM_MODELS.tts;
+          const previousVoiceTaskId =
+            voiceModel === "gemini-3.1-flash-tts-preview"
+              ? lastVoiceTaskByKey.get(voiceContinuityKey)
+              : undefined;
           const inputs = isGeminiTtsModel(voiceModel)
             ? {
                 text: line.dialogue,
@@ -728,26 +775,31 @@ export async function quotePlan(
                 requestedSeconds: line.endSeconds - line.startSeconds,
               }).customerPoints
             : await modelPrice(voiceModel, inputs);
-          tasks.push(
-            task(
-              "tts",
-              {
-                model: voiceModel,
-                provider: isGeminiTtsModel(voiceModel) ? "google" : "wavespeed",
-                providerInputs: inputs,
-                voiceProfileVersion: c.voice.id,
-                speakerCharacterId: line.speakerCharacterId,
-                beatIndex: line.beatIndex,
-                dialogue: line.dialogue,
-                subjectKey:
-                  plan.audio_mode === "fixed"
-                    ? `${s.id}:${s.version}:tts`
-                    : `${s.id}:${s.version}:tts:${line.beatIndex}`,
-              },
-              points,
-              s,
-            ),
+          const quoted = task(
+            "tts",
+            {
+              model: voiceModel,
+              provider: isGeminiTtsModel(voiceModel)
+                ? "google"
+                : "wavespeed",
+              providerInputs: inputs,
+              voiceProfileVersion: c.voice.id,
+              speakerCharacterId: line.speakerCharacterId,
+              beatIndex: line.beatIndex,
+              dialogue: line.dialogue,
+              voiceContinuityKey,
+              ...(previousVoiceTaskId ? { previousVoiceTaskId } : {}),
+              subjectKey:
+                plan.audio_mode === "fixed"
+                  ? `${s.id}:${s.version}:tts`
+                  : `${s.id}:${s.version}:tts:${line.beatIndex}`,
+            },
+            points,
+            s,
+            previousVoiceTaskId ? [previousVoiceTaskId] : [],
           );
+          tasks.push(quoted);
+          lastVoiceTaskByKey.set(voiceContinuityKey, quoted.id);
         }
       }
     }

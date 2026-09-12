@@ -87,12 +87,19 @@ export async function createGeminiSpeech({
   voice,
   direction,
   text,
+  previousInteractionId,
   fetchImpl = fetch,
 }) {
   if (!apiKey) throw new Error("Worker thiếu GEMINI_API_KEY.");
   if (!GEMINI_TTS_MODEL_IDS.has(model))
     throw new Error("Model Gemini TTS không được hỗ trợ.");
-  const input = `${direction}\n\nNói nguyên văn bằng tiếng Việt: ${text}`;
+  const input = [
+    "Synthesize one Vietnamese speaker reading the transcript exactly. Return audio only.",
+    "### AUDIO PROFILE AND DIRECTOR'S NOTES",
+    direction,
+    "### TRANSCRIPT — SPEAK ONLY THE TEXT BELOW",
+    text,
+  ].join("\n\n");
   if (model === "gemini-3.1-flash-tts-preview") {
     const json = await request(
       `${BASE}/interactions`,
@@ -103,6 +110,9 @@ export async function createGeminiSpeech({
         body: JSON.stringify({
           model,
           input,
+          ...(previousInteractionId
+            ? { previous_interaction_id: previousInteractionId }
+            : {}),
           response_format: { type: "audio" },
           generation_config: {
             speech_config: [{ voice, language: "vi-VN" }],

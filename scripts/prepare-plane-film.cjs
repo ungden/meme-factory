@@ -19,6 +19,18 @@ const GUESTS = {
     description:
       "Phi công nam người Việt khoảng 35–42 tuổi, tóc đen ngắn gọn gàng, sạch râu, sơ mi phi công trắng, cà vạt đen và quần đen; tác phong nhanh, dứt khoát.",
     personality: "Bình tĩnh theo nghề nhưng phản ứng rất nhanh khi máy bay gặp sự cố.",
+    voice: {
+      id: `auto-guest:1:pilot:Fenrir`,
+      voice_id: "Fenrir",
+      model: "gemini-3.1-flash-tts-preview",
+      source: "auto_guest",
+      settings: {
+        provider: "google",
+        source: "auto_guest",
+        voiceName: "Fenrir",
+        direction: "Audio profile: Phi Công, người đàn ông Việt Nam khoảng 35 đến 42 tuổi. Giữ nguyên âm sắc nam Fenrir, dứt khoát và khẩn trương nhưng không la hét; nói tự nhiên, rõ tiếng Việt. Không đổi tuổi, cao độ nền hoặc âm sắc giữa các câu.",
+      },
+    },
     mustPreserve: [
       "tóc đen ngắn và sạch râu",
       "sơ mi phi công trắng, cà vạt đen, quần đen",
@@ -30,6 +42,18 @@ const GUESTS = {
     description:
       "Chuyên gia nam người Việt khoảng 45–50 tuổi, tóc đen rẽ lệch hơi điểm bạc, kính tròn mảnh, blazer xanh lam, sơ mi trắng và quần xám; vẻ tự tin hơi tự mãn.",
     personality: "Luôn tin mình quan trọng nhất và hành động rất quả quyết trước khi kịp nhìn kỹ.",
+    voice: {
+      id: `auto-guest:1:expert:Iapetus`,
+      voice_id: "Iapetus",
+      model: "gemini-3.1-flash-tts-preview",
+      source: "auto_guest",
+      settings: {
+        provider: "google",
+        source: "auto_guest",
+        voiceName: "Iapetus",
+        direction: "Audio profile: Chuyên Gia, người đàn ông Việt Nam khoảng 45 đến 50 tuổi. Giữ nguyên âm sắc nam Iapetus, rõ lời, tự tin hơi tự mãn; nói tự nhiên, không đọc diễn văn. Không đổi tuổi, cao độ nền hoặc âm sắc giữa các câu.",
+      },
+    },
     mustPreserve: [
       "kính tròn mảnh và tóc rẽ lệch hơi điểm bạc",
       "blazer xanh lam, sơ mi trắng, quần xám",
@@ -228,6 +252,7 @@ async function installGuest(project, name, definition) {
     referenceImages: [uploaded.url],
     assetVersionId: version.id,
     assetVersion: version.version,
+    voice: definition.voice,
   };
 }
 
@@ -372,10 +397,10 @@ async function main() {
       contentEndSeconds: 15,
       performanceDirection: directions[0],
       beats: [
-        beat({ start: 0, end: 1.5, action: "Đèn cảnh báo bật, cửa máy bay mở hé và bốn người cùng quay về phía ba túi dù cùng balô trẻ con.", camera: "wide cabin shot, immediate handheld push-in", motion: "Gió hất nhẹ tóc và vạt áo; ba túi dù kích thước lớn nằm tách rõ khỏi balô nhỏ màu đỏ của Đậu Đỏ." }),
-        beat({ start: 1.5, end: 7.5, speaker: mother.characterId, dialogue: "Máy bay gặp sự cố rồi! Có bốn người mà chỉ có ba cái dù!", action: "Mẹ giữ vai Đậu Đỏ, nói nhanh trong hoảng hốt và nhìn Phi Công.", camera: "medium two-shot on Mẹ and Đậu Đỏ, rack focus to the three parachutes", motion: "Mẹ nói trọn câu; Phi Công và Chuyên Gia chỉ phản ứng không lời, không cử động môi." }),
-        beat({ start: 7.5, end: 10.8, action: "Phi Công chộp đúng túi dù đỏ lớn, chạy hai bước rồi nhảy qua cửa.", camera: "fast lateral tracking into a short whip-pan", motion: "Cú chạy gọn, nhanh, an toàn; túi dù giữ nguyên trên lưng; không slow motion." }),
-        beat({ start: 10.8, end: 15, action: "Chuyên Gia hất cằm, chỉ vào ngực, chộp nhầm balô trẻ con màu đỏ của Đậu Đỏ rồi nhảy theo.", camera: "dolly to the wrong backpack, then fast pan to the door", motion: "Cho thấy rõ kích thước nhỏ, quai đeo trẻ con và móc khóa bánh bao; Đậu Đỏ dõi theo balô, Mẹ chưa nhận ra nhầm lẫn." }),
+        beat({ start: 0, end: 1.2, action: "Đèn cảnh báo bật, cửa máy bay mở hé và bốn người cùng quay về phía ba túi dù cùng balô trẻ con.", camera: "wide cabin shot, immediate handheld push-in", motion: "Gió hất nhẹ tóc và vạt áo; ba túi dù kích thước lớn nằm tách rõ khỏi balô nhỏ màu đỏ của Đậu Đỏ." }),
+        beat({ start: 1.2, end: 7.3, speaker: pilot.characterId, dialogue: "Máy bay gặp sự cố! Chỉ có ba cái dù. Tôi là phi công, tôi phải đi trước!", action: "Phi Công giơ ba ngón tay, chộp đúng túi dù đỏ lớn rồi chạy hai bước về phía cửa.", camera: "medium on Phi Công, then fast lateral tracking into a short whip-pan", motion: "Phi Công nói dứt khoát, chạy và nhảy ngay sau chữ trước; ba người còn lại nghe, không nói chen." }),
+        beat({ start: 7.3, end: 11.5, speaker: expert.characterId, dialogue: "Tôi là chuyên gia. Mọi người cần tôi hơn!", action: "Chuyên Gia hất cằm, chỉ vào ngực rồi chộp nhầm balô trẻ con màu đỏ của Đậu Đỏ.", camera: "dolly to the wrong backpack, then fast pan to the door", motion: "Chuyên Gia nói tự tin trong khi ôm nhầm balô nhỏ; Mẹ và Đậu Đỏ nhìn theo, không nói." }),
+        beat({ start: 11.5, end: 15, action: "Chuyên Gia đeo balô trẻ con, lao hai bước rồi nhảy qua cửa.", camera: "fast tracking to the door, snap-pan back to Đậu Đỏ", motion: "Cho thấy rõ quai đeo trẻ con và móc khóa bánh bao; Đậu Đỏ dõi theo balô, Mẹ chưa nhận ra nhầm lẫn; không slow motion." }),
       ],
     },
     {
@@ -406,7 +431,7 @@ async function main() {
   const sceneDefinitions = [
     {
       cast: allCast,
-      speaker: mother.characterId,
+      speaker: pilot.characterId,
       action: "Phi Công và Chuyên Gia lần lượt nhảy khỏi máy bay; Chuyên Gia cầm nhầm balô của Đậu Đỏ.",
       setting: "Khoang sau của máy bay nhỏ đang bay trên mây, cửa nhảy dù ở cuối cabin, đèn cảnh báo đỏ, ghế và dây đai thực tế.",
       camera: "nhịp nhanh, wide-to-medium handheld, tracking và whip-pan có chủ đích",
@@ -467,7 +492,7 @@ async function main() {
       p_expected: existing?.version ?? null,
       p_plan: {
         title: "Chuyên gia ham học",
-        brief: "Máy bay có bốn người nhưng ba cái dù. Phi Công nhảy trước, Chuyên Gia cầm nhầm balô của Đậu Đỏ. Mẹ khóc dặn con sống tốt rồi bị Đậu Đỏ bẻ lái rằng vẫn còn hai dù.",
+        brief: "Máy bay có bốn người nhưng ba cái dù. Phi Công và Chuyên Gia tự tuyên bố lý do cần nhảy trước; Chuyên Gia cầm nhầm balô của Đậu Đỏ. Mẹ khóc dặn con sống tốt rồi bị Đậu Đỏ bẻ lái rằng vẫn còn hai dù.",
         caption: "Khi chuyên gia chọn đúng… cặp sách. 😭🎒",
         format: "16:9",
         resolution: "720p",
@@ -489,7 +514,7 @@ async function main() {
           },
           endingPlan: {
             mode: "hard_cut",
-            stopAfterLine: 4,
+            stopAfterLine: 5,
             anchorQuote: "Chuyên gia có khác… ham học thật.",
             reason: "Câu chốt giải thích cú cầm nhầm; dừng ngay để giữ sự tỉnh bơ.",
           },
@@ -511,7 +536,8 @@ async function main() {
           payoff: "Chuyên Gia cầm nhầm balô, nên Mẹ và Đậu Đỏ vẫn còn hai dù.",
           caption: "Khi chuyên gia chọn đúng… cặp sách. 😭🎒",
           dialogue: [
-            { characterId: mother.characterId, text: "Máy bay gặp sự cố rồi! Có bốn người mà chỉ có ba cái dù!", action: "Mẹ giữ vai Đậu Đỏ, nói nhanh trong hoảng hốt và nhìn Phi Công." },
+            { characterId: pilot.characterId, text: "Máy bay gặp sự cố! Chỉ có ba cái dù. Tôi là phi công, tôi phải đi trước!", action: "Phi Công báo sự cố, giơ ba ngón tay, chộp đúng dù rồi chạy ra cửa." },
+            { characterId: expert.characterId, text: "Tôi là chuyên gia. Mọi người cần tôi hơn!", action: "Chuyên Gia chỉ vào ngực và chộp nhầm balô của Đậu Đỏ." },
             { characterId: mother.characterId, text: "Đậu Đỏ, con lấy dù đi. Sau này phải học hành chăm chỉ, sống thật tốt nhé con!", action: "Mẹ khóc nức nở, ôm siết con, giữ hai má rồi hôn trán." },
             { characterId: child.characterId, text: "Mẹ ơi, vẫn còn hai cái dù mà. Ông chuyên gia cầm nhầm cặp sách của con rồi.", action: "Đậu Đỏ đếm hai túi dù rồi chỉ vào chỗ chiếc cặp bị mất." },
             { characterId: mother.characterId, text: "Chuyên gia có khác… ham học thật.", action: "Mẹ ngừng khóc, để nguyên giọt nước mắt và hất cằm về phía cửa." },

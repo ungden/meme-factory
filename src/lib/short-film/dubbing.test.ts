@@ -108,6 +108,12 @@ describe("per-turn dubbing", () => {
     expect(speechDirection(scene, 1, "Giọng Đậu Đỏ.")).toContain(
       "Giọng Đậu Đỏ.",
     );
+    expect(speechDirection(scene, 0, "Giọng Bánh Bao.")).toContain(
+      "VOICE IDENTITY LOCK",
+    );
+    expect(speechDirection(scene, 0, "Giọng Bánh Bao.")).toContain(
+      "đúng giọng của Bánh Bao",
+    );
   });
   it("rejects swapped speakers, stale versions and unapproved voices", () => {
     const tasks = audios();

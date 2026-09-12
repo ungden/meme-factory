@@ -280,12 +280,28 @@ export function makeFilmWorker(db) {
       await checkpoint(t, { checkpoint: { submitting: true } });
       let created;
       try {
+        let previousInteractionId;
+        if (t.input.previousVoiceTaskId) {
+          const previousVoiceTask = await source(
+            t.input.previousVoiceTaskId,
+            t.project_id,
+          );
+          if (
+            previousVoiceTask.kind !== "tts" ||
+            previousVoiceTask.input.voiceContinuityKey !==
+              t.input.voiceContinuityKey ||
+            !previousVoiceTask.provider_id
+          )
+            throw new Error("VOICE_CONTINUITY_SOURCE_MISMATCH");
+          previousInteractionId = previousVoiceTask.provider_id;
+        }
         created = await createGeminiSpeech({
           apiKey,
           model: t.input.model,
           voice: t.input.providerInputs.voice,
           direction: t.input.providerInputs.direction,
           text: t.input.providerInputs.text,
+          previousInteractionId,
         });
       } catch (error) {
         // A concrete 4xx response proves Google rejected the request before it
