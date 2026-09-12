@@ -1,6 +1,12 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { access, fail, FilmError, readPlan } from "@/lib/short-film/server";
+import {
+  access,
+  fail,
+  FilmError,
+  readPlan,
+  refreshPlanCastIfStale,
+} from "@/lib/short-film/server";
 import { speechLines } from "@/lib/short-film/contracts";
 import { fixedVoiceEnabled } from "@/lib/short-film/features";
 import { seedanceImageModel } from "@/lib/video-models";
@@ -44,7 +50,10 @@ export async function POST(
     )
       throw new FilmError("Nhập trần điểm mỗi phim và mỗi ngày hợp lệ.");
     let plan = null;
-    if (body.planId) plan = await readPlan(a, String(body.planId));
+    if (body.planId) {
+      plan = await readPlan(a, String(body.planId));
+      plan = await refreshPlanCastIfStale(a, plan);
+    }
     if (plan?.audio_mode === "fixed" && !fixedVoiceEnabled(a.project.id))
       throw new FilmError(
         "Nhánh đồng bộ môi một người chưa qua canary. Chọn lồng tiếng theo từng nhân vật.",

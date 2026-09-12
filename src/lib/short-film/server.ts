@@ -1,7 +1,11 @@
 import "server-only";
 import { isProjectMediaPath } from "@/lib/project-media-path";
 import crypto from "node:crypto";
-import { validateStory, type Story } from "../family-catalogue";
+import {
+  validateStory,
+  type ChannelProfile,
+  type Story,
+} from "../family-catalogue";
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/supabase/request-auth";
 import { getSupabaseAdmin } from "@/lib/admin";
@@ -185,7 +189,11 @@ export async function savePlan(
       "Storyboard nhiều người dùng lồng tiếng theo từng lượt; đồng bộ môi một người cần cảnh riêng.",
     );
   const ids = [...new Set(inputs.flatMap((s) => s.characterIds || []))];
-  const cast = await freezeCast(a, ids, old?.cast_snapshot);
+  const cast = await freezeCast(
+    a,
+    ids,
+    body.refreshCast === true ? [] : old?.cast_snapshot,
+  );
   const canonicalFamily =
     a.project.name === "Bánh Bao & Đậu Đỏ" ||
     cast.some((character) => character.name === "Bố");
@@ -327,6 +335,87 @@ export async function savePlan(
     }
   }
   return readPlan(a, data);
+}
+
+export async function refreshPlanCastIfStale(a: Access, plan: FilmPlan) {
+  const ids = [
+    ...new Set(
+      plan.video_plan_scenes.flatMap((scene) =>
+        scene.cast_snapshot.map((character) => character.characterId),
+      ),
+    ),
+  ];
+  if (!ids.length) return plan;
+  const latest = await freezeCast(a, ids, []);
+  const currentVersions = new Map(
+    plan.cast_snapshot.map((character) => [
+      character.characterId,
+      character.assetVersionId,
+    ]),
+  );
+  if (
+    latest.every(
+      (character) =>
+        currentVersions.get(character.characterId) === character.assetVersionId,
+    )
+  )
+    return plan;
+
+  let story = plan.story;
+  if (story) {
+    const { data: channel } = await a.admin
+      .from("channel_profiles")
+      .select("profile")
+      .eq("project_id", a.project.id)
+      .eq("workspace_version", a.project.workspace_version)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const profile = channel?.profile as ChannelProfile | null;
+    if (profile?.visualDirection?.prompt)
+      story = { ...story, profileVersion: profile.version };
+  }
+
+  return savePlan(
+    a,
+    {
+      workspaceVersion: a.project.workspace_version,
+      expectedVersion: plan.version,
+      refreshCast: true,
+      title: plan.title,
+      brief: plan.brief,
+      caption: plan.caption,
+      format: plan.format,
+      resolution: plan.resolution,
+      videoModel: plan.video_model,
+      audioMode: plan.audio_mode,
+      subtitles: plan.subtitles,
+      trimSpeech: plan.trim_speech,
+      targetDurationSeconds: plan.target_duration_seconds,
+      story,
+      scenes: plan.video_plan_scenes.map((scene) => ({
+        id: scene.id,
+        characterIds: scene.cast_snapshot.map(
+          (character) => character.characterId,
+        ),
+        speakerCharacterId: scene.speaker_character_id,
+        dialogue: scene.dialogue,
+        action: scene.action,
+        setting: scene.setting,
+        camera: scene.camera,
+        durationSeconds: scene.duration_seconds,
+        startImageUrl: scene.start_image_url,
+        endImageUrl: scene.end_image_url,
+        followsPrevious: scene.follows_previous,
+        imagePrompt: scene.image_prompt,
+        motionPrompt: scene.motion_prompt,
+        sourceMode: scene.source_mode,
+        storyboard: scene.storyboard,
+        performanceDirection: scene.performance_direction,
+      })),
+    },
+    plan,
+  );
 }
 export async function signed(a: Access, path: string) {
   if (!isProjectMediaPath(a.project.id, path))
@@ -508,6 +597,21 @@ export async function quotePlan(
   if (plan.audio_mode === "fixed" && ["prepare", "video"].includes(stage))
     scenes.forEach(assertFixedVoiceShot);
   const existing = await tasksForPlan(a, plan.id);
+  let visualDirection = "";
+  const profileVersion = (plan.story as Story | null)?.profileVersion;
+  if (profileVersion) {
+    const { data: channel } = await a.admin
+      .from("channel_profiles")
+      .select("profile")
+      .eq("project_id", a.project.id)
+      .eq("workspace_version", a.project.workspace_version)
+      .eq("version", profileVersion)
+      .maybeSingle();
+    visualDirection = String(
+      (channel?.profile as { visualDirection?: { prompt?: unknown } } | null)
+        ?.visualDirection?.prompt || "",
+    ).trim();
+  }
   // An automatic run may only continue from work created by that run. Human
   // approved media can be reused deliberately; an unreviewed result from an
   // older attempt must never be pulled into a new production implicitly.
@@ -546,7 +650,9 @@ export async function quotePlan(
           prompt: [
             s.image_prompt,
             `Bối cảnh ${s.setting}. Hành động ${s.action}. Máy quay ${s.camera}.`,
-            "Dựng đúng một khung ảnh điện ảnh 3D, không chữ, không lưới ảnh. Chỉ cast được đính kèm xuất hiện; giữ nhận diện và trang phục. Không thêm người khác.",
+            visualDirection ||
+              "Dựng đúng một khung ảnh điện ảnh theo phong cách của ảnh chuẩn, không chữ, không lưới ảnh.",
+            "Chỉ cast được đính kèm xuất hiện; giữ nhận diện, tuổi, tỷ lệ cơ thể và trang phục. Không thêm người khác.",
             s.storyboard
               ? "Khung mở có đủ cast được đính kèm, trước lượt thoại đầu, bố trí rõ người nói/người nghe theo trục đối thoại. Không dồn hành động của các nhịp sau vào ảnh đầu."
               : s.dialogue

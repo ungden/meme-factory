@@ -7,10 +7,16 @@
  * outlined cartoon reads cheaper next to the 3D set.
  */
 
-export type ArtDirectionId = "soft_3d" | "glossy_3d" | "clay_3d" | "minimal_3d";
+export type ArtDirectionId =
+  | "soft_3d"
+  | "glossy_3d"
+  | "clay_3d"
+  | "minimal_3d"
+  | "photoreal_human";
 
 export interface ArtDirection {
   id: ArtDirectionId;
+  medium: "rendered_3d" | "photorealistic";
   label: string;
   description: string;
   /** Prompt block for generating the mascot itself. */
@@ -32,6 +38,7 @@ const SHARED_3D_RULES = `- Render 3D chất lượng phim hoạt hình rạp, KH
 export const ART_DIRECTIONS: Record<ArtDirectionId, ArtDirection> = {
   soft_3d: {
     id: "soft_3d",
+    medium: "rendered_3d",
     label: "3D mềm mại",
     description: "Lông nhung, ánh sáng dịu, nền kem ấm. Mặc định của hệ thống.",
     characterStyle: `PHONG CÁCH: Mascot 3D cao cấp, chất liệu nhung/nỉ mềm.
@@ -43,6 +50,7 @@ ${SHARED_3D_RULES}
   },
   glossy_3d: {
     id: "glossy_3d",
+    medium: "rendered_3d",
     label: "3D bóng",
     description: "Như mô hình vinyl, bề mặt bóng, màu no.",
     characterStyle: `PHONG CÁCH: Mascot 3D như mô hình đồ chơi vinyl cao cấp.
@@ -54,6 +62,7 @@ ${SHARED_3D_RULES}
   },
   clay_3d: {
     id: "clay_3d",
+    medium: "rendered_3d",
     label: "Đất nặn",
     description: "Cảm giác stop-motion, bề mặt đất sét có vân tay.",
     characterStyle: `PHONG CÁCH: Mascot 3D kiểu phim đất nặn stop-motion.
@@ -65,6 +74,7 @@ ${SHARED_3D_RULES}
   },
   minimal_3d: {
     id: "minimal_3d",
+    medium: "rendered_3d",
     label: "3D tối giản",
     description: "Hình khối đơn giản, ít màu, rất sạch.",
     characterStyle: `PHONG CÁCH: Mascot 3D tối giản, hình khối cơ bản.
@@ -73,6 +83,21 @@ ${SHARED_3D_RULES}
 - Tối đa ba đến bốn màu, pastel nhạt
 - Nền một màu phẳng, bóng đổ rất nhẹ`,
     memeStyle: `Mascot 3D tối giản, hình khối cơ bản, ba đến bốn màu pastel, nền một màu, bóng đổ nhẹ, không viền nét.`,
+  },
+  photoreal_human: {
+    id: "photoreal_human",
+    medium: "photorealistic",
+    label: "Người thật điện ảnh",
+    description:
+      "Ảnh live-action tự nhiên, da và tóc thật, tỷ lệ người bình thường.",
+    characterStyle: `PHONG CÁCH: ảnh chân dung live-action photorealistic cao cấp.
+- Giữ giải phẫu, kích thước đầu và mắt đúng tỷ lệ người thật
+- Da có lỗ chân lông và độ trong tự nhiên; tóc có sợi nhỏ; vải có thớ thật
+- Ánh sáng cửa sổ hoặc studio mềm, vật lý hợp lý, màu da trung thực
+- Dùng tiêu cự chân dung tự nhiên 35–50mm, không làm đẹp quá mức
+- TUYỆT ĐỐI KHÔNG CGI, 3D render, Pixar, hoạt hình, chibi, búp bê, da nhựa hoặc mắt bóng quá cỡ`,
+    memeStyle:
+      "Ảnh live-action photorealistic, tỷ lệ người tự nhiên, da tóc và vải thật, ánh sáng điện ảnh mềm; không CGI hoặc hoạt hình.",
   },
 };
 

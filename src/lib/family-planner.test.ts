@@ -227,7 +227,7 @@ it("records all alternatives and comparison, then freezes reviewed dialogue into
   });
   expect(calls.prompts).toHaveLength(5);
   if (result.kind !== "video_plan") throw Error("Wrong kind");
-  expect(result.story?.profileVersion).toBe(9);
+  expect(result.story?.profileVersion).toBe(10);
   expect(result.story?.development?.candidates).toHaveLength(3);
   expect(result.story?.development?.selection?.selectedId).toBe("A");
   expect(result.story?.development?.stage).toBe("complete");

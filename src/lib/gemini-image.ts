@@ -91,10 +91,11 @@ export function compileMemeImagePrompt(params: GenerateMemeImageParams) {
   const requiredCharacters = characters.map((c) => c.name).filter(Boolean);
 
   const memeDirection = resolveArtDirection(params.artDirection);
-  const defaultMemeStyle = `Phong cách: ${memeDirection.memeStyle} Bố cục rõ ràng, bắt mắt trên news feed. Đây là ảnh dựng 3D, KHÔNG phải ảnh chụp thật.`;
+  const photoreal = memeDirection.medium === "photorealistic";
+  const defaultMemeStyle = `Phong cách: ${memeDirection.memeStyle} Bố cục rõ ràng, bắt mắt trên news feed.`;
 
-  return `Bạn là art director dựng ảnh 3D cho mạng xã hội Việt Nam.
-Nhiệm vụ của bạn là dựng một ảnh 3D chất lượng cao theo đúng các yêu cầu bên dưới.
+  return `Bạn là art director ${photoreal ? "ảnh live-action photorealistic" : "dựng ảnh 3D"} cho mạng xã hội Việt Nam.
+Nhiệm vụ của bạn là dựng một ảnh ${photoreal ? "chụp người thật" : "3D"} chất lượng cao theo đúng các yêu cầu bên dưới.
 
 === 1. CHỈ DẪN VẼ HÌNH ẢNH (VISUAL BRIEF) ===
 ${customPrompt ? customPrompt : "Sáng tạo hình ảnh phù hợp với văn bản."}
@@ -121,8 +122,9 @@ Tone/Mood: ${tone}
 ${watermark?.enabled ? `\nWatermark: Góc dưới cùng bên phải. ${watermark.text ? `Chữ: "${watermark.text}"` : ""}` : ""}
 
 === 5. QUY TẮC CẤM (NEGATIVE PROMPT) ===
-- KHÔNG ảnh chụp người thật, KHÔNG phong cách tài liệu/đời thực. Đây là nhân vật hoạt hình được dựng 3D.
-- KHÔNG viền nét đen kiểu truyện tranh, KHÔNG màu phẳng.
+${photoreal
+  ? "- KHÔNG CGI, 3D render, Pixar, hoạt hình, búp bê, chibi, da nhựa, mắt hoặc đầu quá cỡ.\n- KHÔNG beauty filter làm mất cấu trúc khuôn mặt và chất da thật."
+  : "- KHÔNG ảnh chụp người thật, KHÔNG phong cách tài liệu/đời thực. Đây là nhân vật hoạt hình được dựng 3D.\n- KHÔNG viền nét đen kiểu truyện tranh, KHÔNG màu phẳng."}
 - KHÔNG tạo nhân vật mới khác loài nếu đã có ảnh tham khảo (Reference). Bắt buộc dựng giống hệt ảnh mẫu.
 `;
 }
@@ -276,6 +278,7 @@ export function compileCharacterPosePrompt(params: GenerateCharacterPoseParams) 
   // layered on top. Previously any style string replaced the whole block, which is
   // how projects silently lost the house look.
   const direction = resolveArtDirection(params.artDirection);
+  const photoreal = direction.medium === "photorealistic";
   const artDirectionBlock = `${direction.characterStyle}
 - Phong cách chỉ quyết định NÉT DỰNG / ÁNH SÁNG / CHẤT LIỆU / TỈ LỆ / MÀU SẮC
 - KHÔNG dùng phong cách để tự thêm trang phục, phụ kiện, nghề nghiệp hay đổi loài nhân vật
@@ -285,7 +288,7 @@ export function compileCharacterPosePrompt(params: GenerateCharacterPoseParams) 
     ? `\n\nGHI CHÚ THƯƠNG HIỆU (chỉ chỉnh tông màu và cảm xúc, KHÔNG đổi phong cách dựng hình): ${style}`
     : "";
 
-  return `Bạn là art director dựng nhân vật 3D cho thương hiệu. Hãy dựng một mascot 3D chất lượng cao, có cá tính rõ, dùng được cho fanpage Việt Nam.
+  return `Bạn là art director ${photoreal ? "ảnh chân dung live-action" : "dựng nhân vật 3D"} cho thương hiệu. Hãy dựng một ${photoreal ? "nhân vật người thật photorealistic" : "mascot 3D"} chất lượng cao, có cá tính rõ, dùng được cho fanpage Việt Nam.
 
 NHÂN VẬT: "${characterName}"
 MÔ TẢ CHI TIẾT: ${characterDescription}
@@ -296,13 +299,13 @@ ${artDirectionBlock}${brandNoteBlock}
 YÊU CẦU BẮT BUỘC:
 ${framingRule}
 2. Background: TRẮNG TINH (#FFFFFF) hoặc gradient nhạt đơn giản — để dễ tách nền
-3. Dựng hình sạch, chi tiết rõ, chất lượng như phim hoạt hình rạp
+3. ${photoreal ? "Ảnh live-action sạch, chi tiết da/tóc/vải thật, không CGI hoặc hoạt hình" : "Dựng hình sạch, chi tiết rõ, chất lượng như phim hoạt hình rạp"}
 4. Biểu cảm khuôn mặt: Emotion "${emotion}" phải thể hiện RÕ RÀNG trên mặt — phù hợp tính cách nhân vật
 5. Trang phục và phụ kiện: THEO ĐÚNG MÔ TẢ NHÂN VẬT bên trên — KHÔNG tự thêm trang phục/phụ kiện ngoài mô tả, kể cả khi phong cách gợi nhớ streetwear/corporate/graffiti/anime...
 6. Tư thế tự nhiên, có năng lượng, phù hợp với emotion và tính cách nhân vật
 7. Rendering chất lượng cao, đúng chất liệu và ánh sáng của phong cách đã chọn
 8. KHÔNG có text, chữ viết, watermark, logo trên ảnh
-9. Nhân vật phải có đặc điểm nhận dạng UNIQUE, dễ nhớ, phù hợp làm mascot fanpage
+9. Nhân vật phải có đặc điểm nhận dạng riêng, dễ nhớ và nhất quán giữa các nội dung
 ${existingPoseImages?.length ? "10. QUAN TRỌNG NHẤT: Giữ CHÍNH XÁC design, phong cách, tỉ lệ cơ thể, màu sắc outfit, và mọi đặc điểm nhận dạng của nhân vật từ các ảnh reference đính kèm. Chỉ thay đổi biểu cảm và tư thế." : ""}`;
 }
 

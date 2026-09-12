@@ -82,16 +82,39 @@ describe("art direction", () => {
     expect(prompt).toContain("Render 3D chất lượng phim hoạt hình rạp");
   });
 
-  it("never asks for the flat outlined look the 3D set replaced", () => {
+  it("keeps rendered directions away from the flat outlined look", () => {
     for (const direction of ART_DIRECTION_LIST) {
       const prompt = compileCharacterPosePrompt({ ...baseParams, artDirection: direction.id });
-      expect(prompt).toContain("KHÔNG viền nét");
-      expect(prompt).toContain("KHÔNG cel shading");
+      if (direction.medium === "rendered_3d") {
+        expect(prompt).toContain("KHÔNG viền nét");
+        expect(prompt).toContain("KHÔNG cel shading");
+      }
       // The 2D vocabulary the 3D set replaced must be gone, not merely outnumbered.
       expect(prompt).not.toContain("Bold outlines");
       expect(prompt).not.toContain("Illustration");
       expect(prompt).not.toContain("tranh minh họa");
     }
+  });
+
+  it("supports photorealistic humans without contradictory 3D instructions", () => {
+    const character = compileCharacterPosePrompt({
+      ...baseParams,
+      artDirection: "photoreal_human",
+    });
+    const meme = compileMemeImagePrompt({
+      headline: "",
+      tone: "đời thường",
+      textPosition: "top",
+      characters: [],
+      format: "16:9",
+      artDirection: "photoreal_human",
+    });
+    expect(character).toContain("live-action");
+    expect(character).toContain("không CGI hoặc hoạt hình");
+    expect(character).not.toContain("phim hoạt hình rạp");
+    expect(meme).toContain("chụp người thật");
+    expect(meme).toContain("KHÔNG CGI");
+    expect(meme).not.toContain("KHÔNG ảnh chụp người thật");
   });
 
   it("layers a brand note on top instead of replacing the direction", () => {

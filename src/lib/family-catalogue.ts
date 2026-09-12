@@ -18,6 +18,10 @@ export const FAMILY_SERIES = [
 ] as const;
 export type ChannelProfile = {
   version: number;
+  visualDirection?: {
+    id: string;
+    prompt: string;
+  };
   writingPolicyVersion?: string;
   positioning: string;
   audience: string;
@@ -159,7 +163,12 @@ export const referenceMechanisms: ChannelProfile["references"] = [
 ];
 export function familyProfile(roles: ChannelProfile["roles"]): ChannelProfile {
   return {
-    version: 9,
+    version: 10,
+    visualDirection: {
+      id: "family-photoreal-v1",
+      prompt:
+        "Ảnh live-action photorealistic về một gia đình Việt Nam thật: giải phẫu và tỷ lệ người tự nhiên, mắt và đầu đúng kích thước, da có lỗ chân lông, tóc có sợi nhỏ, vải có thớ thật, ánh sáng cửa sổ mềm và tiêu cự 35–50mm. Giữ chính xác khuôn mặt, tuổi, tóc, vóc dáng và trang phục từ từng ảnh chuẩn. Không CGI, không 3D render, không Pixar, không hoạt hình, không chibi, không búp bê, không da nhựa, không mắt bóng quá cỡ.",
+    },
     writingPolicyVersion: FAMILY_WRITING_POLICY_VERSION,
     positioning:
       "Hai chị em trong một gia đình cố định, kể chuyện bằng đảo thường thức và parody thế giới người lớn. Hai nhánh: con lo cho bố mẹ như phụ huynh; trẻ diễn format/vai xã hội người lớn rất nghiêm túc với đạo cụ và quy mô trẻ con. Khán giả nhận ra khuôn mẫu rồi thấy sự tương phản vui vẻ. Không bắt mọi tập có bố mẹ, việc nhà hoặc bánh.",
