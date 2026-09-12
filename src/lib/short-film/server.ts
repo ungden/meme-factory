@@ -25,6 +25,7 @@ import {
   speechDirection,
   speechTasks,
   dubbingSchedule,
+  measuredDubbedScene,
   finalClipKind,
   filmVideoInputs,
   type FilmPlan,
@@ -43,6 +44,7 @@ import {
 import { normalizeFamilyFatherTerms } from "../family-terminology";
 import { performanceCheck } from "../performance-direction";
 import { automaticGuestVoice } from "./guest-voices";
+import { FILM_MOTION_PROMPT_VERSION } from "../film-motion-policy";
 export const hash = (v: unknown) =>
   crypto.createHash("sha256").update(JSON.stringify(v)).digest("hex");
 export class FilmError extends Error {
@@ -846,26 +848,31 @@ export async function quotePlan(
         throw new FilmError(
           `Nghe và duyệt thoại cảnh ${s.scene_index + 1} trước.`,
         );
+      const directed = plan.audio_mode === "dubbed"
+        ? measuredDubbedScene(eligible, s, seedanceMaxDuration(plan.video_model))
+        : { scene: s, measuredSpeechSeconds: undefined };
       const schedule =
-        plan.audio_mode === "dubbed" ? dubbingSchedule(eligible, s) : [];
+        plan.audio_mode === "dubbed" ? dubbingSchedule(eligible, directed.scene) : [];
       if (
         plan.audio_mode === "dubbed" &&
         speechTasks(eligible, s).some((t) => !accepted(t))
       )
         throw new FilmError("Duyệt các lượt thoại trước khi tạo video.");
       const inputs = filmVideoInputs(
-        s,
+        directed.scene,
         plan.audio_mode,
         plan.format,
         plan.resolution,
         await signed(a, String(image.result?.path)),
         plan.audio_mode === "fixed" ? Number(audio?.result?.duration || 0) : 0,
         plan.video_model,
+        directed.measuredSpeechSeconds,
       );
       const v = task(
         "video",
         {
           model: plan.video_model,
+          promptVersion: FILM_MOTION_PROMPT_VERSION,
           providerInputs: inputs,
           imageTaskId: image.id,
           audioTaskId: audio?.id,
@@ -875,7 +882,7 @@ export async function quotePlan(
           cast: s.cast_snapshot,
           dialogue: s.dialogue,
           speakerCharacterId: s.speaker_character_id,
-          storyboard: s.storyboard || null,
+          storyboard: directed.scene.storyboard || null,
           performanceDirection: s.performance_direction || s.storyboard?.performanceDirection || null,
           format: plan.format,
           resolution: plan.resolution,
@@ -918,7 +925,7 @@ export async function quotePlan(
               duration: video.result.duration,
               cast: s.cast_snapshot,
               dialogue: s.dialogue,
-              storyboard: s.storyboard || null,
+              storyboard: video.input.storyboard || s.storyboard || null,
               performanceDirection: s.performance_direction || s.storyboard?.performanceDirection || null,
               speakerCharacterId: s.speaker_character_id,
             },
@@ -998,7 +1005,7 @@ export async function quotePlan(
         sceneId: s.id,
         version: s.version,
         trimSpeech: !!plan.trim_speech && !!s.dialogue,
-        minimumOutSeconds: s.storyboard?.contentEndSeconds || 0,
+        minimumOutSeconds: (clip.input.storyboard as FilmScene["storyboard"])?.contentEndSeconds || s.storyboard?.contentEndSeconds || 0,
       };
     });
     tasks.push(

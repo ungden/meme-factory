@@ -9,7 +9,6 @@ import type { ChannelProfile, Story } from "./family-catalogue";
 import {
   PERFORMANCE_LANES,
   mergePerformanceDirections,
-  compilePerformanceDirection,
   type PerformanceDirection,
 } from "./performance-direction";
 const string = { type: "string" };
@@ -101,6 +100,10 @@ export function shotResponseSchema(story: Story, ids: string[] = []) {
     setting: string,
     camera: string,
     durationSeconds: { type: "number", minimum: 0.5, maximum: 30 },
+    pauseAfterSeconds: {
+      type: "number", minimum: 0, maximum: 2,
+      description: "Khoảng nghỉ có chủ đích sau câu. Mặc định 0.15; chỉ tăng khi cần hành động/reaction cụ thể. Không tính thời gian nói vào đây.",
+    },
     imagePrompt: {
       type: "string",
       description:
@@ -229,10 +232,7 @@ export function compileStoryboards(
       // Speech is the timing source of truth. Give each turn only enough room
       // for its real delivery plus a short reaction/action beat; the provider
       // may contain tail padding, but the finished film must not inherit it.
-      return Math.max(
-        spokenSeconds(story.dialogue[i].text) + 0.7,
-        Math.min(4.5, Number(shot.durationSeconds) || 0),
-      );
+      return spokenSeconds(story.dialogue[i].text) + Number(shot.pauseAfterSeconds ?? 0.15);
     });
     const sum = weights.reduce((n, w) => n + w, 0);
     if (sum > maxProviderSeconds - 0.5)
@@ -256,6 +256,7 @@ export function compileStoryboards(
         endSeconds: cursor,
         speakerCharacterId: line?.characterId || null,
         dialogue: line?.text || "",
+        pauseAfterSeconds: Number(shot.pauseAfterSeconds ?? 0.15),
         action: String(shot.action),
         camera: String(shot.camera),
         motion: String(shot.motionPrompt)
@@ -279,6 +280,7 @@ export function compileStoryboards(
     const storyboard = validateStoryboard(
       {
         version: 2,
+        timingPolicy: "audio_driven_v1",
         durationSeconds: providerDuration,
         contentEndSeconds: Math.round(sum * 100) / 100,
         beats,
@@ -302,9 +304,7 @@ export function compileStoryboards(
       followsPrevious: false,
       storyboard,
       imagePrompt: `${first.imagePrompt}\nKhung đầu sạch của đoạn đối đáp: có đủ ${names} từ ảnh chuẩn, vị trí và hướng nhìn rõ theo trục đối thoại, đúng tỷ lệ vóc dáng. Chưa diễn ra hành động hoặc kết quả ở nhịp sau. Không lưới, nhãn, mũi tên, chữ hoặc nhiều bản sao nhân vật.`,
-      motionPrompt: performanceDirection
-        ? compilePerformanceDirection(performanceDirection)
-        : "Thực hiện lần lượt các nhịp storyboard, giữ nhịp đối đáp tự nhiên và liên tục; mốc thời gian là chỉ dẫn diễn xuất, không phải phụ đề.",
+      motionPrompt: beats.map((beat) => `${beat.startSeconds.toFixed(2)}–${beat.endSeconds.toFixed(2)}s: ${beat.motion}`).join("\n"),
       performanceDirection: storyboard.performanceDirection,
     };
   });

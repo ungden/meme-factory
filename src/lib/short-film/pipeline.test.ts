@@ -45,7 +45,7 @@ describe("film production invariants", () => {
     expect(fixed).toContain("Người nghe giữ miệng đóng");
     expect(fixed).not.toContain("Cast: Bánh Bao: áo vàng");
   });
-  it("keeps an authored motion timeline and only locks the camera for an intentional reaction", () => {
+  it("keeps an authored motion timeline and camera instead of forcing a competing camera move", () => {
     const base = {
       duration_seconds: 6,
       motion_prompt:
@@ -62,7 +62,8 @@ describe("film production invariants", () => {
     } as FilmScene;
     const active = compileFilmMotion(base, "native", "16:9");
     expect(active).toContain(base.motion_prompt);
-    expect(active).toContain("controlled handheld");
+    expect(active).toContain("stable camera");
+    expect(active).not.toContain("controlled handheld");
     expect(active).toContain("Đậu Đỏ là người nói duy nhất");
     expect(active).toContain("không thêm tiếng đệm hoặc câu đáp");
     const reaction = compileFilmMotion(
@@ -70,7 +71,7 @@ describe("film production invariants", () => {
       "native",
       "16:9",
     );
-    expect(reaction).toContain("nhịp phản ứng cố ý");
+    expect(reaction).toContain("static reaction medium shot");
   });
   it("validates resolution and actual output dimensions instead of build settings", () => {
     expect(dimensions("9:16", "1080p")).toEqual([1080, 1920]);

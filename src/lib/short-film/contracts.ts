@@ -1,4 +1,5 @@
 import { validateStoryboard, type FilmStoryboard } from "../film-storyboard";
+import { REALTIME_MOTION_DIRECTION } from "../film-motion-policy";
 import type { Story } from "../family-catalogue";
 import {
   compilePerformanceDirection,
@@ -302,6 +303,7 @@ export function compileFilmMotion(
   scene: FilmScene,
   mode: "native" | "fixed" | "dubbed",
   format: string,
+  measuredSpeechSeconds?: ReadonlyMap<number, number>,
 ) {
   if (scene.storyboard) {
     if (mode === "fixed")
@@ -311,23 +313,22 @@ export function compileFilmMotion(
     const board = validateStoryboard(
       scene.storyboard,
       scene.cast_snapshot.map((c) => c.characterId),
+      30,
+      measuredSpeechSeconds,
     );
     const name = (id: string | null) =>
       scene.cast_snapshot.find((c) => c.characterId === id)?.name;
+    const performance = board.performanceDirection || scene.performance_direction;
     return [
       `STORYBOARD: clip nguồn ${board.durationSeconds} giây ${format}; câu chuyện hữu ích kết thúc ở ${Number(board.contentEndSeconds ?? board.durationSeconds).toFixed(2)} giây và phần nguồn còn lại sẽ bị cắt. Diễn nhiều nhịp đối đáp/hành động liên tục theo thứ tự sau. Bối cảnh ${scene.setting}.`,
       "FIRST FRAME: ảnh đầu là một khung sạch, không phải lưới storyboard. Giữ đúng diện mạo, vóc dáng, trang phục, vị trí và hướng nhìn của từng người trong ảnh.",
       `CAST: ${scene.cast_snapshot.map((c) => `${c.name}: ${c.description}`).join("; ")}. Không trộn người hoặc đổi giọng giữa các lượt.`,
-      ...(scene.storyboard.performanceDirection || scene.performance_direction
-        ? [
-            compilePerformanceDirection(
-              scene.storyboard.performanceDirection || scene.performance_direction!,
-            ),
-          ]
-        : []),
+      REALTIME_MOTION_DIRECTION,
+      ...(performance ? [`ACTING INTENT: ${performance.comicObjective}. HOOK 0–1s: ${performance.hook}. END CUE: ${performance.revealOrCut}. Các hành vi cụ thể nằm trong timeline dưới đây; không diễn lại thành chuỗi thứ hai.`] : []),
+      "CAMERA/EDIT: mỗi nhịp dùng đúng một phương án camera đã mô tả. Máy tĩnh được phép; không thêm chuyển động máy để thay chuyển động diễn viên. Chỉ cắt ở điểm được chỉ đạo, giữ trục nhìn và vị trí đạo cụ qua cut.",
       ...board.beats.map(
-        (b) =>
-          `${b.startSeconds.toFixed(2)}–${b.endSeconds.toFixed(2)}s | ${b.action} | CAMERA: ${b.camera} | MOTION: ${b.motion} | ${b.dialogue ? `Chỉ ${name(b.speakerCharacterId)} diễn lời thoại “${b.dialogue}” ${mode === "native" ? "với audio tiếng Việt" : "trong video im tiếng để lồng tiếng sau, không phát âm thanh"}. Các nhân vật còn lại nghe và phản ứng không lời, không cử động môi như đang nói.` : "Không có lời nói; diễn hành động/phản ứng đã mô tả."}`,
+        (b, i) =>
+          `SHOT/BEAT ${i + 1} | ${b.startSeconds.toFixed(2)}–${b.endSeconds.toFixed(2)}s | MOTION: ${b.motion} | CAMERA: ${b.camera} | ${b.performance ? `REACTION: ${b.performance.expressionChange}; ${b.performance.reactionTarget}. ` : ""}${b.dialogue ? `Chỉ ${name(b.speakerCharacterId)} diễn lời thoại “${b.dialogue}” ${mode === "native" ? "với audio tiếng Việt" : "trong video im tiếng để lồng tiếng sau, không phát âm thanh"}. ${measuredSpeechSeconds?.has(i) ? `Lượt thoại kết thúc ở ${(b.startSeconds + measuredSpeechSeconds.get(i)!).toFixed(2)}s; phần còn lại là phản ứng đã chỉ đạo, không kéo môi chậm cho đầy nhịp. ` : ""}Các nhân vật còn lại nghe và phản ứng trong câu này, không cử động môi như đang nói.` : "Không có lời nói; diễn hành động/phản ứng đã mô tả."}`,
       ),
       `PACING: bắt đầu ngay giây 0, nói nhanh tự nhiên nhưng rõ, không kéo dài âm tiết, không slow motion, không lặp câu hoặc lặp động tác. Hoàn tất toàn bộ diễn biến ở ${Number(board.contentEndSeconds ?? board.durationSeconds).toFixed(2)} giây; sau đó chỉ giữ tư thế kết, tuyệt đối không thêm hành động hoặc lời mới. Mốc thời gian định hướng nhịp diễn; nói trọn câu trước đổi lượt, không chồng lời. Người nghe phản ứng ngay trong lượt nói. Pan/cắt theo storyboard, giữ hướng nhìn và trục đối thoại; không chuyển cảnh trang trí hoặc đổi bối cảnh.`,
       mode === "native"
@@ -336,8 +337,6 @@ export function compileFilmMotion(
     ].join("\n");
   }
   const duration = Math.max(4, Math.min(30, scene.duration_seconds || 5));
-  const firstBeat = Math.min(1.2, duration * 0.22);
-  const finalBeat = Math.max(firstBeat + 0.8, duration - 0.8);
   const speaker = scene.cast_snapshot.find(
     (c) => c.characterId === scene.speaker_character_id,
   )?.name;
@@ -345,24 +344,15 @@ export function compileFilmMotion(
     scene.motion_prompt,
   )
     ? scene.motion_prompt
-    : [
-        `0.0–${firstBeat.toFixed(1)}s: bắt đầu ngay hành động chính, không có khung chờ hoặc đoạn thiết lập rỗng; ${scene.motion_prompt}.`,
-        `${firstBeat.toFixed(1)}–${finalBeat.toFixed(1)}s: ${scene.action}; biểu cảm, ánh mắt, tay và cơ thể tiếp tục phản ứng tự nhiên, không đứng tạo dáng.`,
-        `${finalBeat.toFixed(1)}–${duration.toFixed(1)}s: hoàn tất hành động và đi tới trạng thái kết rõ để cắt sang cảnh sau; chỉ giữ phản ứng cuối tối đa 0,3 giây.`,
-      ].join(" ");
-  const intentionalStillness =
-    /static reaction|locked[- ]?off|đứng hình|phản ứng ngơ|bất động/i.test(
-      `${scene.camera} ${scene.action}`,
-    );
-  const camera = intentionalStillness
-    ? `${scene.camera}; đây là nhịp phản ứng cố ý, vẫn có chuyển động rất nhỏ của mắt, hơi thở và tóc.`
-    : `${scene.camera.replace(/\b(?:stable|static)\s*(?:camera|shot)?\b/gi, "controlled handheld")}; camera chuyển động có chủ đích ngay từ giây 0 bằng handheld nhẹ, tracking, push hoặc slide phù hợp hành động; không khóa máy và không trôi vô cớ.`;
+    : `0.0–${duration.toFixed(1)}s: ${scene.motion_prompt || scene.action}. Thực hiện hành động một lần ở tốc độ thật ngay trong lượt nói. Sau tiếp xúc/quyết định, tiếp tục đúng phản ứng của người nghe; không trải chậm động tác cho đủ clip. Kết ở trạng thái đã mô tả, không thêm trò mới.`;
+  const camera = `${scene.camera}; giữ đúng phương án máy này. Máy tĩnh không có nghĩa diễn viên bất động; không tự thêm pan, orbit hoặc push-in.`;
   return [
     `GLOBAL STYLE: một shot liên tục ${format}, nhịp nhanh tự nhiên, phong cách và nhận diện kế thừa chính xác từ ảnh đầu.`,
     `SCENE: ${scene.setting}.`,
     `FIRST FRAME: dùng nguyên bố cục, vị trí và diện mạo trong ảnh đầu; hành động bắt đầu ở giây 0, không mở bằng cảnh đứng yên.`,
     `ACTION TIMELINE (${duration.toFixed(1)} giây): ${plannedTimeline}`,
     `CAMERA: ${camera}`,
+    REALTIME_MOTION_DIRECTION,
     ...(scene.performance_direction
       ? [compilePerformanceDirection(scene.performance_direction)]
       : []),
@@ -387,6 +377,7 @@ export function filmVideoInputs(
   image: string,
   audioDuration = 0,
   videoModel: FilmVideoModel = FILM_MODELS.video,
+  measuredSpeechSeconds?: ReadonlyMap<number, number>,
 ) {
   const duration = scene.storyboard
     ? scene.storyboard.durationSeconds
@@ -396,7 +387,7 @@ export function filmVideoInputs(
       `Clip ${duration} giây vượt giới hạn ${seedanceMaxDuration(videoModel)} giây của model đã chọn. Hãy soạn lại storyboard.`,
     );
   return {
-    prompt: compileFilmMotion(scene, mode, format),
+    prompt: compileFilmMotion(scene, mode, format, measuredSpeechSeconds),
     image,
     duration,
     resolution,
@@ -581,6 +572,48 @@ export function speechTasks(tasks: FilmTask[], scene: FilmScene) {
           line.dialogue,
     ),
   );
+}
+/** Only called before a new video quote. Existing clips keep their frozen timing. */
+export function measuredDubbedScene(
+  tasks: FilmTask[],
+  scene: FilmScene,
+  maxSeconds = 30,
+): { scene: FilmScene; measuredSpeechSeconds?: Map<number, number> } {
+  const board = scene.storyboard;
+  if (board?.timingPolicy !== "audio_driven_v1") return { scene };
+  validateStoryboard(board, scene.cast_snapshot.map((c) => c.characterId), maxSeconds);
+  const lines = speechLines(scene);
+  const audios = speechTasks(tasks, scene);
+  const measuredSpeechSeconds = new Map<number, number>();
+  for (const [i, line] of lines.entries()) {
+    const duration = Number(audios[i]?.result?.duration);
+    if (!audios[i] || !Number.isFinite(duration) || duration <= 0)
+      throw new Error("Thiếu audio đã đo thời lượng.");
+    measuredSpeechSeconds.set(line.beatIndex, duration);
+  }
+  let cursor = 0;
+  const beats = board.beats.map((beat, index) => {
+    const speech = measuredSpeechSeconds.get(index);
+    const duration = speech === undefined
+      ? beat.endSeconds - beat.startSeconds
+      : speech + Math.max(0.1, beat.pauseAfterSeconds ?? 0.15);
+    const startSeconds = cursor;
+    cursor = Math.ceil((cursor + duration) * 1000) / 1000;
+    return { ...beat, startSeconds, endSeconds: cursor };
+  });
+  const durationSeconds = Math.max(4, Math.ceil(cursor + 0.15));
+  if (durationSeconds > maxSeconds)
+    throw new Error(`Thoại thật vượt ${maxSeconds} giây. Chia lại đoạn trước khi mua video; không cắt hoặc tăng tốc lời.`);
+  const storyboard = validateStoryboard(
+    { ...board, beats, durationSeconds, contentEndSeconds: cursor },
+    scene.cast_snapshot.map((c) => c.characterId),
+    maxSeconds,
+    measuredSpeechSeconds,
+  );
+  return {
+    scene: { ...scene, storyboard, duration_seconds: durationSeconds },
+    measuredSpeechSeconds,
+  };
 }
 /** Freeze an audio schedule only after durations have been measured. Never cut or speed up speech. */
 export function dubbingSchedule(tasks: FilmTask[], scene: FilmScene) {

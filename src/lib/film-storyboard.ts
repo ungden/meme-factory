@@ -13,6 +13,8 @@ export type StoryboardBeat = {
   action: string;
   camera: string;
   motion: string;
+  /** Deliberate pause, not an estimate of how long the speech takes. */
+  pauseAfterSeconds?: number;
   /** Optional v2 acting direction; v1 storyboards remain readable. */
   performance?: PerformanceBeat;
 };
@@ -24,6 +26,8 @@ export type FilmStoryboard = {
   contentEndSeconds?: number;
   beats: StoryboardBeat[];
   performanceDirection?: PerformanceDirection;
+  /** New plans retime before purchase; old plans keep their authored timing. */
+  timingPolicy?: "audio_driven_v1";
 };
 export const STORYBOARD_MIN_SECONDS = 4;
 export const STORYBOARD_MAX_SECONDS = 30;
@@ -43,6 +47,7 @@ export function validateStoryboard(
   value: unknown,
   castIds: string[],
   maxSeconds = STORYBOARD_MAX_SECONDS,
+  measuredSpeechSeconds?: ReadonlyMap<number, number>,
 ): FilmStoryboard {
   const b = value as FilmStoryboard;
   if (
@@ -60,7 +65,10 @@ export function validateStoryboard(
     );
   let end = 0;
   if (b.performanceDirection) validatePerformanceDirection(b.performanceDirection);
-  for (const beat of b.beats) {
+  if (b.timingPolicy !== undefined && b.timingPolicy !== "audio_driven_v1")
+    throw new Error("STORYBOARD_TIMING_POLICY_INVALID");
+  for (const [index, beat] of b.beats.entries()) {
+    const speechSeconds = measuredSpeechSeconds?.get(index) ?? spokenSeconds(typeof beat?.dialogue === "string" ? beat.dialogue : "");
     if (
       !beat ||
       !Number.isFinite(beat.startSeconds) ||
@@ -78,11 +86,13 @@ export function validateStoryboard(
       !beat.action.trim() ||
       !beat.camera.trim() ||
       !beat.motion.trim() ||
+      (beat.pauseAfterSeconds !== undefined &&
+        (!Number.isFinite(beat.pauseAfterSeconds) || beat.pauseAfterSeconds < 0 || beat.pauseAfterSeconds > 2)) ||
       (beat.speakerCharacterId !== null &&
         !castIds.includes(beat.speakerCharacterId)) ||
       (beat.dialogue.trim() &&
         (!beat.speakerCharacterId ||
-          spokenSeconds(beat.dialogue) >
+          !Number.isFinite(speechSeconds) || speechSeconds <= 0 || speechSeconds >
             beat.endSeconds - beat.startSeconds + 0.02))
     )
       throw new Error(

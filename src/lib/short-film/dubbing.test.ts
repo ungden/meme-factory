@@ -7,6 +7,7 @@ import {
   currentSceneTask,
   finalClipKind,
   filmVideoInputs,
+  measuredDubbedScene,
   type FilmScene,
   type FilmTask,
 } from "./contracts";
@@ -86,6 +87,49 @@ const audios = (): FilmTask[] =>
       }) as FilmTask,
   );
 describe("per-turn dubbing", () => {
+  it("keeps old plans unchanged but packs a new request using measured speech without speeding it up", () => {
+    expect(measuredDubbedScene(audios(), scene).scene).toBe(scene);
+    const planned = structuredClone(scene);
+    planned.storyboard!.timingPolicy = "audio_driven_v1";
+    const original = structuredClone(planned);
+    const directed = measuredDubbedScene(audios(), planned);
+    const schedule = dubbingSchedule(audios(), directed.scene);
+    expect(schedule.map((s) => s.startSeconds)).toEqual([0, 2.15]);
+    expect(schedule.map((s) => s.duration)).toEqual([2, 2]);
+    expect(directed.scene.duration_seconds).toBe(5);
+    expect(directed.scene.storyboard!.contentEndSeconds).toBe(4.3);
+    expect(planned).toEqual(original);
+    const input = filmVideoInputs(directed.scene, "dubbed", "16:9", "720p", "frame", 0, undefined, directed.measuredSpeechSeconds);
+    expect(input.duration).toBe(5);
+    expect(input.prompt).toContain("2.15–4.30s");
+    expect(input.prompt).toContain("Lượt thoại kết thúc ở 4.15s");
+    expect(input.prompt).toContain("REAL-TIME MOTION");
+    expect(input.generate_audio).toBe(false);
+    expect(input).not.toHaveProperty("reference_images");
+  });
+  it("preserves an intentional pause and a silent reaction in measured timing", () => {
+    const planned = structuredClone(scene);
+    planned.storyboard!.timingPolicy = "audio_driven_v1";
+    planned.storyboard!.beats[0].pauseAfterSeconds = 1.1;
+    planned.storyboard!.beats[1].endSeconds = 13.8;
+    planned.storyboard!.beats.push({ ...planned.storyboard!.beats[1], startSeconds: 13.8, endSeconds: 15, dialogue: "", speakerCharacterId: null });
+    const directed = measuredDubbedScene(audios(), planned);
+    expect(dubbingSchedule(audios(), directed.scene)[1].startSeconds).toBe(3.1);
+    expect(directed.scene.storyboard!.beats.at(-1)!.dialogue).toBe("");
+    expect(directed.scene.storyboard!.contentEndSeconds).toBeCloseTo(6.45, 2);
+  });
+  it("accepts a clear fast delivery using actual durations and rejects overflow before video purchase", () => {
+    const planned = structuredClone(scene);
+    planned.storyboard!.timingPolicy = "audio_driven_v1";
+    const tasks = audios();
+    tasks[0].result!.duration = 0.9;
+    const directed = measuredDubbedScene(tasks, planned);
+    expect(() => filmVideoInputs(directed.scene, "dubbed", "16:9", "720p", "frame", 0, undefined, directed.measuredSpeechSeconds)).not.toThrow();
+    tasks[0].result!.duration = 15;
+    expect(() => measuredDubbedScene(tasks, planned, 15)).toThrow("Thoại thật vượt");
+    tasks[0].input.speakerCharacterId = "do";
+    expect(() => measuredDubbedScene(tasks, planned)).toThrow("Thiếu audio");
+  });
   it("owns voice, text and task ID by speaker rather than cast order", () => {
     expect(
       dubbingSchedule(audios().reverse(), scene).map((x) => [

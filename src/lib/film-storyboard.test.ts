@@ -45,6 +45,19 @@ const panels = {
 const compiled = () => compileStoryboards(panels, story, characters);
 
 describe("content-sized Seedance storyboard production", () => {
+  it("preserves distinct panel choreography and pauses instead of a generic segment action", () => {
+    const source = structuredClone(panels);
+    Object.assign(source.shots.shot1, { pauseAfterSeconds: 0.4, motionPrompt: "Đẩy túi về phía em trong lúc nói; em đưa tay đỡ." });
+    Object.assign(source.shots.shot2, { pauseAfterSeconds: 0.1, motionPrompt: "Em bắt quai túi, chị buông tay sau tiếp xúc." });
+    const first = compileStoryboards(source, story, characters).scenes[0];
+    expect(first.storyboard.timingPolicy).toBe("audio_driven_v1");
+    expect(first.storyboard.beats.map((beat) => beat.pauseAfterSeconds)).toEqual([0.4, 0.1]);
+    expect(first.motionPrompt).toContain(source.shots.shot1.motionPrompt);
+    expect(first.motionPrompt).toContain(source.shots.shot2.motionPrompt);
+    expect(first.motionPrompt).not.toContain("Thực hiện lần lượt các nhịp storyboard");
+    Object.assign(source.shots.shot1, { pauseAfterSeconds: -1 });
+    expect(() => compileStoryboards(source, story, characters)).toThrow();
+  });
   it("packs contiguous full turns once, with balanced groups and no invented dialogue", () => {
     const result = compiled();
     expect(result.scenes.length).toBeLessThan(story.dialogue.length);
@@ -118,6 +131,8 @@ describe("content-sized Seedance storyboard production", () => {
       { startSeconds: 1 },
       { endSeconds: 16 },
       { dialogue: "word ".repeat(80) },
+      { dialogue: 123 },
+      { pauseAfterSeconds: 3 },
     ])
       expect(() =>
         validateStoryboard(
