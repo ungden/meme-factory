@@ -11,6 +11,7 @@ import Input from "@/components/ui/input";
 import Textarea from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { ControlRow, Slider } from "@/components/editor/control-primitives";
+import WatermarkAi from "@/components/brand/watermark-ai";
 import WatermarkGrid from "@/components/editor/watermark-grid";
 import { useProject } from "@/lib/use-store";
 import { FORMAT_DIMENSIONS, type MemeFormat, type WatermarkPosition } from "@/types/database";
@@ -99,7 +100,7 @@ export default function BrandSettingsPage() {
   return (
     <div className="flex">
       <Sidebar projectId={projectRef} projectName={project?.name} />
-      <main className="ml-0 lg:ml-56 flex-1 p-4 pt-16 md:p-8">
+      <main className="ml-0 lg:ml-56 min-w-0 flex-1 p-4 pt-16 md:p-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold th-text-primary">Thương hiệu</h1>
           <p className="th-text-tertiary mt-1">
@@ -110,7 +111,7 @@ export default function BrandSettingsPage() {
         {loading ? (
           <p className="th-text-tertiary">Đang tải…</p>
         ) : (
-          <div className="grid max-w-4xl gap-4 lg:grid-cols-2">
+          <div className="grid min-w-0 max-w-4xl grid-cols-1 gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
                 <span className="text-sm font-semibold th-text-primary">Watermark mặc định</span>
@@ -158,6 +159,7 @@ export default function BrandSettingsPage() {
                 <p className="text-xs th-text-tertiary">
                   PNG hoặc WebP không có nền, tối đa 3 MB. Ảnh nền trắng hoặc nền caro sẽ bị từ chối.
                 </p>
+                {project && <WatermarkAi key={`${project.id}:${project.workspace_version}`} projectId={project.id} ownerId={project.user_id} workspaceVersion={project.workspace_version ?? 1} projectName={project.name} onApply={setWatermarkUrl} />}
                 <div aria-label="Xem trước watermark trên video" className="relative aspect-video overflow-hidden rounded-lg bg-slate-800">
                   <span className="absolute left-3 top-3 text-xs text-slate-300">Xem trước 16:9</span>
                   {watermarkUrl && <div className="absolute" style={{

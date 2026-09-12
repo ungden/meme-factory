@@ -144,7 +144,7 @@ function providerFor(model: ImagePricingModel) {
   return model === "gpt-image-2" ? "openai" as const : "google" as const;
 }
 
-function customerQuote(providerCostUsd: number) {
+export function customerQuote(providerCostUsd: number) {
   const customerPriceUsd = providerCostUsd * AI_PRICE_MARKUP_MULTIPLIER;
   const customerPriceVnd = customerPriceUsd * AI_PRICING_USD_VND;
   return {

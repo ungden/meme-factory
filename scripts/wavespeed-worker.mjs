@@ -581,6 +581,17 @@ async function productionTick() {
   if (Number(result.processed || 0) > 0)
     console.log(`Short-film production advanced: ${result.processed} run(s).`);
 }
+async function watermarkTick() {
+  if (!appUrl || !workerToken) return;
+  // Durable worker drives image-only jobs on the server holding the OpenAI secret.
+  // Video processing stays local to Railway.
+  const processor = process.env.WATERMARK_PROCESSOR_URL || appUrl;
+  const response = await fetch(`${processor.replace(/\/$/, "")}/api/internal/watermark-jobs`, {
+    method: "POST", headers: { Authorization: `Bearer ${workerToken}` },
+    signal: AbortSignal.timeout(250000),
+  });
+  if (!response.ok) throw new Error(`Watermark worker ${response.status}`);
+}
 async function loop(work, delay) {
   while (true) {
     try {
@@ -598,6 +609,7 @@ const film = directMode ? makeFilmWorker(supabase) : null;
 await Promise.all([
   loop(directMode ? directTick : proxyTick, 10000),
   loop(productionTick, 5000),
+  loop(watermarkTick, 5000),
   ...(film
     ? [loop(() => film.tick(false), 3000), loop(() => film.tick(true), 3000)]
     : []),
