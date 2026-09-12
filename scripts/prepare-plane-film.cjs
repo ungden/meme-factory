@@ -391,14 +391,14 @@ async function main() {
     },
     {
       version: 2,
-      durationSeconds: 14,
-      contentEndSeconds: 14,
+      durationSeconds: 16,
+      contentEndSeconds: 16,
       performanceDirection: directions[2],
       beats: [
         beat({ start: 0, end: 1.2, action: "Đậu Đỏ nhẹ nhàng gỡ hai tay Mẹ khỏi má, kéo chiếc dù bị khuất ra cạnh túi kia.", camera: "medium two-shot with quick rack focus to both parachutes", motion: "Hai túi dù lớn hiện rõ; chỗ của balô nhỏ bên chân Đậu Đỏ đang trống." }),
         beat({ start: 1.2, end: 9.2, speaker: child.characterId, dialogue: "Mẹ ơi, vẫn còn hai cái dù mà. Ông chuyên gia cầm nhầm cặp sách của con rồi.", action: "Đậu Đỏ đếm hai túi dù bằng ngón tay, rồi chỉ chỗ balô bị mất và chỉ ra cửa với vẻ tỉnh bơ.", camera: "rack focus between Đậu Đỏ, two parachutes and the empty backpack spot", motion: "Đậu Đỏ nói đều, rõ, hơi tiếc chiếc cặp; Mẹ ngừng nấc giữa chừng, mắt nhìn theo từng điểm con chỉ, không nói chen." }),
         beat({ start: 9.2, end: 11, action: "Mẹ ngoái ra cửa, lau một bên má; nét khóc tắt ngay thành vẻ khô khan.", camera: "snap-pan to the door and back into a close two-shot", motion: "Giữ một giọt nước mắt trên má; Mẹ chớp mắt đúng một lần, Đậu Đỏ chờ." }),
-        beat({ start: 11, end: 14, speaker: mother.characterId, dialogue: "Chuyên gia có khác… ham học thật.", action: "Mẹ hất cằm rất nhẹ về phía cửa và đặt túi dù xuống cạnh túi còn lại.", camera: "short controlled push-in on Mẹ and Đậu Đỏ", motion: "Mẹ nói tỉnh bơ khi nước mắt còn trên má; hard cut ngay sau chữ thật, không cười, không thêm lời hay hành động." }),
+        beat({ start: 11, end: 16, speaker: mother.characterId, dialogue: "Chuyên gia có khác… ham học thật.", action: "Mẹ hất cằm rất nhẹ về phía cửa và đặt túi dù xuống cạnh túi còn lại.", camera: "short controlled push-in on Mẹ and Đậu Đỏ", motion: "Mẹ nói tỉnh bơ khi nước mắt còn trên má; hard cut ngay sau chữ thật, không cười, không thêm lời hay hành động." }),
       ],
     },
   ];
@@ -475,7 +475,7 @@ async function main() {
         audio_mode: "dubbed",
         subtitles: true,
         trim_speech: true,
-        target_duration_seconds: 44,
+        target_duration_seconds: 46,
         cast_snapshot: allCast,
         story: {
           profileVersion: 10,
