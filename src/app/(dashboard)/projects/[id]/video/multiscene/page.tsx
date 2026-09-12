@@ -2400,7 +2400,7 @@ export default function ShortFilmPage() {
                 <FilmSegmentEditor
                   sceneIndex={selected}
                   segments={segments}
-                  tasks={currentTasks}
+                  tasks={tasks}
                   busy={!!busy}
                   onSave={saveSegment}
                   onQuote={quoteSegment}
