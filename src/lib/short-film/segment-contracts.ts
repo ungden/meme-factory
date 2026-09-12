@@ -2,6 +2,7 @@ import type {
   SegmentContinuityState,
   SegmentPropState,
 } from "../film-storyboard";
+import type { FilmTask } from "./contracts";
 
 export type FilmSegmentTimingSource = "planned" | "detected" | "manual";
 
@@ -70,3 +71,27 @@ export type FilmSegmentPatch = Pick<
   | "timingSource"
   | "timingEvidence"
 >;
+
+export function historicalSceneSource(
+  tasks: FilmTask[],
+  sceneId: string,
+  sceneVersion: number,
+) {
+  return tasks
+    .filter(
+      (candidate) =>
+        ["dub", "lip_sync", "video"].includes(candidate.kind) &&
+        candidate.scene_id === sceneId &&
+        candidate.status === "completed" &&
+        Boolean(candidate.result?.path) &&
+        Number(candidate.scene_version || 0) <= sceneVersion,
+    )
+    .sort((left, right) => {
+      const versionDelta =
+        Number(right.scene_version || 0) - Number(left.scene_version || 0);
+      if (versionDelta) return versionDelta;
+      const kindRank = (kind: string) =>
+        kind === "dub" || kind === "lip_sync" ? 2 : 1;
+      return kindRank(right.kind) - kindRank(left.kind);
+    })[0];
+}

@@ -19,6 +19,7 @@ import type {
   FilmSegmentPatch,
   FilmSegmentRevision,
 } from "./segment-contracts";
+import { historicalSceneSource } from "./segment-contracts";
 import {
   FilmError,
   type Access,
@@ -63,17 +64,15 @@ function sourceForScene(tasks: FilmTask[], scene: FilmScene, plan: FilmPlan) {
   // final render and therefore have no standalone `dub` task. Their completed
   // motion clip is still the exact footage the editor must be able to inspect
   // and trim. Paid regeneration continues to require an approved source below.
-  return (
-    currentSceneTask(tasks, scene, "video", plan.audio_mode) ||
-    tasks.find(
-      (candidate) =>
-        candidate.kind === "video" &&
-        candidate.scene_id === scene.id &&
-        candidate.scene_version === scene.version &&
-        candidate.status === "completed" &&
-        Boolean(candidate.result?.path),
-    )
-  );
+  const currentMotion = currentSceneTask(tasks, scene, "video", plan.audio_mode);
+  if (currentMotion) return currentMotion;
+
+  // Saving a revised script increments the scene version even when the user
+  // deliberately keeps the already-generated footage. The segment editor must
+  // therefore expose the newest completed source for this stable scene id. It
+  // remains visibly historical and is never treated as approval for a paid
+  // regeneration.
+  return historicalSceneSource(tasks, scene.id, scene.version);
 }
 
 function activeVoice(scene: FilmScene, beat: StoryboardBeat) {
