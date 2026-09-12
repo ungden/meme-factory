@@ -5,7 +5,11 @@ import {
   lockedTranscriptSegments,
   transcriptMatchesClip,
 } from "./dubbing.mjs";
-import { speechRange, shiftTranscript } from "./edit-range.mjs";
+import {
+  speechRange,
+  shiftTranscript,
+  transcriptWithinRange,
+} from "./edit-range.mjs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -393,12 +397,22 @@ export function makeFilmWorker(db) {
       if (transcript && !transcriptMatchesClip(transcript, clip.id))
         throw new Error("Lời thoại hoặc nguồn transcript chưa đạt để dựng.");
       const originalReport = await probe(original);
-      const range = speechRange(
-        originalReport.duration,
-        transcript?.result.segments,
-        spec.trimSpeech === true,
-        Number(spec.minimumOutSeconds || 0),
-      );
+      const explicitRange =
+        Number.isFinite(Number(spec.inSeconds)) &&
+        Number.isFinite(Number(spec.outSeconds))
+          ? {
+              inSeconds: Number(spec.inSeconds),
+              outSeconds: Number(spec.outSeconds),
+            }
+          : null;
+      const range =
+        explicitRange ||
+        speechRange(
+          originalReport.duration,
+          transcript?.result.segments,
+          spec.trimSpeech === true,
+          Number(spec.minimumOutSeconds || 0),
+        );
       const report = await normalizeClip(
         original,
         normalized,
@@ -407,9 +421,18 @@ export function makeFilmWorker(db) {
         range,
       );
       clips.push(normalized);
-      if (transcript)
+      const sourceSegments = transcript?.result.segments ||
+        (clip.result.schedule || []).map((cue) => ({
+          start: Number(cue.startSeconds),
+          end: Number(cue.startSeconds) + Number(cue.duration),
+          text: String(cue.dialogue || "").trim(),
+        }));
+      const selectedSegments = explicitRange
+        ? transcriptWithinRange(sourceSegments, range)
+        : sourceSegments;
+      if (selectedSegments.length)
         allSegments.push(
-          ...shiftTranscript(transcript.result.segments, range, offset),
+          ...shiftTranscript(selectedSegments, range, offset),
         );
       editManifest.push({
         ...spec,
@@ -587,15 +610,20 @@ export function makeFilmWorker(db) {
             file,
             VIDEO_MAX_BYTES,
           );
-          await ffmpeg([
-            "-sseof",
-            "-0.12",
-            "-i",
-            file,
-            "-frames:v",
-            "1",
-            frame,
-          ]);
+          const atSeconds = Number(t.input.atSeconds);
+          await ffmpeg(
+            Number.isFinite(atSeconds)
+              ? [
+                  "-i",
+                  file,
+                  "-ss",
+                  String(Math.max(0, atSeconds)),
+                  "-frames:v",
+                  "1",
+                  frame,
+                ]
+              : ["-sseof", "-0.12", "-i", file, "-frames:v", "1", frame],
+          );
           result = {
             path: await upload(t, frame, "frame.png", "image/png"),
             fromTaskId: clip.id,

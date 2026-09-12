@@ -6,6 +6,8 @@ import {
 
 /** Planned timings direct the model; they are never subtitle timestamps. */
 export type StoryboardBeat = {
+  /** Stable editing identity. Legacy boards receive a deterministic ID server-side. */
+  segmentId?: string;
   startSeconds: number;
   endSeconds: number;
   speakerCharacterId: string | null;
@@ -17,6 +19,29 @@ export type StoryboardBeat = {
   pauseAfterSeconds?: number;
   /** Optional v2 acting direction; v1 storyboards remain readable. */
   performance?: PerformanceBeat;
+  /** Explicit continuity before and after this beat; optional for legacy plans. */
+  openingState?: SegmentContinuityState;
+  closingState?: SegmentContinuityState;
+  props?: SegmentPropState[];
+};
+export type SegmentContinuityState = {
+  cast?: Array<{
+    characterId: string;
+    presence: "present" | "entered" | "exited";
+    position?: string;
+    facing?: string;
+  }>;
+  note?: string;
+};
+export type SegmentPropState = {
+  id: string;
+  label: string;
+  color: string;
+  size: string;
+  marks?: string;
+  count: number;
+  holderCharacterId?: string | null;
+  position: string;
 };
 export type FilmStoryboard = {
   version: 1 | 2;
@@ -42,6 +67,42 @@ export function storyboardDialogue(board: FilmStoryboard) {
     .join("\n");
 }
 
+function validContinuityState(value: SegmentContinuityState, castIds: string[]) {
+  if (value.note !== undefined && (typeof value.note !== "string" || value.note.length > 900))
+    return false;
+  if (value.cast === undefined) return true;
+  return (
+    Array.isArray(value.cast) &&
+    value.cast.length <= castIds.length &&
+    new Set(value.cast.map((entry) => entry.characterId)).size === value.cast.length &&
+    value.cast.every(
+      (entry) =>
+        castIds.includes(entry.characterId) &&
+        ["present", "entered", "exited"].includes(entry.presence) &&
+        (entry.position === undefined || typeof entry.position === "string") &&
+        (entry.facing === undefined || typeof entry.facing === "string"),
+    )
+  );
+}
+
+function validProp(value: SegmentPropState, castIds: string[]) {
+  return (
+    !!value &&
+    typeof value.id === "string" &&
+    /^[a-z0-9][a-z0-9_-]{0,63}$/i.test(value.id) &&
+    [value.label, value.color, value.size, value.position].every(
+      (field) => typeof field === "string" && field.trim().length > 0 && field.length <= 240,
+    ) &&
+    (value.marks === undefined || (typeof value.marks === "string" && value.marks.length <= 240)) &&
+    Number.isInteger(value.count) &&
+    value.count > 0 &&
+    value.count <= 20 &&
+    (value.holderCharacterId == null ||
+      value.holderCharacterId === "" ||
+      castIds.includes(value.holderCharacterId))
+  );
+}
+
 /** Reject invalid or stale derived fields instead of silently stripping a board. */
 export function validateStoryboard(
   value: unknown,
@@ -64,6 +125,7 @@ export function validateStoryboard(
       `STORYBOARD_INVALID: cần storyboard ${STORYBOARD_MIN_SECONDS}-${maxSeconds} giây có nhịp diễn rõ ràng.`,
     );
   let end = 0;
+  const propIdentity = new Map<string, string>();
   if (b.performanceDirection) validatePerformanceDirection(b.performanceDirection);
   if (b.timingPolicy !== undefined && b.timingPolicy !== "audio_driven_v1")
     throw new Error("STORYBOARD_TIMING_POLICY_INVALID");
@@ -98,6 +160,37 @@ export function validateStoryboard(
       throw new Error(
         "STORYBOARD_BEAT_INVALID: kiểm tra người nói, lời thoại và thời lượng mỗi nhịp.",
       );
+    if (
+      (beat.segmentId !== undefined &&
+        !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(beat.segmentId)) ||
+      (beat.openingState !== undefined &&
+        (typeof beat.openingState !== "object" ||
+          Array.isArray(beat.openingState) ||
+          !validContinuityState(beat.openingState, castIds))) ||
+      (beat.closingState !== undefined &&
+        (typeof beat.closingState !== "object" ||
+          Array.isArray(beat.closingState) ||
+          !validContinuityState(beat.closingState, castIds))) ||
+      (beat.props !== undefined &&
+        (!Array.isArray(beat.props) ||
+          beat.props.length > 24 ||
+          new Set(beat.props.map((prop) => prop.id)).size !== beat.props.length ||
+          !beat.props.every((prop) => validProp(prop, castIds))))
+    )
+      throw new Error("STORYBOARD_SEGMENT_STATE_INVALID");
+    for (const prop of beat.props || []) {
+      const identity = JSON.stringify([
+        prop.label,
+        prop.color,
+        prop.size,
+        prop.marks || "",
+        prop.count,
+      ]);
+      const prior = propIdentity.get(prop.id);
+      if (prior && prior !== identity)
+        throw new Error("STORYBOARD_PROP_IDENTITY_CHANGED");
+      propIdentity.set(prop.id, identity);
+    }
     end = beat.endSeconds;
   }
   const contentEnd = b.contentEndSeconds ?? b.durationSeconds;

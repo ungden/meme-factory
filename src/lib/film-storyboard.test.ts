@@ -152,6 +152,72 @@ describe("content-sized Seedance storyboard production", () => {
       "CONFLICT",
     );
   });
+  it("keeps prop identity stable across editable segments and validates cast continuity", () => {
+    const scene = compiled().scenes[0];
+    const prop = {
+      id: "school_bag_red",
+      label: "cặp học sinh",
+      color: "đỏ",
+      size: "nhỏ",
+      marks: "huy hiệu hình bánh bao",
+      count: 1,
+      holderCharacterId: "bao",
+      position: "trên vai Bánh Bao",
+    };
+    const board = {
+      ...scene.storyboard,
+      beats: scene.storyboard.beats.map((beat, index) => ({
+        ...beat,
+        segmentId: `00000000-0000-5000-8000-00000000000${index}`,
+        openingState: {
+          cast: [
+            {
+              characterId: beat.speakerCharacterId!,
+              presence: "present" as const,
+              position: "giữa khung",
+            },
+          ],
+        },
+        closingState: { note: "Kết thúc đúng hành động của đoạn." },
+        props: [{ ...prop, holderCharacterId: beat.speakerCharacterId }],
+      })),
+    };
+    expect(validateStoryboard(board, scene.characterIds)).toEqual(board);
+    expect(() =>
+      validateStoryboard(
+        {
+          ...board,
+          beats: board.beats.map((beat, index) =>
+            index === 1
+              ? {
+                  ...beat,
+                  props: [{ ...beat.props[0], color: "xanh" }],
+                }
+              : beat,
+          ),
+        },
+        scene.characterIds,
+      ),
+    ).toThrow("PROP_IDENTITY_CHANGED");
+    expect(() =>
+      validateStoryboard(
+        {
+          ...board,
+          beats: board.beats.map((beat, index) =>
+            index === 0
+              ? {
+                  ...beat,
+                  openingState: {
+                    cast: [{ characterId: "foreign", presence: "present" }],
+                  },
+                }
+              : beat,
+          ),
+        },
+        scene.characterIds,
+      ),
+    ).toThrow("SEGMENT_STATE_INVALID");
+  });
   it("routes each timed line to its own speaker in the native request and blocks single-voice dubbing", () => {
     const s = compiled().scenes[0];
     const scene = {

@@ -110,6 +110,30 @@ export function shotResponseSchema(story: Story, ids: string[] = []) {
         "Khung ĐẦU trước hành động; chưa diễn ra kết quả chuyển động. Người nói phải rõ mặt; có thể giữ một người nghe trong khung để lấy phản ứng; không chữ hoặc lưới.",
     },
     motionPrompt: string,
+    openingState: {
+      type: "string",
+      description:
+        "Trạng thái nhìn thấy trước hành động: ai ở đâu, hướng nhìn và vật đang ở tay/vị trí nào.",
+    },
+    closingState: {
+      type: "string",
+      description:
+        "Trạng thái nhìn thấy sau hành động để nối nhịp tiếp theo; ghi rõ người đã rời khung.",
+    },
+    props: {
+      type: "array",
+      maxItems: 8,
+      items: object({
+        id: string,
+        label: string,
+        color: string,
+        size: string,
+        marks: string,
+        count: { type: "integer", minimum: 1, maximum: 20 },
+        holderCharacterId: string,
+        position: string,
+      }),
+    },
     performanceDirection: object({
       version: { type: "integer", enum: [1] },
       lane: { type: "string", enum: PERFORMANCE_LANES },
@@ -265,6 +289,9 @@ export function compileStoryboards(
             " ",
           )
           .trim(),
+        openingState: { note: String(shot.openingState || "") },
+        closingState: { note: String(shot.closingState || "") },
+        props: Array.isArray(shot.props) ? shot.props : [],
         ...(shot.performanceDirection &&
         typeof shot.performanceDirection === "object"
           ? {

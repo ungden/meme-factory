@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { speechRange, shiftTranscript } from "../short-film/edit-range.mjs";
+import { speechRange, shiftTranscript, transcriptWithinRange } from "../short-film/edit-range.mjs";
 const segments = [
   { start: 1, end: 2, text: "Xin chào" },
   { start: 3, end: 4, text: "Cả nhà" },
@@ -25,5 +25,15 @@ test("cannot cut speech or invent timing", () => {
   assert.throws(() => speechRange(3, segments, true));
   assert.throws(() =>
     shiftTranscript(segments, { inSeconds: 1.5, outSeconds: 5 }, 0),
+  );
+});
+test("segment ranges retain complete cues and reject cuts through a sentence", () => {
+  assert.deepEqual(
+    transcriptWithinRange(segments, { inSeconds: 0.8, outSeconds: 2.2 }),
+    [segments[0]],
+  );
+  assert.throws(
+    () => transcriptWithinRange(segments, { inSeconds: 1.5, outSeconds: 4.2 }),
+    /EDIT_WOULD_CUT_SPEECH/,
   );
 });

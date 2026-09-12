@@ -47,6 +47,13 @@ import { automaticGuestVoice } from "./guest-voices";
 import { FILM_MOTION_PROMPT_VERSION } from "../film-motion-policy";
 export const hash = (v: unknown) =>
   crypto.createHash("sha256").update(JSON.stringify(v)).digest("hex");
+function stableSegmentId(sceneId: string, sequenceIndex: number) {
+  const value = hash(`${sceneId}:segment:${sequenceIndex}`).slice(0, 32).split("");
+  value[12] = "5";
+  value[16] = ["8", "9", "a", "b"][parseInt(value[16], 16) % 4];
+  const joined = value.join("");
+  return `${joined.slice(0, 8)}-${joined.slice(8, 12)}-${joined.slice(12, 16)}-${joined.slice(16, 20)}-${joined.slice(20)}`;
+}
 export class FilmError extends Error {
   constructor(
     message: string,
@@ -260,10 +267,21 @@ export async function savePlan(
       (s.dialogue && !s.speakerCharacterId && !s.storyboard)
     )
       throw new FilmError(`Cảnh ${i + 1} cần đúng người nói trong cast.`);
+    const sceneId = raw.id || crypto.randomUUID();
+    const storyboard = s.storyboard
+      ? {
+          ...s.storyboard,
+          beats: s.storyboard.beats.map((beat, sequenceIndex) => ({
+            ...beat,
+            segmentId:
+              beat.segmentId || stableSegmentId(sceneId, sequenceIndex),
+          })),
+        }
+      : null;
     const row = {
-      id: raw.id || crypto.randomUUID(),
+      id: sceneId,
       scene_index: i,
-      storyboard: s.storyboard,
+      storyboard,
       performance_direction: s.performanceDirection || s.storyboard?.performanceDirection || null,
       cast_snapshot: cast.filter((c) => s.characterIds.includes(c.characterId)),
       speaker_character_id: s.speakerCharacterId,
@@ -279,12 +297,24 @@ export async function savePlan(
       motion_prompt: s.motionPrompt,
       source_mode: s.sourceMode,
     };
-    const { id, scene_index, storyboard, ...visual } = row;
+    const { id, scene_index, storyboard: rowStoryboard, ...visual } = row;
     void id;
     void scene_index;
+    const storyboardForHash = rowStoryboard
+      ? {
+          ...rowStoryboard,
+          beats: rowStoryboard.beats.map(({ segmentId: _segmentId, ...beat }) => {
+            void _segmentId;
+            return beat;
+          }),
+        }
+      : null;
     return {
       ...row,
-      input_hash: hash({ ...visual, ...(storyboard ? { storyboard } : {}) }),
+      input_hash: hash({
+        ...visual,
+        ...(storyboardForHash ? { storyboard: storyboardForHash } : {}),
+      }),
     };
   });
   let story = body.story === undefined ? old?.story : body.story;
@@ -489,16 +519,22 @@ export async function publicTasks(a: Access, tasks: FilmTask[]) {
           : undefined,
       scene_id: t.scene_id,
       scene_version: t.scene_version,
+      segment_id: t.segment_id,
+      segment_revision: t.segment_revision,
       status: t.status,
       error: t.error,
       approved_at: t.approved_at,
       auto_accepted_at: t.auto_accepted_at,
       production_run_id: t.production_run_id,
+      points: t.points,
       created_at: t.created_at,
       input: {
         imageTaskId: t.input.imageTaskId,
         audioTaskId: t.input.audioTaskId,
         videoTaskId: t.input.videoTaskId,
+        segmentId: t.input.segmentId,
+        segmentRevision: t.input.segmentRevision,
+        usedDuration: t.input.usedDuration,
       },
       result: t.result,
       url: t.result?.path ? await signed(a, String(t.result.path)) : undefined,

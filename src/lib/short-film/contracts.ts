@@ -264,8 +264,11 @@ export type FilmTask = {
   kind: FilmKind;
   scene_id: string | null;
   scene_version: number | null;
+  segment_id?: string | null;
+  segment_revision?: number | null;
   displayName?: string;
   plan_version: number;
+  points?: number;
   status: string;
   input: Record<string, unknown>;
   result: Record<string, unknown> | null;
@@ -283,6 +286,8 @@ export type QuotedTask = {
   id: string;
   sceneId?: string;
   sceneVersion?: number;
+  segmentId?: string;
+  segmentRevision?: number;
   kind: FilmKind;
   input: Record<string, unknown>;
   dependencies: string[];
@@ -328,7 +333,7 @@ export function compileFilmMotion(
       "CAMERA/EDIT: mỗi nhịp dùng đúng một phương án camera đã mô tả. Máy tĩnh được phép; không thêm chuyển động máy để thay chuyển động diễn viên. Chỉ cắt ở điểm được chỉ đạo, giữ trục nhìn và vị trí đạo cụ qua cut.",
       ...board.beats.map(
         (b, i) =>
-          `SHOT/BEAT ${i + 1} | ${b.startSeconds.toFixed(2)}–${b.endSeconds.toFixed(2)}s | MOTION: ${b.motion} | CAMERA: ${b.camera} | ${b.performance ? `REACTION: ${b.performance.expressionChange}; ${b.performance.reactionTarget}. ` : ""}${b.dialogue ? `Chỉ ${name(b.speakerCharacterId)} diễn lời thoại “${b.dialogue}” ${mode === "native" ? "với audio tiếng Việt" : "trong video im tiếng để lồng tiếng sau, không phát âm thanh"}. ${measuredSpeechSeconds?.has(i) ? `Lượt thoại kết thúc ở ${(b.startSeconds + measuredSpeechSeconds.get(i)!).toFixed(2)}s; phần còn lại là phản ứng đã chỉ đạo, không kéo môi chậm cho đầy nhịp. ` : ""}Các nhân vật còn lại nghe và phản ứng trong câu này, không cử động môi như đang nói.` : "Không có lời nói; diễn hành động/phản ứng đã mô tả."}`,
+          `SHOT/BEAT ${i + 1}${b.segmentId ? ` [${b.segmentId}]` : ""} | ${b.startSeconds.toFixed(2)}–${b.endSeconds.toFixed(2)}s | MOTION: ${b.motion} | CAMERA: ${b.camera} | ${b.openingState ? `OPENING STATE: ${JSON.stringify(b.openingState)}. ` : ""}${b.props?.length ? `PROPS: ${JSON.stringify(b.props)}. ` : ""}${b.closingState ? `CLOSING STATE: ${JSON.stringify(b.closingState)}. ` : ""}${b.performance ? `REACTION: ${b.performance.expressionChange}; ${b.performance.reactionTarget}. ` : ""}${b.dialogue ? `Chỉ ${name(b.speakerCharacterId)} diễn lời thoại “${b.dialogue}” ${mode === "native" ? "với audio tiếng Việt" : "trong video im tiếng để lồng tiếng sau, không phát âm thanh"}. ${measuredSpeechSeconds?.has(i) ? `Lượt thoại kết thúc ở ${(b.startSeconds + measuredSpeechSeconds.get(i)!).toFixed(2)}s; phần còn lại là phản ứng đã chỉ đạo, không kéo môi chậm cho đầy nhịp. ` : ""}Các nhân vật còn lại nghe và phản ứng trong câu này, không cử động môi như đang nói.` : "Không có lời nói; diễn hành động/phản ứng đã mô tả."}`,
       ),
       `PACING: bắt đầu ngay giây 0, nói nhanh tự nhiên nhưng rõ, không kéo dài âm tiết, không slow motion, không lặp câu hoặc lặp động tác. Hoàn tất toàn bộ diễn biến ở ${Number(board.contentEndSeconds ?? board.durationSeconds).toFixed(2)} giây; sau đó chỉ giữ tư thế kết, tuyệt đối không thêm hành động hoặc lời mới. Mốc thời gian định hướng nhịp diễn; nói trọn câu trước đổi lượt, không chồng lời. Người nghe phản ứng ngay trong lượt nói. Pan/cắt theo storyboard, giữ hướng nhìn và trục đối thoại; không chuyển cảnh trang trí hoặc đổi bối cảnh.`,
       mode === "native"

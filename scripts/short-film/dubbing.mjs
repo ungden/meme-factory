@@ -1,10 +1,18 @@
 /** Reject any ambiguous voice routing before reading or mixing media. */
 export function validateDubCue(cue, audio, videoTask, measuredDuration) {
   const i = audio.input || {};
+  const sourceSceneId = videoTask.scene_id || videoTask.input?.sourceSceneId;
+  const sourceSceneVersion =
+    videoTask.scene_version || videoTask.input?.sourceSceneVersion;
+  const sameSegment =
+    videoTask.segment_id &&
+    audio.segment_id === videoTask.segment_id &&
+    audio.segment_revision === videoTask.segment_revision;
   if (
     audio.project_id !== videoTask.project_id ||
-    audio.scene_id !== videoTask.scene_id ||
-    audio.scene_version !== videoTask.scene_version ||
+    (!sameSegment &&
+      (audio.scene_id !== sourceSceneId ||
+        audio.scene_version !== sourceSceneVersion)) ||
     audio.status !== "completed" ||
     audio.kind !== "tts" ||
     i.speakerCharacterId !== cue.speakerCharacterId ||

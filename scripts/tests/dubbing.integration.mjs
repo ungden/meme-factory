@@ -30,6 +30,28 @@ test('accepts measured speech that exactly fills its frozen schedule window', ()
   validateDubCue(exact, exactAudio, video, 4.28);
   assert.doesNotThrow(() => dubArguments('v', ['a'], [exact], 5, 'out'));
 });
+test('routes a replacement segment by stable segment identity even without a scene id', () => {
+  const segmentVideo = {
+    ...video,
+    scene_id: null,
+    scene_version: null,
+    segment_id: 'segment-a',
+    segment_revision: 3,
+    input: { sourceSceneId: 's', sourceSceneVersion: 2 },
+  };
+  const segmentAudio = {
+    ...audio,
+    scene_id: null,
+    scene_version: null,
+    segment_id: 'segment-a',
+    segment_revision: 3,
+  };
+  validateDubCue(cue, segmentAudio, segmentVideo, 0.5);
+  assert.throws(
+    () => validateDubCue(cue, { ...segmentAudio, segment_revision: 2 }, segmentVideo, 0.5),
+    /DUB_VOICE_MISMATCH/,
+  );
+});
 test('uses the same transcript threshold as dubbed QA without weakening native audio', () => {
   const transcript = {
     input: { videoTaskId: 'dub', audioMode: 'dubbed' },

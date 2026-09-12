@@ -48,3 +48,22 @@ export function shiftTranscript(segments, range, offset) {
     };
   });
 }
+
+/** Keep only complete cues inside an explicitly selected segment range. */
+export function transcriptWithinRange(segments, range) {
+  if (!Array.isArray(segments)) return [];
+  const selected = [];
+  for (const segment of segments) {
+    const overlaps =
+      segment.end > range.inSeconds + 0.001 &&
+      segment.start < range.outSeconds - 0.001;
+    if (!overlaps) continue;
+    if (
+      segment.start < range.inSeconds - 0.001 ||
+      segment.end > range.outSeconds + 0.05
+    )
+      throw new Error("EDIT_WOULD_CUT_SPEECH");
+    selected.push(segment);
+  }
+  return selected;
+}

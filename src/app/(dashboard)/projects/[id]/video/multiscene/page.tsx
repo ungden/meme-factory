@@ -3,9 +3,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FilmStoryboardEditor } from "@/components/film-storyboard-editor";
+import { FilmSegmentEditor } from "@/components/film-segment-editor";
 import { storyboardDialogue, type FilmStoryboard } from "@/lib/film-storyboard";
 import { compileStoryboards } from "@/lib/family-ai-contract";
 import type { PerformanceDirection } from "@/lib/performance-direction";
+import type {
+  FilmSegmentPatch,
+  FilmSegmentRevision,
+} from "@/lib/short-film/segment-contracts";
 import type { ChannelProfile, Story } from "@/lib/family-catalogue";
 import { notifyProjectBalanceChanged } from "@/lib/client-fetch";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -255,6 +260,7 @@ export default function ShortFilmPage() {
   const [plans, setPlans] = useState<FilmPlan[]>([]);
   const [ideas, setIdeas] = useState<{ title: string; idea: string }[]>([]);
   const [tasks, setTasks] = useState<FilmTask[]>([]);
+  const [segments, setSegments] = useState<FilmSegmentRevision[]>([]);
   const [voiceTasks, setVoiceTasks] = useState<FilmTask[]>([]);
   const [voices, setVoices] = useState<
     { character_id: string; voice_id: string; approved_at: string | null }[]
@@ -321,9 +327,13 @@ export default function ShortFilmPage() {
   const refresh = useCallback(async () => {
     if (!plan) return;
     const g = generation.current;
-    const j = await api(`${base}/video-plans/${plan.id}`);
+    const [j, segmentResult] = await Promise.all([
+      api(`${base}/video-plans/${plan.id}`),
+      api(`${base}/video-plans/${plan.id}/segments`),
+    ]);
     if (g !== generation.current) return;
     setTasks(j.tasks || []);
+    setSegments(segmentResult.segments || []);
   }, [base, plan]);
   const refreshVoices = useCallback(async () => {
     const g = generation.current;
@@ -359,6 +369,7 @@ export default function ShortFilmPage() {
     setReady(false);
     setConflict(null);
     setTasks([]);
+    setSegments([]);
     setVoiceTasks([]);
     setVoices([]);
     setVoiceQuote(null);
@@ -454,6 +465,15 @@ export default function ShortFilmPage() {
       generation.current = g + 1;
     };
   }, [base, ref, refreshProduction]);
+  useEffect(() => {
+    if (!ready || !plan) {
+      setSegments([]);
+      return;
+    }
+    void refresh().catch((cause) =>
+      setError(cause instanceof Error ? cause.message : "Không tải được các đoạn phim."),
+    );
+  }, [ready, plan, refresh]);
   useEffect(() => {
     if (!ready || !storageKey) return;
     const timer = setTimeout(
@@ -582,6 +602,7 @@ export default function ShortFilmPage() {
       has_production_history: currentPlan?.has_production_history,
     } as FilmPlan;
     setPlan(savedPlan);
+    setSegments([]);
     setPlans((ps) => [savedPlan, ...ps.filter((p) => p.id !== savedPlan.id)]);
     setDraft(fromPlan(savedPlan));
     setDirty(false);
@@ -664,6 +685,7 @@ export default function ShortFilmPage() {
     setPlan(nextPlan || null);
     setDraft(nextDraft);
     setTasks([]);
+    setSegments([]);
     setCast(nextCast);
     setQuote(null);
     setSelected(0);
@@ -709,6 +731,7 @@ export default function ShortFilmPage() {
       setDraft({ ...blank(), targetDurationSeconds: channel ? 35 : 30 });
       setCast([]);
       setTasks([]);
+      setSegments([]);
       setQuote(null);
       setDirty(false);
       edited.current = false;
@@ -958,6 +981,99 @@ export default function ShortFilmPage() {
     setNote("Đã nhận việc. Có thể rời trang và quay lại.");
     await Promise.all([refresh(), refreshVoices()]);
     setTab("results");
+  }
+  async function saveSegment(
+    segment: FilmSegmentRevision,
+    revision: FilmSegmentPatch,
+  ) {
+    if (!plan) throw new Error("Chưa chọn kịch bản.");
+    const result = await api(
+      `${base}/video-plans/${plan.id}/segments/${segment.segmentId}`,
+      {
+        workspaceVersion: workspace,
+        expectedRevision: segment.revision,
+        revision,
+      },
+      "PATCH",
+    );
+    setSegments((current) =>
+      current.map((item) =>
+        item.segmentId === segment.segmentId ? result.segment : item,
+      ),
+    );
+    setNote("Đã lưu revision của đoạn. Chưa sinh media.");
+    return result.segment as FilmSegmentRevision;
+  }
+  async function quoteSegment(
+    segment: FilmSegmentRevision,
+    startFrameMode: "footage" | "generated" = "footage",
+  ) {
+    if (!plan) throw new Error("Chưa chọn kịch bản.");
+    const result = await api(
+      `${base}/video-plans/${plan.id}/segments/${segment.segmentId}/quote`,
+      {
+        workspaceVersion: workspace,
+        expectedVersion: plan.version,
+        startFrameMode,
+      },
+    );
+    return result.quote as Quote;
+  }
+  async function uploadSegmentFrame(
+    segment: FilmSegmentRevision,
+    file: File,
+  ) {
+    if (!plan) throw new Error("Chưa chọn kịch bản.");
+    const form = new FormData();
+    form.set("workspaceVersion", String(workspace));
+    form.set("expectedVersion", String(plan.version));
+    form.set("expectedRevision", String(segment.revision));
+    form.set("file", file);
+    const response = await fetch(
+      `${base}/video-plans/${plan.id}/segments/${segment.segmentId}/frame`,
+      { method: "POST", body: form },
+    );
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Không tải được ảnh mở.");
+    return result.quote as Quote;
+  }
+  async function selectSegmentSource(
+    segment: FilmSegmentRevision,
+    taskId: string,
+    inSeconds: number,
+    outSeconds: number,
+  ) {
+    if (!plan) throw new Error("Chưa chọn kịch bản.");
+    const result = await api(
+      `${base}/video-plans/${plan.id}/segments/${segment.segmentId}`,
+      {
+        action: "select-source",
+        workspaceVersion: workspace,
+        expectedRevision: segment.revision,
+        taskId,
+        inSeconds,
+        outSeconds,
+      },
+      "PATCH",
+    );
+    setSegments((current) =>
+      current.map((item) =>
+        item.segmentId === segment.segmentId ? result.segment : item,
+      ),
+    );
+    setNote("Đã chọn bản của đoạn. Bản dựng cũ vẫn được giữ.");
+    return result.segment as FilmSegmentRevision;
+  }
+  async function renderSegments() {
+    if (!plan) throw new Error("Chưa chọn kịch bản.");
+    const result = await api(
+      `${base}/video-plans/${plan.id}/segments/render`,
+      {
+        workspaceVersion: workspace,
+        expectedVersion: plan.version,
+      },
+    );
+    await run(result.quote as Quote);
   }
   async function approve(t: FilmTask) {
     await api(`${base}/film-tasks/${t.id}`, {
@@ -2280,6 +2396,20 @@ export default function ShortFilmPage() {
               <h2 className="mb-3 text-lg font-semibold th-text-primary">
                 Kết quả và duyệt
               </h2>
+              {plan && !dirty && scene?.id && (
+                <FilmSegmentEditor
+                  sceneIndex={selected}
+                  segments={segments}
+                  tasks={currentTasks}
+                  busy={!!busy}
+                  onSave={saveSegment}
+                  onQuote={quoteSegment}
+                  onUploadFrame={uploadSegmentFrame}
+                  onRun={(segmentQuote) => run(segmentQuote)}
+                  onSelectSource={selectSegmentSource}
+                  onRender={renderSegments}
+                />
+              )}
               {!displayTasks.length && (
                 <div className="rounded-xl border th-border p-8 text-center th-text-secondary">
                   Ảnh cảnh, bản nghe thử và phim sẽ xuất hiện ở đây.
