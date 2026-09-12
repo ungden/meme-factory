@@ -29,8 +29,11 @@ export type PerformanceDirection = {
 };
 
 const GENERIC_ONLY = /^(?:tự nhiên|nghiêm túc|ngây thơ|đáng yêu|vui vẻ|gật đầu|mỉm cười|nhìn ngơ ngác|camera đẹp|diễn xuất rõ)[.!;,:\s]*$/iu;
+// JavaScript's `\b` only understands ASCII word characters. It misses common
+// Vietnamese verbs ending in diacritics (for example "chỉ" and "gỡ"), which
+// made valid directions fail before any paid generation.
 const hasConcreteVerb = (value: string) =>
-  /\b(?:bật|kéo|giật|đập|chộp|rút|đẩy|ném|đặt|mở|đóng|chặn|chỉ|quay|ngoái|lùi|tiến|nhảy|trượt|đứng|ngồi|đi|chạy|đưa|giơ|lấy|bẻ|giấu|đo|đếm|gõ|hất|né|khựng|đổi|trao|cúi|ngẩng|liếc|nhìn|há|mím|phồng|nhăn|nhướng|sững|đơ|thở|nuốt|rụt|vẫy|bước|khoanh|vỗ|dí|kẹp|chồm|xoay|nghiêng|bật ngửa|hất cằm|nheo|mở to|siết|buông)\b/iu.test(
+  /(?:^|[\s,.;:!?()])(?:bật|kéo|giật|đập|chộp|rút|đẩy|ném|đặt|mở|đóng|chặn|chỉ|quay|ngoái|lùi|tiến|nhảy|trượt|đứng|ngồi|đi|chạy|đưa|giơ|lấy|bẻ|giấu|đo|đếm|gõ|hất|né|khựng|đổi|trao|cúi|ngẩng|liếc|nhìn|há|mím|phồng|nhăn|nhướng|sững|đơ|thở|nuốt|rụt|vẫy|bước|khoanh|vỗ|dí|kẹp|chồm|xoay|nghiêng|bật ngửa|hất cằm|nheo|mở to|siết|buông|gỡ|ôm)(?=$|[\s,.;:!?()])/iu.test(
     value,
   );
 
