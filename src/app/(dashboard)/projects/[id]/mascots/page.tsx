@@ -380,7 +380,7 @@ export default function MascotsPage() {
                         alt={featured.name}
                         fill
                         sizes="224px"
-                        className="object-cover"
+                        className="object-contain"
                         unoptimized
                       />
                     )}
@@ -435,7 +435,7 @@ export default function MascotsPage() {
                       <Link href={`/projects/${projectRef}/mascots/${character.id}`}>
                         <div className="relative aspect-[4/3] overflow-hidden rounded-t-2xl th-bg-tertiary">
                           {cover ? (
-                            <Image src={cover} alt={character.name} fill sizes="320px" className="object-cover" unoptimized />
+                            <Image src={cover} alt={character.name} fill sizes="320px" className="object-contain" unoptimized />
                           ) : (
                             <div className="flex h-full items-center justify-center text-3xl th-text-tertiary">
                               {character.name[0]?.toUpperCase()}

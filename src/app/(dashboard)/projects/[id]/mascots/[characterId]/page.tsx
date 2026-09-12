@@ -156,7 +156,7 @@ export default function MascotDetailPage() {
               <div className="flex items-center gap-4">
                 <div className="relative h-20 w-20 overflow-hidden rounded-2xl th-bg-tertiary">
                   {cover ? (
-                    <Image src={cover} alt={character.name} fill sizes="80px" className="object-cover" unoptimized />
+                    <Image src={cover} alt={character.name} fill sizes="80px" className="object-contain" unoptimized />
                   ) : (
                     <div className="flex h-full items-center justify-center text-2xl th-text-tertiary">
                       {character.name[0]?.toUpperCase()}
