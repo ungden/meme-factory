@@ -30,5 +30,8 @@ export async function validateWatermarkImage(bytes: Buffer) {
   if (transparent < pixels * 0.01 || clearEdge < (info.width + info.height) * 0.2)
     throw new Error("Watermark cần có vùng nền trong suốt quanh logo; ảnh nền trắng hoặc nền caro không được chấp nhận.");
   // Re-encode to remove metadata and preserve real alpha; never overwrite an older asset.
-  return { bytes: await sharp(bytes).png().toBuffer(), width: info.width, height: info.height };
+  const encoded = await sharp(bytes).png().toBuffer();
+  if (encoded.length > MAX_WATERMARK_BYTES)
+    throw new Error("Ảnh quá lớn sau khi chuẩn hóa. Hãy giảm kích thước logo rồi tải lại.");
+  return { bytes: encoded, width: info.width, height: info.height };
 }
