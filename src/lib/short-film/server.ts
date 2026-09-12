@@ -22,6 +22,7 @@ import {
   assertFixedVoiceShot,
   currentSceneTask,
   speechLines,
+  speechDirection,
   speechTasks,
   dubbingSchedule,
   finalClipKind,
@@ -693,7 +694,11 @@ export async function quotePlan(
               `Duyệt giọng của ${c?.name || "người nói"} trước.`,
             );
           const voiceSettings = { ...(c.voice.settings || {}) };
-          const direction = voiceSettings.direction;
+          const direction = speechDirection(
+            s,
+            line.beatIndex,
+            voiceSettings.direction,
+          );
           delete voiceSettings.designedProfile;
           delete voiceSettings.provider;
           delete voiceSettings.voicePreset;
@@ -704,7 +709,7 @@ export async function quotePlan(
             ? {
                 text: line.dialogue,
                 voice: c.voice.voice_id,
-                direction: String(direction || "Nói tiếng Việt tự nhiên."),
+                direction,
                 language: "vi",
               }
             : {

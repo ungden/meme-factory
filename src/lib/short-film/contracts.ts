@@ -515,6 +515,38 @@ export function speechLines(scene: FilmScene) {
     ];
   });
 }
+
+/**
+ * Keep the approved voice identity, but direct the delivery from the exact
+ * storyboard beat. A voice profile describes who is speaking; this describes
+ * how that person performs this particular line.
+ */
+export function speechDirection(
+  scene: FilmScene,
+  beatIndex: number,
+  baseDirection: unknown,
+) {
+  const base = String(baseDirection || "Nói tiếng Việt tự nhiên.").trim();
+  const beat = scene.storyboard?.beats[beatIndex];
+  if (!beat) return base;
+  const performance = beat.performance;
+  const acting = [
+    beat.action,
+    beat.motion,
+    performance?.expressionChange,
+    performance?.gesture,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .join(" ")
+    .slice(0, 1800);
+  if (!acting) return base;
+  return [
+    base,
+    `Hướng diễn riêng cho câu này: ${acting}`,
+    "Thể hiện cảm xúc bằng nhịp thở, lực giọng và ngắt nghỉ tự nhiên; vẫn nói trọn đúng nguyên văn, không thêm tiếng hoặc lời ngoài kịch bản.",
+  ].join("\n");
+}
 export function speechTasks(tasks: FilmTask[], scene: FilmScene) {
   let lines: ReturnType<typeof speechLines>;
   try {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   speechLines,
+  speechDirection,
   speechTasks,
   dubbingSchedule,
   currentSceneTask,
@@ -96,6 +97,17 @@ describe("per-turn dubbing", () => {
       ["bao", "Aoede", "audio-0"],
       ["do", "Charon", "audio-1"],
     ]);
+  });
+  it("directs each approved voice from its own storyboard beat", () => {
+    expect(speechDirection(scene, 0, "Giọng Bánh Bao.")).toContain(
+      "Đeo cặp",
+    );
+    expect(speechDirection(scene, 1, "Giọng Đậu Đỏ.")).toContain(
+      "Bước đi",
+    );
+    expect(speechDirection(scene, 1, "Giọng Đậu Đỏ.")).toContain(
+      "Giọng Đậu Đỏ.",
+    );
   });
   it("rejects swapped speakers, stale versions and unapproved voices", () => {
     const tasks = audios();
