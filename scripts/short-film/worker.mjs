@@ -277,13 +277,26 @@ export function makeFilmWorker(db) {
         return null;
       }
       await checkpoint(t, { checkpoint: { submitting: true } });
-      const created = await createGeminiSpeech({
-        apiKey,
-        model: t.input.model,
-        voice: t.input.providerInputs.voice,
-        direction: t.input.providerInputs.direction,
-        text: t.input.providerInputs.text,
-      });
+      let created;
+      try {
+        created = await createGeminiSpeech({
+          apiKey,
+          model: t.input.model,
+          voice: t.input.providerInputs.voice,
+          direction: t.input.providerInputs.direction,
+          text: t.input.providerInputs.text,
+        });
+      } catch (error) {
+        // A concrete 4xx response proves Google rejected the request before it
+        // produced an interaction/audio result. It is safe to clear the
+        // submitting marker and let the bounded task retry run; transport
+        // failures remain reconciling because their outcome is unknown.
+        if (/^Gemini TTS 4\d\d:/i.test(String(error?.message || "")))
+          await checkpoint(t, {
+            checkpoint: { submitting: false, definitiveRejection: true },
+          });
+        throw error;
+      }
       if (created.interactionId)
         await checkpoint(t, {
           provider_id: created.interactionId,

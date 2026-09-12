@@ -91,4 +91,22 @@ describe("Gemini TTS", () => {
         .voiceName,
     ).toBe("Puck");
   });
+
+  it("returns an explicit status for a rejected request", async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { message: "audio stream rejected" } }),
+    }));
+    await expect(
+      createGeminiSpeech({
+        apiKey: "test",
+        model: "gemini-3.1-flash-tts-preview",
+        voice: "Aoede",
+        direction: "Nói tỉnh bơ.",
+        text: "Chuyên gia có khác.",
+        fetchImpl,
+      }),
+    ).rejects.toThrow("Gemini TTS 400: audio stream rejected");
+  });
 });
