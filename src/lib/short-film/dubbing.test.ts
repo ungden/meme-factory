@@ -155,6 +155,21 @@ describe("per-turn dubbing", () => {
       "approved-audio",
     );
   });
+  it("matches the sanitized task shape returned to the project UI", () => {
+    const sanitized = audios().map((task) => ({
+      ...task,
+      input: {
+        beatIndex: task.input.beatIndex,
+        speakerCharacterId: task.input.speakerCharacterId,
+        voiceProfileVersion: task.input.voiceProfileVersion,
+        dialogue: (task.input.providerInputs as Record<string, unknown>).text,
+      },
+    }));
+    expect(speechTasks(sanitized, scene).map((task) => task?.id)).toEqual([
+      "audio-0",
+      "audio-1",
+    ]);
+  });
   it("directs each approved voice from its own storyboard beat", () => {
     expect(speechDirection(scene, 0, "Giọng Bánh Bao.")).toContain(
       "Đeo cặp",

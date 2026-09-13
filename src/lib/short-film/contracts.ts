@@ -583,8 +583,9 @@ export function speechTasks(tasks: FilmTask[], scene: FilmScene) {
           t.input.beatIndex === line.beatIndex &&
           t.input.speakerCharacterId === line.speakerCharacterId &&
           t.input.voiceProfileVersion === line.voice.id &&
-          (t.input.providerInputs as Record<string, unknown>)?.text ===
-            line.dialogue,
+          ((t.input.providerInputs as Record<string, unknown>)?.text ===
+            line.dialogue ||
+            t.input.dialogue === line.dialogue),
       )
       .sort((a, b) => {
         const accepted = (task: FilmTask) =>
