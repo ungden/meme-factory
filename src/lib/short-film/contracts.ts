@@ -605,7 +605,16 @@ export function measuredDubbedScene(
 ): { scene: FilmScene; measuredSpeechSeconds?: Map<number, number> } {
   const board = scene.storyboard;
   if (board?.timingPolicy !== "audio_driven_v1") return { scene };
-  validateStoryboard(board, scene.cast_snapshot.map((c) => c.characterId), maxSeconds);
+  const castIds = scene.cast_snapshot.map((c) => c.characterId);
+  // For an audio-driven board, authored beat boundaries are editorial targets.
+  // Validate the structure first without rejecting a line merely because the
+  // pre-TTS heuristic is longer than its placeholder slot. The approved WAV is
+  // measured below, then the rebuilt board is validated against real timing.
+  const structuralSpeechSeconds = new Map<number, number>();
+  board.beats.forEach((beat, index) => {
+    if (beat.dialogue.trim()) structuralSpeechSeconds.set(index, 0.001);
+  });
+  validateStoryboard(board, castIds, maxSeconds, structuralSpeechSeconds);
   const lines = speechLines(scene);
   const audios = speechTasks(tasks, scene);
   const measuredSpeechSeconds = new Map<number, number>();
@@ -630,7 +639,7 @@ export function measuredDubbedScene(
     throw new Error(`Thoại thật vượt ${maxSeconds} giây. Chia lại đoạn trước khi mua video; không cắt hoặc tăng tốc lời.`);
   const storyboard = validateStoryboard(
     { ...board, beats, durationSeconds, contentEndSeconds: cursor },
-    scene.cast_snapshot.map((c) => c.characterId),
+    castIds,
     maxSeconds,
     measuredSpeechSeconds,
   );

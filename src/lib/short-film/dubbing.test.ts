@@ -118,6 +118,18 @@ describe("per-turn dubbing", () => {
     expect(directed.scene.storyboard!.beats.at(-1)!.dialogue).toBe("");
     expect(directed.scene.storyboard!.contentEndSeconds).toBeCloseTo(6.45, 2);
   });
+  it("retimes a short authored beat from approved audio instead of rejecting its heuristic estimate", () => {
+    const planned = structuredClone(scene);
+    planned.storyboard!.timingPolicy = "audio_driven_v1";
+    planned.storyboard!.beats[0].endSeconds = 13.9;
+    planned.storyboard!.beats[1].startSeconds = 13.9;
+    planned.storyboard!.beats[1].endSeconds = 15;
+    const tasks = audios();
+    tasks[1].result!.duration = 1.2;
+    const directed = measuredDubbedScene(tasks, planned);
+    expect(directed.scene.storyboard!.beats[1].endSeconds).toBeCloseTo(3.5, 2);
+    expect(directed.scene.duration_seconds).toBe(4);
+  });
   it("accepts a clear fast delivery using actual durations and rejects overflow before video purchase", () => {
     const planned = structuredClone(scene);
     planned.storyboard!.timingPolicy = "audio_driven_v1";
