@@ -531,6 +531,7 @@ export async function publicTasks(a: Access, tasks: FilmTask[]) {
       input: {
         imageTaskId: t.input.imageTaskId,
         audioTaskId: t.input.audioTaskId,
+        audioTaskIds: t.input.audioTaskIds,
         videoTaskId: t.input.videoTaskId,
         beatIndex: t.input.beatIndex,
         speakerCharacterId: t.input.speakerCharacterId,
