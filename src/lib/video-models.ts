@@ -28,7 +28,7 @@ export const SEEDANCE_VARIANTS = [
 
 export type SeedanceVariant = (typeof SEEDANCE_VARIANTS)[number]["id"];
 export type FilmVideoModel =
-  (typeof SEEDANCE_VARIANTS)[number]["imageModel"];
+  (typeof SEEDANCE_VARIANTS)[number]["textModel"];
 
 export function isSeedanceVariant(value: unknown): value is SeedanceVariant {
   return SEEDANCE_VARIANTS.some((item) => item.id === value);
@@ -52,16 +52,21 @@ export function seedanceModel(
   return mode === "text" ? item.textModel : item.imageModel;
 }
 
-export function seedanceImageModel(value: unknown): FilmVideoModel {
+/** Short films use the multi-reference route, never the mutually-exclusive first/last-frame route. */
+export function seedanceReferenceModel(value: unknown): FilmVideoModel {
   return seedanceVariant(value) === "seedance-2.0-fast"
-    ? SEEDANCE_20_FAST_IMAGE_MODEL
-    : SEEDANCE_25_IMAGE_MODEL;
+    ? SEEDANCE_20_FAST_TEXT_MODEL
+    : SEEDANCE_25_TEXT_MODEL;
 }
 
 export function seedanceMaxDuration(value: unknown) {
   const variant = seedanceVariant(value);
   return SEEDANCE_VARIANTS.find((item) => item.id === variant)!
     .maxDurationSeconds;
+}
+
+export function seedanceReferenceLimit(value: unknown) {
+  return seedanceVariant(value) === "seedance-2.0-fast" ? 9 : 30;
 }
 
 export function validSeedanceDuration(value: unknown, model: unknown) {

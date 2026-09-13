@@ -15,6 +15,21 @@ const resultSchema = {
     status: { type: "string", enum: ["passed", "needs_review", "failed"] },
     issues: { type: "array", items: { type: "string" }, maxItems: 8 },
     summary: { type: "string" },
+    requirementResults: {
+      type: "array",
+      maxItems: 24,
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          status: { type: "string", enum: ["passed", "uncertain", "failed"] },
+          observation: { type: "string" },
+          region: { type: "string" },
+        },
+        required: ["id", "status", "observation", "region"],
+        additionalProperties: false,
+      },
+    },
   },
   required: ["status", "issues", "summary"],
   additionalProperties: false,
@@ -37,6 +52,7 @@ async function judge(parts: Array<Record<string, unknown>>): Promise<Check> {
     status?: string;
     issues?: unknown;
     summary?: unknown;
+    requirementResults?: unknown;
   };
   const status = ["passed", "needs_review", "failed"].includes(
     String(value.status),
@@ -53,6 +69,9 @@ async function judge(parts: Array<Record<string, unknown>>): Promise<Check> {
     evidence: {
       summary:
         typeof value.summary === "string" ? value.summary.slice(0, 1000) : "",
+      requirementResults: Array.isArray(value.requirementResults)
+        ? value.requirementResults.slice(0, 24)
+        : [],
     },
   };
 }
@@ -130,12 +149,41 @@ export async function checkVisualTask(
   try {
     const parts: Array<Record<string, unknown>> = [
       {
-        text: `Kiểm tra media của một shot phim theo đúng phong cách ảnh chuẩn. Media đầu tiên là kết quả; các ảnh sau là ảnh chuẩn từng nhân vật. Với kind image, đây chỉ là KHUNG ĐẦU trước hành động: chỉ kiểm tra đúng bối cảnh, cast cần có, nhận diện, trang phục, đạo cụ và tư thế mở; tuyệt đối không đòi ảnh tĩnh thể hiện chuyển động, khóc, ôm, nói, khớp môi hoặc kết quả ở các beat sau. Với kind video và audioMode dubbed, đây là chuyển động im tiếng trước lồng tiếng: chỉ kiểm tra hình và đúng người diễn từng lượt, không đòi audio. Với kind dub, FFmpeg giữ nguyên bitstream hình của video nguồn đã kiểm tra và chỉ ghép các audio TTS đã khóa theo schedule; tập trung nghe đúng giọng, đúng thứ tự, đủ nguyên văn, đúng khoảng thời gian và không chồng tiếng. Đây là bản lồng tiếng/voice-over, không resynthesize khuôn mặt, nên không fail chỉ vì khẩu hình không khớp từng âm tiết; chỉ needs_review nếu người không nói cử động miệng như đang nói hoặc audio gắn rõ vào sai người/lượt. Không đánh giá lại nhận diện hoặc đạo cụ của kind dub nếu phần hình không đổi so với nguồn. Với media hình, chỉ passed khi đúng số người và đúng nhận diện, khuôn mặt/tóc/trang phục không trôi, không thêm người/chữ/lưới và hình không lỗi. Với video có storyboard, kiểm tra từng lượt theo thứ tự; người khác phản ứng không lời. Mốc beat là dự kiến, không dùng làm bằng chứng audio thực. Cận cảnh có thể chỉ hiện người nói; khung mở phải có đủ cast. Nếu không đủ bằng chứng để xác định người nói, audio sai vai, hoặc video chỉ là ảnh ghép tĩnh thì needs_review. Không suy đoán và không dùng kịch bản dự kiến thay cho bằng chứng nghe/nhìn.\nTASK: ${JSON.stringify({ audioMode: task.input.audioMode, kind: task.kind, cast: task.input.cast, dialogue: task.input.dialogue, speakerCharacterId: task.input.speakerCharacterId, setting: task.input.setting, schedule: task.input.schedule, storyboard: task.input.storyboard })}`,
+        text: `Kiểm tra media của một shot phim theo đúng phong cách ảnh chuẩn. Media đầu tiên là kết quả; các ảnh sau là ảnh chuẩn từng nhân vật. Với kind image, kiểm tra đúng mục đích và role của reference image trong TASK: scene khóa bố cục/trạng thái, character khóa nhận diện, prop có thể chỉ là cận đạo cụ, environment khóa bối cảnh. Không buộc mọi ref chứa toàn bộ cast và không đòi ảnh tĩnh thể hiện chuyển động ngoài moment đã yêu cầu. Những ảnh đã đạt sẽ được gửi cùng nhau qua reference_images, không phải first/last frame. Với kind video và audioMode dubbed, đây là chuyển động im tiếng trước lồng tiếng: chỉ kiểm tra hình và đúng người diễn từng lượt, không đòi audio. Với kind dub, FFmpeg giữ nguyên bitstream hình của video nguồn đã kiểm tra và chỉ ghép các audio TTS đã khóa theo schedule; tập trung nghe đúng giọng, đúng thứ tự, đủ nguyên văn, đúng khoảng thời gian và không chồng tiếng. Đây là bản lồng tiếng/voice-over, không resynthesize khuôn mặt. Với media hình, chỉ passed khi đúng số người cần có, đúng nhận diện, trang phục, đạo cụ và hình không lỗi. Chữ/số thật trên đạo cụ được phép và phải đọc đúng khi visualRequirements yêu cầu; chỉ cấm phụ đề, nhãn giao diện và chữ trang trí tự sinh. Trả requirementResults cho TỪNG visualRequirement với id nguyên vẹn, status, observation mô tả điều thực sự nhìn thấy và region chỉ vùng ảnh. countable/readable chỉ passed khi đếm/đọc được ở ảnh thật; không suy từ prompt. Nếu thiếu bằng chứng thì uncertain và toàn media needs_review. Với video có storyboard, kiểm tra từng lượt theo thứ tự; người khác phản ứng không lời. Mốc beat là dự kiến, không dùng làm bằng chứng audio thực. Không suy đoán và không dùng kịch bản dự kiến thay cho bằng chứng nghe/nhìn.\nTASK: ${JSON.stringify({ audioMode: task.input.audioMode, kind: task.kind, cast: task.input.cast, dialogue: task.input.dialogue, speakerCharacterId: task.input.speakerCharacterId, setting: task.input.setting, schedule: task.input.schedule, storyboard: task.input.storyboard, referenceImageId: task.input.referenceImageId, referenceRole: task.input.referenceRole, referencePurpose: task.input.referencePurpose, referenceBindings: task.input.referenceBindings, visualStoryMechanism: task.input.visualStoryMechanism, visualRequirements: task.input.visualRequirements })}`,
       },
       await inline(mediaUrl),
     ];
     for (const url of referenceUrls.slice(0, 4)) parts.push(await inline(url));
-    return judge(parts);
+    const check = await judge(parts);
+    const requirements = Array.isArray(task.input.visualRequirements)
+      ? (task.input.visualRequirements as Array<{ id?: string; importance?: string }>)
+      : [];
+    if (!requirements.length) return check;
+    const results = Array.isArray(check.evidence.requirementResults)
+      ? (check.evidence.requirementResults as Array<{ id?: string; status?: string }>)
+      : [];
+    const missingCritical = requirements
+      .filter((requirement) => requirement.importance === "critical")
+      .filter(
+        (requirement) =>
+          !results.some(
+            (result) =>
+              result.id === requirement.id && result.status === "passed",
+          ),
+      );
+    return missingCritical.length
+      ? {
+          ...check,
+          status: check.status === "failed" ? "failed" : "needs_review",
+          issues: [
+            ...check.issues,
+            ...missingCritical.map(
+              (requirement) =>
+                `Chưa chứng minh được yêu cầu hình ảnh ${requirement.id}.`,
+            ),
+          ].slice(0, 8),
+        }
+      : check;
   } catch (error) {
     if (error instanceof Error && error.message === "QA_MEDIA_TOO_LARGE")
       return {

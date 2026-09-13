@@ -11,6 +11,12 @@ import {
   mergePerformanceDirections,
   type PerformanceDirection,
 } from "./performance-direction";
+import {
+  validateSceneReferencePlan,
+  type SceneReferencePlan,
+  type VisualRequirement,
+  type DirectorReferenceImage,
+} from "./visual-direction";
 const string = { type: "string" };
 const object = (properties: Record<string, unknown>) => ({
   type: "object",
@@ -107,7 +113,7 @@ export function shotResponseSchema(story: Story, ids: string[] = []) {
     imagePrompt: {
       type: "string",
       description:
-        "Khung ĐẦU trước hành động; chưa diễn ra kết quả chuyển động. Người nói phải rõ mặt; có thể giữ một người nghe trong khung để lấy phản ứng; không chữ hoặc lưới.",
+        "Khung ĐẦU trước hành động; chưa diễn ra kết quả chuyển động. Người nói phải rõ mặt; chữ hoặc số chỉ xuất hiện khi là chi tiết thật trên đạo cụ mà câu chuyện cần đọc.",
     },
     motionPrompt: string,
     openingState: {
@@ -161,10 +167,74 @@ export function shotResponseSchema(story: Story, ids: string[] = []) {
       maxItems: 1,
       items: ids.length ? { type: "string", enum: ids } : string,
     },
+    requiresOwnSource: { type: "boolean" },
+    visualRequirements: {
+      type: "array",
+      minItems: 1,
+      maxItems: 8,
+      items: object({
+        id: string,
+        kind: {
+          type: "string",
+          enum: ["cast", "prop", "count", "text", "spatial", "reveal"],
+        },
+        description: string,
+        visibleWhen: {
+          type: "string",
+          enum: ["opening", "during", "reveal", "ending"],
+        },
+        importance: { type: "string", enum: ["critical", "supporting"] },
+        legibility: {
+          type: "string",
+          enum: ["recognizable", "countable", "readable"],
+        },
+      }),
+    },
+    referenceImages: {
+      type: "array",
+      minItems: 1,
+      maxItems: 4,
+      items: object({
+        id: string,
+        role: {
+          type: "string",
+          enum: ["scene", "character", "prop", "environment"],
+        },
+        purpose: string,
+        framing: string,
+        moment: string,
+        prompt: string,
+        requirementIds: {
+          type: "array",
+          minItems: 1,
+          maxItems: 8,
+          items: string,
+        },
+      }),
+    },
   });
   return object({
     title: string,
     summary: string,
+    visualDirection: object({
+      storyMechanism: string,
+      audienceMustSee: {
+        type: "array",
+        minItems: 1,
+        maxItems: 12,
+        items: string,
+      },
+      characterKnowledge: {
+        type: "array",
+        minItems: 1,
+        maxItems: 12,
+        items: object({
+          characterId: ids.length ? { type: "string", enum: ids } : string,
+          knows: string,
+          mustNotRevealBefore: string,
+        }),
+      },
+    }),
     shots: object(
       Object.fromEntries(
         Array.from({ length: shotCount }, (_, i) => [`shot${i + 1}`, shot]),
@@ -181,6 +251,15 @@ export function compileStoryShots(
   const v = value as {
     title: string;
     summary: string;
+    visualDirection?: {
+      storyMechanism?: string;
+      audienceMustSee?: string[];
+      characterKnowledge?: Array<{
+        characterId?: string;
+        knows?: string;
+        mustNotRevealBefore?: string;
+      }>;
+    };
     shots: Record<string, Record<string, unknown>>;
   };
   const hasReaction = story.beats.at(-1)?.purpose === "reaction";
@@ -207,7 +286,7 @@ export function compileStoryShots(
       ...(performanceDirection ? { performanceDirection } : {}),
       ...(line
         ? {
-            imagePrompt: `${shot.imagePrompt || ""}\nRàng buộc: ${characters.find((c) => c.id === line.characterId)?.name || "người nói"} là người duy nhất nói và phải nhìn rõ mặt. Người nghe chỉ hiện khi cần cho phản ứng tự nhiên; không chữ hay lưới ảnh.`,
+            imagePrompt: `${shot.imagePrompt || ""}\nRàng buộc: ${characters.find((c) => c.id === line.characterId)?.name || "người nói"} là người duy nhất nói và phải nhìn rõ mặt. Người nghe chỉ hiện khi cần cho phản ứng tự nhiên. Không lưới, nhãn giao diện hay phụ đề; giữ nguyên chữ/số thật trên đạo cụ nếu visualRequirements yêu cầu đọc.`,
           }
         : {}),
       characterIds: line
@@ -228,7 +307,12 @@ export function compileStoryShots(
       followsPrevious: false,
     };
   });
-  return { title: v.title, summary: v.summary, scenes };
+  return {
+    title: v.title,
+    summary: v.summary,
+    scenes,
+    visualDirection: v.visualDirection,
+  };
 }
 
 /** Panels are planned per story beat; each provider clip is sized to its content. */
@@ -240,13 +324,37 @@ export function compileStoryboards(
 ) {
   const planned = compileStoryShots(value, story, characters);
   const hasReaction = story.beats.at(-1)?.purpose === "reaction";
-  const groups = storyboardGroups(
+  const initialGroups = storyboardGroups(
     story.dialogue,
     hasReaction,
     maxProviderSeconds,
   );
   const raw = (value as { shots: Record<string, Record<string, unknown>> })
     .shots;
+  // The director may split a shot when its camera/state is too different for a
+  // continuous source clip. Visual evidence itself is carried by references.
+  const referenceLimit = maxProviderSeconds <= 15 ? 9 : 30;
+  const groups = initialGroups.flatMap((group) => {
+    const split: number[][] = [];
+    for (const index of group) {
+      const shot = raw[`shot${index + 1}`] || {};
+      const current = split.at(-1);
+      const candidate = current ? [...current, index] : [index];
+      const candidateImageCount = candidate.reduce((total, shotIndex) => {
+        const images = raw[`shot${shotIndex + 1}`]?.referenceImages;
+        return total + (Array.isArray(images) && images.length ? images.length : 1);
+      }, 0);
+      const candidateCastCount = new Set(
+        candidate.flatMap((shotIndex) => planned.scenes[shotIndex].characterIds),
+      ).size;
+      const mustSplit =
+        shot.requiresOwnSource === true ||
+        candidateImageCount + candidateCastCount > referenceLimit;
+      if (!current || mustSplit) split.push([index]);
+      else current.push(index);
+    }
+    return split;
+  });
   const scenes = groups.map((group) => {
     const shots = group.map((i) => planned.scenes[i]);
     const characterIds = [...new Set(shots.flatMap((s) => s.characterIds))];
@@ -312,6 +420,80 @@ export function compileStoryboards(
         contentEndSeconds: Math.round(sum * 100) / 100,
         beats,
         performanceDirection,
+        referencePlan: (() => {
+          const requirements: VisualRequirement[] = [];
+          const referenceImages: DirectorReferenceImage[] = [];
+          for (const index of group) {
+            const shot = raw[`shot${index + 1}`];
+            const prefix = `shot${index + 1}`;
+            const shotRequirements = Array.isArray(shot.visualRequirements)
+              ? (shot.visualRequirements as VisualRequirement[])
+              : [
+                  {
+                    id: "composition",
+                    kind: "cast" as const,
+                    description: "Đúng nhân vật, bối cảnh và tư thế mở của cảnh.",
+                    visibleWhen: "opening" as const,
+                    importance: "critical" as const,
+                    legibility: "recognizable" as const,
+                  },
+                ];
+            for (const requirement of shotRequirements)
+              requirements.push({ ...requirement, id: `${prefix}_${requirement.id}` });
+            const shotImages = Array.isArray(shot.referenceImages)
+              ? (shot.referenceImages as DirectorReferenceImage[])
+              : [
+                  {
+                    id: "start",
+                    role: "scene" as const,
+                    purpose: "Khung mở của cảnh",
+                    framing: String(shot.camera || "Khung vừa"),
+                    moment: "Trước hành động",
+                    prompt: String(shot.imagePrompt || shot.action || "Khung mở cảnh"),
+                    requirementIds: ["composition"],
+                  },
+                ];
+            for (const image of shotImages)
+              referenceImages.push({
+                ...image,
+                id: `${prefix}_${image.id}`,
+                requirementIds: image.requirementIds.map((id) => `${prefix}_${id}`),
+              });
+          }
+          if (!referenceImages.some((image) => image.role === "scene") && referenceImages[0])
+            referenceImages[0].role = "scene";
+          const director = planned.visualDirection;
+          const normalExpectation = story.comicPremise?.normalExpectation;
+          const invertedReality = story.comicPremise?.invertedReality;
+          const plan: SceneReferencePlan = {
+            version: 1,
+            storyMechanism:
+              director?.storyMechanism ||
+              (normalExpectation && invertedReality
+                ? `${normalExpectation} → ${invertedReality}`
+                : story.mechanism ||
+                  story.outcome ||
+                  "Giữ đúng diễn biến và điểm lộ của kịch bản."),
+            audienceMustSee: [
+              ...(director?.audienceMustSee || []),
+              story.comicPremise?.visibleContrast || story.payoff,
+              ...requirements
+                .filter((item) => item.importance === "critical")
+                .map((item) => item.description),
+            ].filter(Boolean),
+            characterKnowledge: director?.characterKnowledge?.length
+              ? director.characterKnowledge.map(
+                  (item) =>
+                    `${item.characterId}: biết ${item.knows}; chưa được lộ trước ${item.mustNotRevealBefore}`,
+                )
+              : (story.wants || []).map(
+                  (want) => `${want.characterId}: ${want.want}`,
+                ),
+            requirements,
+            referenceImages,
+          };
+          return validateSceneReferencePlan(plan);
+        })(),
       },
       characterIds,
       maxProviderSeconds,
@@ -330,9 +512,10 @@ export function compileStoryboards(
       durationSeconds: providerDuration,
       followsPrevious: false,
       storyboard,
-      imagePrompt: `${first.imagePrompt}\nKhung đầu sạch của đoạn đối đáp: có đủ ${names} từ ảnh chuẩn, vị trí và hướng nhìn rõ theo trục đối thoại, đúng tỷ lệ vóc dáng. Chưa diễn ra hành động hoặc kết quả ở nhịp sau. Không lưới, nhãn, mũi tên, chữ hoặc nhiều bản sao nhân vật.`,
+      imagePrompt: `${first.imagePrompt}\nKhung đầu sạch của đoạn đối đáp: có đủ ${names} từ ảnh chuẩn, vị trí và hướng nhìn rõ theo trục đối thoại, đúng tỷ lệ vóc dáng. Chưa diễn ra hành động hoặc kết quả ở nhịp sau. Không lưới, nhãn giao diện, mũi tên, phụ đề hoặc nhiều bản sao nhân vật; chữ/số thật trên đạo cụ chỉ được giữ khi referencePlan yêu cầu.`,
       motionPrompt: beats.map((beat) => `${beat.startSeconds.toFixed(2)}–${beat.endSeconds.toFixed(2)}s: ${beat.motion}`).join("\n"),
       performanceDirection: storyboard.performanceDirection,
+      referencePlan: storyboard.referencePlan,
     };
   });
   return { title: planned.title, summary: planned.summary, scenes };

@@ -99,13 +99,15 @@ describe("per-turn dubbing", () => {
     expect(directed.scene.duration_seconds).toBe(5);
     expect(directed.scene.storyboard!.contentEndSeconds).toBe(4.3);
     expect(planned).toEqual(original);
-    const input = filmVideoInputs(directed.scene, "dubbed", "16:9", "720p", "frame", 0, undefined, directed.measuredSpeechSeconds);
+    const input = filmVideoInputs(directed.scene, "dubbed", "16:9", "720p", { urls: ["frame"], bindings: ["@image1 = scene: khung cảnh."] }, 0, undefined, directed.measuredSpeechSeconds);
     expect(input.duration).toBe(5);
     expect(input.prompt).toContain("2.15–4.30s");
     expect(input.prompt).toContain("Lượt thoại kết thúc ở 4.15s");
     expect(input.prompt).toContain("REAL-TIME MOTION");
     expect(input.generate_audio).toBe(false);
-    expect(input).not.toHaveProperty("reference_images");
+    expect(input.reference_images).toEqual(["frame"]);
+    expect(input.aspect_ratio).toBe("16:9");
+    expect(input).not.toHaveProperty("image");
   });
   it("preserves an intentional pause and a silent reaction in measured timing", () => {
     const planned = structuredClone(scene);
@@ -136,7 +138,7 @@ describe("per-turn dubbing", () => {
     const tasks = audios();
     tasks[0].result!.duration = 0.9;
     const directed = measuredDubbedScene(tasks, planned);
-    expect(() => filmVideoInputs(directed.scene, "dubbed", "16:9", "720p", "frame", 0, undefined, directed.measuredSpeechSeconds)).not.toThrow();
+    expect(() => filmVideoInputs(directed.scene, "dubbed", "16:9", "720p", { urls: ["frame"], bindings: ["@image1 = scene: khung cảnh."] }, 0, undefined, directed.measuredSpeechSeconds)).not.toThrow();
     tasks[0].result!.duration = 15;
     expect(() => measuredDubbedScene(tasks, planned, 15)).toThrow("Thoại thật vượt");
     tasks[0].input.speakerCharacterId = "do";
@@ -230,15 +232,17 @@ describe("per-turn dubbing", () => {
     tasks[0].result!.duration = 14;
     expect(() => dubbingSchedule(tasks, scene)).toThrow("dài hơn toàn cảnh");
   });
-  it("requests silent 15s I2V and keeps 16:9 storyboard direction", () => {
-    const input = filmVideoInputs(scene, "dubbed", "16:9", "720p", "frame");
+  it("requests silent reference-guided video and keeps 16:9 storyboard direction", () => {
+    const input = filmVideoInputs(scene, "dubbed", "16:9", "720p", { urls: ["scene-ref", "character-ref"], bindings: ["@image1 = scene: lớp học.", "@image2 = character: Bánh Bao."] });
     expect(input.generate_audio).toBe(false);
     expect(input.duration).toBe(15);
     expect(input.prompt).toContain("16:9");
     expect(input.prompt).toContain("SILENT VIDEO");
     expect(input.prompt).toContain("Bánh Bao");
     expect(input.prompt).toContain("Đậu Đỏ");
-    expect(input).not.toHaveProperty("reference_images");
+    expect(input.reference_images).toEqual(["scene-ref", "character-ref"]);
+    expect(input).not.toHaveProperty("image");
+    expect(input.prompt).toContain("@image2 = character: Bánh Bao");
   });
   it("uses dubbed video for ASR/render and invalidates it after a TTS attempt changes", () => {
     const tasks = audios();

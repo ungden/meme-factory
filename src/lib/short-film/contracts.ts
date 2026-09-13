@@ -6,7 +6,7 @@ import {
   type PerformanceDirection,
 } from "../performance-direction";
 import {
-  SEEDANCE_25_IMAGE_MODEL,
+  SEEDANCE_25_TEXT_MODEL,
   seedanceMaxDuration,
   validSeedanceDuration,
   type FilmVideoModel,
@@ -16,7 +16,7 @@ export const FILM_MODELS = {
   tts: "minimax/speech-2.6-hd",
   designed_tts: "minimax/speech-02-hd",
   voice_design: "minimax/voice-design",
-  video: SEEDANCE_25_IMAGE_MODEL,
+  video: SEEDANCE_25_TEXT_MODEL,
   lip_sync: "sync/lipsync-2-pro",
   transcribe: "wavespeed-ai/openai-whisper-with-video",
 } as const;
@@ -309,6 +309,7 @@ export function compileFilmMotion(
   mode: "native" | "fixed" | "dubbed",
   format: string,
   measuredSpeechSeconds?: ReadonlyMap<number, number>,
+  referenceBindings: string[] = [],
 ) {
   if (scene.storyboard) {
     if (mode === "fixed")
@@ -326,7 +327,7 @@ export function compileFilmMotion(
     const performance = board.performanceDirection || scene.performance_direction;
     return [
       `STORYBOARD: clip nguồn ${board.durationSeconds} giây ${format}; câu chuyện hữu ích kết thúc ở ${Number(board.contentEndSeconds ?? board.durationSeconds).toFixed(2)} giây và phần nguồn còn lại sẽ bị cắt. Diễn nhiều nhịp đối đáp/hành động liên tục theo thứ tự sau. Bối cảnh ${scene.setting}.`,
-      "FIRST FRAME: ảnh đầu là một khung sạch, không phải lưới storyboard. Giữ đúng diện mạo, vóc dáng, trang phục, vị trí và hướng nhìn của từng người trong ảnh.",
+      `REFERENCE PACK: ${referenceBindings.join(" ")} Dùng đúng vai trò đã gắn cho từng @image; không trộn mặt, trang phục, đạo cụ hoặc bối cảnh giữa các ảnh. Storyboard tổng chỉ để duyệt và không nằm trong input provider.`,
       `CAST: ${scene.cast_snapshot.map((c) => `${c.name}: ${c.description}`).join("; ")}. Không trộn người hoặc đổi giọng giữa các lượt.`,
       REALTIME_MOTION_DIRECTION,
       ...(performance ? [`ACTING INTENT: ${performance.comicObjective}. HOOK 0–1s: ${performance.hook}. END CUE: ${performance.revealOrCut}. Các hành vi cụ thể nằm trong timeline dưới đây; không diễn lại thành chuỗi thứ hai.`] : []),
@@ -337,8 +338,8 @@ export function compileFilmMotion(
       ),
       `PACING: bắt đầu ngay giây 0, nói nhanh tự nhiên nhưng rõ, không kéo dài âm tiết, không slow motion, không lặp câu hoặc lặp động tác. Hoàn tất toàn bộ diễn biến ở ${Number(board.contentEndSeconds ?? board.durationSeconds).toFixed(2)} giây; sau đó chỉ giữ tư thế kết, tuyệt đối không thêm hành động hoặc lời mới. Mốc thời gian định hướng nhịp diễn; nói trọn câu trước đổi lượt, không chồng lời. Người nghe phản ứng ngay trong lượt nói. Pan/cắt theo storyboard, giữ hướng nhìn và trục đối thoại; không chuyển cảnh trang trí hoặc đổi bối cảnh.`,
       mode === "native"
-        ? "AUDIO: giọng đúng người đang nói, rõ ở tiền cảnh; nhạc không lời vui vẻ, tinh nghịch nhẹ, âm lượng thấp. Không thêm lời thoại, chữ, phụ đề hoặc nhãn thời gian trong hình."
-        : "SILENT VIDEO: không phát lời thoại, không nhạc. Diễn môi và phản ứng theo đúng lịch từng người để lồng tiếng riêng. Không chữ, phụ đề hoặc nhãn thời gian.",
+        ? "AUDIO: giọng đúng người đang nói, rõ ở tiền cảnh; nhạc không lời vui vẻ, tinh nghịch nhẹ, âm lượng thấp. Không thêm lời thoại, phụ đề, nhãn thời gian hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ tham chiếu."
+        : "SILENT VIDEO: không phát lời thoại, không nhạc. Diễn môi và phản ứng theo đúng lịch từng người để lồng tiếng riêng. Không phụ đề, nhãn thời gian hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ.",
     ].join("\n");
   }
   const duration = Math.max(4, Math.min(30, scene.duration_seconds || 5));
@@ -352,34 +353,39 @@ export function compileFilmMotion(
     : `0.0–${duration.toFixed(1)}s: ${scene.motion_prompt || scene.action}. Thực hiện hành động một lần ở tốc độ thật ngay trong lượt nói. Sau tiếp xúc/quyết định, tiếp tục đúng phản ứng của người nghe; không trải chậm động tác cho đủ clip. Kết ở trạng thái đã mô tả, không thêm trò mới.`;
   const camera = `${scene.camera}; giữ đúng phương án máy này. Máy tĩnh không có nghĩa diễn viên bất động; không tự thêm pan, orbit hoặc push-in.`;
   return [
-    `GLOBAL STYLE: một shot liên tục ${format}, nhịp nhanh tự nhiên, phong cách và nhận diện kế thừa chính xác từ ảnh đầu.`,
+    `GLOBAL STYLE: một shot liên tục ${format}, nhịp nhanh tự nhiên, phong cách và nhận diện kế thừa chính xác từ bộ ảnh tham chiếu.`,
     `SCENE: ${scene.setting}.`,
-    `FIRST FRAME: dùng nguyên bố cục, vị trí và diện mạo trong ảnh đầu; hành động bắt đầu ở giây 0, không mở bằng cảnh đứng yên.`,
+    `REFERENCE PACK: ${referenceBindings.join(" ")} Dùng đúng vai trò đã gắn cho từng @image; hành động bắt đầu ở giây 0, không mở bằng cảnh đứng yên.`,
     `ACTION TIMELINE (${duration.toFixed(1)} giây): ${plannedTimeline}`,
     `CAMERA: ${camera}`,
     REALTIME_MOTION_DIRECTION,
     ...(scene.performance_direction
       ? [compilePerformanceDirection(scene.performance_direction)]
       : []),
-    `CONTINUITY: chỉ có ${scene.cast_snapshot.map((c) => c.name).join(", ")}; giữ nguyên mặt, tóc, trang phục, tỷ lệ và hướng nhìn từ ảnh đầu. Không thêm người, không đổi vai hoặc đổi vị trí vô lý.`,
+    `CONTINUITY: chỉ có ${scene.cast_snapshot.map((c) => c.name).join(", ")}; giữ nguyên mặt, tóc, trang phục và tỷ lệ từ reference images. Không thêm người, không đổi vai hoặc đổi vị trí vô lý.`,
     scene.dialogue
       ? `ACTIVE SPEAKER: ${speaker || "người nói đã chỉ định"} là người nói duy nhất và là người duy nhất cử động môi theo lời. Người nghe giữ miệng đóng, chỉ phản ứng bằng mắt, nét mặt và cơ thể. ${mode === "native" ? `Nói đúng một câu nguyên văn tiếng Việt, không thêm tiếng đệm hoặc câu đáp: “${scene.dialogue}”.` : "Tập trung rõ gương mặt người nói; không phát lời vì audio sẽ được đồng bộ riêng."}`
       : "ACTIVE SPEAKER: không ai nói; mọi nhân vật giữ miệng đóng.",
     mode === "native"
-      ? "AUDIO: lời thoại rõ ở tiền cảnh; nhạc nền không lời vui vẻ, ấm áp, tinh nghịch nhẹ kiểu gia đình, âm lượng thấp và liên tục. Không thêm lời nói, tiếng đệm, chữ hoặc phụ đề."
-      : "AUDIO: không lời thoại và không nhạc; audio lồng tiếng sẽ được đồng bộ riêng. Không thêm chữ hoặc phụ đề.",
+      ? "AUDIO: lời thoại rõ ở tiền cảnh; nhạc nền không lời vui vẻ, ấm áp, tinh nghịch nhẹ kiểu gia đình, âm lượng thấp và liên tục. Không thêm lời nói, tiếng đệm, phụ đề hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ."
+      : "AUDIO: không lời thoại và không nhạc; audio lồng tiếng sẽ được đồng bộ riêng. Không thêm phụ đề hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ.",
   ]
     .filter(Boolean)
     .join("\n");
 }
 
-/** I2V takes a clean first frame; it has no reference_images/aspect_ratio fields. */
+export type FilmReferencePacket = {
+  urls: string[];
+  bindings: string[];
+};
+
+/** Short films use Seedance text-to-video with role-bound reference_images. */
 export function filmVideoInputs(
   scene: FilmScene,
   mode: "native" | "fixed" | "dubbed",
   format: string,
   resolution: "720p" | "1080p",
-  image: string,
+  references: FilmReferencePacket,
   audioDuration = 0,
   videoModel: FilmVideoModel = FILM_MODELS.video,
   measuredSpeechSeconds?: ReadonlyMap<number, number>,
@@ -391,9 +397,18 @@ export function filmVideoInputs(
     throw new Error(
       `Clip ${duration} giây vượt giới hạn ${seedanceMaxDuration(videoModel)} giây của model đã chọn. Hãy soạn lại storyboard.`,
     );
+  if (!references.urls.length || references.urls.length !== references.bindings.length)
+    throw new Error("Bộ ảnh tham chiếu video không hợp lệ.");
   return {
-    prompt: compileFilmMotion(scene, mode, format, measuredSpeechSeconds),
-    image,
+    prompt: compileFilmMotion(
+      scene,
+      mode,
+      format,
+      measuredSpeechSeconds,
+      references.bindings,
+    ),
+    reference_images: references.urls,
+    aspect_ratio: format,
     duration,
     resolution,
     generate_audio: mode === "native",
@@ -413,7 +428,7 @@ export function currentSceneTask(
         t.scene_id === scene.id &&
         t.scene_version === scene.version &&
         t.status === "completed" &&
-        (t.kind === kind || (kind === "image" && t.kind === "frame")),
+        t.kind === kind,
     )
     .sort((a, b) => {
       const accepted = (task: FilmTask) =>
@@ -423,12 +438,29 @@ export function currentSceneTask(
         Date.parse(b.created_at || "") - Date.parse(a.created_at || "")
       );
     });
+  if (kind === "image") {
+    const first = scene.storyboard?.referencePlan?.referenceImages[0];
+    if (first)
+      return candidates.find((task) => task.input.referenceImageId === first.id);
+    return candidates.find(
+      (task) =>
+        !task.input.referenceImageId,
+    );
+  }
   if (kind === "video") {
     const image = currentSceneTask(tasks, scene, "image", audioMode),
       audio = currentSceneTask(tasks, scene, "tts", audioMode);
+    const referenceTaskIds = sceneReferenceImageTasks(tasks, scene)
+      .map(({ task }) => task?.id)
+      .filter(Boolean);
     return candidates.find(
       (t) =>
-        t.input.imageTaskId === image?.id &&
+        (Array.isArray(t.input.referenceTaskIds)
+          ? referenceTaskIds.length === t.input.referenceTaskIds.length &&
+            referenceTaskIds.every((id) =>
+              (t.input.referenceTaskIds as string[]).includes(id!),
+            )
+          : t.input.imageTaskId === image?.id) &&
         (!scene.dialogue ||
           audioMode === "native" ||
           (audioMode === "dubbed"
@@ -466,6 +498,43 @@ export function currentSceneTask(
     return candidates.find((t) => !!video && t.input.videoTaskId === video.id);
   }
   return candidates[0];
+}
+
+/** Current detailed reference tasks in the order authored by the director. */
+export function sceneReferenceImageTasks(
+  tasks: FilmTask[],
+  scene: FilmScene,
+): Array<{ referenceId: string; task?: FilmTask }> {
+  const plan = scene.storyboard?.referencePlan;
+  if (!plan) {
+    return [{
+      referenceId: "legacy_start",
+      task: currentSceneTask(tasks, scene, "image", "dubbed"),
+    }];
+  }
+  return plan.referenceImages.map((reference) => ({
+    referenceId: reference.id,
+    task: tasks
+      .filter(
+        (task) =>
+          task.kind === "image" &&
+          task.scene_id === scene.id &&
+          task.scene_version === scene.version &&
+          task.input.referenceImageId === reference.id &&
+          task.status === "completed",
+      )
+      .sort((a, b) =>
+        Number(Boolean(b.approved_at || b.auto_accepted_at)) -
+          Number(Boolean(a.approved_at || a.auto_accepted_at)) ||
+        Date.parse(b.created_at || "") - Date.parse(a.created_at || ""),
+      )[0],
+  }));
+}
+
+export function referencePackReady(tasks: FilmTask[], scene: FilmScene) {
+  return sceneReferenceImageTasks(tasks, scene).every(({ task }) =>
+    Boolean(task?.approved_at || task?.auto_accepted_at),
+  );
 }
 
 /** The first lip-sync adapter cannot select a face in a multi-person frame. */

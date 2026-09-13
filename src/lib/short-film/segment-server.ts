@@ -20,6 +20,8 @@ import type {
   FilmSegmentRevision,
 } from "./segment-contracts";
 import { historicalSceneSource } from "./segment-contracts";
+import { isProjectMediaPath } from "../project-media-path";
+import { seedanceReferenceLimit } from "../video-models";
 import {
   FilmError,
   type Access,
@@ -516,17 +518,54 @@ export async function quoteFilmSegment(
     approvedSegmentImage ||
     currentSceneTask(tasks, scene, "image", plan.audio_mode) ||
     sourceClip;
-  const placeholderImage = await signed(a, String(pricingImage.result?.path));
+  const references: Array<{
+    url: string;
+    binding: string;
+    source: { taskId: string } | { path: string } | { url: string };
+  }> = [
+    {
+      url: await signed(a, String(pricingImage.result?.path)),
+      binding: "scene: bố cục và trạng thái mở của đúng đoạn cần sửa",
+      source: { taskId: approvedSegmentImage?.id || frame!.id },
+    },
+  ];
+  for (const character of scene.cast_snapshot) {
+    for (const source of character.referenceImages.length
+      ? character.referenceImages
+      : [character.imageUrl]) {
+      if (!source) continue;
+      references.push({
+        url: isProjectMediaPath(a.project.id, source)
+          ? await signed(a, source)
+          : source,
+        binding: `character: ảnh nhận diện đã duyệt của ${character.name}`,
+        source: isProjectMediaPath(a.project.id, source)
+          ? { path: source }
+          : { url: source },
+      });
+    }
+  }
+  if (references.length > seedanceReferenceLimit(plan.video_model))
+    throw new FilmError("Bộ ảnh tham chiếu của đoạn vượt giới hạn model.", 422);
+  const packet = {
+    urls: references.map((reference) => reference.url),
+    bindings: references.map(
+      (reference, index) => `@image${index + 1} = ${reference.binding}.`,
+    ),
+  };
   const providerInputs = filmVideoInputs(
     directed,
     "dubbed",
     plan.format,
     plan.resolution,
-    placeholderImage,
+    packet,
     0,
     plan.video_model,
     measured,
   );
+  const { reference_images: _signedReferenceUrls, ...storedProviderInputs } =
+    providerInputs;
+  void _signedReferenceUrls;
   const schedule = audio
     ? [
         {
@@ -547,8 +586,10 @@ export async function quoteFilmSegment(
     "video",
     {
       model: plan.video_model,
-      providerInputs,
-      imageTaskId: approvedSegmentImage?.id || frame!.id,
+      providerInputs: storedProviderInputs,
+      referenceTaskIds: [approvedSegmentImage?.id || frame!.id],
+      referenceSources: references.map((reference) => reference.source),
+      referenceBindings: packet.bindings,
       audioTaskIds: audio ? [audio.id] : [],
       dubbingSchedule: schedule,
       audioMode: "dubbed",

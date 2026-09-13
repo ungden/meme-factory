@@ -9,7 +9,7 @@ import {
 } from "@/lib/creative-assist";
 import { getRequestUser } from "@/lib/supabase/request-auth";
 import {
-  seedanceImageModel,
+  seedanceReferenceModel,
   seedanceMaxDuration,
 } from "@/lib/video-models";
 
@@ -192,7 +192,7 @@ export async function POST(
       { status: 400 },
     );
 
-  const videoModel = seedanceImageModel(body.videoModel);
+  const videoModel = seedanceReferenceModel(body.videoModel);
 
   const inputSnapshot = {
     kind: body.kind,

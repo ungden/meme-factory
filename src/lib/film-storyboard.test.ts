@@ -84,6 +84,52 @@ describe("content-sized Seedance storyboard production", () => {
       [4, 5],
     ]);
   });
+  it("keeps readable story evidence as a dedicated provider reference", () => {
+    const source = structuredClone(panels);
+    Object.assign(source.shots.shot2, {
+      requiresOwnSource: false,
+      visualRequirements: [
+        {
+          id: "five_small_bills",
+          kind: "count",
+          description: "Đậu Đỏ cầm đúng năm tờ một đô.",
+          visibleWhen: "reveal",
+          importance: "critical",
+          legibility: "countable",
+        },
+        {
+          id: "one_dollar_marks",
+          kind: "text",
+          description: "Cả năm tờ đều đọc được số 1.",
+          visibleWhen: "reveal",
+          importance: "critical",
+          legibility: "readable",
+        },
+      ],
+      referenceImages: [
+        {
+          id: "red_bean_money_closeup",
+          role: "prop",
+          purpose: "Cận phần tiền Đậu Đỏ nhận",
+          framing: "top-down close-up",
+          moment: "Ngay sau khi chia",
+          prompt: "Hai bàn tay Đậu Đỏ xòe đúng năm tờ một đô, từng số 1 rõ nét.",
+          requirementIds: ["five_small_bills", "one_dollar_marks"],
+        },
+      ],
+    });
+    const result = compileStoryboards(source, story, characters);
+    expect(result.scenes.length).toBe(3);
+    const detailScene = result.scenes[0];
+    expect(detailScene.storyboard.beats).toHaveLength(2);
+    expect(detailScene.storyboard.referencePlan!.referenceImages[1]).toMatchObject({
+      role: "prop",
+      purpose: "Cận phần tiền Đậu Đỏ nhận",
+    });
+    expect(
+      detailScene.storyboard.referencePlan!.requirements.map((item) => item.kind),
+    ).toEqual(["cast", "count", "text"]);
+  });
   it("splits the same complete story into shorter source clips for Seedance 2.0 Fast", () => {
     const longStory = {
       ...story,
@@ -234,23 +280,34 @@ describe("content-sized Seedance storyboard production", () => {
       "native",
       "16:9",
       "720p",
-      "https://example.test/first-frame.png",
+      {
+        urls: ["https://example.test/scene.png", "https://example.test/bao.png"],
+        bindings: [
+          "@image1 = scene: bố cục cảnh.",
+          "@image2 = character: Bánh Bao.",
+        ],
+      },
     );
     expect(Object.keys(inputs).sort()).toEqual([
+      "aspect_ratio",
       "duration",
       "generate_audio",
-      "image",
       "prompt",
+      "reference_images",
       "resolution",
     ]);
     expect(inputs.duration).toBe(s.storyboard.durationSeconds);
     expect(inputs.generate_audio).toBe(true);
+    expect(inputs.reference_images).toHaveLength(2);
+    expect(inputs).not.toHaveProperty("image");
+    expect(inputs).not.toHaveProperty("last_image");
     const prompt = inputs.prompt;
     expect(prompt).toContain(
       `clip nguồn ${s.storyboard.durationSeconds} giây 16:9`,
     );
     expect(prompt).toContain("Chỉ Bánh Bao diễn lời thoại");
     expect(prompt).toContain("Chỉ Đậu Đỏ diễn lời thoại");
+    expect(prompt).toContain("@image1 = scene");
     expect(prompt).not.toContain("một shot liên tục");
     expect(() => compileFilmMotion(scene, "fixed", "16:9")).toThrow(
       "không dùng đồng bộ môi một người",

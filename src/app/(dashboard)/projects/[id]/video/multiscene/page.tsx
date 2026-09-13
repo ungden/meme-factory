@@ -31,6 +31,7 @@ import {
   GEMINI_TTS_MODELS,
   GEMINI_VOICE_PRESETS,
   currentSceneTask,
+  referencePackReady,
   speechTasks,
   finalClipKind,
   type FilmKind,
@@ -40,7 +41,7 @@ import {
 } from "@/lib/short-film/contracts";
 import {
   SEEDANCE_VARIANTS,
-  seedanceImageModel,
+  seedanceReferenceModel,
   seedanceMaxDuration,
   type FilmVideoModel,
 } from "@/lib/video-models";
@@ -101,7 +102,7 @@ const blank = (): Draft => ({
   targetDurationSeconds: 30,
   format: "16:9",
   resolution: "720p",
-  videoModel: seedanceImageModel(null),
+  videoModel: seedanceReferenceModel(null),
   audioMode: "dubbed",
   subtitles: true,
   scenes: [],
@@ -146,13 +147,13 @@ const fromPlan = (p: FilmPlan): Draft => ({
   targetDurationSeconds: p.target_duration_seconds || 30,
   format: p.format,
   resolution: p.resolution,
-  videoModel: seedanceImageModel(p.video_model),
+  videoModel: seedanceReferenceModel(p.video_model),
   audioMode: p.audio_mode === "native" ? "dubbed" : p.audio_mode,
   subtitles: p.subtitles,
   scenes: p.video_plan_scenes.map(fromScene),
 });
 const labels: Record<string, string> = {
-  image: "Ảnh đầu",
+  image: "Ảnh tham chiếu",
   frame: "Khung nối tiếp",
   voice_design: "Thiết kế giọng",
   tts: "Giọng nói",
@@ -423,7 +424,7 @@ export default function ShortFilmPage() {
             ) {
               initial = {
                 ...saved.draft,
-                videoModel: seedanceImageModel(saved.draft.videoModel),
+                videoModel: seedanceReferenceModel(saved.draft.videoModel),
                 audioMode:
                   saved.draft.audioMode === "native"
                     ? "dubbed"
@@ -665,7 +666,7 @@ export default function ShortFilmPage() {
         ) {
           nextDraft = {
             ...saved.draft,
-            videoModel: seedanceImageModel(saved.draft.videoModel),
+            videoModel: seedanceReferenceModel(saved.draft.videoModel),
             audioMode:
               saved.draft.audioMode === "native"
                 ? "dubbed"
@@ -835,7 +836,7 @@ export default function ShortFilmPage() {
     const start = await api(`${base}/creative-assists`, {
       kind: "performance_revision",
       intent:
-        "Tối ưu biểu cảm cho toàn bộ cảnh: giữ nguyên thoại, người nói, cast, bối cảnh, ảnh đầu và thứ tự. Tạo hành vi hài dễ nhớ, có hook nhìn thấy ngay, leo thang, phản ứng có mục tiêu và điểm cắt. Không thêm thoại.",
+        "Tối ưu biểu cảm cho toàn bộ cảnh: giữ nguyên thoại, người nói, cast, bối cảnh, bộ ảnh tham chiếu và thứ tự. Tạo hành vi hài dễ nhớ, có hook nhìn thấy ngay, leo thang, phản ứng có mục tiêu và điểm cắt. Không thêm thoại.",
       selectedCharacterIds: cast,
       currentScenes: draft.scenes,
       lockedSceneIndexes: [],
@@ -1096,7 +1097,37 @@ export default function ShortFilmPage() {
         (s) => s.id === t.scene_id && s.version === t.scene_version,
       ),
   );
-  const displayTasks = [...currentTasks, ...voiceTasks].sort((a, b) => {
+  const directorReferenceTasks = currentTasks
+    .filter(
+      (task) =>
+        task.kind === "image" &&
+        typeof task.input.referenceImageId === "string",
+    )
+    .sort((a, b) => {
+      const sceneA = plan?.video_plan_scenes.find((s) => s.id === a.scene_id)?.scene_index ?? 999;
+      const sceneB = plan?.video_plan_scenes.find((s) => s.id === b.scene_id)?.scene_index ?? 999;
+      if (sceneA !== sceneB) return sceneA - sceneB;
+      const rank = (task: FilmTask) =>
+        task.input.referenceRole === "scene"
+          ? 0
+          : task.input.referenceRole === "character"
+            ? 1
+            : task.input.referenceRole === "prop"
+              ? 2
+              : 3;
+      return rank(a) - rank(b);
+    });
+  const displayTasks = [
+    ...currentTasks.filter(
+      (task) =>
+        task.kind !== "frame" &&
+        !(
+          task.kind === "image" &&
+          typeof task.input.referenceImageId === "string"
+        ),
+    ),
+    ...voiceTasks,
+  ].sort((a, b) => {
     const rank = (task: FilmTask) =>
       task.kind === "render"
         ? 0
@@ -1116,26 +1147,20 @@ export default function ShortFilmPage() {
   let stageSceneIds: string[] | undefined;
   if (plan?.video_plan_scenes.length && !dirty) {
     const ss = plan.video_plan_scenes;
+    const taskAccepted = (task?: FilmTask) =>
+      Boolean(task?.approved_at || task?.auto_accepted_at);
     const speechReady = (s: FilmScene) =>
       !s.dialogue ||
       draft.audioMode === "native" ||
       (draft.audioMode === "dubbed"
         ? speechTasks(currentTasks, s).length > 0 &&
-          speechTasks(currentTasks, s).every((t) => t?.approved_at)
-        : !!latest(s, "tts")?.approved_at);
+          speechTasks(currentTasks, s).every(taskAccepted)
+        : taskAccepted(latest(s, "tts")));
     const prepare = ss.filter(
-      (s) => (!s.follows_previous && !latest(s, "image")?.approved_at) || !speechReady(s),
+      (s) => !referencePackReady(currentTasks, s) || !speechReady(s),
     );
-    const frame = ss.filter((s) => {
-      if (!s.follows_previous || latest(s, "image")?.approved_at) return false;
-      const previous = ss.find((candidate) => candidate.scene_index === s.scene_index - 1);
-      return !!(
-        previous &&
-        latest(previous, finalClipKind(previous, draft.audioMode))?.approved_at
-      );
-    });
     const video = ss.filter(
-      (s) => latest(s, "image")?.approved_at && !latest(s, "video"),
+      (s) => referencePackReady(currentTasks, s) && !latest(s, "video"),
     );
     const finish = ss.filter(
       (s) =>
@@ -1151,7 +1176,6 @@ export default function ShortFilmPage() {
         !latest(s, "transcribe"),
     );
     if (prepare.length) [stage, stageSceneIds] = ["prepare", prepare.map((s) => s.id)];
-    else if (frame.length) [stage, stageSceneIds] = ["frame", frame.map((s) => s.id)];
     else if (video.length) [stage, stageSceneIds] = ["video", video.map((s) => s.id)];
     else if (finish.length) [stage, stageSceneIds] = ["finish", finish.map((s) => s.id)];
     else if (transcript.length)
@@ -1160,7 +1184,6 @@ export default function ShortFilmPage() {
   }
   const stageNames: Record<string, string> = {
     prepare: "Chuẩn bị ảnh và thoại",
-    frame: "Lấy khung nối tiếp",
     video: "Tạo chuyển động",
     finish:
       draft.audioMode === "dubbed"
@@ -1741,11 +1764,11 @@ export default function ShortFilmPage() {
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => change({ videoModel: item.imageModel })}
-                      className={`min-h-14 rounded-lg border px-3 py-2 text-left text-sm ${draft.videoModel === item.imageModel ? "th-bg-accent-light th-text-accent" : "th-text-secondary"}`}
+                      onClick={() => change({ videoModel: item.textModel })}
+                      className={`min-h-14 rounded-lg border px-3 py-2 text-left text-sm ${draft.videoModel === item.textModel ? "th-bg-accent-light th-text-accent" : "th-text-secondary"}`}
                       style={{
                         borderColor:
-                          draft.videoModel === item.imageModel
+                          draft.videoModel === item.textModel
                             ? "var(--accent)"
                             : "var(--border-primary)",
                       }}
@@ -1999,8 +2022,8 @@ export default function ShortFilmPage() {
                   <p className="mt-4 text-sm th-text-secondary">
                     Storyboard · {draft.scenes.length} đoạn ·{" "}
                     {draft.scenes.reduce((n, s) => n + s.durationSeconds, 0)}{" "}
-                    giây clip gốc. Mỗi đoạn có ảnh đầu riêng và nhiều nhịp đối
-                    đáp.
+                    giây clip gốc. Mỗi đoạn có bộ Reference Images riêng và
+                    nhiều nhịp đối đáp.
                   </p>
                 )}
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -2189,32 +2212,8 @@ export default function ShortFilmPage() {
                         }
                       />
                     </label>
-                    <label className="flex items-center gap-2 text-sm th-text-secondary">
-                      <input
-                        type="checkbox"
-                        checked={scene.followsPrevious}
-                        disabled={selected === 0}
-                        onChange={(e) =>
-                          editScene({ followsPrevious: e.target.checked })
-                        }
-                      />
-                      Nối hành động từ cảnh trước
-                    </label>
                     {plan && !dirty && scene.id && (
                       <div className="flex flex-wrap gap-2">
-                        {scene.followsPrevious && (
-                          <button
-                            disabled={!!busy}
-                            onClick={() =>
-                              act("Lấy khung cuối", () =>
-                                getQuote("frame", [scene.id!]),
-                              )
-                            }
-                            className="min-h-11 rounded-lg border th-border px-3 text-sm th-text-accent"
-                          >
-                            Lấy khung cuối cảnh trước
-                          </button>
-                        )}
                         <button
                           disabled={!!busy}
                           onClick={() =>
@@ -2224,7 +2223,7 @@ export default function ShortFilmPage() {
                           }
                           className="min-h-11 rounded-lg border th-border px-3 text-sm th-text-secondary"
                         >
-                          Tạo lại ảnh / thoại cảnh này
+                          Tạo lại bộ ảnh / thoại cảnh này
                         </button>
                         <button
                           disabled={!!busy}
@@ -2259,7 +2258,7 @@ export default function ShortFilmPage() {
                     </details>
                     {plan && !dirty && scene.id && (
                       <label className="block cursor-pointer rounded-lg border th-border p-3 text-center text-sm th-text-accent">
-                        Dùng ảnh đầu có sẵn
+                        Thêm ảnh tham chiếu có sẵn
                         <input
                           type="file"
                           accept="image/png,image/jpeg,image/webp"
@@ -2271,13 +2270,18 @@ export default function ShortFilmPage() {
                                 const form = new FormData();
                                 form.set("file", file);
                                 form.set("sceneId", scene.id!);
+                                form.set(
+                                  "referenceImageId",
+                                  scene.storyboard?.referencePlan?.referenceImages[0]
+                                    ?.id || "",
+                                );
                                 form.set("workspaceVersion", String(workspace));
                                 form.set(
                                   "expectedVersion",
                                   String(plan.version),
                                 );
                                 const r = await fetch(
-                                  `${base}/video-plans/${plan.id}/frames`,
+                                  `${base}/video-plans/${plan.id}/references`,
                                   { method: "POST", body: form },
                                 );
                                 const j = await r.json();
@@ -2396,6 +2400,124 @@ export default function ShortFilmPage() {
               <h2 className="mb-3 text-lg font-semibold th-text-primary">
                 Kết quả và duyệt
               </h2>
+              {plan && directorReferenceTasks.length > 0 && (
+                <section className="mb-4 rounded-xl border th-border p-4 th-bg-card">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold th-text-primary">
+                        Bộ ảnh đạo diễn
+                      </h3>
+                      <p className="mt-1 text-sm th-text-secondary">
+                        Ảnh 1 là storyboard tổng để kiểm tra mạch hình. Các ảnh
+                        sau là nguồn đầy đủ cho từng cảnh và chi tiết quan trọng.
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full th-bg-secondary px-2.5 py-1 text-xs th-text-secondary">
+                      {directorReferenceTasks.length} ảnh chi tiết
+                    </span>
+                  </div>
+                  <div className="rounded-lg th-bg-secondary p-3">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide th-text-secondary">
+                      Ảnh 1 · Storyboard tổng
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                      {directorReferenceTasks.map((task, index) => (
+                        <div key={`board-${task.id}`} className="relative min-w-0">
+                          {task.url ? (
+                            <Image
+                              unoptimized
+                              width={480}
+                              height={270}
+                              src={task.url}
+                              alt={`Storyboard cảnh ${index + 1}`}
+                              className="aspect-video w-full rounded-md object-cover"
+                            />
+                          ) : (
+                            <div className="aspect-video animate-pulse rounded-md th-bg-card" />
+                          )}
+                          <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[11px] text-white">
+                            {index + 1}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    {directorReferenceTasks.map((task, index) => {
+                      const requirements = Array.isArray(
+                        task.input.visualRequirements,
+                      )
+                        ? (task.input.visualRequirements as Array<{
+                            id?: string;
+                            description?: string;
+                            importance?: string;
+                          }>)
+                        : [];
+                      return (
+                        <article key={task.id} className="min-w-0 rounded-lg border th-border p-3">
+                          <p className="text-sm font-semibold th-text-primary">
+                            Ảnh {index + 2} · {String(task.input.referencePurpose || "Ảnh cảnh")}
+                          </p>
+                          <p className="mb-2 mt-1 text-xs th-text-secondary">
+                            {task.input.referenceRole === "scene"
+                              ? "Ảnh bố cục gửi trong Reference Images"
+                              : task.input.referenceRole === "character"
+                                ? "Ảnh khóa nhận diện trong Reference Images"
+                                : task.input.referenceRole === "prop"
+                                  ? "Ảnh cận đạo cụ trong Reference Images"
+                                  : "Ảnh bối cảnh trong Reference Images"}
+                          </p>
+                          {task.url && (
+                            <Image
+                              unoptimized
+                              width={720}
+                              height={405}
+                              src={task.url}
+                              alt={String(task.input.referencePurpose || "Ảnh đạo diễn")}
+                              className="max-h-80 w-full rounded-md object-contain"
+                            />
+                          )}
+                          {requirements.length > 0 && (
+                            <div className="mt-2 text-xs th-text-secondary">
+                              <strong className="th-text-primary">Khán giả cần thấy:</strong>
+                              <ul className="mt-1 list-disc space-y-1 pl-4">
+                                {requirements.map((requirement) => (
+                                  <li key={requirement.id}>
+                                    {requirement.description}
+                                    {requirement.importance === "critical" ? " · bắt buộc" : ""}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          <div className="mt-3 flex items-center gap-2 text-xs th-text-secondary">
+                            <span>
+                              {task.status === "completed"
+                                ? task.approved_at
+                                  ? "Đã duyệt"
+                                  : task.auto_accepted_at
+                                    ? "Kiểm tra máy đạt"
+                                  : "Chờ duyệt"
+                                : "Đang xử lý"}
+                            </span>
+                            {task.status === "completed" &&
+                              !task.approved_at &&
+                              !task.auto_accepted_at && (
+                              <button
+                                disabled={!!busy}
+                                onClick={() => act("Duyệt ảnh", () => approve(task))}
+                                className="min-h-10 rounded-lg border th-border px-3 font-medium th-text-accent"
+                              >
+                                Đã xem · duyệt
+                              </button>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
               {plan && !dirty && scene?.id && (
                 <FilmSegmentEditor
                   sceneIndex={selected}
@@ -2431,6 +2553,8 @@ export default function ShortFilmPage() {
                       {t.status === "completed"
                         ? t.approved_at
                           ? "Đã duyệt"
+                          : t.auto_accepted_at
+                            ? "Kiểm tra máy đạt"
                           : "Chờ duyệt"
                         : t.status === "reconciling"
                           ? "Đang đối soát"
@@ -2446,7 +2570,7 @@ export default function ShortFilmPage() {
                         width={720}
                         height={1280}
                         src={t.url}
-                        alt="Ảnh đầu cần duyệt nhân vật và bố cục"
+                        alt="Ảnh tham chiếu cần duyệt nhân vật và bố cục"
                         className="max-h-96 w-full rounded-lg object-contain"
                       />
                     ) : t.url && t.kind === "tts" ? (
@@ -2497,7 +2621,9 @@ export default function ShortFilmPage() {
                     )}
                     {t.status === "completed" && (
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {t.kind !== "transcribe" && !t.approved_at && (
+                        {t.kind !== "transcribe" &&
+                          !t.approved_at &&
+                          !t.auto_accepted_at && (
                           <button
                             disabled={!!busy}
                             onClick={() => act("Duyệt", () => approve(t))}

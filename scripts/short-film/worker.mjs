@@ -113,8 +113,16 @@ export function makeFilmWorker(db) {
       });
       return null;
     }
+    const submittedInputs = Array.isArray(t.input.referenceSources)
+      ? {
+          ...input,
+          reference_images: undefined,
+          referenceSources: t.input.referenceSources,
+          referenceBindings: t.input.referenceBindings,
+        }
+      : input;
     await checkpoint(t, {
-      checkpoint: { submitting: true, submittedInputs: input },
+      checkpoint: { submitting: true, submittedInputs },
     });
     let r;
     try {
@@ -163,8 +171,24 @@ export function makeFilmWorker(db) {
   async function prepareInputs(t) {
     const i = { ...t.input.providerInputs };
     if (t.kind === "video") {
-      const image = await source(t.input.imageTaskId, t.project_id);
-      i.image = await sign(image.result.path, t.project_id);
+      if (Array.isArray(t.input.referenceSources)) {
+        i.reference_images = await Promise.all(
+          t.input.referenceSources.map(async (reference) => {
+            if (reference.taskId) {
+              const image = await source(reference.taskId, t.project_id);
+              return sign(image.result.path, t.project_id);
+            }
+            if (reference.path) return sign(reference.path, t.project_id);
+            if (/^https:\/\//i.test(reference.url || "")) return reference.url;
+            throw new Error("VIDEO_REFERENCE_SOURCE_INVALID");
+          }),
+        );
+        delete i.image;
+        delete i.last_image;
+      } else {
+        const image = await source(t.input.imageTaskId, t.project_id);
+        i.image = await sign(image.result.path, t.project_id);
+      }
     }
     if (t.kind === "lip_sync" || t.kind === "transcribe") {
       const video = await source(t.input.videoTaskId, t.project_id);
@@ -206,21 +230,34 @@ export function makeFilmWorker(db) {
     let inline = t.checkpoint.generatedImage;
     if (!inline) {
       const parts = [{ text: t.input.prompt }];
-      for (let n = 0; n < (t.input.cast || []).length; n++) {
-        const c = t.input.cast[n],
-          file = path.join(dir, `ref-${n}`);
-        const mime = await download(c.imageUrl, file, 20 * 1024 * 1024);
-        parts.push(
-          {
-            text: `Ảnh tham chiếu ${n + 1} chỉ là ${c.name}. ${c.description}. Không thêm người ngoài danh sách.`,
-          },
-          {
-            inlineData: {
-              mimeType: mime,
-              data: (await readFile(file)).toString("base64"),
+      let referenceIndex = 0;
+      for (const c of t.input.cast || []) {
+        const characterSources = (
+          Array.isArray(c.referenceImages) && c.referenceImages.length
+            ? c.referenceImages
+            : [c.imageUrl]
+        )
+          .filter(Boolean)
+          .slice(0, 2);
+        for (const characterSource of characterSources) {
+          referenceIndex += 1;
+          const file = path.join(dir, `ref-${referenceIndex}`);
+          const url = /^https:\/\//i.test(characterSource)
+            ? characterSource
+            : await sign(characterSource, t.project_id);
+          const mime = await download(url, file, 20 * 1024 * 1024);
+          parts.push(
+            {
+              text: `@character${referenceIndex} là ảnh nhận diện của ${c.name}. ${c.description}. Các ảnh cùng tên là cùng một người; giữ chính xác mặt, tóc, tuổi, vóc dáng và trang phục. Không thêm người ngoài danh sách.`,
             },
-          },
-        );
+            {
+              inlineData: {
+                mimeType: mime,
+                data: (await readFile(file)).toString("base64"),
+              },
+            },
+          );
+        }
       }
       await checkpoint(t, { checkpoint: { submitting: true } });
       const ai = new GoogleGenAI({

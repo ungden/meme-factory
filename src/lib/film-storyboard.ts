@@ -3,6 +3,10 @@ import {
   type PerformanceBeat,
   type PerformanceDirection,
 } from "./performance-direction";
+import {
+  validateSceneReferencePlan,
+  type SceneReferencePlan,
+} from "./visual-direction";
 
 /** Planned timings direct the model; they are never subtitle timestamps. */
 export type StoryboardBeat = {
@@ -53,6 +57,8 @@ export type FilmStoryboard = {
   performanceDirection?: PerformanceDirection;
   /** New plans retime before purchase; old plans keep their authored timing. */
   timingPolicy?: "audio_driven_v1";
+  /** Story-aware image pack used to approve the visual logic before I2V. */
+  referencePlan?: SceneReferencePlan;
 };
 export const STORYBOARD_MIN_SECONDS = 4;
 export const STORYBOARD_MAX_SECONDS = 30;
@@ -127,6 +133,7 @@ export function validateStoryboard(
   let end = 0;
   const propIdentity = new Map<string, string>();
   if (b.performanceDirection) validatePerformanceDirection(b.performanceDirection);
+  if (b.referencePlan) validateSceneReferencePlan(b.referencePlan);
   if (b.timingPolicy !== undefined && b.timingPolicy !== "audio_driven_v1")
     throw new Error("STORYBOARD_TIMING_POLICY_INVALID");
   for (const [index, beat] of b.beats.entries()) {

@@ -42,6 +42,7 @@ import {
   assertPerformanceDirection,
   type PerformanceDirection,
 } from "./performance-direction";
+import type { SceneReferencePlan } from "./visual-direction";
 
 /**
  * The shot schema and validation approach were adapted from Rocklore commit
@@ -94,6 +95,7 @@ export type PlannedScene = {
   motionPrompt: string;
   followsPrevious: boolean;
   performanceDirection?: PerformanceDirection | null;
+  referencePlan?: SceneReferencePlan | null;
 };
 
 export type CreativeAssistResult =
@@ -235,6 +237,9 @@ function plannedScene(
     motionPrompt: text(item.motionPrompt, 1600),
     followsPrevious: item.followsPrevious === true,
     ...(performanceDirection ? { performanceDirection } : {}),
+    ...(storyboard?.referencePlan
+      ? { referencePlan: storyboard.referencePlan }
+      : {}),
   };
 }
 
@@ -370,7 +375,7 @@ function schemaFor(kind: CreativeAssistKind) {
 
 function instruction(input: CreativeAssistInput) {
   const target = input.targetDurationSeconds || 30;
-  const base = `Bạn là biên kịch và đạo diễn nội dung AIDA cho fanpage Việt Nam. Viết tiếng Việt tự nhiên, cụ thể, không văn mẫu. Bạn lập kế hoạch để người dùng duyệt trước khi sinh media, không nói về provider hay giá. Không tạo nhân vật hoặc ID mới. Giữ nhân vật 3D, trang phục và nhận diện từ ảnh chuẩn; không hứa giữ giọng tuyệt đối. Không tự chèn chữ lên ảnh, trừ khi ý tưởng yêu cầu meme.\n\n${contextText(input.context, input.selectedCharacterIds || [])}\n\nYÊU CẦU CỦA NGƯỜI DÙNG: ${input.intent || "Hãy đề xuất từ bối cảnh dự án."}`;
+  const base = `Bạn là biên kịch và đạo diễn nội dung AIDA cho fanpage Việt Nam. Viết tiếng Việt tự nhiên, cụ thể, không văn mẫu. Bạn lập kế hoạch để người dùng duyệt trước khi sinh media, không nói về provider hay giá. Không tạo nhân vật hoặc ID mới. Giữ nhân vật 3D, trang phục và nhận diện từ ảnh chuẩn; không hứa giữ giọng tuyệt đối. Không tự chèn headline, phụ đề hay chữ trang trí lên ảnh; chữ/số thật trên đạo cụ được phép khi là dữ kiện của câu chuyện.\n\n${contextText(input.context, input.selectedCharacterIds || [])}\n\nYÊU CẦU CỦA NGƯỜI DÙNG: ${input.intent || "Hãy đề xuất từ bối cảnh dự án."}`;
   if (input.kind === "idea_suggestions")
     return `${base}\n\nĐề xuất đúng ba hướng khác nhau, hữu ích để bắt đầu, không lặp nội dung gần đây. Mỗi hướng có title, idea và why.`;
   if (input.kind === "image_plan")
@@ -683,7 +688,8 @@ ${FILM_INTERACTION_POLICY}
 LỚP ĐẠO DIỄN BIỂU CẢM: lane=${story.performanceLane || "deadpan_reversal"}. Mỗi panel phải trả performanceDirection với comicObjective, statusBefore/statusAfter, hook, tối thiểu hai beat hành động vật lý, reactionTarget cụ thể và revealOrCut. Hai beat có thể là hai pha của CÙNG hành động hoặc hành động chính và phản ứng đồng thời của người nghe; không bắt mỗi câu có hai trò, hai góc máy hoặc một cú lật. Dùng hành vi nhìn thấy được; không dùng riêng các nhãn “tự nhiên”, “nghiêm túc”, “ngây thơ”, “đáng yêu”, “gật đầu”, “nhìn ngơ”.
 DỰNG STORYBOARD: chia thành ${groups.length} clip nguồn. Server tự chọn duration nguyên 4–${maxVideoDuration} giây cho từng request Seedance từ lượng thoại và hành động; phim cuối tiếp tục cắt ở đúng contentEndSeconds. Các nhịp thoại/panel được nhóm sẵn (chỉ số từ 1): ${JSON.stringify(groups.map((g) => g.map((i) => i + 1)))}. Mỗi panel là một nhịp bên trong đoạn, KHÔNG phải một job video riêng. GIỮ NGUYÊN câu thoại, thứ tự và người nói. Không thêm lời. durationSeconds ở panel chỉ là nhịp diễn dự kiến; server xếp timeline đủ cho lời và hành động, không kéo giãn theo mốc cố định.
 Trong cùng đoạn: cùng bối cảnh, ánh sáng, vị trí nhân vật, hướng nhìn và trục máy. Có thể pan theo người nói hoặc cắt đối đáp theo storyboard; không đổi cảnh ngẫu nhiên. Hành động bắt đầu ngay, người nghe phản ứng trong khi người kia nói, không đứng đợi tới lượt. Viết motionPrompt cho từng nhịp bằng hành động cụ thể, KHÔNG thêm mốc giây riêng; server gắn mốc liên tục theo lượng thoại và hành động. Chỉ một người nói tại mỗi thời điểm, đến nhịp sau mới đổi người. Không slow motion, kéo dài âm tiết, khoảng chờ mở đầu hoặc lặp động tác để đủ thời lượng.
-Panel đầu mỗi đoạn là một khung sạch có đủ người sẽ xuất hiện trong đoạn đó; đủ ảnh chuẩn từng người, đúng tỷ lệ, trang phục và vị trí. Không dùng grid/storyboard sheet làm ảnh đầu video. Mỗi panel phải có openingState, closingState và props. Mỗi đạo cụ có id ổn định xuyên các panel, tên, màu, kích thước, dấu hiệu, số lượng, người cầm và vị trí; cùng vật không được tự đổi màu/kích thước hay nhân bản. closingState của panel trước phải khớp openingState của panel sau, kể cả người đã rời khung. Các panel sau mô tả diễn tiến hành động/camera. Kết đoạn có tư thế, đạo cụ và hướng nhìn khớp đầu đoạn tiếp; giữ trục đối thoại để nối bằng hard cut. Không cố thêm reaction sau điểm dừng đã chọn. Với parody giữ tín hiệu nhận diện format.
+Trước khi mô tả ảnh, hãy hiểu logic thị giác riêng của tập và trả visualDirection ở cấp toàn phim: storyMechanism, audienceMustSee, và characterKnowledge cho từng người gồm họ biết gì và chi tiết nào chưa được lộ trước thời điểm nào. Xác định điều gì gây lệch/hài, khán giả phải thấy gì và ở thời điểm nào, đạo cụ/hành động nào quyết định câu chuyện. Không bê checklist tiền, cặp hay micro sang tập khác. Mỗi panel phải có visualRequirements và referenceImages. visualRequirements chỉ liệt kê bằng chứng thật sự cần nhìn thấy; dùng kind=count/text và legibility=countable/readable khi số lượng hoặc chữ/số là dữ kiện của câu chuyện. Mỗi critical requirement phải được ít nhất một reference image bao phủ. referenceImages là các ảnh riêng độ phân giải đầy đủ đưa cùng nhau vào reference_images của Seedance; role=scene cho bố cục/trạng thái, character cho nhận diện, prop cho vật thể quyết định, environment cho bối cảnh. Không tạo first/last-frame contract và không dùng grid/storyboard sheet làm input video. Chỉ đặt requiresOwnSource=true khi góc nhìn, trạng thái hoặc nhịp diễn khác đến mức không nên nằm chung một clip liên tục.
+Panel đầu mỗi đoạn là một khung sạch có đủ người sẽ xuất hiện trong đoạn đó; đủ ảnh chuẩn từng người, đúng tỷ lệ, trang phục và vị trí. Mỗi panel phải có openingState, closingState và props. Mỗi đạo cụ có id ổn định xuyên các panel, tên, màu, kích thước, dấu hiệu, số lượng, người cầm và vị trí; cùng vật không được tự đổi màu/kích thước hay nhân bản. Chữ/số thật trên đạo cụ được yêu cầu bởi câu chuyện phải được giữ; chỉ cấm phụ đề, nhãn giao diện, mũi tên và chữ trang trí do model tự thêm. closingState của panel trước phải khớp openingState của panel sau, kể cả người đã rời khung. Các panel sau mô tả diễn tiến hành động/camera. Kết đoạn có tư thế, đạo cụ và hướng nhìn khớp đầu đoạn tiếp; giữ trục đối thoại để nối bằng hard cut. Không cố thêm reaction sau điểm dừng đã chọn. Với parody giữ tín hiệu nhận diện format.
 Chỉ trả title, summary và shots với ${shotCount} khóa shot1..shot${shotCount}. Mỗi panel có action, setting, camera, durationSeconds, imagePrompt, motionPrompt và listenerCharacterIds. shot1..shot${story.dialogue.length} tương ứng các lượt thoại; ${hasReaction ? "panel cuối phản ứng im lặng đã có trong story" : "không thêm panel kết"}. imagePrompt tối đa 300 ký tự, motionPrompt tối đa 600. Không viết lại dialogue/speaker. ${input.targetDurationSeconds || 35} giây là mục tiêu kể chuyện, không phải độ dài bắt buộc; mỗi clip nguồn dùng đúng số giây cần thiết trong khoảng 4–${maxVideoDuration} và được cắt theo nội dung/transcript thật, không bịa transcript.`,
     (v) => {
       const r = validateCreativeAssist(

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   SEEDANCE_20_FAST_IMAGE_MODEL,
   SEEDANCE_20_FAST_TEXT_MODEL,
-  SEEDANCE_25_IMAGE_MODEL,
-  seedanceImageModel,
+  SEEDANCE_25_TEXT_MODEL,
+  seedanceReferenceModel,
   seedanceMaxDuration,
   seedanceModel,
   seedanceVariant,
@@ -13,12 +13,12 @@ import {
 describe("Seedance model selection", () => {
   it("keeps existing and unknown drafts on Seedance 2.5", () => {
     expect(seedanceVariant(undefined)).toBe("seedance-2.5");
-    expect(seedanceImageModel(undefined)).toBe(SEEDANCE_25_IMAGE_MODEL);
+    expect(seedanceReferenceModel(undefined)).toBe(SEEDANCE_25_TEXT_MODEL);
   });
 
   it("maps Fast to the correct text and image endpoints", () => {
-    expect(seedanceImageModel(SEEDANCE_20_FAST_IMAGE_MODEL)).toBe(
-      SEEDANCE_20_FAST_IMAGE_MODEL,
+    expect(seedanceReferenceModel(SEEDANCE_20_FAST_IMAGE_MODEL)).toBe(
+      SEEDANCE_20_FAST_TEXT_MODEL,
     );
     expect(seedanceModel("seedance-2.0-fast", "text")).toBe(
       SEEDANCE_20_FAST_TEXT_MODEL,

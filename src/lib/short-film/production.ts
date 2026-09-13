@@ -21,6 +21,7 @@ import {
   speechTasks,
   finalClipKind,
   currentSceneTask,
+  referencePackReady,
   type FilmPlan,
   type FilmTask,
 } from "./contracts";
@@ -32,7 +33,7 @@ import {
   type Access,
 } from "./server";
 import {
-  seedanceImageModel,
+  seedanceReferenceModel,
   seedanceMaxDuration,
 } from "../video-models";
 
@@ -168,7 +169,7 @@ async function createAutomaticPlan(
     .eq("project_id", a.project.id)
     .eq("workspace_version", a.project.workspace_version)
     .maybeSingle();
-  const videoModel = seedanceImageModel(
+  const videoModel = seedanceReferenceModel(
     run.video_model || automation?.default_config?.videoModel,
   );
   const result = await generateCreativeAssist(
@@ -243,7 +244,25 @@ async function ensureTaskCheck(a: Access, run: Run, task: FilmTask) {
       const cast = Array.isArray(task.input.cast)
         ? (task.input.cast as Array<{ imageUrl?: string }>)
         : [];
-      const references = await Promise.all(
+      const referenceTaskIds = Array.isArray(task.input.referenceTaskIds)
+        ? (task.input.referenceTaskIds as string[])
+        : [];
+      const { data: referenceTasks } = referenceTaskIds.length
+        ? await a.admin
+            .from("short_film_tasks")
+            .select("id,result")
+            .eq("project_id", a.project.id)
+            .in("id", referenceTaskIds)
+        : { data: [] as Array<{ id: string; result: { path?: string } }> };
+      const authoredReferences = await Promise.all(
+        referenceTaskIds.map(async (id) => {
+          const source = referenceTasks?.find((candidate) => candidate.id === id);
+          return source?.result?.path
+            ? signed(a.admin, a.project.id, source.result.path)
+            : "";
+        }),
+      );
+      const castReferences = await Promise.all(
         cast.map(async (c) => {
           const value = c.imageUrl || "";
           return value.startsWith(`${a.project.id}/`)
@@ -251,7 +270,11 @@ async function ensureTaskCheck(a: Access, run: Run, task: FilmTask) {
             : value;
         }),
       );
-      check = await checkVisualTask(task, media, references.filter(Boolean));
+      check = await checkVisualTask(
+        task,
+        media,
+        [...authoredReferences, ...castReferences].filter(Boolean),
+      );
     }
   }
   const { error } = await a.admin.rpc("record_film_automatic_check", {
@@ -269,7 +292,7 @@ function accepted(task?: FilmTask) {
   return !!(task?.approved_at || task?.auto_accepted_at);
 }
 type StageSelection = {
-  stage: "prepare" | "frame" | "video" | "finish" | "transcript" | "check" | "render" | "completed";
+  stage: "prepare" | "video" | "finish" | "transcript" | "check" | "render" | "completed";
   sceneIds: string[];
 };
 
@@ -286,18 +309,13 @@ export function nextProductionStage(plan: FilmPlan, tasks: FilmTask[]): StageSel
       ? speechTasks(tasks, s).length > 0 && speechTasks(tasks, s).every(accepted)
       : accepted(latest(s, "tts")));
   const prepare = scenes.filter(
-    (s) => (!s.follows_previous && !accepted(latest(s, "image"))) || !speechReady(s),
+    (s) => !referencePackReady(tasks, s) || !speechReady(s),
   );
   if (prepare.length) return { stage: "prepare", sceneIds: prepare.map((s) => s.id) };
 
-  const frame = scenes.filter((s) => {
-    if (!s.follows_previous || accepted(latest(s, "image"))) return false;
-    const previous = scenes.find((candidate) => candidate.scene_index === s.scene_index - 1);
-    return accepted(previous ? latest(previous, finalClipKind(previous, plan.audio_mode)) : undefined);
-  });
-  if (frame.length) return { stage: "frame", sceneIds: frame.map((s) => s.id) };
-
-  const video = scenes.filter((s) => accepted(latest(s, "image")) && !latest(s, "video"));
+  const video = scenes.filter(
+    (s) => referencePackReady(tasks, s) && !latest(s, "video"),
+  );
   if (video.length) return { stage: "video", sceneIds: video.map((s) => s.id) };
 
   const finish = scenes.filter(

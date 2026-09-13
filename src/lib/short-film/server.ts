@@ -21,6 +21,8 @@ import {
   FILM_MODELS,
   assertFixedVoiceShot,
   currentSceneTask,
+  sceneReferenceImageTasks,
+  referencePackReady,
   speechLines,
   speechDirection,
   speechTasks,
@@ -38,8 +40,9 @@ import {
 } from "./contracts";
 import { fixedVoiceEnabled } from "./features";
 import {
-  seedanceImageModel,
+  seedanceReferenceModel,
   seedanceMaxDuration,
+  seedanceReferenceLimit,
 } from "../video-models";
 import { normalizeFamilyFatherTerms } from "../family-terminology";
 import { performanceCheck } from "../performance-direction";
@@ -173,7 +176,11 @@ export async function freezeCast(
       .order("version", { ascending: false })
       .limit(1)
       .maybeSingle();
-    const primary = v?.reference_images.find(
+    const orderedReferences = [...(v?.reference_images || [])].sort(
+      (left: { is_primary: boolean }, right: { is_primary: boolean }) =>
+        Number(right.is_primary) - Number(left.is_primary),
+    );
+    const primary = orderedReferences.find(
       (r: { is_primary: boolean }) => r.is_primary,
     )?.image_url;
     if (!old && (!v || !primary))
@@ -210,7 +217,9 @@ export async function freezeCast(
             description: c.description || "",
             personality: c.personality || "",
             imageUrl: primary,
-            referenceImages: [primary],
+            referenceImages: orderedReferences
+              .map((reference: { image_url: string }) => reference.image_url)
+              .filter(Boolean),
             assetVersionId: v!.id,
             assetVersion: v!.version,
           }
@@ -227,7 +236,7 @@ export async function savePlan(
 ) {
   checkVersion(a, body, old);
   const inputs = body.scenes as (SceneInput & { camera?: string })[];
-  const videoModel = seedanceImageModel(body.videoModel ?? old?.video_model);
+  const videoModel = seedanceReferenceModel(body.videoModel ?? old?.video_model);
   const maxVideoDuration = seedanceMaxDuration(videoModel);
   if (!Array.isArray(inputs) || inputs.length < 1 || inputs.length > 12)
     throw new FilmError("Cần 1–12 cảnh.");
@@ -292,7 +301,9 @@ export async function savePlan(
       duration_seconds: s.durationSeconds,
       start_image_url: s.startImageUrl,
       end_image_url: s.endImageUrl,
-      follows_previous: s.followsPrevious,
+      // Reference-guided Seedance receives the complete image pack directly.
+      // A prior clip's last frame is never promoted to the next scene input.
+      follows_previous: false,
       image_prompt: s.imagePrompt,
       motion_prompt: s.motionPrompt,
       source_mode: s.sourceMode,
@@ -540,6 +551,12 @@ export async function publicTasks(a: Access, tasks: FilmTask[]) {
         segmentId: t.input.segmentId,
         segmentRevision: t.input.segmentRevision,
         usedDuration: t.input.usedDuration,
+        referenceImageId: t.input.referenceImageId,
+        referenceRole: t.input.referenceRole,
+        referencePurpose: t.input.referencePurpose,
+        visualRequirements: t.input.visualRequirements,
+        referenceBindings: t.input.referenceBindings,
+        referenceTaskIds: t.input.referenceTaskIds,
       },
       result: t.result,
       url: t.result?.path ? await signed(a, String(t.result.path)) : undefined,
@@ -640,6 +657,11 @@ export async function quotePlan(
 ) {
   checkVersion(a, body, plan);
   const stage = String(body.stage || "prepare");
+  if (stage === "frame")
+    throw new FilmError(
+      "Phim ngắn hiện dùng bộ ảnh tham chiếu; không còn lấy khung đầu/cuối để tạo video.",
+      410,
+    );
   if (plan.audio_mode === "native" && ["prepare", "video"].includes(stage))
     throw new FilmError(
       "Lưu phiên bản kịch bản sang lồng tiếng trước khi tạo mới.",
@@ -719,43 +741,91 @@ export async function quotePlan(
             422,
           );
       }
-      if (
-        (!accepted(latest(s, "image")) || body.regenerate === true) &&
-        !s.follows_previous
-      ) {
-        const input = {
-          model: FILM_MODELS.image,
-          ...(s.source_mode === "manual" && s.start_image_url
-            ? { importPath: s.start_image_url }
-            : {}),
-          prompt: [
-            s.image_prompt,
+      {
+        const referencePlan = s.storyboard?.referencePlan;
+        const references = referencePlan?.referenceImages || [
+          {
+            id: "legacy_start",
+            role: "scene" as const,
+            purpose: "Bố cục chính của cảnh",
+            framing: s.camera || "Khung vừa",
+            moment: "Trước hành động",
+            prompt: s.image_prompt,
+            requirementIds: [] as string[],
+          },
+        ];
+        const currentReferences = new Map(
+          sceneReferenceImageTasks(eligible, s).map((item) => [
+            item.referenceId,
+            item.task,
+          ]),
+        );
+        for (const [referenceIndex, reference] of references.entries()) {
+          if (
+            accepted(currentReferences.get(reference.id)) &&
+            body.regenerate !== true
+          )
+            continue;
+          const requirements = (referencePlan?.requirements || []).filter(
+            (requirement) => reference.requirementIds.includes(requirement.id),
+          );
+          const imported =
+            referenceIndex === 0 &&
+            s.source_mode === "manual" &&
+            s.start_image_url;
+          const prompt = [
+            reference.prompt || s.image_prompt,
+            `MỤC ĐÍCH KHUNG: ${reference.purpose}. CỠ CẢNH: ${reference.framing}. THỜI ĐIỂM: ${reference.moment}.`,
+            requirements.length
+              ? `BẰNG CHỨNG BẮT BUỘC TRÊN ẢNH: ${JSON.stringify(requirements)}. Chỉ đạt khi chính ảnh thể hiện được các bằng chứng này ở kích thước xem thực tế.`
+              : "",
+            referencePlan
+              ? `LOGIC CÂU CHUYỆN: ${referencePlan.storyMechanism}. KHÁN GIẢ PHẢI THẤY: ${referencePlan.audienceMustSee.join("; ")}.`
+              : "",
             `Bối cảnh ${s.setting}. Hành động ${s.action}. Máy quay ${s.camera}.`,
             visualDirection ||
-              "Dựng đúng một khung ảnh điện ảnh theo phong cách của ảnh chuẩn, không chữ, không lưới ảnh.",
-            "Chỉ cast được đính kèm xuất hiện; giữ nhận diện, tuổi, tỷ lệ cơ thể và trang phục. Không thêm người khác.",
-            s.storyboard
-              ? "Khung mở có đủ cast được đính kèm, trước lượt thoại đầu, bố trí rõ người nói/người nghe theo trục đối thoại. Không dồn hành động của các nhịp sau vào ảnh đầu."
-              : s.dialogue
-                ? "Chỉ một người nói trong khung, mặt rõ; người nghe ngoài khung. Khung đầu là trước hành động, không phải kết quả sau chuyển động."
-                : "",
-          ].join("\n"),
-          cast: s.cast_snapshot,
-          dialogue: s.dialogue,
-          speakerCharacterId: s.speaker_character_id,
+              "Dựng đúng một khung ảnh điện ảnh theo phong cách của ảnh chuẩn, không lưới ảnh.",
+            "Chỉ nhân vật cần thiết trong khung được xuất hiện; giữ nhận diện, tuổi, tỷ lệ cơ thể và trang phục. Không thêm người khác.",
+            "Không phụ đề, nhãn giao diện, mũi tên hoặc watermark giả. Nếu bằng chứng yêu cầu chữ/số thật trên đạo cụ thì phải giữ đúng, rõ và đọc được.",
+            reference.role === "scene"
+              ? "Đây là ảnh bố cục/trạng thái của cảnh để model hiểu không gian và quan hệ nhân vật."
+              : reference.role === "prop"
+                ? "Đây là ảnh cận đạo cụ quyết định câu chuyện; ưu tiên số lượng, hình dáng và chữ/số phải đọc."
+                : reference.role === "character"
+                  ? "Đây là ảnh khóa nhận diện nhân vật; giữ đúng mặt, tóc, vóc dáng và trang phục."
+                  : "Đây là ảnh khóa bối cảnh, ánh sáng và phong cách không gian.",
+          ]
+            .filter(Boolean)
+            .join("\n");
+          const input = {
+            model: FILM_MODELS.image,
+            ...(imported ? { importPath: imported } : {}),
+            prompt,
+            cast: s.cast_snapshot,
+            dialogue: s.dialogue,
+            speakerCharacterId: s.speaker_character_id,
             storyboard: s.storyboard || null,
-          performanceDirection: s.performance_direction || s.storyboard?.performanceDirection || null,
-          format: plan.format,
-        };
-        const p = input.importPath
-          ? { customerPoints: 0 }
-          : estimateImageGenerationPrice({
-              model: FILM_MODELS.image,
-              resolution: "1K",
-              inputImageCount: s.cast_snapshot.length,
-              prompt: input.prompt,
-            });
-        tasks.push(task("image", input, p.customerPoints, s));
+            performanceDirection:
+              s.performance_direction || s.storyboard?.performanceDirection || null,
+            format: plan.format,
+            referenceImageId: reference.id,
+            referenceRole: reference.role,
+            referencePurpose: reference.purpose,
+            visualRequirements: requirements,
+            visualStoryMechanism: referencePlan?.storyMechanism || "",
+            displayName: `Ảnh ${referenceIndex + 2} · ${reference.purpose}`,
+            subjectKey: `${s.id}:${s.version}:reference:${reference.id}:1`,
+          };
+          const p = input.importPath
+            ? { customerPoints: 0 }
+            : estimateImageGenerationPrice({
+                model: FILM_MODELS.image,
+                resolution: "1K",
+                inputImageCount: s.cast_snapshot.length,
+                prompt: input.prompt,
+              });
+          tasks.push(task("image", input, p.customerPoints, s));
+        }
       }
       if (s.dialogue && plan.audio_mode !== "native") {
         for (const line of speechLines(s)) {
@@ -837,22 +907,7 @@ export async function quotePlan(
         }
       }
     }
-  else if (stage === "frame") {
-    for (const s of scenes) {
-      const prev = plan.video_plan_scenes[s.scene_index - 1];
-      const clip = prev && latest(prev, finalClipKind(prev, plan.audio_mode));
-      if (!clip || !accepted(clip))
-        throw new FilmError("Duyệt clip cảnh trước để lấy khung nối tiếp.");
-      tasks.push(
-        task(
-          "frame",
-          { videoTaskId: clip.id, cast: s.cast_snapshot, format: plan.format },
-          0,
-          s,
-        ),
-      );
-    }
-  } else if (stage === "video") {
+  else if (stage === "video") {
     if (plan.audio_mode === "fixed" && !fixedVoiceEnabled(a.project.id))
       throw new FilmError(
         "Giọng cố định đang kiểm chứng. Bạn vẫn có thể chuẩn bị ảnh và nghe thử giọng.",
@@ -862,20 +917,10 @@ export async function quotePlan(
       const image = latest(s, "image"),
         audio = latest(s, "tts");
       if (latest(s, "video") && body.regenerate !== true) continue;
-      if (s.follows_previous) {
-        const prev = plan.video_plan_scenes[s.scene_index - 1];
-        const clip = prev && latest(prev, finalClipKind(prev, plan.audio_mode));
-        if (
-          !clip ||
-          image?.kind !== "frame" ||
-          image.result?.fromTaskId !== clip.id
-        )
-          throw new FilmError(
-            "Lấy và duyệt khung cuối từ clip mới nhất của cảnh trước.",
-          );
-      }
-      if (!image || !accepted(image))
-        throw new FilmError(`Duyệt ảnh đầu cảnh ${s.scene_index + 1} trước.`);
+      if (!image || !accepted(image) || !referencePackReady(eligible, s))
+        throw new FilmError(
+          `Duyệt đủ bộ ảnh đạo diễn của cảnh ${s.scene_index + 1} trước.`,
+        );
       if (plan.audio_mode === "fixed" && s.dialogue && !accepted(audio))
         throw new FilmError(
           `Nghe và duyệt thoại cảnh ${s.scene_index + 1} trước.`,
@@ -890,23 +935,78 @@ export async function quotePlan(
         speechTasks(eligible, s).some((t) => !accepted(t))
       )
         throw new FilmError("Duyệt các lượt thoại trước khi tạo video.");
+      const referenceTasks = sceneReferenceImageTasks(eligible, s).map(
+        ({ referenceId, task: referenceTask }) => ({ referenceId, task: referenceTask! }),
+      );
+      const references: Array<{
+        url: string;
+        binding: string;
+        source: { taskId: string } | { path: string } | { url: string };
+      }> = [];
+      for (const { referenceId, task: referenceTask } of referenceTasks) {
+        if (!referenceTask?.result?.path)
+          throw new FilmError("Bộ ảnh đạo diễn chưa lưu đủ file.");
+        const authored = s.storyboard?.referencePlan?.referenceImages.find(
+          (reference) => reference.id === referenceId,
+        );
+        references.push({
+          url: await signed(a, String(referenceTask.result.path)),
+          binding: `${authored?.role || "scene"}: ${authored?.purpose || "bố cục cảnh"}`,
+          source: { taskId: referenceTask.id },
+        });
+      }
+      for (const character of s.cast_snapshot) {
+        for (const source of character.referenceImages.length
+          ? character.referenceImages
+          : [character.imageUrl]) {
+          if (!source || references.some((reference) => reference.url === source)) continue;
+          references.push({
+            url: isProjectMediaPath(a.project.id, source)
+              ? await signed(a, source)
+              : source,
+            binding: `character: ảnh nhận diện đã duyệt của ${character.name}; chỉ khóa mặt, tóc, vóc dáng và trang phục`,
+            source: isProjectMediaPath(a.project.id, source)
+              ? { path: source }
+              : { url: source },
+          });
+        }
+      }
+      const referenceLimit = seedanceReferenceLimit(plan.video_model);
+      if (references.length > referenceLimit)
+        throw new FilmError(
+          `Cảnh ${s.scene_index + 1} có ${references.length} ảnh tham chiếu, vượt giới hạn ${referenceLimit} của model. Chia cảnh hoặc bỏ ảnh hỗ trợ không thiết yếu trước khi mua video.`,
+          422,
+        );
+      const packet = {
+        urls: references.map((reference) => reference.url),
+        bindings: references.map(
+          (reference, index) => `@image${index + 1} = ${reference.binding}.`,
+        ),
+      };
       const inputs = filmVideoInputs(
         directed.scene,
         plan.audio_mode,
         plan.format,
         plan.resolution,
-        await signed(a, String(image.result?.path)),
+        packet,
         plan.audio_mode === "fixed" ? Number(audio?.result?.duration || 0) : 0,
         plan.video_model,
         directed.measuredSpeechSeconds,
       );
+      const { reference_images: _signedReferenceUrls, ...storedInputs } = inputs;
+      void _signedReferenceUrls;
       const v = task(
         "video",
         {
           model: plan.video_model,
           promptVersion: FILM_MOTION_PROMPT_VERSION,
-          providerInputs: inputs,
-          imageTaskId: image.id,
+          providerInputs: storedInputs,
+          referenceTaskIds: referenceTasks.map(({ task: referenceTask }) => referenceTask.id),
+          referenceSources: references.map((reference) => reference.source),
+          referenceBindings: packet.bindings,
+          visualRequirements: s.storyboard?.referencePlan?.requirements || [],
+          visualStoryMechanism:
+            s.storyboard?.referencePlan?.storyMechanism || "",
           audioTaskId: audio?.id,
           audioTaskIds: schedule.map((cue) => cue.audioTaskId),
           dubbingSchedule: schedule,

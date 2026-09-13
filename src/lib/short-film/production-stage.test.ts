@@ -18,8 +18,8 @@ const filmTask = (overrides: Partial<FilmTask>): FilmTask => ({
   ...overrides,
 });
 
-describe("automatic production continuity", () => {
-  it("extracts an accepted previous clip before producing a continuous scene", async () => {
+describe("automatic production reference packs", () => {
+  it("prepares every scene reference pack instead of extracting a previous last frame", async () => {
     const { nextProductionStage } = await import("./production");
     const first = {
       id: "first",
@@ -57,20 +57,20 @@ describe("automatic production continuity", () => {
     });
 
     expect(nextProductionStage(plan, [image, video])).toEqual({
-      stage: "frame",
+      stage: "prepare",
       sceneIds: [next.id],
     });
 
-    const frame = filmTask({
-      id: "frame-next",
-      kind: "frame",
+    const nextReference = filmTask({
+      id: "reference-next",
+      kind: "image",
       approved_at: "2026-09-10T00:00:00Z",
       scene_id: next.id,
       scene_version: 1,
-      input: { videoTaskId: video.id },
-      result: { fromTaskId: video.id },
+      input: {},
+      result: { path: "project/reference-next.webp" },
     });
-    expect(nextProductionStage(plan, [image, video, frame])).toEqual({
+    expect(nextProductionStage(plan, [image, video, nextReference])).toEqual({
       stage: "video",
       sceneIds: [next.id],
     });
