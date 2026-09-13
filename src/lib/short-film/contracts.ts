@@ -407,13 +407,22 @@ export function currentSceneTask(
   kind: FilmKind,
   audioMode: "native" | "fixed" | "dubbed",
 ): FilmTask | undefined {
-  const candidates = tasks.filter(
-    (t) =>
-      t.scene_id === scene.id &&
-      t.scene_version === scene.version &&
-      t.status === "completed" &&
-      (t.kind === kind || (kind === "image" && t.kind === "frame")),
-  );
+  const candidates = tasks
+    .filter(
+      (t) =>
+        t.scene_id === scene.id &&
+        t.scene_version === scene.version &&
+        t.status === "completed" &&
+        (t.kind === kind || (kind === "image" && t.kind === "frame")),
+    )
+    .sort((a, b) => {
+      const accepted = (task: FilmTask) =>
+        Number(Boolean(task.approved_at || task.auto_accepted_at));
+      return (
+        accepted(b) - accepted(a) ||
+        Date.parse(b.created_at || "") - Date.parse(a.created_at || "")
+      );
+    });
   if (kind === "video") {
     const image = currentSceneTask(tasks, scene, "image", audioMode),
       audio = currentSceneTask(tasks, scene, "tts", audioMode);
@@ -564,18 +573,27 @@ export function speechTasks(tasks: FilmTask[], scene: FilmScene) {
     return [undefined];
   }
   return lines.map((line) =>
-    tasks.find(
-      (t) =>
-        t.kind === "tts" &&
-        t.scene_id === scene.id &&
-        t.scene_version === scene.version &&
-        t.status === "completed" &&
-        t.input.beatIndex === line.beatIndex &&
-        t.input.speakerCharacterId === line.speakerCharacterId &&
-        t.input.voiceProfileVersion === line.voice.id &&
-        (t.input.providerInputs as Record<string, unknown>)?.text ===
-          line.dialogue,
-    ),
+    tasks
+      .filter(
+        (t) =>
+          t.kind === "tts" &&
+          t.scene_id === scene.id &&
+          t.scene_version === scene.version &&
+          t.status === "completed" &&
+          t.input.beatIndex === line.beatIndex &&
+          t.input.speakerCharacterId === line.speakerCharacterId &&
+          t.input.voiceProfileVersion === line.voice.id &&
+          (t.input.providerInputs as Record<string, unknown>)?.text ===
+            line.dialogue,
+      )
+      .sort((a, b) => {
+        const accepted = (task: FilmTask) =>
+          Number(Boolean(task.approved_at || task.auto_accepted_at));
+        return (
+          accepted(b) - accepted(a) ||
+          Date.parse(b.created_at || "") - Date.parse(a.created_at || "")
+        );
+      })[0],
   );
 }
 /** Only called before a new video quote. Existing clips keep their frozen timing. */

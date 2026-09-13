@@ -142,6 +142,19 @@ describe("per-turn dubbing", () => {
       ["do", "Charon", "audio-1"],
     ]);
   });
+  it("prefers an approved matching voice when an older attempt is still in history", () => {
+    const approved = audios()[0];
+    approved.id = "approved-audio";
+    approved.approved_at = "2026-09-13T08:00:00.000Z";
+    approved.created_at = "2026-09-13T08:00:00.000Z";
+    const unapproved = structuredClone(approved);
+    unapproved.id = "newer-unapproved-audio";
+    unapproved.approved_at = null;
+    unapproved.created_at = "2026-09-13T08:05:00.000Z";
+    expect(speechTasks([unapproved, approved, audios()[1]], scene)[0]?.id).toBe(
+      "approved-audio",
+    );
+  });
   it("directs each approved voice from its own storyboard beat", () => {
     expect(speechDirection(scene, 0, "Giọng Bánh Bao.")).toContain(
       "Đeo cặp",

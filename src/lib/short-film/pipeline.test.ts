@@ -166,6 +166,34 @@ describe("stale media dependency handling", () => {
     expect(currentSceneTask(rows, s, "video", "fixed")).toBeUndefined();
     expect(currentSceneTask(rows, s, "image", "fixed")?.id).toBe("new-image");
   });
+
+  it("prefers an approved result over a newer unapproved duplicate", async () => {
+    const { currentSceneTask } = await import("./contracts");
+    const s = { id: "scene", version: 1, dialogue: "" } as FilmScene;
+    const rows = [
+      {
+        id: "new-unapproved",
+        kind: "image",
+        status: "completed",
+        scene_id: "scene",
+        scene_version: 1,
+        approved_at: null,
+        created_at: "2026-09-13T08:05:00.000Z",
+        input: {},
+      },
+      {
+        id: "approved",
+        kind: "image",
+        status: "completed",
+        scene_id: "scene",
+        scene_version: 1,
+        approved_at: "2026-09-13T08:00:00.000Z",
+        created_at: "2026-09-13T08:00:00.000Z",
+        input: {},
+      },
+    ] as import("./contracts").FilmTask[];
+    expect(currentSceneTask(rows, s, "image", "fixed")?.id).toBe("approved");
+  });
 });
 
 it("requires one visible speaker for fixed-voice lip sync, but permits family establishing shots", () => {
