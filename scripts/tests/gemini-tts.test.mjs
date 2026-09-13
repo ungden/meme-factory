@@ -43,7 +43,6 @@ describe("Gemini TTS", () => {
       voice: "Leda",
       direction: "Giọng bé gái Việt Nam.",
       text: "Xin chào.",
-      previousInteractionId: "interaction-before",
       fetchImpl,
     });
     expect(result.interactionId).toBe("interaction-1");
@@ -53,12 +52,38 @@ describe("Gemini TTS", () => {
     expect(body.input).toContain("### AUDIO PROFILE AND DIRECTOR'S NOTES");
     expect(body.input).toContain("### TRANSCRIPT — SPEAK ONLY THE TEXT BELOW");
     expect(body.input).toContain("Xin chào.");
-    expect(body.previous_interaction_id).toBe("interaction-before");
+    expect(body).not.toHaveProperty("previous_interaction_id");
     expect(body.response_format).toEqual({ type: "audio" });
     expect(body.generation_config.speech_config[0]).toMatchObject({
       voice: "Leda",
       language: "vi-VN",
     });
+  });
+
+  it("does not chain prior TTS audio into a new text-only interaction", async () => {
+    const fetchImpl = vi.fn(async () =>
+      response({
+        id: "interaction-2",
+        output_audio: {
+          type: "audio",
+          data: pcm,
+          mime_type: "audio/l16",
+          sample_rate: 24000,
+          channels: 1,
+        },
+      }),
+    );
+    await createGeminiSpeech({
+      apiKey: "test",
+      model: "gemini-3.1-flash-tts-preview",
+      voice: "Aoede",
+      direction: "Giữ đúng giọng đã khóa.",
+      text: "Câu tiếp theo.",
+      previousInteractionId: "old-audio-interaction",
+      fetchImpl,
+    });
+    const [, options] = fetchImpl.mock.calls[0];
+    expect(JSON.parse(options.body)).not.toHaveProperty("previous_interaction_id");
   });
 
   it("uses generateContent for Gemini 2.5 TTS", async () => {

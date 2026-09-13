@@ -701,7 +701,6 @@ export async function quotePlan(
       )
     : existing;
   const tasks: QuotedTask[] = [];
-  const lastVoiceTaskByKey = new Map<string, string>();
   const latest = (s: FilmScene, kind: FilmKind) =>
     currentSceneTask(eligible, s, kind, plan.audio_mode);
   if (stage === "prepare")
@@ -770,8 +769,6 @@ export async function quotePlan(
                   (t) => t?.input.beatIndex === line.beatIndex,
                 );
           if (accepted(prior) && body.regenerate !== true) {
-            if (prior?.provider_id)
-              lastVoiceTaskByKey.set(voiceContinuityKey, prior.id);
             continue;
           }
           const voiceSettings = { ...(c.voice.settings || {}) };
@@ -786,10 +783,6 @@ export async function quotePlan(
           delete voiceSettings.voiceName;
           delete voiceSettings.direction;
           const voiceModel = c.voice.model || FILM_MODELS.tts;
-          const previousVoiceTaskId =
-            voiceModel === "gemini-3.1-flash-tts-preview"
-              ? lastVoiceTaskByKey.get(voiceContinuityKey)
-              : undefined;
           const inputs = isGeminiTtsModel(voiceModel)
             ? {
                 text: line.dialogue,
@@ -826,7 +819,6 @@ export async function quotePlan(
               beatIndex: line.beatIndex,
               dialogue: line.dialogue,
               voiceContinuityKey,
-              ...(previousVoiceTaskId ? { previousVoiceTaskId } : {}),
               subjectKey:
                 plan.audio_mode === "fixed"
                   ? `${s.id}:${s.version}:tts`
@@ -834,10 +826,9 @@ export async function quotePlan(
             },
             points,
             s,
-            previousVoiceTaskId ? [previousVoiceTaskId] : [],
+            [],
           );
           tasks.push(quoted);
-          lastVoiceTaskByKey.set(voiceContinuityKey, quoted.id);
         }
       }
     }

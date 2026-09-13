@@ -87,7 +87,6 @@ export async function createGeminiSpeech({
   voice,
   direction,
   text,
-  previousInteractionId,
   fetchImpl = fetch,
 }) {
   if (!apiKey) throw new Error("Worker thiếu GEMINI_API_KEY.");
@@ -110,9 +109,11 @@ export async function createGeminiSpeech({
         body: JSON.stringify({
           model,
           input,
-          ...(previousInteractionId
-            ? { previous_interaction_id: previousInteractionId }
-            : {}),
+          // Gemini TTS accepts text-only input. Chaining a completed TTS
+          // interaction feeds its audio output back as conversation input and
+          // Gemini rejects the next utterance with
+          // "Audio input modality is not enabled for this model". Voice
+          // continuity comes from the frozen voice and direction instead.
           response_format: { type: "audio" },
           generation_config: {
             speech_config: [{ voice, language: "vi-VN" }],
