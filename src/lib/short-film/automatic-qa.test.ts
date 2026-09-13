@@ -77,6 +77,22 @@ describe("automatic short-film evidence checks", () => {
     );
   });
 
+  it("stops a managed voice line that is still too slow before video purchase", () => {
+    const tts = task("tts", {
+      duration: 3.71,
+      originalDuration: 4.64,
+      audio: true,
+      paceTargetSeconds: 1.4,
+      paceTempoApplied: 1.25,
+      paceWithinTarget: false,
+    });
+    tts.input = { pacePolicyVersion: "short-form-dialogue-2026-09-14" };
+    expect(checkTechnicalTask(tts)).toMatchObject({
+      status: "needs_review",
+      evidence: { paceTempoApplied: 1.25 },
+    });
+  });
+
   it("checks moving media through its lightweight full-duration proxy", () => {
     expect(
       visualEvidencePath(

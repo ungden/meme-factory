@@ -38,6 +38,10 @@ import {
   GEMINI_TTS_MODEL_IDS,
   readGeminiSpeech,
 } from "./gemini-tts.mjs";
+import {
+  atempoArguments,
+  speechTempoDecision,
+} from "./speech-pace.mjs";
 const API = "https://api.wavespeed.ai/api/v3";
 class LostLease extends Error {}
 export function makeFilmWorker(db) {
@@ -347,14 +351,32 @@ export function makeFilmWorker(db) {
       audio = created.audio;
     }
     if (!audio) throw new Error("Gemini TTS chưa trả audio.");
-    const file = path.join(dir, "audio.wav");
-    await writeFile(file, audio);
+    const rawFile = path.join(dir, "audio-raw.wav");
+    await writeFile(rawFile, audio);
+    const rawInspection = await probe(rawFile);
+    if (!rawInspection.audio || !Number.isFinite(rawInspection.duration))
+      throw new Error("Gemini TTS trả file audio không hợp lệ.");
+    const pace = speechTempoDecision(
+      rawInspection.duration,
+      t.input.pacePolicyVersion ? t.input.paceTargetSeconds : undefined,
+    );
+    let file = rawFile;
+    if (pace.tempo > 1.001) {
+      file = path.join(dir, "audio.wav");
+      await ffmpeg(atempoArguments(rawFile, file, pace.tempo));
+    }
     const inspection = await probe(file);
     if (!inspection.audio || !Number.isFinite(inspection.duration))
-      throw new Error("Gemini TTS trả file audio không hợp lệ.");
+      throw new Error("Không chuẩn hóa được nhịp thoại Gemini TTS.");
     const result = {
       path: await upload(t, file, "audio.wav", "audio/wav"),
       ...inspection,
+      originalDuration: rawInspection.duration,
+      pacePolicyVersion: t.input.pacePolicyVersion || null,
+      paceTargetSeconds: Number(t.input.paceTargetSeconds) || null,
+      paceTempoApplied: pace.tempo,
+      paceStatus: pace.status,
+      paceWithinTarget: pace.withinTarget,
       model: t.input.model,
       voice: t.input.providerInputs.voice,
       review: "pending_human_voice_review",

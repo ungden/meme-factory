@@ -1,4 +1,9 @@
-import { validateStoryboard, type FilmStoryboard } from "../film-storyboard";
+import {
+  SHORT_FORM_SPEECH_POLICY_VERSION,
+  spokenSeconds,
+  validateStoryboard,
+  type FilmStoryboard,
+} from "../film-storyboard";
 import { REALTIME_MOTION_DIRECTION } from "../film-motion-policy";
 import type { Story } from "../family-catalogue";
 import {
@@ -614,7 +619,16 @@ export function speechDirection(
     "Giữ nguyên tuyệt đối tuổi, giới tính, cao độ nền, âm sắc, độ vang và khẩu âm như Audio profile ở mọi câu trong cùng phim.",
     "Cảm xúc chỉ thay đổi nhịp, hơi thở, cường độ và khoảng ngắt; không biến thành một người nói khác.",
   ].join(" ");
-  if (!beat) return [base, identityLock].join("\n");
+  const dialogue = beat?.dialogue || scene.dialogue || "";
+  const targetSeconds = spokenSeconds(dialogue);
+  const pacing = dialogue.trim()
+    ? [
+        `SHORT-FORM PACING (${SHORT_FORM_SPEECH_POLICY_VERSION}): nói lanh, tự nhiên và dứt câu; hoàn thành nguyên văn trong khoảng ${targetSeconds.toFixed(2)} giây.`,
+        "Bắt đầu nói ngay, không lấy hơi mở đầu, không kéo nguyên âm, không dùng nhịp phát thanh hoặc kể chuyện chậm.",
+        "Dấu ba chấm chỉ là một nhịp ngập ngừng rất ngắn khoảng 0.2 giây, trừ khi storyboard yêu cầu khoảng nghỉ riêng.",
+      ].join(" ")
+    : "";
+  if (!beat) return [base, identityLock, pacing].filter(Boolean).join("\n");
   const performance = beat.performance;
   const acting = [
     beat.action,
@@ -626,10 +640,11 @@ export function speechDirection(
     .filter(Boolean)
     .join(" ")
     .slice(0, 1800);
-  if (!acting) return [base, identityLock].join("\n");
+  if (!acting) return [base, identityLock, pacing].filter(Boolean).join("\n");
   return [
     base,
     identityLock,
+    pacing,
     `Hướng diễn riêng cho câu này: ${acting}`,
     "Thể hiện cảm xúc bằng nhịp thở, lực giọng và ngắt nghỉ tự nhiên; vẫn nói trọn đúng nguyên văn, không thêm tiếng hoặc lời ngoài kịch bản.",
   ].join("\n");

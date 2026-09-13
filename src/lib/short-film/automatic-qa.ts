@@ -208,14 +208,37 @@ export function visualEvidencePath(task: FilmTask): string {
 
 export function checkTechnicalTask(task: FilmTask): Check {
   const r = task.result || {};
-  if (task.kind === "tts")
+  if (task.kind === "tts") {
+    if (
+      task.input.pacePolicyVersion &&
+      r.paceWithinTarget === false
+    )
+      return {
+        status: "needs_review",
+        issues: [
+          "Thoại vẫn chậm hơn nhịp short-form sau mức chuẩn hóa an toàn; cần nghe lại trước khi mua video.",
+        ],
+        evidence: {
+          duration: r.duration,
+          originalDuration: r.originalDuration,
+          paceTargetSeconds: r.paceTargetSeconds,
+          paceTempoApplied: r.paceTempoApplied,
+        },
+      };
     return Number(r.duration) > 0 && r.audio === true
       ? {
           status: "passed",
           issues: [],
-          evidence: { duration: r.duration, audio: true },
+          evidence: {
+            duration: r.duration,
+            audio: true,
+            paceTargetSeconds: r.paceTargetSeconds,
+            paceTempoApplied: r.paceTempoApplied,
+            paceStatus: r.paceStatus,
+          },
         }
       : { status: "failed", issues: ["TTS thiếu audio hợp lệ."], evidence: r };
+  }
   if (task.kind === "transcribe")
     return Number(r.speechError) <=
       (task.input.audioMode === "dubbed" ? 0.3 : 0.2) &&

@@ -11,6 +11,7 @@ import {
   type FilmScene,
   type FilmTask,
 } from "./contracts";
+import { spokenSeconds } from "../film-storyboard";
 const scene = {
   id: "scene",
   version: 2,
@@ -200,6 +201,27 @@ describe("per-turn dubbing", () => {
     expect(speechDirection(scene, 0, "Giọng Bánh Bao.")).toContain(
       "đúng giọng của Bánh Bao",
     );
+    expect(speechDirection(scene, 0, "Giọng Bánh Bao.")).toContain(
+      "SHORT-FORM PACING",
+    );
+    expect(speechDirection(scene, 0, "Giọng Bánh Bao.")).toContain(
+      `${spokenSeconds("Em đi thôi.").toFixed(2)} giây`,
+    );
+    expect(
+      speechDirection(
+        {
+          ...scene,
+          storyboard: {
+            ...scene.storyboard!,
+            beats: [
+              { ...scene.storyboard!.beats[0], dialogue: "Một, hai, ba..." },
+            ],
+          },
+        },
+        0,
+        "Giọng Bánh Bao.",
+      ),
+    ).toContain("ngập ngừng rất ngắn khoảng 0.2 giây");
   });
   it("rejects swapped speakers, stale versions and unapproved voices", () => {
     const tasks = audios();

@@ -13,11 +13,11 @@ test("keeps full clip by default, including acting pauses", () =>
 test("uses actual timing with margins and preserves internal pause", () =>
   assert.deepEqual(speechRange(6, segments, true), {
     inSeconds: 0.8,
-    outSeconds: 4.5,
+    outSeconds: 4.25,
   }));
 test("subtitle offsets follow edited clips", () =>
   assert.equal(
-    shiftTranscript(segments, { inSeconds: 0.8, outSeconds: 4.5 }, 7)[1].end,
+    shiftTranscript(segments, { inSeconds: 0.8, outSeconds: 4.25 }, 7)[1].end,
     10.2,
   ));
 test("cannot cut speech or invent timing", () => {

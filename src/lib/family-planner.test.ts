@@ -494,7 +494,7 @@ it("keeps the general idea assist single-call and preserves identities", async (
   ];
   await generateCreativeAssist({ ...input, kind: "idea_suggestions" });
   expect(calls.prompts).toHaveLength(1);
-  expect(calls.prompts[0]).toContain("family-dialogue-10");
+  expect(calls.prompts[0]).toContain("family-dialogue-11");
 });
 it("compiles listener reactions without inventing extra dialogue", () => {
   const story = {

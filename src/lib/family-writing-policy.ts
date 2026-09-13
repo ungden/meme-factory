@@ -1,5 +1,5 @@
 /** Shared comic premise for family life and children's parodies of adult formats. */
-export const FAMILY_WRITING_POLICY_VERSION = "family-dialogue-10";
+export const FAMILY_WRITING_POLICY_VERSION = "family-dialogue-11";
 
 export const FAMILY_WRITING_POLICY = `LUẬT NỀN BIÊN KỊCH ${FAMILY_WRITING_POLICY_VERSION}: ĐẢO THƯỜNG THỨC VÀ PARODY THẾ GIỚI NGƯỜI LỚN
 Khán giả người lớn nhận ra một tình huống hoặc FORMAT quen thuộc, rồi thấy nó được diễn bởi những người/đồ vật lệch hẳn kỳ vọng. Bánh Bao & Đậu Đỏ vẫn là hai đứa CON NÍT về hình dáng và giọng, nhưng có thể gánh vai người lớn hoặc diễn những vai người lớn rất nghiêm túc. Sự tương phản phải nhìn/nghe thấy được; không cần thêm câu chơi chữ để giải thích nó.
@@ -26,6 +26,7 @@ TÍNH CÁCH, DIỄN VÀ ĐỐI ĐÁP:
 - Xưng hô theo đúng người đang nói và người đang nghe. Trong sinh hoạt, hai chị em nói với nhau dùng chị/em, “chị em mình/tụi mình”; nói với bố mẹ dùng “tụi con”. Bố/Mẹ nói với con dùng bố/mẹ và con/các con. Không để trẻ tự gọi hai chị em là “hai đứa” như người lớn đứng ngoài đang kể. Trong parody có thể xưng tôi/anh/chị nếu vai diễn rõ; không đổi giới tính hoặc quan hệ thật.
 - Tên và cách gọi người cha luôn là “Bố/bố” trong tên nhân vật, thoại, hành động, mô tả cảnh, prompt và caption; không dùng “Ba/ba” để gọi người cha. “Ba” vẫn được dùng khi thật sự là số đếm, như “ba cảnh”, “đếm đến ba” hoặc “ba ngón tay”.
 - Câu hỏi, xác nhận, dặn đồ, nhắc lần nữa và khoảng nhìn giúp tình huống sống. Không bắt mỗi câu là punchline, một lần đổi chiến thuật hay giao kèo. Nhượng bộ vì muốn được yên hoặc thương nhau là đủ lý do.
+- Viết để nói ở nhịp hội thoại short-form lanh và rõ, khoảng 2.6 âm tiết/từ tách bằng khoảng trắng mỗi giây. Tránh dấu ba chấm; chỉ dùng tối đa một lần khi một nhịp ngập ngừng ngắn thực sự tạo nghĩa. Không viết câu cần kéo giọng, đếm chậm hoặc lấy hơi kiểu kể chuyện để tạo cảm xúc. Nhịp cảm xúc đến từ lực giọng, hành động và phản ứng chồng nhau, không từ khoảng im dài.
 - Lời nói ngược/khoe quá có thể là cố giữ oai. Phân biệt lời nhân vật với sự thật của truyện; đừng sửa mọi lời chống chế thành nhận lỗi. Sửa lỗi tác giả khi sự kiện/hành động đổi vô cớ mà khán giả không hiểu.
 - Sự quan tâm thật có thể là điểm rơi, không tự gán động cơ ích kỷ. Giữ lời cảm ơn/nụ cười/ánh nhìn đúng nhịp; không gắn thêm giáo huấn.
 - Neo chi tiết vào đúng người/đạo cụ: việc bố nhờ, đồ mẹ quên, đặc điểm của đồ chơi được đối xử như tài sản lớn. Không chỉ dọn đồ chung chung hoặc gắn một micro vào cuộc nói chuyện bất kỳ rồi gọi là parody.

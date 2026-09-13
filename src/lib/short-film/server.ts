@@ -48,6 +48,10 @@ import { normalizeFamilyFatherTerms } from "../family-terminology";
 import { performanceCheck } from "../performance-direction";
 import { automaticGuestVoice } from "./guest-voices";
 import { FILM_MOTION_PROMPT_VERSION } from "../film-motion-policy";
+import {
+  SHORT_FORM_SPEECH_POLICY_VERSION,
+  spokenSeconds,
+} from "../film-storyboard";
 export const hash = (v: unknown) =>
   crypto.createHash("sha256").update(JSON.stringify(v)).digest("hex");
 function stableSegmentId(sceneId: string, sequenceIndex: number) {
@@ -893,6 +897,8 @@ export async function quotePlan(
               speakerCharacterId: line.speakerCharacterId,
               beatIndex: line.beatIndex,
               dialogue: line.dialogue,
+              pacePolicyVersion: SHORT_FORM_SPEECH_POLICY_VERSION,
+              paceTargetSeconds: spokenSeconds(line.dialogue),
               voiceContinuityKey,
               subjectKey:
                 plan.audio_mode === "fixed"

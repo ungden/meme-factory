@@ -86,7 +86,7 @@ test('cuts source clips at the real ending rather than provider duration multipl
   assert.equal(first.outSeconds, 8.25);
   assert.equal(
     speechRange(17, [{ start: 0.3, end: 9.2, text: 'Lời dài hơn' }], true, 8.25).outSeconds,
-    9.7,
+    9.45,
   );
 });
 test('actual FFmpeg preserves video length and removes original audio mapping', async () => {

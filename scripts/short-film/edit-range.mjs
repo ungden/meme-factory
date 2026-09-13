@@ -33,7 +33,7 @@ export function speechRange(
     inSeconds: Math.max(0, segments[0].start - 0.2),
     outSeconds: Math.min(
       duration,
-      Math.max(minimumOutSeconds, segments.at(-1).end + 0.5),
+      Math.max(minimumOutSeconds, segments.at(-1).end + 0.25),
     ),
   };
 }

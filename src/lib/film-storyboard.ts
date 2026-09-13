@@ -62,9 +62,32 @@ export type FilmStoryboard = {
 };
 export const STORYBOARD_MIN_SECONDS = 4;
 export const STORYBOARD_MAX_SECONDS = 30;
-const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
-export const spokenSeconds = (s: string) =>
-  Math.max(1.2, words(s) / 2.6 + 0.25);
+export const SHORT_FORM_SPEECH_POLICY_VERSION = "short-form-dialogue-2026-09-14";
+export const SHORT_FORM_TOKENS_PER_SECOND = 2.65;
+const tokens = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
+
+/**
+ * Editorial target for conversational Vietnamese shorts. This is used to size
+ * the storyboard and to direct/measure TTS; provider audio remains the timing
+ * source of truth. Ellipses are a short hesitation, not seconds of dead air.
+ */
+export const spokenSeconds = (s: string) => {
+  const text = s.trim();
+  if (!text) return 0;
+  const commaPauses = (text.match(/[,;:]/g) || []).length * 0.05;
+  const sentencePauses = (text.match(/[.!?](?!\.)/g) || []).length * 0.08;
+  const hesitation = /\.\.\.|…/.test(text) ? 0.18 : 0;
+  return Math.max(
+    0.65,
+    Math.round(
+      (tokens(text) / SHORT_FORM_TOKENS_PER_SECOND +
+        commaPauses +
+        sentencePauses +
+        hesitation) *
+        100,
+    ) / 100,
+  );
+};
 
 export function storyboardDialogue(board: FilmStoryboard) {
   return board.beats
