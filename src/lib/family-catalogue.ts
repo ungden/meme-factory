@@ -15,6 +15,7 @@ export const FAMILY_SERIES = [
   "Hai con lo hết",
   "Bố mẹ chưa chịu lớn",
   "Chuyện người lớn phiên bản nhí",
+  "Gia đình và ký ức",
 ] as const;
 export type ChannelProfile = {
   version: number;
@@ -213,7 +214,7 @@ export const referenceMechanisms: ChannelProfile["references"] = [
 ];
 export function familyProfile(roles: ChannelProfile["roles"]): ChannelProfile {
   return {
-    version: 10,
+    version: 11,
     visualDirection: {
       id: "family-photoreal-v1",
       prompt:
@@ -221,9 +222,9 @@ export function familyProfile(roles: ChannelProfile["roles"]): ChannelProfile {
     },
     writingPolicyVersion: FAMILY_WRITING_POLICY_VERSION,
     positioning:
-      "Hai chị em trong một gia đình cố định, kể chuyện bằng đảo thường thức và parody thế giới người lớn. Hai nhánh: con lo cho bố mẹ như phụ huynh; trẻ diễn format/vai xã hội người lớn rất nghiêm túc với đạo cụ và quy mô trẻ con. Khán giả nhận ra khuôn mẫu rồi thấy sự tương phản vui vẻ. Không bắt mọi tập có bố mẹ, việc nhà hoặc bánh.",
+      "Gia đình Bánh Bao & Đậu Đỏ có cả tập hài tương phản và tập cinematic cảm động. Tập hài khai thác đảo thường thức hoặc parody thế giới người lớn; tập cảm động khai thác ký ức, sự quan tâm, thay đổi giữa các thế hệ và khoảnh khắc nhỏ trong gia đình. Không bắt mọi tập có bố mẹ, việc nhà, bánh hoặc joke.",
     audience: "Người lớn, đặc biệt cha mẹ Việt Nam",
-    tone: "Hài tương phản vui vẻ: tình huống/format người lớn quen thuộc được diễn trong thế giới trẻ con. Nhân vật nghiêm túc trong vai, khán giả thấy cái lệch; thoại đời thường hoặc đúng phong cách format. Giữ tình cảm gia đình, không cố chơi chữ/giảng đạo hoặc bắt mọi tập là con chăm bố mẹ.",
+    tone: "Hài hoặc cảm động, tùy ý tưởng người dùng. Tập hài giữ nhịp đối đáp và tương phản vui vẻ; tập cinematic cảm động đi từ một hành động/chi tiết cụ thể tới cảm xúc có nguyên nhân. Không cố chơi chữ, giảng đạo, bóp cảm xúc hoặc bắt mọi tập là con chăm bố mẹ.",
     roles,
     series: FAMILY_SERIES,
     references: referenceMechanisms,

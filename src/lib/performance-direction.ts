@@ -5,6 +5,7 @@ export const PERFORMANCE_LANES = [
   "literal_logic",
   "physical_escalation",
   "cinematic_cool",
+  "cinematic_emotion",
 ] as const;
 export type PerformanceLane = (typeof PERFORMANCE_LANES)[number];
 
@@ -143,9 +144,10 @@ export function compilePerformanceDirection(direction: PerformanceDirection) {
     literal_logic: "luật vô lý được theo đuổi nhất quán",
     physical_escalation: "leo thang hình thể an toàn",
     cinematic_cool: "ngầu kiểu điện ảnh rồi bẻ bằng chi tiết trẻ con",
+    cinematic_emotion: "cảm xúc điện ảnh tiết chế, có nguyên nhân",
   }[d.lane];
   return [
-    `PERFORMANCE: lane=${lane}; mục tiêu hài=${d.comicObjective}; trạng thái trước=${d.statusBefore}; sau=${d.statusAfter}.`,
+    `PERFORMANCE: lane=${lane}; mục tiêu diễn=${d.comicObjective}; trạng thái trước=${d.statusBefore}; sau=${d.statusAfter}.`,
     `HOOK 0–1s: ${d.hook}`,
     ...d.beats.map(
       (b, i) =>

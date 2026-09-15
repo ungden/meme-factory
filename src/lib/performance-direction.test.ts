@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { lintPerformanceDirection } from "./performance-direction";
+import { PERFORMANCE_LANES, lintPerformanceDirection } from "./performance-direction";
 
 describe("performance direction Vietnamese actions", () => {
+  it("allows a cinematic emotional performance lane", () => {
+    expect(PERFORMANCE_LANES).toContain("cinematic_emotion");
+  });
+
   it("recognizes concrete verbs that end with Vietnamese diacritics", () => {
     const issues = lintPerformanceDirection({
       version: 1,

@@ -6,8 +6,10 @@ import {
   validateGeneratedFamilyStory,
   compactStory,
   fingerprint,
+  familyProfile,
 } from "./family-catalogue";
 import type { FilmCast } from "./short-film/contracts";
+import { FAMILY_REVIEW_CRITERIA, FAMILY_WRITING_POLICY } from "./family-writing-policy";
 const cast = Object.keys(familyPersonalities).map((name, i) => ({
   name,
   characterId: String(i),
@@ -20,6 +22,14 @@ const cast = Object.keys(familyPersonalities).map((name, i) => ({
 })) satisfies FilmCast[];
 const { profile, plans } = buildFamilyPilot(cast, testPilot);
 describe("family catalogue", () => {
+  it("keeps a dedicated cinematic family lane alongside comedy", () => {
+    const emotional = familyProfile([]);
+    expect(emotional.version).toBe(11);
+    expect(emotional.series).toContain("Gia đình và ký ức");
+    expect(emotional.tone).toContain("cảm động");
+    expect(FAMILY_WRITING_POLICY).toContain("CINEMATIC CẢM ĐỘNG");
+    expect(FAMILY_REVIEW_CRITERIA).toContain("emotionalCause");
+  });
   it("creates twelve distinct complete drafts with the approved cast distribution", () => {
     expect(plans).toHaveLength(12);
     expect(plans.filter((p) => p.group === "siblings")).toHaveLength(8);
