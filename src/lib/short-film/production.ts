@@ -2,9 +2,16 @@ import "server-only";
 import crypto from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  generateCreativeAssist,
-  type CreativeContext,
-  type CreativeAssistOptions,
+  FamilyScriptDirector,
+  FAMILY_SCRIPT_STAGES,
+  nextScriptStage,
+  emptyFamilyScriptState,
+  type FamilyScriptPipelineState,
+  type FamilyScriptStageKind,
+} from "../family-script-director";
+import type {
+  CreativeContext,
+  CreativeAssistResult,
 } from "../creative-assist";
 import {
   compactStory,
@@ -45,6 +52,12 @@ type Run = {
   plan_version: number | null;
   source: "manual" | "scheduled";
   intent: string;
+  guests: Array<{
+    key: string;
+    name: string;
+    description?: string;
+    personality?: string;
+  }>;
   status: string;
   phase: string;
   snapshot: Record<string, unknown>;
@@ -153,16 +166,9 @@ async function creativeContext(a: Access) {
   return { context, profile };
 }
 
-async function createAutomaticPlan(
-  a: Access,
-  run: Run,
-  options: CreativeAssistOptions,
-) {
+async function scriptDirectorSetup(a: Access, run: Run) {
   const { context, profile } = await creativeContext(a);
   if (!profile) throw new Error("CHANNEL_PROFILE_REQUIRED");
-  const selected = profile.roles
-    .map((r) => r.characterId)
-    .filter((id) => context.characters.some((c) => c.id === id));
   const { data: automation } = await a.admin
     .from("short_film_automation_settings")
     .select("default_config")
@@ -172,20 +178,6 @@ async function createAutomaticPlan(
   const videoModel = seedanceReferenceModel(
     run.video_model || automation?.default_config?.videoModel,
   );
-  const result = await generateCreativeAssist(
-    {
-      kind: "video_plan",
-      intent:
-        run.intent ||
-        "Tự đề xuất một chuyện gia đình mới, không lặp 20 tập gần nhất.",
-      context,
-      selectedCharacterIds: selected,
-      targetDurationSeconds: 35,
-      maxVideoDurationSeconds: seedanceMaxDuration(videoModel),
-    },
-    options,
-  );
-  if (result.kind !== "video_plan") throw new Error("SCRIPT_RESULT_INVALID");
   const configuredFormat = String(
     automation?.default_config?.format ||
       (a.project as Record<string, unknown>).default_format ||
@@ -194,11 +186,23 @@ async function createAutomaticPlan(
   const format = ["9:16", "16:9", "1:1", "4:5"].includes(configuredFormat)
     ? configuredFormat
     : "16:9";
-  const plan = await savePlan(a, {
+  return { context, profile, videoModel, format };
+}
+
+async function saveScriptResult(
+  a: Access,
+  run: Run,
+  result: Extract<CreativeAssistResult, { kind: "video_plan" }>,
+  videoModel: string,
+  format: string,
+) {
+  const guests = result.guests || [];
+  return savePlan(a, {
     title: result.title,
     brief: run.intent || result.summary,
     caption: result.caption || "",
     story: result.story,
+    guests,
     targetDurationSeconds: 35,
     format,
     resolution: "720p",
@@ -213,7 +217,132 @@ async function createAutomaticPlan(
     })),
     workspaceVersion: run.workspace_version,
   });
-  return { plan, profile };
+}
+
+/**
+ * Advance the AI director exactly one script stage. State lives in
+ * short_film_script_runs; a stuck stage parks the run and resume continues
+ * from the checkpoint instead of rewriting the whole episode.
+ */
+async function advanceScriptStage(admin: SupabaseClient, run: Run) {
+  const a = await accessForRun(admin, run);
+  const { context, profile, videoModel, format } = await scriptDirectorSetup(
+    a,
+    run,
+  );
+  const { data: row } = await admin
+    .from("short_film_script_runs")
+    .select("*")
+    .eq("run_id", run.id)
+    .maybeSingle();
+  const stage: FamilyScriptStageKind | "done" =
+    row?.stage === "done"
+      ? "done"
+      : row && FAMILY_SCRIPT_STAGES.includes(row.stage as FamilyScriptStageKind)
+        ? (row.stage as FamilyScriptStageKind)
+        : "premises";
+  const savedState = (row?.state || {}) as FamilyScriptPipelineState;
+
+const directorInput = {
+    kind: "video_plan" as const,
+    intent:
+      run.intent ||
+      "Tự đề xuất một chuyện gia đình mới, không lặp 20 tập gần nhất.",
+    context,
+    selectedCharacterIds: profile.roles
+      .map((r) => r.characterId)
+      .filter((id) => context.characters.some((c) => c.id === id)),
+    guestCharacters: Array.isArray(run.guests) ? run.guests : [],
+    targetDurationSeconds: 35,
+    maxVideoDurationSeconds: seedanceMaxDuration(videoModel),
+  };
+  const director = new FamilyScriptDirector(directorInput, {
+    onEditorialProgress: async (trace) => {
+      await patchRun(admin, run, { snapshot: { editorial: trace }, release: false });
+    },
+  });
+  director.restore(
+    savedState.benchmarkVersion ? savedState : emptyFamilyScriptState(),
+  );
+
+  // Failed stages are only retried when the operator resumes the run; cap the
+  // automatic retry budget so a wedged stage asks a human instead of looping.
+  if (row && row.status === "failed" && (row.attempts ?? 0) >= 6) {
+    await patchRun(admin, run, {
+      status: "needs_review",
+      phase: "script",
+      error: `Bước ${stage} thất bại nhiều lần. Đổi ý tưởng hoặc kiểm tra lại.`,
+      snapshot: { scriptStage: stage },
+    });
+    return;
+  }
+
+  try {
+    if (stage === "done") {
+      const result = savedState.result;
+      if (!result) throw new Error("SCRIPT_RESULT_MISSING");
+      const plan = await saveScriptResult(a, run, result, videoModel, format);
+      await patchRun(admin, run, {
+        status: "running",
+        phase: "script_check",
+        plan_id: plan.id,
+        plan_version: plan.version,
+        snapshot: { generatedPlan: true },
+        input_snapshot: { plan, channelProfile: profile },
+        delay_seconds: 3,
+      });
+      return;
+    }
+    await director.runStage(stage, Date.now() + 90000);
+    const nextStage = nextScriptStage(stage);
+    await admin
+      .from("short_film_script_runs")
+      .upsert(
+        {
+          run_id: run.id,
+          stage: nextStage,
+          status: nextStage === "done" ? "completed" : "queued",
+          state: director.snapshot(),
+          attempts: 0,
+          error: null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "run_id" },
+      );
+    await patchRun(admin, run, {
+      status: "running",
+      phase: "script",
+      snapshot: { scriptStage: stage, scriptStageCompleted: true },
+      delay_seconds: 2,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "SCRIPT_STAGE_FAILED";
+    const attempts = (row?.attempts ?? 0) + 1;
+    await admin
+      .from("short_film_script_runs")
+      .upsert(
+        {
+          run_id: run.id,
+          stage,
+          status: "failed",
+          state: director.snapshot(),
+          attempts,
+          error: message.slice(0, 1000),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "run_id" },
+      )
+      .then(async () => {
+        await patchRun(admin, run, {
+          status: "needs_review",
+          phase: "script",
+          error: message.slice(0, 1000),
+          snapshot: { scriptStage: stage, scriptStageError: message },
+        });
+      });
+    // Keep the lease-owner heartbeat from another advance while we parked.
+  }
 }
 
 async function signed(admin: SupabaseClient, project: string, path: string) {
@@ -402,35 +531,16 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
     if (leaseLost) throw new Error("RUN_LEASE_LOST");
   };
   try {
-    let plan: FilmPlan;
     let profile: ChannelProfile | null = null;
     if (!run.plan_id) {
-      const made = await createAutomaticPlan(a, run, {
-        onEditorialProgress: async (editorial) => {
-          assertLease();
-          await patchRun(admin, run, {
-            snapshot: { editorial },
-            release: false,
-          });
-          assertLease();
-        },
-      });
-      plan = made.plan;
-      profile = made.profile;
-      run.plan_id = plan.id;
-      run.plan_version = plan.version;
-      await patchRun(admin, run, {
-        status: "running",
-        phase: "script_check",
-        plan_id: plan.id,
-        plan_version: plan.version,
-        snapshot: { generatedPlan: true },
-        input_snapshot: { plan, channelProfile: made.profile },
-        delay_seconds: 3,
-      });
+      // The AI director advances exactly one script stage per claim. The
+      // stage persists its own state and parks the run on failure, so a stuck
+      // Gemini call never takes down the rest of the pipeline.
+      await advanceScriptStage(admin, run);
       return;
     }
-    plan = frozenPlan(run) || (await readPlan(a, run.plan_id));
+    const plan: FilmPlan =
+      frozenPlan(run) || (await readPlan(a, run.plan_id));
     if (plan.version !== run.plan_version)
       throw new Error("PLAN_VERSION_CHANGED");
     if (!frozenPlan(run)) {
@@ -602,8 +712,27 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
       delay_seconds: 5,
     });
   } catch (error) {
+    const serialized = (() => {
+      try {
+        return error && typeof error === "object" ? JSON.stringify(error) : "";
+      } catch {
+        return "";
+      }
+    })();
     const message =
-      error instanceof Error ? error.message : "PRODUCTION_ADVANCE_FAILED";
+      error instanceof Error
+        ? error.message
+        : error && typeof error === "object" && "message" in error
+          ? String((error as { message?: unknown }).message || "PRODUCTION_ADVANCE_FAILED")
+          : typeof error === "string"
+            ? error
+            : serialized || String(error || "PRODUCTION_ADVANCE_FAILED");
+    console.error("short-film production advance failed", {
+      runId: run.id,
+      phase: run.phase,
+      message,
+      error: serialized || String(error || ""),
+    });
     await patchRun(admin, run, {
       status: "needs_review",
       phase: run.phase,
