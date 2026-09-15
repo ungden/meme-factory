@@ -25,7 +25,10 @@ const object = (properties: Record<string, unknown>) => ({
   additionalProperties: false,
 });
 export function storyResponseSchema(profile: ChannelProfile, ids: string[]) {
-  const characterId = { type: "string", enum: ids };
+  const characterId = {
+    type: "string",
+    enum: [...ids, "guest-1", "guest-2"],
+  };
   return object({
     performanceLane: { type: "string", enum: PERFORMANCE_LANES },
     comicPremise: object({
@@ -40,6 +43,17 @@ export function storyResponseSchema(profile: ChannelProfile, ids: string[]) {
     setup: string,
     payoff: string,
     caption: string,
+    guests: {
+      type: "array",
+      minItems: 0,
+      maxItems: 2,
+      items: object({
+        key: { type: "string", enum: ["guest-1", "guest-2"] },
+        name: string,
+        description: string,
+        personality: string,
+      }),
+    },
     endingPlan: object({
       mode: {
         type: "string",

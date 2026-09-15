@@ -447,6 +447,55 @@ function extractImageFromResponse(response: any): GeneratedImageResult {
 }
 
 // ============================================
+// Film guest master reference (per-video one-off character)
+// ============================================
+export interface GenerateFilmGuestReferenceParams {
+  name: string;
+  description: string;
+  personality?: string;
+  /** Channel visual-direction prompt (e.g. the family photoreal look). */
+  artDirectionPrompt?: string;
+  aspectRatio?: "4:5" | "1:1" | "9:16" | "16:9";
+}
+
+/**
+ * A clean full-body master of a one-off guest character. The image is the
+ * guest's identity for exactly one film: scenes and QA use it as their cast
+ * reference, and a later video generates a brand-new guest instead of reusing
+ * this one.
+ */
+export async function generateFilmGuestReference(
+  params: GenerateFilmGuestReferenceParams,
+): Promise<GeneratedImageResult> {
+  const ai = await getClient();
+  const look = params.artDirectionPrompt?.trim();
+  const prompt = `Dựng ảnh chân dung master cho một nhân vật khách mời một tập của gia đình Việt Nam. Toàn thân, nhìn rõ từ đầu đến chân, đứng thẳng, mặt hướng máy, tay buông tự nhiên.
+
+TÊN: "${params.name}"
+MÔ TẢ: ${params.description}${params.personality ? `\nTÍNH CÁCH: ${params.personality}` : ""}
+
+YÊU CẦU BẮT BUỘC:
+1. Đúng mô tả trên; không tự thêm nghề nghiệp, phụ kiện hay thay đổi tuổi/trang phục.
+2. ${look ? `PHONG CÁCH KÊNH (bắt buộc giữ nguyên chất ảnh, không được vẽ CGI/3D/anime nếu kênh là ảnh thật): ${look}` : "Ảnh live-action photorealistic, không CGI, không hoạt hình."}
+3. Nền trắng tinh hoặc gradient nhạt đơn giản để dễ tách.
+4. Biểu cảm tự nhiên đúng tính cách; da/tóc/vải chi tiết thật.
+5. KHÔNG text, watermark, logo.`;
+
+  const response = await ai.models.generateContent({
+    model: IMAGE_MODEL,
+    contents: [{ text: prompt }],
+    config: {
+      responseModalities: ["TEXT", "IMAGE"],
+      imageConfig: {
+        aspectRatio: FORMAT_TO_ASPECT[params.aspectRatio || "4:5"] || "4:5",
+        imageSize: "1K",
+      },
+    },
+  });
+  return extractImageFromResponse(response);
+}
+
+// ============================================
 // Helper: Strip provenance metadata from provider output
 // ============================================
 // Chỉ gỡ metadata trong file (EXIF, XMP, IPTC, C2PA/Content Credentials, text

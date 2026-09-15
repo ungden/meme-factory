@@ -225,8 +225,11 @@ export type FilmCast = {
   personality: string;
   imageUrl: string;
   referenceImages: string[];
-  assetVersionId: string;
-  assetVersion: number;
+  assetVersionId?: string | null;
+  assetVersion?: number | null;
+  /** One-off guest generated for this single plan; never in the character library. */
+  isGuest?: boolean;
+  guestKey?: string;
   voice?: {
     id: string;
     voice_id: string;
@@ -449,7 +452,8 @@ export function currentSceneTask(
       return candidates.find((task) => task.input.referenceImageId === first.id);
     return candidates.find(
       (task) =>
-        !task.input.referenceImageId,
+        !task.input.referenceImageId ||
+        task.input.referenceImageId === "legacy_start",
     );
   }
   if (kind === "video") {
@@ -688,7 +692,28 @@ export function measuredDubbedScene(
   maxSeconds = 30,
 ): { scene: FilmScene; measuredSpeechSeconds?: Map<number, number> } {
   const board = scene.storyboard;
-  if (board?.timingPolicy !== "audio_driven_v1") return { scene };
+  // Dubbed production always uses the measured WAV as its timing source.
+  // Older plans do not carry timingPolicy (or a storyboard at all), so do not
+  // reject a valid line merely because its authored placeholder is too short.
+  // The returned scene is an immutable, per-request revision; the saved plan
+  // and existing media remain untouched.
+  if (!board) {
+    const lines = speechLines(scene);
+    const audios = speechTasks(tasks, scene);
+    const measuredSpeechSeconds = new Map<number, number>();
+    for (const [i, line] of lines.entries()) {
+      const duration = Number(audios[i]?.result?.duration);
+      if (!audios[i] || !Number.isFinite(duration) || duration <= 0)
+        throw new Error("Thiếu audio đã đo thời lượng.");
+      measuredSpeechSeconds.set(line.beatIndex, duration);
+    }
+    const longest = Math.max(...measuredSpeechSeconds.values(), 0);
+    const durationSeconds = shotDuration(longest, scene.duration_seconds);
+    return {
+      scene: { ...scene, duration_seconds: durationSeconds },
+      measuredSpeechSeconds,
+    };
+  }
   const castIds = scene.cast_snapshot.map((c) => c.characterId);
   // For an audio-driven board, authored beat boundaries are editorial targets.
   // Validate the structure first without rejecting a line merely because the

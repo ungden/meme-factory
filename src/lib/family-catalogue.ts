@@ -47,11 +47,23 @@ export type RecentStory = Pick<
   | "payoff"
   | "comicPremise"
 >;
+export type StoryGuest = {
+  key: string;
+  name: string;
+  description: string;
+  personality?: string;
+};
 export type Story = {
   performanceLane?: PerformanceLane;
   intendedShotSeconds?: number[];
   writingPolicyVersion?: string;
   profileVersion: number;
+  /**
+   * One-off guests the writer itself casts for this single episode (pilot,
+   * neighbour, inspector, …). A new video decides and generates a new guest;
+   * guests never enter the project character library.
+   */
+  guests?: StoryGuest[];
   comicPremise?: {
     normalExpectation: string;
     invertedReality: string;
@@ -90,6 +102,44 @@ export function compactStory(story: Story): RecentStory {
     wants: story.wants,
     payoff: story.payoff,
   };
+}
+/** Guest keys the writer may cast; the same key must be declared in story.guests. */
+export const STORY_GUEST_KEYS = ["guest-1", "guest-2"] as const;
+export function normalizeStoryGuests(value: unknown): StoryGuest[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) throw new Error("STORY_GUESTS_INVALID");
+  const seen = new Set<string>();
+  return value.slice(0, 2).map((item) => {
+    const guest = item as Record<string, unknown>;
+    const key = String(guest.key || "").trim();
+    if (!(STORY_GUEST_KEYS as readonly string[]).includes(key) || seen.has(key))
+      throw new Error("STORY_GUEST_KEY_INVALID");
+    seen.add(key);
+    const name = String(guest.name || "").trim().slice(0, 80);
+    const description = String(guest.description || "").trim().slice(0, 1200);
+    if (!name || description.length < 8)
+      throw new Error("STORY_GUEST_DESCRIPTION_REQUIRED");
+    return {
+      key,
+      name,
+      description,
+      personality: String(guest.personality || "").trim().slice(0, 800),
+    };
+  });
+}
+/** Throw when dialogue/wants reference a guest key that the story never declared. */
+export function assertDeclaredGuests(
+  story: Pick<Story, "guests" | "dialogue" | "wants">,
+) {
+  const declared = new Set((story.guests || []).map((guest) => guest.key));
+  const referenced = [
+    ...story.dialogue.map((line) => line.characterId),
+    ...story.wants.map((want) => want.characterId),
+  ].filter((id) =>
+    (STORY_GUEST_KEYS as readonly string[]).includes(id),
+  );
+  if (referenced.some((id) => !declared.has(id)))
+    throw new Error(`STORY_GUEST_UNDECLARED: ${referenced.join(",")}`);
 }
 export const referenceMechanisms: ChannelProfile["references"] = [
   {
@@ -333,4 +383,4 @@ export function validateGeneratedFamilyStory(
   return { ...story, performanceLane: story.performanceLane || "deadpan_reversal" };
 }
 export const STORY_SCHEMA =
-  '{"performanceLane":"deadpan_reversal|adult_format_parody|literal_logic|physical_escalation|cinematic_cool", "comicPremise":{"normalExpectation":"","invertedReality":"","visibleContrast":""}, "series":"", "situation":"", "mechanism":"", "outcome":"", "wants":[{"characterId":"uuid","want":""}], "beats":{"hook":"","turns":[],"payoff":"","reaction":""}, "endingPlan":{"mode":"hard_cut|silent_reaction|resolved","stopAfterLine":1,"anchorQuote":"nguyên văn từ lượt cuối","reason":"vì sao dừng đúng ở đây"}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid","text":"","action":""}]}';
+  '{"performanceLane":"deadpan_reversal|adult_format_parody|literal_logic|physical_escalation|cinematic_cool", "comicPremise":{"normalExpectation":"","invertedReality":"","visibleContrast":""}, "series":"", "situation":"", "mechanism":"", "outcome":"", "guests":[{"key":"guest-1","name":"","description":"ngoại hình rõ để dựng ảnh","personality":""}], "wants":[{"characterId":"uuid hoặc guest-1/guest-2","want":""}], "beats":{"hook":"","turns":[],"payoff":"","reaction":""}, "endingPlan":{"mode":"hard_cut|silent_reaction|resolved","stopAfterLine":1,"anchorQuote":"nguyên văn từ lượt cuối","reason":"vì sao dừng đúng ở đây"}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid hoặc guest-1/guest-2","text":"","action":""}]}';

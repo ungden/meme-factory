@@ -193,6 +193,21 @@ export async function POST(
     );
 
   const videoModel = seedanceReferenceModel(body.videoModel);
+  const guestCharacters = Array.isArray(body.guestCharacters)
+    ? body.guestCharacters
+        .flatMap((item: unknown) => {
+          const guest = item as Record<string, unknown>;
+          const name = String(guest.name || "").trim().slice(0, 80);
+          if (!name) return [];
+          return [{
+            key: String(guest.key || "").trim().slice(0, 64),
+            name,
+            description: String(guest.description || "").trim().slice(0, 1200),
+            personality: String(guest.personality || "").trim().slice(0, 800),
+          }];
+        })
+        .slice(0, 2)
+    : [];
 
   const inputSnapshot = {
     kind: body.kind,
@@ -203,6 +218,7 @@ export async function POST(
       : null,
     recentPlanIds: (recentPlans || []).map((p) => p.id),
     selectedCharacterIds: selectedIds,
+    guestCharacters,
     targetDurationSeconds: requestedTarget,
     videoModel,
     maxVideoDurationSeconds: seedanceMaxDuration(videoModel),

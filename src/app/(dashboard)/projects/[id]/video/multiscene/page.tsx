@@ -63,6 +63,11 @@ type DraftScene = {
   endImageUrl: string | null;
   followsPrevious: boolean;
 };
+export type DraftGuest = {
+  key: string;
+  name: string;
+  description: string;
+};
 type Draft = {
   story?: Story | null;
   trimSpeech?: boolean;
@@ -75,6 +80,7 @@ type Draft = {
   videoModel: FilmVideoModel;
   audioMode: "native" | "fixed" | "dubbed";
   subtitles: boolean;
+  guests: DraftGuest[];
   scenes: DraftScene[];
 };
 type Quote = {
@@ -105,6 +111,7 @@ const blank = (): Draft => ({
   videoModel: seedanceReferenceModel(null),
   audioMode: "dubbed",
   subtitles: true,
+  guests: [],
   scenes: [],
 });
 const sceneBlank = (): DraftScene => ({
@@ -150,6 +157,13 @@ const fromPlan = (p: FilmPlan): Draft => ({
   videoModel: seedanceReferenceModel(p.video_model),
   audioMode: p.audio_mode === "native" ? "dubbed" : p.audio_mode,
   subtitles: p.subtitles,
+  guests: (p.cast_snapshot || [])
+    .filter((c) => c.isGuest)
+    .map((c) => ({
+      key: c.guestKey || c.characterId,
+      name: c.name,
+      description: c.description || "",
+    })),
   scenes: p.video_plan_scenes.map(fromScene),
 });
 const labels: Record<string, string> = {
@@ -286,8 +300,8 @@ export default function ShortFilmPage() {
   const [planQuery, setPlanQuery] = useState("");
   const [planFilter, setPlanFilter] = useState<"all" | EpisodePickerStatus>("all");
   const [nextPlansOffset, setNextPlansOffset] = useState<number | null>(null);
-  const [maxFilm, setMaxFilm] = useState("");
-  const [maxDay, setMaxDay] = useState("");
+  const [maxFilm, setMaxFilm] = useState("60");
+  const [maxDay, setMaxDay] = useState("120");
   const [autoEnabled, setAutoEnabled] = useState(false);
   const [autoTime, setAutoTime] = useState("09:00");
   const [queuedPlanIds, setQueuedPlanIds] = useState<string[]>([]);
@@ -583,13 +597,33 @@ export default function ShortFilmPage() {
   }
   async function save(nextDraft: Draft = draft) {
     const currentPlan = plan;
+    // A manually edited episode can retain the story metadata from an older
+    // draft. The API validates story.wants against the cast in the scenes; if
+    // that metadata names a character no longer used by this episode, clear
+    // the stale story instead of blocking the save. The scene dialogue and
+    // actions remain the source of truth and are still persisted unchanged.
+    const sceneCharacterIds = new Set(
+      nextDraft.scenes.flatMap((scene) => scene.characterIds),
+    );
+    const storyCharacterIds = new Set(
+      (nextDraft.story?.wants || []).map((want) => want.characterId),
+    );
+    const storyMatchesScenes =
+      !nextDraft.story ||
+      [...storyCharacterIds].every((characterId) =>
+        sceneCharacterIds.has(characterId),
+      );
+    const payload = {
+      ...nextDraft,
+      // Preserve valid AI story metadata; discard only stale metadata left by
+      // a previous episode after its cast/scenes were manually replaced.
+      story: storyMatchesScenes ? nextDraft.story : null,
+      workspaceVersion: workspace,
+      expectedVersion: currentPlan?.version,
+    };
     const j = await api(
       `${base}/video-plans${currentPlan ? "/" + currentPlan.id : ""}`,
-      {
-        ...nextDraft,
-        workspaceVersion: workspace,
-        expectedVersion: currentPlan?.version,
-      },
+      payload,
       currentPlan ? "PUT" : "POST",
     );
     const savedPlan = {
@@ -796,6 +830,13 @@ export default function ShortFilmPage() {
           brief: j.job.intent || draft.brief,
           caption: j.job.result.caption || draft.caption,
           story: j.job.result.story || null,
+          guests: Array.isArray(j.job.result.guests)
+            ? j.job.result.guests.map((g: DraftGuest) => ({
+                key: String(g.key || ""),
+                name: String(g.name || ""),
+                description: String(g.description || ""),
+              }))
+            : [],
           scenes: j.job.result.scenes.map((s: DraftScene) => ({
             ...sceneBlank(),
             ...s,
@@ -823,6 +864,7 @@ export default function ShortFilmPage() {
       kind: "video_plan",
       intent: draft.brief,
       selectedCharacterIds: cast,
+      guestCharacters: draft.guests,
       targetDurationSeconds: draft.targetDurationSeconds,
       videoModel: draft.videoModel,
       workspaceVersion: workspace,
@@ -881,23 +923,64 @@ export default function ShortFilmPage() {
     )
       throw new Error("Nhập trần điểm mỗi phim và mỗi ngày trước khi chạy.");
     let selectedPlan = plan;
+    let intent = "";
+    // A fresh idea typed while another episode is open starts a new automatic
+    // script instead of silently re-producing the open plan.
+    const ideaIsNew =
+      !!draft.brief.trim() &&
+      !draft.scenes.length &&
+      (!plan || draft.brief.trim() !== (plan.brief || "").trim());
     if (
       draft.scenes.length &&
       (dirty || !plan || plan.audio_mode !== draft.audioMode)
-    )
+    ) {
       selectedPlan = await save();
+    } else if (ideaIsNew) {
+      selectedPlan = null;
+      intent = draft.brief;
+    }
     const storage = `film-production-key:${ref}:${selectedPlan?.id || "new"}:${selectedPlan?.version || draft.brief}`;
     const key = localStorage.getItem(storage) || crypto.randomUUID();
     localStorage.setItem(storage, key);
     const response = await api(`${base}/production-runs`, {
       planId: selectedPlan?.id || null,
-      intent: selectedPlan ? "" : draft.brief,
+      intent,
+      guests: draft.guests,
       maxPointsPerFilm: filmCap,
       maxPointsPerDay: dayCap,
       videoModel: draft.videoModel,
       idempotencyKey: key,
     });
     setNote(`Đã nhận lượt sản xuất ${response.runId}. Có thể rời trang.`);
+    await refreshProduction();
+    setTab("results");
+  }
+  /** Một nút từ ý tưởng tới phim hoàn chỉnh: AI viết kịch bản, cảnh, góc máy rồi tự sản xuất. */
+  async function produceFromIdea() {
+    if (!draft.brief.trim())
+      throw new Error("Nhập ý tưởng trước khi sản xuất ngay.");
+    const filmCap = Number(maxFilm),
+      dayCap = Number(maxDay);
+    if (
+      !Number.isInteger(filmCap) ||
+      !Number.isInteger(dayCap) ||
+      filmCap <= 0 ||
+      dayCap < filmCap
+    )
+      throw new Error("Nhập trần điểm mỗi phim và mỗi ngày trước khi chạy.");
+    const key = crypto.randomUUID();
+    const response = await api(`${base}/production-runs`, {
+      planId: null,
+      intent: draft.brief,
+      guests: draft.guests,
+      maxPointsPerFilm: filmCap,
+      maxPointsPerDay: dayCap,
+      videoModel: draft.videoModel,
+      idempotencyKey: key,
+    });
+    setNote(
+      `Đã nhận lượt sản xuất ${response.runId}: AI sẽ tự viết kịch bản, chia cảnh, dựng góc máy và làm tới phim hoàn chỉnh. Có thể rời trang.`,
+    );
     await refreshProduction();
     setTab("results");
   }
@@ -1410,11 +1493,13 @@ export default function ShortFilmPage() {
                     .map((s, i) => (
                       <li key={i}>
                         <strong>
-                          {
-                            characters.find(
-                              (c) => c.id === s.speakerCharacterId,
-                            )?.name
-                          }
+                          {characters.find(
+                            (c) => c.id === s.speakerCharacterId,
+                          )?.name ||
+                            draft.guests.find(
+                              (g) => g.key === s.speakerCharacterId,
+                            )?.name ||
+                            "?"}
                           :
                         </strong>{" "}
                         {s.dialogue}
@@ -1696,27 +1781,90 @@ export default function ShortFilmPage() {
                     {idea.title}
                   </button>
                 ))}
+                <button
+                  disabled={
+                    !ready ||
+                    !!busy ||
+                    productionPollingKey.length > 0 ||
+                    !draft.brief.trim()
+                  }
+                  onClick={() => act("Sản xuất ngay", produceFromIdea)}
+                  className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border th-border px-3 text-sm font-semibold th-text-accent disabled:opacity-60"
+                >
+                  <Clapperboard size={16} />
+                  Sản xuất ngay từ ý tưởng · AI tự viết kịch bản, chia cảnh, dựng
+                  góc máy rồi làm tới phim
+                </button>
+                <p className="mt-1 text-xs th-text-muted">
+                  {cast.length
+                    ? "Dùng cast đang chọn bên dưới."
+                    : "Chưa chọn cast: AI sẽ tự dùng các vai trong hồ sơ kênh."}
+                </p>
                 <div className="my-3 flex flex-wrap gap-2">
-                  {characters.map((c) => (
-                    <button
-                      key={c.id}
-                      disabled={!!busy}
-                      onClick={() => {
-                        edited.current = true;
-                        setDirty(true);
-                        setQuote(null);
-                        setCast((v) =>
-                          v.includes(c.id)
-                            ? v.filter((id) => id !== c.id)
-                            : [...v, c.id].slice(0, 4),
-                        );
-                      }}
-                      className={`min-h-11 rounded-lg border th-border px-3 text-sm ${cast.includes(c.id) ? "th-bg-accent-light th-text-accent" : "th-text-secondary"}`}
-                    >
-                      {c.name}
-                    </button>
-                  ))}
+                  {(() => {
+                    const coreIds = new Set(
+                      (channel?.roles || []).map((r) => r.characterId),
+                    );
+                    const core = characters.filter((c) => coreIds.has(c.id));
+                    const other = characters.filter((c) => !coreIds.has(c.id));
+                    const chip = (c: (typeof characters)[number]) => (
+                      <button
+                        key={c.id}
+                        disabled={!!busy}
+                        onClick={() => {
+                          edited.current = true;
+                          setDirty(true);
+                          setQuote(null);
+                          setCast((v) =>
+                            v.includes(c.id)
+                              ? v.filter((id) => id !== c.id)
+                              : [...v, c.id].slice(0, 4),
+                          );
+                        }}
+                        className={`min-h-11 rounded-lg border th-border px-3 text-sm ${cast.includes(c.id) ? "th-bg-accent-light th-text-accent" : "th-text-secondary"}`}
+                      >
+                        {c.name}
+                      </button>
+                    );
+                    return (
+                      <>
+                        {core.map(chip)}
+                        {other.length > 0 && (
+                          <details className="w-full">
+                            <summary className="cursor-pointer py-1 text-xs th-text-muted">
+                              Nhân vật dùng một lần trong dự án ({other.length})
+                            </summary>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {other.map(chip)}
+                            </div>
+                          </details>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
+                {channel && draft.guests.length > 0 && (
+                <div className="my-3">
+                  <p className="text-xs th-text-tertiary mb-1.5">
+                    AI tự đạo diễn nhân vật mới cho tập này — dựng người mới cho
+                    riêng tập, không lưu vào thư viện:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {draft.guests.map((g) => (
+                      <span
+                        key={g.key}
+                        className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs th-bg-accent-light th-text-accent"
+                      >
+                        @{g.name}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[11px] th-text-muted">
+                    Muốn đổi người, sửa ý tưởng (VD: “ép buộc có ông phi công”)
+                    rồi viết lại.
+                  </p>
+                </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <div className="relative">
                   <input
@@ -2108,7 +2256,13 @@ export default function ShortFilmPage() {
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {characters.map((c) => (
+                      {[
+                        ...characters.map((c) => ({ id: c.id, name: c.name })),
+                        ...draft.guests.map((g) => ({
+                          id: g.key,
+                          name: `@${g.name} (khách mời)`,
+                        })),
+                      ].map((c) => (
                         <label
                           key={c.id}
                           className="flex min-h-10 items-center gap-1 text-xs th-text-primary"

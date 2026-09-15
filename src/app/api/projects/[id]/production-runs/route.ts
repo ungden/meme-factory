@@ -83,7 +83,28 @@ export async function POST(
       typeof body.idempotencyKey === "string"
         ? body.idempotencyKey
         : crypto.randomUUID();
-    const { data, error } = await a.admin.rpc("create_film_production_run_v2", {
+    const guests = Array.isArray(body.guests)
+      ? body.guests
+          .flatMap((item: unknown) => {
+            const guest = item as Record<string, unknown>;
+            const name = String(guest.name || "").trim().slice(0, 80);
+            if (!name) return [];
+            return [{
+              key: String(guest.key || `guest-${crypto.randomUUID()}`)
+                .trim()
+                .slice(0, 64),
+              name,
+              description: String(guest.description || "")
+                .trim()
+                .slice(0, 1200),
+              personality: String(guest.personality || "")
+                .trim()
+                .slice(0, 800),
+            }];
+          })
+          .slice(0, 2)
+      : [];
+    const rpcPayload = {
       p_project: a.project.id,
       p_actor: a.user.id,
       p_workspace: a.project.workspace_version,
@@ -96,7 +117,12 @@ export async function POST(
       p_source: "manual",
       p_schedule_date: null,
       p_video_model: plan?.video_model || seedanceReferenceModel(body.videoModel),
-    });
+      p_guests: guests,
+    };
+    const { data, error } = await a.admin.rpc(
+      "create_film_production_run_v2",
+      rpcPayload,
+    );
     if (error)
       throw new FilmError(
         error.message,
