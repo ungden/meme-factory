@@ -39,6 +39,7 @@ import {
   isGeminiTtsModel,
 } from "./contracts";
 import { fixedVoiceEnabled } from "./features";
+import { generateFilmGuestReference } from "@/lib/gemini-image";
 import {
   seedanceReferenceModel,
   seedanceMaxDuration,
@@ -47,6 +48,7 @@ import {
 import { normalizeFamilyFatherTerms } from "../family-terminology";
 import { performanceCheck } from "../performance-direction";
 import { automaticGuestVoice } from "./guest-voices";
+import { assertMediaCoherent, coherenceMessage } from "./media-coherence";
 import { FILM_MOTION_PROMPT_VERSION } from "../film-motion-policy";
 import {
   SHORT_FORM_SPEECH_POLICY_VERSION,
@@ -144,8 +146,39 @@ export async function freezeCast(
     .select("id,name,description,personality,continuity_asset_id")
     .eq("project_id", a.project.id)
     .in("id", ids);
-  if (error || chars?.length !== ids.length)
-    throw new FilmError("Nhân vật không thuộc dự án.");
+  if (error) throw error;
+  const characterIds = new Set((chars || []).map((c) => c.id));
+  // Guest characters are generated per plan, not per project. A guest id must
+  // exist in the plan-scoped table and carry its generated reference image.
+  const guestIds = ids.filter((id) => !characterIds.has(id));
+  let guestRows: Array<{
+    id: string;
+    key: string;
+    name: string;
+    description: string | null;
+    personality: string | null;
+    image_url: string | null;
+  }> = [];
+  if (guestIds.length) {
+    const { data, error: guestError } = await a.admin
+      .from("film_guest_characters")
+      .select("id,key,name,description,personality,image_url")
+      .eq("project_id", a.project.id)
+      .in("id", guestIds);
+    if (guestError) throw guestError;
+    guestRows = data || [];
+    const found = new Set(guestRows.map((g) => g.id));
+    // A refresh can run before the guest row write landed; the plan's frozen
+    // cast snapshot is still the same identity.
+    if (
+      guestIds.some(
+        (id) =>
+          !found.has(id) &&
+          !previous.some((character) => character.isGuest && character.characterId === id),
+      )
+    )
+      throw new FilmError("Nhân vật khách mời không thuộc tập phim này.");
+  }
   const { data: channel } = await a.admin
     .from("channel_profiles")
     .select("profile")
@@ -167,10 +200,62 @@ export async function freezeCast(
       .filter((voice): voice is string => Boolean(voice)),
   );
   const cast: FilmCast[] = [];
-  const orderedChars = ids.map(
-    (id) => chars.find((character) => character.id === id)!,
-  );
-  for (const c of orderedChars) {
+  for (const id of ids) {
+    const c = chars?.find((character) => character.id === id);
+    if (!c) {
+      // Plan-scoped guest: reuse its generated reference; identity must not
+      // change between saves, so the frozen snapshot/row is the source of truth.
+      const row = guestRows.find((g) => g.id === id);
+      const frozen = row
+        ? {
+            key: row.key,
+            name: row.name,
+            description: row.description || "",
+            personality: row.personality || "",
+            imageUrl: row.image_url || "",
+          }
+        : (() => {
+            const snap = previous.find((x) => x.characterId === id);
+            return snap?.isGuest
+              ? {
+                  key: snap.guestKey || snap.characterId,
+                  name: snap.name,
+                  description: snap.description,
+                  personality: snap.personality,
+                  imageUrl: snap.imageUrl,
+                }
+              : null;
+          })();
+      if (!frozen)
+        throw new FilmError("Nhân vật khách mời không thuộc tập phim này.");
+      if (!frozen.imageUrl)
+        throw new FilmError(`${frozen.name} chưa có ảnh chuẩn khách mời.`);
+      const old = previous.find((x) => x.characterId === id);
+      const frozenVoice = old?.voice || automaticGuestVoice({
+        projectId: a.project.id,
+        workspaceVersion: a.project.workspace_version,
+        character: { id, name: frozen.name, description: frozen.description },
+        usedVoices,
+      });
+      if (frozenVoice?.voice_id) usedVoices.add(frozenVoice.voice_id);
+      cast.push({
+        ...old,
+        ...(!old
+          ? {
+              characterId: id,
+              name: frozen.name,
+              description: frozen.description,
+              personality: frozen.personality,
+              imageUrl: frozen.imageUrl,
+              referenceImages: [frozen.imageUrl],
+              isGuest: true,
+              guestKey: frozen.key,
+            }
+          : {}),
+        ...(frozenVoice ? { voice: frozenVoice } : {}),
+      } as FilmCast);
+      continue;
+    }
     const old = previous.find((x) => x.characterId === c.id);
     const { data: v } = await a.admin
       .from("asset_versions")
@@ -239,6 +324,7 @@ export async function savePlan(
   old?: FilmPlan,
 ) {
   checkVersion(a, body, old);
+  const planId = old?.id || crypto.randomUUID();
   const inputs = body.scenes as (SceneInput & { camera?: string })[];
   const videoModel = seedanceReferenceModel(body.videoModel ?? old?.video_model);
   const maxVideoDuration = seedanceMaxDuration(videoModel);
@@ -248,18 +334,179 @@ export async function savePlan(
     throw new FilmError(
       "Storyboard nhiều người dùng lồng tiếng theo từng lượt; đồng bộ môi một người cần cảnh riêng.",
     );
-  const ids = [...new Set(inputs.flatMap((s) => s.characterIds || []))];
-  const cast = await freezeCast(
-    a,
-    ids,
-    body.refreshCast === true ? [] : old?.cast_snapshot,
+  // Guests are one-off per video. The body carries their keys; an existing plan
+  // re-derives them from its frozen cast so refreshes never re-invent guests.
+  const guestInputs = (() => {
+    if (Array.isArray(body.guests))
+      return body.guests
+        .map((item) => {
+          const guest = item as Record<string, unknown>;
+          const name = String(guest.name || "").trim().slice(0, 80);
+          if (!name) return null;
+          return {
+            key: String(guest.key || `guest-${crypto.randomUUID()}`)
+              .trim()
+              .slice(0, 64),
+            name,
+            description: String(guest.description || "").trim().slice(0, 1200),
+            personality: String(guest.personality || "").trim().slice(0, 800),
+          };
+        })
+        .filter((guest): guest is NonNullable<typeof guest> => guest !== null)
+        .slice(0, 2);
+    return (old?.cast_snapshot || [])
+      .filter((character) => character.isGuest)
+      .map((character) => ({
+        key: character.guestKey || character.characterId,
+        name: character.name,
+        description: character.description,
+        personality: character.personality,
+      }))
+      .slice(0, 2);
+  })();
+  const guestByKey = new Map<
+    string,
+    {
+      id: string;
+      key: string;
+      name: string;
+      description: string;
+      personality: string;
+      imageUrl: string;
+    }
+  >();
+  const guestRowsToPersist: Array<{
+    id: string;
+    key: string;
+    name: string;
+    description: string;
+    personality: string;
+    image_url: string;
+  }> = [];
+  if (guestInputs.length) {
+    const { data: channel } = await a.admin
+      .from("channel_profiles")
+      .select("profile")
+      .eq("project_id", a.project.id)
+      .eq("workspace_version", a.project.workspace_version)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const visualPrompt = (channel?.profile as ChannelProfile | undefined)
+      ?.visualDirection?.prompt;
+    for (const guest of guestInputs) {
+      const { data: existing } = old
+        ? await a.admin
+            .from("film_guest_characters")
+            .select("id,key,name,description,personality,image_url")
+            .eq("plan_id", planId)
+            .eq("key", guest.key)
+            .maybeSingle()
+        : { data: null };
+      const id = existing?.id || crypto.randomUUID();
+      let imageUrl = existing?.image_url || "";
+      if (!imageUrl) {
+        // A guest gets a fresh generated identity for this one video; the
+        // plan stores the image so no other video reuses this exact guest.
+        const generated = await generateFilmGuestReference({
+          name: guest.name,
+          description: guest.description,
+          personality: guest.personality,
+          artDirectionPrompt: visualPrompt,
+          aspectRatio: "4:5",
+        });
+        const path = `${a.project.id}/film-guests/${planId}/${id}.png`;
+        const { error: uploadError } = await a.admin.storage
+          .from("content-media")
+          .upload(path, Buffer.from(generated.image, "base64"), {
+            contentType: "image/png",
+            upsert: true,
+          });
+        if (uploadError)
+          throw new FilmError("Không lưu được ảnh nhân vật khách mời.");
+        imageUrl = path;
+      }
+      guestByKey.set(guest.key, {
+        id,
+        key: guest.key,
+        name: guest.name,
+        description: guest.description,
+        personality: guest.personality,
+        imageUrl,
+      });
+      guestRowsToPersist.push({
+        id,
+        key: guest.key,
+        name: guest.name,
+        description: guest.description,
+        personality: guest.personality,
+        image_url: imageUrl,
+      });
+    }
+  }
+  // Scenes from the AI writer reference guest keys; the database stores the
+  // plan-scoped guest rows' ids in cast_snapshot and speaker columns.
+  const remappedInputs = inputs.map((scene) => {
+    const characterIds = (scene.characterIds || []).map(
+      (id) => guestByKey.get(id)?.id || id,
+    );
+    const speakerCharacterId = scene.speakerCharacterId
+      ? guestByKey.get(scene.speakerCharacterId)?.id || scene.speakerCharacterId
+      : scene.speakerCharacterId;
+    return { ...scene, characterIds, speakerCharacterId };
+  });
+  const ids = [...new Set(remappedInputs.flatMap((s) => s.characterIds || []))];
+  const guestUuids = new Set(
+    [...guestByKey.values()].map((guest) => guest.id),
   );
+  const previousCast = body.refreshCast === true ? [] : old?.cast_snapshot;
+  const coreCast = await freezeCast(
+    a,
+    ids.filter((id) => !guestUuids.has(id)),
+    previousCast,
+  );
+  const usedVoices = new Set(
+    coreCast
+      .map((character) => character.voice?.voice_id)
+      .filter((voice): voice is string => Boolean(voice)),
+  );
+  const guestCast: FilmCast[] = [...guestByKey.values()].map((guest) => {
+    const oldEntry = (previousCast || []).find(
+      (character) => character.characterId === guest.id,
+    );
+    const frozenVoice =
+      oldEntry?.voice ||
+      automaticGuestVoice({
+        projectId: a.project.id,
+        workspaceVersion: a.project.workspace_version,
+        character: guest,
+        usedVoices,
+      });
+    if (frozenVoice?.voice_id) usedVoices.add(frozenVoice.voice_id);
+    return {
+      ...oldEntry,
+      ...(!oldEntry
+        ? {
+            characterId: guest.id,
+            name: guest.name,
+            description: guest.description,
+            personality: guest.personality,
+            imageUrl: guest.imageUrl,
+            referenceImages: [guest.imageUrl],
+            isGuest: true,
+            guestKey: guest.key,
+          }
+        : {}),
+      ...(frozenVoice ? { voice: frozenVoice } : {}),
+    } as FilmCast;
+  });
+  const cast = [...coreCast, ...guestCast];
   const canonicalFamily =
     a.project.name === "Bánh Bao & Đậu Đỏ" ||
     cast.some((character) => character.name === "Bố");
   const normalizedInputs = canonicalFamily
-    ? normalizeFamilyFatherTerms(inputs)
-    : inputs;
+    ? normalizeFamilyFatherTerms(remappedInputs)
+    : remappedInputs;
   const rows = normalizedInputs.map((raw, i) => {
     let s: ReturnType<typeof normalizeScene>;
     try {
@@ -347,7 +594,13 @@ export async function savePlan(
     if (error || !profile)
       throw new FilmError("Không tìm thấy phiên bản hồ sơ kênh.");
     try {
-      story = validateStory(story, profile.profile, ids);
+      // The story keeps guest keys (its writer only knew keys); cast rows use
+      // the plan-scoped guest ids.
+      const storyAllowed = [
+        ...ids.filter((id) => !guestUuids.has(id)),
+        ...guestByKey.keys(),
+      ];
+      story = validateStory(story, profile.profile, storyAllowed);
     } catch (e) {
       throw new FilmError(
         e instanceof Error ? e.message : "Câu chuyện không hợp lệ.",
@@ -395,7 +648,7 @@ export async function savePlan(
     p_project: a.project.id,
     p_actor: a.user.id,
     p_workspace: a.project.workspace_version,
-    p_id: old?.id || crypto.randomUUID(),
+    p_id: planId,
     p_expected: old?.version ?? null,
     p_plan: plan,
     p_scenes: rows,
@@ -405,6 +658,28 @@ export async function savePlan(
       error.message,
       error.message.includes("VERSION") ? 409 : 400,
     );
+  // Persist guest rows only after the plan exists (FK). The cast snapshot in
+  // the plan already carries the generated reference, so a later save can
+  // re-derive guests even if this best-effort write fails.
+  for (const guest of guestRowsToPersist) {
+    await a.admin
+      .from("film_guest_characters")
+      .upsert(
+        {
+          id: guest.id,
+          project_id: a.project.id,
+          plan_id: planId,
+          key: guest.key,
+          name: guest.name,
+          description: guest.description,
+          personality: guest.personality,
+          image_url: guest.image_url,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "plan_id,key" },
+      )
+      .select("id");
+  }
   if (old && old.caption !== plan.caption) {
     const { data: current } = await a.admin
       .from("video_plans")
@@ -660,6 +935,26 @@ export async function quotePlan(
   body: Record<string, unknown>,
 ) {
   checkVersion(a, body, plan);
+  // Coherence gate: never pay to render scenes that mix two revisions (fresh
+  // dialogue over the previous episode's prompts/cast). Fails before quotes.
+  try {
+    const { data: channelRow } = await a.admin
+      .from("channel_profiles")
+      .select("profile")
+      .eq("project_id", a.project.id)
+      .eq("workspace_version", a.project.workspace_version)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    assertMediaCoherent(
+      plan,
+      (channelRow?.profile as ChannelProfile | null) || null,
+    );
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    if (!message.includes("PLAN_MEDIA_INCOHERENT")) throw e;
+    throw new FilmError(coherenceMessage(message), 409);
+  }
   const stage = String(body.stage || "prepare");
   if (stage === "frame")
     throw new FilmError(

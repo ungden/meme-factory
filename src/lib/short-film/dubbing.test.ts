@@ -88,10 +88,8 @@ const audios = (): FilmTask[] =>
       }) as FilmTask,
   );
 describe("per-turn dubbing", () => {
-  it("keeps old plans unchanged but packs a new request using measured speech without speeding it up", () => {
-    expect(measuredDubbedScene(audios(), scene).scene).toBe(scene);
+  it("packs legacy and structured plans using measured speech without speeding it up", () => {
     const planned = structuredClone(scene);
-    planned.storyboard!.timingPolicy = "audio_driven_v1";
     const original = structuredClone(planned);
     const directed = measuredDubbedScene(audios(), planned);
     const schedule = dubbingSchedule(audios(), directed.scene);

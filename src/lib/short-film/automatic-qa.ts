@@ -80,16 +80,96 @@ export async function checkProductionScript(
   plan: FilmPlan,
   profile: ChannelProfile | null,
 ): Promise<Check> {
-  if (!plan.story || !profile)
+  // Hand-written plans can predate the channel-profile link. Keep the QA gate
+  // useful by deriving a minimal local profile from the frozen cast. A real
+  // project profile is always preferred; this fallback never writes data back.
+  const effectiveProfile: ChannelProfile = profile || {
+    version: 0,
+    positioning: "Family catalogue",
+    audience: "Khán giả gia đình",
+    tone: "Đời thường, tự nhiên, hài đảo vai",
+    roles: [
+      ...new Map(
+        plan.video_plan_scenes.flatMap((scene) =>
+          scene.cast_snapshot.map((member) => [
+            member.characterId,
+            {
+              characterId: member.characterId,
+              name: member.name,
+              personality: "Nhân vật cố định trong project.",
+            },
+          ] as const),
+        ),
+      ).values(),
+    ],
+    series: ["Bố mẹ bị bắt bài"],
+    avoid: [],
+    references: [],
+  };
+  // Plans authored directly in the short-film editor may intentionally have
+  // no writer metadata.  Build a small, deterministic story envelope from the
+  // saved scenes so the same AI quality gate still runs without rejecting a
+  // valid hand-written script.  This is only a QA view; it never mutates the
+  // frozen plan or invents dialogue/media.
+  const story = (plan.story as Story | null) || (() => {
+    const scenes = plan.video_plan_scenes || [];
+    const castIds = [
+      ...new Set(
+        scenes.flatMap((scene) =>
+          scene.cast_snapshot.map((member) => member.characterId),
+        ),
+      ),
+    ];
+    const last = Math.max(0, scenes.length - 1);
     return {
-      status: "needs_review",
-      issues: ["Kịch bản không có hồ sơ kênh có phiên bản."],
-      evidence: {},
-    };
-  const story = plan.story as Story;
+      profileVersion: effectiveProfile.version,
+      series: "Bố mẹ bị bắt bài",
+      situation: plan.brief || plan.title,
+      mechanism: "Đảo chiều người bị đánh giá",
+      outcome: plan.caption || "Một lần so sánh bị quay ngược lại người lớn.",
+      wants: castIds.map((characterId) => ({
+        characterId,
+        want: "Tham gia đúng vai trong câu chuyện.",
+      })),
+      beats: scenes.map((scene, index) => ({
+        purpose: index === 0 ? "hook" : index === last ? "payoff" : "turn",
+        description: scene.action || scene.dialogue || `Cảnh ${index + 1}`,
+      })),
+      payoff:
+        plan.caption || scenes[last]?.action || "Người bị so sánh đảo chiều câu hỏi.",
+      setup: plan.brief || plan.title,
+      caption: plan.caption || "",
+      dialogue: scenes
+        .filter((scene) => scene.dialogue && scene.speaker_character_id)
+        .map((scene) => ({
+          characterId: scene.speaker_character_id as string,
+          text: scene.dialogue as string,
+          action: scene.action || "",
+        })),
+    } satisfies Story;
+  })();
+  // Guest scenes store plan-scoped ids while the story keeps its writer keys;
+  // give the reviewer names for both so guest lines are verifiable cast.
+  const nameById = new Map<string, string>();
+  for (const scene of plan.video_plan_scenes)
+    for (const member of scene.cast_snapshot) {
+      nameById.set(member.characterId, member.name);
+      if (member.guestKey) nameById.set(member.guestKey, member.name);
+    }
+  const storyForCheck = {
+    ...story,
+    dialogue: story.dialogue.map((line) => ({
+      ...line,
+      speakerName: nameById.get(line.characterId) || line.characterId,
+    })),
+    wants: (story.wants || []).map((want) => ({
+      ...want,
+      speakerName: nameById.get(want.characterId) || want.characterId,
+    })),
+  };
   const check = await judge([
     {
-      text: `Bạn kiểm duyệt kịch bản family catalogue trước khi hệ thống chi tiền sinh media. Chỉ passed khi câu chuyện rõ trong 2 giây đầu, setup/payoff có quan hệ nhân quả, hành động khả thi theo tuổi/vóc dáng và mọi người nói thuộc cast. Đọc từng câu như lời nói thật: đánh dấu needs_review và nêu đúng câu nếu nó là văn hành chính, ẩn dụ/chơi chữ gượng, giải thích điều khán giả vừa thấy, hoặc có thể đổi người nói mà không đổi tính cách. Trẻ có thể nói như người lớn khi bắt chước để đạt một lợi ích trẻ con; không được nói câu đối đẹp hay bài học chỉ để kết êm. Payoff không được dựa vào việc nhân vật đột ngột quên hoặc làm trái điều vừa hiểu. Không bắt buộc cú lật, hòa giải hay reaction cuối; đánh dấu reaction thừa nếu bỏ nó thì kết hay hơn. Đặc biệt đánh dấu needs_review nếu trẻ nhỏ phải cõng/nâng trẻ lớn hơn, hành động nguy hiểm, lặp mô-típ gần đây, hoặc nhiều câu liên tiếp không làm tình thế thay đổi. Không sửa kịch bản.\nHỒ SƠ: ${JSON.stringify(profile)}\nKỊCH BẢN: ${JSON.stringify(story)}\nCẢNH: ${JSON.stringify(plan.video_plan_scenes.map((s) => ({ speaker: s.speaker_character_id, storyboard: s.storyboard, dialogue: s.dialogue, action: s.action, cast: s.cast_snapshot.map((c) => c.characterId) })))}`,
+      text: `Bạn kiểm duyệt kịch bản family catalogue trước khi hệ thống chi tiền sinh media. Chỉ passed khi câu chuyện rõ trong 2 giây đầu, setup/payoff có quan hệ nhân quả, hành động khả thi theo tuổi/vóc dáng và mọi người nói thuộc cast. Đọc từng câu như lời nói thật: đánh dấu needs_review và nêu đúng câu nếu nó là văn hành chính, ẩn dụ/chơi chữ gượng, giải thích điều khán giả vừa thấy, hoặc có thể đổi người nói mà không đổi tính cách. Trẻ có thể nói như người lớn khi bắt chước để đạt một lợi ích trẻ con; không được nói câu đối đẹp hay bài học chỉ để kết êm. Payoff không được dựa vào việc nhân vật đột ngột quên hoặc làm trái điều vừa hiểu. Không bắt buộc cú lật, hòa giải hay reaction cuối; đánh dấu reaction thừa nếu bỏ nó thì kết hay hơn. Đặc biệt đánh dấu needs_review nếu trẻ nhỏ phải cõng/nâng trẻ lớn hơn, hành động nguy hiểm, lặp mô-típ gần đây, hoặc nhiều câu liên tiếp không làm tình thế thay đổi. Không sửa kịch bản.\nHỒ SƠ: ${JSON.stringify(effectiveProfile)}\nKỊCH BẢN: ${JSON.stringify(storyForCheck)}\nCẢNH: ${JSON.stringify(plan.video_plan_scenes.map((s) => ({ speaker: s.speaker_character_id, speakerName: nameById.get(s.speaker_character_id || "") || null, storyboard: s.storyboard, dialogue: s.dialogue, action: s.action, cast: s.cast_snapshot.map((c) => ({ id: c.characterId, name: c.name })) })))}`,
     },
   ]);
   const directions = plan.video_plan_scenes.map((scene) =>
@@ -110,7 +190,11 @@ export async function checkProductionScript(
         ? "needs_review"
         : check.status,
     issues: [...check.issues, ...directionIssues].slice(0, 8),
-    evidence: { ...check.evidence, performanceCheck: checks },
+    evidence: {
+      ...check.evidence,
+      performanceCheck: checks,
+      profileSource: profile ? "project" : "cast_fallback",
+    },
   };
 }
 

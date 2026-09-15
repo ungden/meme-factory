@@ -162,7 +162,7 @@ describe("stale media dependency handling", () => {
         scene_version: 1,
         input: {},
       },
-    ] as import("./contracts").FilmTask[];
+    ] as unknown as import("./contracts").FilmTask[];
     expect(currentSceneTask(rows, s, "video", "fixed")).toBeUndefined();
     expect(currentSceneTask(rows, s, "image", "fixed")?.id).toBe("new-image");
   });
@@ -191,8 +191,27 @@ describe("stale media dependency handling", () => {
         created_at: "2026-09-13T08:00:00.000Z",
         input: {},
       },
-    ] as import("./contracts").FilmTask[];
+    ] as unknown as import("./contracts").FilmTask[];
     expect(currentSceneTask(rows, s, "image", "fixed")?.id).toBe("approved");
+  });
+
+  it("recognizes legacy_start images as the current reference", async () => {
+    const { currentSceneTask } = await import("./contracts");
+    const s = { id: "scene", version: 1, dialogue: "" } as FilmScene;
+    const rows = [
+      {
+        id: "legacy-image",
+        kind: "image",
+        status: "completed",
+        scene_id: "scene",
+        scene_version: 1,
+        approved_at: "2026-09-15T08:00:00.000Z",
+        input: { referenceImageId: "legacy_start" },
+      },
+    ] as unknown as import("./contracts").FilmTask[];
+    expect(currentSceneTask(rows, s, "image", "dubbed")?.id).toBe(
+      "legacy-image",
+    );
   });
 });
 
