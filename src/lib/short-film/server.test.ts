@@ -143,3 +143,166 @@ describe("modelPrice", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * quotePlan decides every charge in the product. These cover its refusals —
+ * the parts that protect money — rather than the happy path, which needs a
+ * whole plan's worth of media state.
+ */
+describe("quotePlan gates", () => {
+  const scene = {
+    id: "scene-1",
+    version: 1,
+    scene_index: 0,
+    dialogue: "",
+    image_prompt: "",
+    motion_prompt: "",
+    cast_snapshot: [],
+    storyboard: null,
+    performance_direction: null,
+  };
+  const plan = {
+    id: "plan-1",
+    version: 2,
+    format: "16:9",
+    resolution: "720p",
+    audio_mode: "dubbed",
+    video_model: "bytedance/seedance-2.5/text-to-video",
+    script_review: { version: 2, reviewed_at: "2026-09-12T00:00:00Z" },
+    story: null,
+    video_plan_scenes: [scene],
+  };
+
+  /**
+   * Admin double for channel_profiles (count + latest) and production runs.
+   * A PostgREST builder is both chainable AND awaitable, so this one is too —
+   * the head/count query awaits the chain itself rather than a terminal call.
+   */
+  function quoteAdmin(options: { profileCount?: number; runPassed?: boolean } = {}) {
+    return {
+      rpc: vi.fn(),
+      from: (table: string) => {
+        const settled = {
+          count: options.profileCount ?? 0,
+          data: null as unknown,
+          error: null,
+        };
+        const builder: Record<string, unknown> = {
+          select: () => builder,
+          eq: () => builder,
+          order: () => builder,
+          limit: () => builder,
+          maybeSingle: async () =>
+            table === "short_film_production_runs"
+              ? {
+                  data: options.runPassed
+                    ? { id: "run-1", snapshot: { scriptCheck: "passed" } }
+                    : null,
+                  error: null,
+                }
+              : { data: null, error: null },
+          then: (resolve: (value: unknown) => unknown) => resolve(settled),
+        };
+        return builder;
+      },
+    };
+  }
+
+  function quoteAccess(options?: { profileCount?: number; runPassed?: boolean }) {
+    return {
+      project: { id: "project-1", workspace_version: 3 },
+      user: { id: "user-1" },
+      admin: quoteAdmin(options),
+    } as never;
+  }
+
+  const body = (extra: Record<string, unknown> = {}) => ({
+    workspaceVersion: 3,
+    expectedVersion: 2,
+    stage: "prepare",
+    ...extra,
+  });
+
+  it("refuses a stale workspace before touching anything else", async () => {
+    const { quotePlan } = await import("./server");
+    await expect(
+      quotePlan(quoteAccess(), plan as never, body({ workspaceVersion: 2 })),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("refuses a plan version the caller did not expect", async () => {
+    const { quotePlan } = await import("./server");
+    await expect(
+      quotePlan(quoteAccess(), plan as never, body({ expectedVersion: 1 })),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  // The first/last-frame route is gone; asking for it must say so, not 500.
+  it("answers 410 for the retired frame stage", async () => {
+    const { quotePlan } = await import("./server");
+    await expect(
+      quotePlan(quoteAccess(), plan as never, body({ stage: "frame" })),
+    ).rejects.toMatchObject({ status: 410 });
+  });
+
+  it.each(["prepare", "video"])(
+    "refuses stage %s while the plan is still native audio",
+    async (stage) => {
+      const { quotePlan } = await import("./server");
+      await expect(
+        quotePlan(
+          quoteAccess(),
+          { ...plan, audio_mode: "native" } as never,
+          body({ stage }),
+        ),
+      ).rejects.toMatchObject({ status: 409 });
+    },
+  );
+
+  // A project with a channel profile is a managed series: its script has to be
+  // reviewed before any media is paid for.
+  it("refuses unreviewed media prep when the project has a channel profile", async () => {
+    const { quotePlan } = await import("./server");
+    await expect(
+      quotePlan(
+        quoteAccess({ profileCount: 1 }),
+        { ...plan, script_review: null } as never,
+        body(),
+      ),
+    ).rejects.toThrow(/Duyệt bản kịch bản/);
+  });
+
+  it("accepts an automatic run whose script check already passed", async () => {
+    const { quotePlan } = await import("./server");
+    // Gets past the review gate, then stops for a different reason.
+    await expect(
+      quotePlan(
+        quoteAccess({ profileCount: 1, runPassed: true }),
+        { ...plan, script_review: null } as never,
+        body({ productionRunId: "run-1" }),
+      ),
+    ).rejects.not.toThrow(/Duyệt bản kịch bản/);
+  });
+
+  it("refuses when the selected scene ids match nothing in the plan", async () => {
+    const { quotePlan } = await import("./server");
+    await expect(
+      quotePlan(quoteAccess(), plan as never, body({ sceneIds: ["ghost"] })),
+    ).rejects.toThrow(/Chọn cảnh/);
+  });
+
+  // The coherence gate stops a plan that mixes a new script's dialogue with the
+  // previous episode's prompts and cast.
+  it("refuses an incoherent plan with the per-scene explanation", async () => {
+    const { quotePlan } = await import("./server");
+    const incoherent = {
+      ...plan,
+      video_plan_scenes: [
+        { ...scene, dialogue: "Có thoại", speaker_character_id: "nobody" },
+      ],
+    };
+    await expect(
+      quotePlan(quoteAccess(), incoherent as never, body()),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+});
