@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { access, readPlan, quotePlan, fail } from "@/lib/short-film/server";
+import { access, readPlan, fail } from "@/lib/short-film/server";
+import { quotePlan } from "@/lib/short-film/quote";
 export async function POST(
   r: NextRequest,
   { params }: { params: Promise<{ id: string; planId: string }> },

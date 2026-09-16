@@ -224,14 +224,14 @@ describe("quotePlan gates", () => {
   });
 
   it("refuses a stale workspace before touching anything else", async () => {
-    const { quotePlan } = await import("./server");
+    const { quotePlan } = await import("./quote");
     await expect(
       quotePlan(quoteAccess(), plan as never, body({ workspaceVersion: 2 })),
     ).rejects.toMatchObject({ status: 409 });
   });
 
   it("refuses a plan version the caller did not expect", async () => {
-    const { quotePlan } = await import("./server");
+    const { quotePlan } = await import("./quote");
     await expect(
       quotePlan(quoteAccess(), plan as never, body({ expectedVersion: 1 })),
     ).rejects.toMatchObject({ status: 409 });
@@ -239,7 +239,7 @@ describe("quotePlan gates", () => {
 
   // The first/last-frame route is gone; asking for it must say so, not 500.
   it("answers 410 for the retired frame stage", async () => {
-    const { quotePlan } = await import("./server");
+    const { quotePlan } = await import("./quote");
     await expect(
       quotePlan(quoteAccess(), plan as never, body({ stage: "frame" })),
     ).rejects.toMatchObject({ status: 410 });
@@ -248,7 +248,7 @@ describe("quotePlan gates", () => {
   it.each(["prepare", "video"])(
     "refuses stage %s while the plan is still native audio",
     async (stage) => {
-      const { quotePlan } = await import("./server");
+      const { quotePlan } = await import("./quote");
       await expect(
         quotePlan(
           quoteAccess(),
@@ -262,7 +262,7 @@ describe("quotePlan gates", () => {
   // A project with a channel profile is a managed series: its script has to be
   // reviewed before any media is paid for.
   it("refuses unreviewed media prep when the project has a channel profile", async () => {
-    const { quotePlan } = await import("./server");
+    const { quotePlan } = await import("./quote");
     await expect(
       quotePlan(
         quoteAccess({ profileCount: 1 }),
@@ -273,7 +273,7 @@ describe("quotePlan gates", () => {
   });
 
   it("accepts an automatic run whose script check already passed", async () => {
-    const { quotePlan } = await import("./server");
+    const { quotePlan } = await import("./quote");
     // Gets past the review gate, then stops for a different reason.
     await expect(
       quotePlan(
@@ -285,7 +285,7 @@ describe("quotePlan gates", () => {
   });
 
   it("refuses when the selected scene ids match nothing in the plan", async () => {
-    const { quotePlan } = await import("./server");
+    const { quotePlan } = await import("./quote");
     await expect(
       quotePlan(quoteAccess(), plan as never, body({ sceneIds: ["ghost"] })),
     ).rejects.toThrow(/Chọn cảnh/);
@@ -294,7 +294,7 @@ describe("quotePlan gates", () => {
   // The coherence gate stops a plan that mixes a new script's dialogue with the
   // previous episode's prompts and cast.
   it("refuses an incoherent plan with the per-scene explanation", async () => {
-    const { quotePlan } = await import("./server");
+    const { quotePlan } = await import("./quote");
     const incoherent = {
       ...plan,
       video_plan_scenes: [
@@ -311,7 +311,7 @@ describe("perScene", () => {
   const scene = (id: string) => ({ id }) as never;
 
   it("runs the scenes concurrently rather than one after another", async () => {
-    const { perScene } = await import("./server");
+    const { perScene } = await import("./quote");
     let running = 0;
     let peak = 0;
     await perScene([scene("a"), scene("b"), scene("c")], async () => {
@@ -325,7 +325,7 @@ describe("perScene", () => {
   });
 
   it("flattens results in scene order", async () => {
-    const { perScene } = await import("./server");
+    const { perScene } = await import("./quote");
     const result = await perScene(
       [scene("a"), scene("b"), scene("c")],
       async (s) => {
@@ -343,7 +343,7 @@ describe("perScene", () => {
    * could report "Cảnh 1" or "Cảnh 3" depending on the network.
    */
   it("reports the first failure by scene order, not by timing", async () => {
-    const { perScene } = await import("./server");
+    const { perScene } = await import("./quote");
     await expect(
       perScene([scene("a"), scene("b"), scene("c")], async (s) => {
         if (s.id === "c") throw new Error("Cảnh 3 hỏng");
@@ -357,7 +357,7 @@ describe("perScene", () => {
   });
 
   it("returns an empty list when every scene contributes nothing", async () => {
-    const { perScene } = await import("./server");
+    const { perScene } = await import("./quote");
     expect(await perScene([scene("a"), scene("b")], async () => [])).toEqual([]);
   });
 });

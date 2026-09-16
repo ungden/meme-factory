@@ -9,7 +9,8 @@ const { quotePlan, tasksForPlan, readPlan, savePlan } = vi.hoisted(() => ({
   readPlan: vi.fn(),
   savePlan: vi.fn(),
 }));
-vi.mock("./server", () => ({ quotePlan, tasksForPlan, readPlan, savePlan }));
+vi.mock("./server", () => ({ tasksForPlan, readPlan, savePlan }));
+vi.mock("./quote", () => ({ quotePlan }));
 vi.mock("./automatic-qa", () => ({
   checkProductionScript: vi.fn(),
   checkTechnicalTask: vi.fn(),
