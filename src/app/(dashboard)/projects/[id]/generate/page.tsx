@@ -3,6 +3,13 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { IS_MOCK_MODE, useProject, useCharacters, useMemes, generateContent, generateImage } from "@/lib/use-store";
+import {
+  MAX_REF_IMAGES,
+  MAX_REF_SIZE_MB,
+  buildAutoVisualPrompt,
+  isAcceptableReferenceFile,
+  type ContentVariation,
+} from "./_lib/visual-prompt";
 import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
@@ -17,31 +24,6 @@ import { POINT_COSTS } from "@/lib/point-pricing";
 import { trackEvent } from "@/lib/analytics";
 import { compressImageToBase64 } from "@/lib/image-utils";
 import { useDeferredTask } from "@/lib/use-deferred-task";
-
-interface ContentVariation {
-  content: MemeContent;
-  suggested_characters: (SelectedCharacter & {
-    reasoning: string;
-    pose_id: string;
-    pose_name: string;
-    suggested_emotion: string;
-  })[];
-  headline: string;
-  subtext?: string;
-  caption?: string;
-  image_prompt?: string;
-  text_rendering_notes?: string;
-  tone: string;
-  text_position: string;
-  visual_direction?: {
-    scene?: string;
-    character_styling?: string;
-    composition?: string;
-    camera?: string;
-    lighting?: string;
-    art_style?: string;
-  };
-}
 
 export default function GeneratePage() {
   const params = useParams();
@@ -109,8 +91,6 @@ export default function GeneratePage() {
     description: "",
     personality: "",
   });
-  const MAX_REF_IMAGES = 4;
-  const MAX_REF_SIZE_MB = 5;
 
   const fromMemeId = searchParams.get("fromMeme");
   const fromMode = searchParams.get("mode");
@@ -309,8 +289,7 @@ export default function GeneratePage() {
     if (remaining <= 0) return;
 
     const validFiles = files
-      .filter((f) => f.type.startsWith("image/"))
-      .filter((f) => f.size <= MAX_REF_SIZE_MB * 1024 * 1024)
+      .filter(isAcceptableReferenceFile)
       .slice(0, remaining);
 
     const newImages = await Promise.all(
@@ -341,8 +320,7 @@ export default function GeneratePage() {
     if (remaining <= 0) return;
 
     const validFiles = files
-      .filter((f) => f.type.startsWith("image/"))
-      .filter((f) => f.size <= MAX_REF_SIZE_MB * 1024 * 1024)
+      .filter(isAcceptableReferenceFile)
       .slice(0, remaining);
 
     const newImages = await Promise.all(
@@ -724,23 +702,6 @@ export default function GeneratePage() {
     setTaggedCharacterIds(new Set(selectedChars.map((c) => c.id)));
     setAiCustomPrompt(parsedAiCustomPrompt);
     setStep(3);
-  };
-
-  const buildAutoVisualPrompt = (v: ContentVariation) => {
-    const d = v.visual_direction;
-    const parts = [
-      v.image_prompt ? `[IMAGE BRIEF - chi mo ta phan hinh anh, KHONG phai text render]\n${v.image_prompt}` : "",
-      d?.scene ? `Bối cảnh: ${d.scene}` : "",
-      d?.character_styling ? `Nhân vật/Thần thái/Outfit: ${d.character_styling}` : "",
-      d?.composition ? `Bố cục: ${d.composition}` : "",
-      d?.camera ? `Góc máy: ${d.camera}` : "",
-      d?.lighting ? `Ánh sáng: ${d.lighting}` : "",
-      d?.art_style ? `Phong cách: ${d.art_style}` : "",
-      v.text_rendering_notes
-        ? `[TEXT RENDERING NOTES - chi huong dan render text tren anh]\n${v.text_rendering_notes}`
-        : "",
-    ].filter(Boolean);
-    return parts.join("\n");
   };
 
   // Phase 3: Generate meme with AI
