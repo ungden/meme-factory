@@ -45,7 +45,7 @@ export default function GalleryPage() {
   const toast = useToast();
 
   const { project } = useProject(projectId);
-  const { memes, loading, remove, reload } = useMemes(projectId);
+  const { memes, loading, hasMore, loadingMore, loadMore, remove, reload } = useMemes(projectId);
   const [selectedMeme, setSelectedMeme] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
@@ -357,7 +357,7 @@ export default function GalleryPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold th-text-primary">Thư viện</h1>
-            <p className="th-text-tertiary mt-1">{memes.length} ảnh · {videoOutputs.length} video đang hiển thị</p>
+            <p className="th-text-tertiary mt-1">{visibleMemes.length} ảnh · {videoOutputs.length} video đang hiển thị{visibleMemes.length !== memes.length ? ` (lọc từ ${memes.length} ảnh)` : ""}</p>
           </div>
           {!loading && memes.length > 0 && !selectionMode && (
             <Button variant="outline" onClick={() => setSelectionMode(true)}>
@@ -384,7 +384,7 @@ export default function GalleryPage() {
         {/* Stats */}
         {!loading && memes.length > 0 && (
           <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Tổng đầu ra" value={String(memes.length)} hint={`+${memesThisMonth} trong tháng này`} />
+            <StatCard label="Tổng số ảnh" value={String(memes.length)} hint={`+${memesThisMonth} trong tháng này`} />
             <StatCard
               label="Ghép chữ tại chỗ"
               value={String(composedCount)}
@@ -393,7 +393,7 @@ export default function GalleryPage() {
             <StatCard
               label="Có watermark"
               value={`${Math.round((watermarkedCount / memes.length) * 100)}%`}
-              hint={`${watermarkedCount} / ${memes.length} đầu ra`}
+              hint={`${watermarkedCount} / ${memes.length} ảnh`}
             />
             <StatCard
               label="Mascot dùng nhiều nhất"
@@ -552,12 +552,25 @@ export default function GalleryPage() {
             ))}
           </div>
         ) : memes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-20 h-20 th-bg-card rounded-2xl flex items-center justify-center mb-4">
-              <ImageIcon size={32} className="th-text-muted" />
+          videoOutputs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="w-20 h-20 th-bg-card rounded-2xl flex items-center justify-center mb-4">
+                <ImageIcon size={32} className="th-text-muted" />
+              </div>
+              <h3 className="text-lg font-medium th-text-secondary">Thư viện còn trống</h3>
+              <p className="th-text-muted mt-1">Ảnh và phim bạn tạo sẽ xuất hiện ở đây</p>
             </div>
-            <h3 className="text-lg font-medium th-text-secondary">Chưa có ảnh nào</h3>
-            <p className="th-text-muted mt-1">Ảnh từ Nội dung nhanh và Dựng cảnh sẽ xuất hiện ở đây</p>
+          ) : (
+            // Dự án chỉ có phim vẫn là dự án có nội dung; đừng nói "chưa có gì".
+            <div className="flex flex-col items-center justify-center py-12">
+              <h3 className="text-lg font-medium th-text-secondary">Chưa có ảnh nào</h3>
+              <p className="th-text-muted mt-1">Phim của bạn đang ở phần phía trên.</p>
+            </div>
+          )
+        ) : visibleMemes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16">
+            <h3 className="text-lg font-medium th-text-secondary">Không có ảnh nào khớp bộ lọc</h3>
+            <p className="th-text-muted mt-1">Hãy bỏ bớt bộ lọc hoặc chọn bộ sưu tập khác.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -708,6 +721,15 @@ export default function GalleryPage() {
                 </Card>
               );
             })}
+          </div>
+        )}
+
+        {/* Cùng mẫu offset + "Tải thêm" mà màn phim ngắn đang dùng. */}
+        {!loading && hasMore && visibleMemes.length > 0 && (
+          <div className="mt-6 flex justify-center">
+            <Button variant="outline" loading={loadingMore} onClick={loadMore}>
+              Tải thêm ảnh cũ hơn
+            </Button>
           </div>
         )}
 

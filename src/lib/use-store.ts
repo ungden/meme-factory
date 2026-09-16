@@ -395,8 +395,17 @@ export function useCharacters(projectRef: string) {
 // ============================================
 // MEMES
 // ============================================
+/**
+ * Một dự án chạy lâu có thể có hàng nghìn ảnh; nạp hết trong một lượt làm trang
+ * thư viện nặng dần mà không có giới hạn nào. Nạp theo trang, giữ nguyên mẫu
+ * offset + "Tải thêm" mà màn phim ngắn đang dùng.
+ */
+export const MEME_PAGE_SIZE = 60;
+
 export function useMemes(projectRef: string, enabled = true) {
   const [memes, setMemes] = useState<Meme[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -427,11 +436,43 @@ export function useMemes(projectRef: string, enabled = true) {
       .from("memes")
       .select("*")
       .eq("project_id", projectId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(0, MEME_PAGE_SIZE - 1);
     if (error) console.error("Failed to load memes:", error.message);
     setMemes(data || []);
+    setHasMore((data?.length || 0) === MEME_PAGE_SIZE);
     setLoading(false);
   }, [projectRef, enabled]);
+
+  const loadMore = useCallback(async () => {
+    if (IS_MOCK_MODE) return;
+    const projectId = await resolveProjectIdCached(projectRef);
+    if (!projectId) return;
+    setLoadingMore(true);
+    try {
+      const supabase = createClient();
+      const offset = memes.length;
+      const { data, error } = await supabase
+        .from("memes")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + MEME_PAGE_SIZE - 1);
+      if (error) {
+        console.error("Failed to load more memes:", error.message);
+        return;
+      }
+      const page = data || [];
+      // Gộp theo id: một ảnh mới được tạo giữa hai lần nạp sẽ đẩy trang dịch đi.
+      setMemes((current) => {
+        const seen = new Set(current.map((meme) => meme.id));
+        return [...current, ...(page as Meme[]).filter((meme) => !seen.has(meme.id))];
+      });
+      setHasMore(page.length === MEME_PAGE_SIZE);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [projectRef, memes.length]);
 
   useDeferredTask(load);
 
@@ -499,7 +540,7 @@ export function useMemes(projectRef: string, enabled = true) {
     await load();
   }, [load]);
 
-  return { memes, loading, saveMeme, remove, reload: load };
+  return { memes, loading, hasMore, loadingMore, loadMore, saveMeme, remove, reload: load };
 }
 
 // ============================================

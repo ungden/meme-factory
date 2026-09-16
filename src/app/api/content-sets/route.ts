@@ -13,9 +13,25 @@ export async function GET(request: NextRequest) {
   if (!projectRef) return NextResponse.json({ error: "Thiếu project." }, { status: 400 });
   const { data: project } = await projectForRef(supabase, projectRef);
   if (!project) return NextResponse.json({ error: "Không tìm thấy dự án." }, { status: 404 });
-  const { data, error } = await supabase.from("content_sets").select("*, content_outputs(*)").eq("project_id", project.id).order("updated_at", { ascending: false }).limit(24);
+  // 24 bộ mới nhất, không phân trang, nghĩa là phim cũ lặng lẽ biến mất khỏi
+  // thư viện. Vẫn giữ mặc định cũ để không đổi hành vi trang đầu, nhưng cho
+  // phép đi tiếp bằng offset và báo còn dữ liệu hay không.
+  const limit = Math.min(
+    Math.max(Number(request.nextUrl.searchParams.get("limit")) || 24, 1),
+    100,
+  );
+  const offset = Math.max(Number(request.nextUrl.searchParams.get("offset")) || 0, 0);
+  const { data, error } = await supabase
+    .from("content_sets")
+    .select("*, content_outputs(*)")
+    .eq("project_id", project.id)
+    .order("updated_at", { ascending: false })
+    .range(offset, offset + limit - 1);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ contentSets: data ?? [] });
+  return NextResponse.json({
+    contentSets: data ?? [],
+    nextOffset: (data?.length ?? 0) === limit ? offset + limit : null,
+  });
 }
 
 export async function POST(request: NextRequest) {
