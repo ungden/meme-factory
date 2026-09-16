@@ -1,5 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { access, fail, FilmError } from "@/lib/short-film/server";
+import { errorCode, humanizeError } from "@/lib/error-messages";
+
+/** Mã lỗi của control_film_production_run_v2 và mã HTTP tương ứng. */
+const CONTROL_STATUS: Record<string, number> = {
+  RUN_NOT_FOUND: 404,
+  RUN_CONTROL_FORBIDDEN: 403,
+  OWNER_REQUIRED: 403,
+  WORKSPACE_FORBIDDEN: 403,
+  RUN_VERSION_CONFLICT: 409,
+  RUN_ACTION_INVALID: 409,
+  INVALID_BUDGET: 400,
+  BUDGET_BELOW_COMMITTED: 400,
+};
 
 export async function GET(
   request: NextRequest,
@@ -46,6 +59,19 @@ export async function PATCH(
     if (runError) throw runError;
     if (!run) throw new FilmError("Không tìm thấy lượt sản xuất.", 404);
     const action = String(body.action || "");
+    // Hạn mức phải đi theo cặp. Trước đây chỉ gửi một trong hai trường thì cả
+    // phép kiểm lẫn `hasBudgetUpdate` đều bị bỏ qua, nên lượt được tiếp tục
+    // bằng hạn mức CŨ và API vẫn trả 200: người dùng tưởng đã nâng ngân sách
+    // rồi lại bị chặn ngay lần sau.
+    const budgetTouched =
+      body.maxPointsPerFilm !== undefined || body.maxPointsPerDay !== undefined;
+    const hasBudgetUpdate =
+      Number.isInteger(body.maxPointsPerFilm) &&
+      Number.isInteger(body.maxPointsPerDay);
+    if (budgetTouched && !hasBudgetUpdate)
+      throw new FilmError(
+        "Cần nhập cả hạn mức mỗi phim và hạn mức mỗi ngày, đều là số nguyên.",
+      );
     if (
       action === "pause" &&
       ["queued", "scripting", "running"].includes(run.status)
@@ -55,16 +81,19 @@ export async function PATCH(
       action === "resume" &&
       ["paused", "needs_review", "budget_blocked"].includes(run.status)
     ) {
-      if (
-        Number.isInteger(body.maxPointsPerFilm) &&
-        Number.isInteger(body.maxPointsPerDay)
-      ) {
+      if (hasBudgetUpdate) {
         if (
           body.maxPointsPerFilm <= 0 ||
           body.maxPointsPerDay < body.maxPointsPerFilm
         )
           throw new FilmError("Hạn mức không hợp lệ.");
-        if (a.project.user_id !== a.user.id)
+        // Chỉ việc TĂNG hạn mức mới cần chủ dự án — đúng như RPC quy định.
+        // Trước đây mọi payload hạn mức đều bị chặn, kể cả khi thành viên chỉ
+        // muốn hạ trần cho an toàn.
+        const raising =
+          body.maxPointsPerFilm > run.max_points_per_film ||
+          body.maxPointsPerDay > run.max_points_per_day;
+        if (raising && a.project.user_id !== a.user.id)
           throw new FilmError("Chỉ chủ dự án được tăng hạn mức.", 403);
       }
     } else if (
@@ -76,9 +105,6 @@ export async function PATCH(
         "Không thể thực hiện thao tác ở trạng thái hiện tại.",
         409,
       );
-    const hasBudgetUpdate =
-      Number.isInteger(body.maxPointsPerFilm) &&
-      Number.isInteger(body.maxPointsPerDay);
     const { data, error } = await a.admin.rpc("control_film_production_run_v2", {
       p_id: run.id,
       p_actor: a.user.id,
@@ -88,7 +114,13 @@ export async function PATCH(
       p_max_film: action === "resume" && hasBudgetUpdate ? body.maxPointsPerFilm : null,
       p_max_day: action === "resume" && hasBudgetUpdate ? body.maxPointsPerDay : null,
     });
-    if (error) throw new FilmError(error.message, error.message.includes("CONFLICT") ? 409 : 400);
+    // Tra mã chính xác thay vì đoán bằng `includes("CONFLICT")`, vốn bỏ sót
+    // RUN_NOT_FOUND / OWNER_REQUIRED và gán nhầm 400 cho chúng.
+    if (error)
+      throw new FilmError(
+        humanizeError(error),
+        CONTROL_STATUS[errorCode(error) || ""] ?? 400,
+      );
     return NextResponse.json({ run: data });
   } catch (error) {
     return fail(error);
