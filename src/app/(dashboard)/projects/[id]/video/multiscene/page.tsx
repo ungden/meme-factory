@@ -186,17 +186,27 @@ const phaseLabels: Record<string, string> = {
   clip_check: "Kiểm tra cảnh",
   render: "Ghép phim",
   ready_review: "Sẵn sàng duyệt",
+  // Các pha kiểm tra phải khai báo thẳng. Suy ra bằng `"Kiểm tra " + labels[kind]`
+  // hỏng khi nhãn gốc đã là một cụm động từ: transcribe = "Kiểm tra lời" cho ra
+  // "Kiểm tra kiểm tra lời".
+  image_check: "Kiểm tra ảnh tham chiếu",
+  tts_check: "Kiểm tra giọng nói",
+  video_check: "Kiểm tra chuyển động",
+  dub_check: "Kiểm tra lồng tiếng",
+  lip_sync_check: "Kiểm tra đồng bộ môi",
+  transcribe_check: "Kiểm tra lời thoại",
+  render_check: "Kiểm tra bản ghép",
+  voice_design_check: "Kiểm tra giọng thiết kế",
+  frame_check: "Kiểm tra khung nối tiếp",
 };
 function displayPhase(phase: string) {
-  if (phaseLabels[phase]) return phaseLabels[phase];
-  if (phase.endsWith("_check")) {
-    const kind = phase.slice(0, -6);
-    return `Kiểm tra ${(labels[kind] || kind).toLocaleLowerCase("vi")}`;
-  }
-  return "Đang hoàn thiện";
+  return phaseLabels[phase] || "Đang hoàn thiện";
 }
 const statusLabels: Record<string, string> = {
   queued: "Đã nhận",
+  // Thiếu mục này thì header lượt chạy nói "Đang xử lý" trong khi thẻ công đoạn
+  // của cùng trạng thái lại nói "Đang đối soát".
+  reconciling: "Đang đối soát",
   scripting: "Đang viết kịch bản",
   running: "Đang sản xuất",
   paused: "Đã tạm dừng",

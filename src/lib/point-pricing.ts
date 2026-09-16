@@ -35,6 +35,22 @@ export const POINT_COSTS: Record<PointAction, number> = {
   meme: POINT_ACTION_QUOTES.meme.customerPoints,
 };
 
+/**
+ * Nhãn loại giao dịch dùng chung. Mỗi màn hình từng tự khai một bảng rồi rơi về
+ * `transaction.type` khi không khớp, nên người dùng thấy "topup"/"payment".
+ */
+export const TRANSACTION_LABELS: Record<string, string> = {
+  topup: "Nạp tiền",
+  payment: "Thanh toán",
+  refund: "Hoàn tiền",
+};
+
+export const TRANSACTION_FALLBACK_LABEL = "Giao dịch khác";
+
+export function transactionLabel(type: string) {
+  return TRANSACTION_LABELS[type] || TRANSACTION_FALLBACK_LABEL;
+}
+
 export const POINT_LABELS: Record<PointAction, string> = {
   content: "Tạo nội dung AI",
   character: "Tạo ảnh nhân vật",

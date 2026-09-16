@@ -15,6 +15,7 @@ import {
   POINT_COSTS,
   POINT_LABELS,
   formatVND,
+  transactionLabel,
   type PointPackage,
 } from "@/lib/point-pricing";
 import {
@@ -422,12 +423,6 @@ function PointCostBadge({ icon, label, cost }: { icon: React.ReactNode; label: s
 function TransactionRow({ transaction }: { transaction: Transaction }) {
   const isCredit = transaction.type === "topup" || transaction.type === "refund";
 
-  const typeLabels: Record<string, string> = {
-    topup: "Nạp tiền",
-    payment: "Thanh toán",
-    refund: "Hoàn tiền",
-  };
-
   const statusIcons: Record<string, React.ReactNode> = {
     completed: <CheckCircle size={16} style={{ color: "var(--success)" }} />,
     pending: <Clock size={16} style={{ color: "var(--warning)" }} />,
@@ -469,7 +464,7 @@ function TransactionRow({ transaction }: { transaction: Transaction }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className="text-sm font-medium th-text-primary">
-            {typeLabels[transaction.type] || transaction.type}
+            {transactionLabel(transaction.type)}
           </p>
           {statusIcons[transaction.status]}
         </div>

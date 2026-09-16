@@ -10,6 +10,7 @@ import Sidebar from "@/components/layout/sidebar";
 import Card, { CardContent } from "@/components/ui/card";
 import Button from "@/components/ui/button";
 import { invalidateClientCache } from "@/lib/client-fetch";
+import { transactionLabel } from "@/lib/point-pricing";
 
 interface ProjectWalletTransaction {
   id: string;
@@ -100,8 +101,8 @@ export default function ProjectWalletPage() {
         <Card className="mb-6">
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold th-text-primary">Số dư points</h2>
-              <span className="text-sm th-text-muted">{projectPoints.toLocaleString("vi-VN")} pts (cá nhân: {personalPoints.toLocaleString("vi-VN")} pts)</span>
+              <h2 className="text-lg font-semibold th-text-primary">Số dư điểm</h2>
+              <span className="text-sm th-text-muted">{projectPoints.toLocaleString("vi-VN")} điểm (cá nhân: {personalPoints.toLocaleString("vi-VN")} điểm)</span>
             </div>
 
             <div className="space-y-2">
@@ -112,7 +113,7 @@ export default function ProjectWalletPage() {
                     onClick={() => setDepositPoints(String(v))}
                     className="px-3 py-1.5 rounded-lg text-xs th-bg-tertiary th-text-secondary"
                   >
-                    {v} pts
+                    {v} điểm
                   </button>
                 ))}
               </div>
@@ -126,7 +127,7 @@ export default function ProjectWalletPage() {
                   style={{ border: "1px solid var(--border-primary)" }}
                 />
                 <Button onClick={deposit} disabled={busy || !depositPoints || Number(depositPoints) <= 0}>
-                  Deposit points
+                  Nạp điểm vào dự án
                 </Button>
               </div>
             </div>
@@ -140,10 +141,10 @@ export default function ProjectWalletPage() {
             {projectTx.map((tx) => (
               <div key={tx.id} className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: "var(--bg-tertiary)" }}>
                 <div>
-                  <p className="text-sm th-text-primary">{tx.description || tx.type}</p>
+                  <p className="text-sm th-text-primary">{tx.description || transactionLabel(tx.type)}</p>
                   <p className="text-xs th-text-muted">{new Date(tx.created_at).toLocaleString("vi-VN")}</p>
                 </div>
-                <span className="text-sm font-semibold th-text-primary">{tx.type === "payment" ? "-" : "+"}{tx.amount} pts</span>
+                <span className="text-sm font-semibold th-text-primary">{tx.type === "payment" ? "-" : "+"}{tx.amount} điểm</span>
               </div>
             ))}
           </CardContent>

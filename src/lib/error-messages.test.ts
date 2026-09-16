@@ -9,6 +9,8 @@ import {
   kindLabel,
   messageForCode,
   stageLabel,
+  KIND_LABELS,
+  STAGE_LABELS,
 } from "./error-messages";
 
 const SCREAMING = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/;
@@ -183,5 +185,34 @@ describe("dictionary coverage", () => {
       )
       .map(([code, file]) => `${code} (${file})`);
     expect(missing).toEqual([]);
+  });
+});
+
+/**
+ * The studio derives its own phase labels, but the shared stage/kind maps are
+ * what server-side sentences interpolate. A label that is already a verb phrase
+ * ("Kiểm tra lời") must not be composed into another one.
+ */
+describe("label composition", () => {
+  it("keeps stage labels usable inside a sentence", () => {
+    for (const [stage, label] of Object.entries(STAGE_LABELS)) {
+      expect(label, stage).not.toMatch(/^Kiểm tra .*kiểm tra/i);
+      // Interpolated as `Bước ${stageLabel(stage)} ...`, so lower case reads right.
+      expect(label[0], stage).toBe(label[0].toLocaleLowerCase("vi"));
+    }
+  });
+
+  it("keeps kind labels usable inside a sentence", () => {
+    for (const [kind, label] of Object.entries(KIND_LABELS)) {
+      expect(label[0], kind).toBe(label[0].toLocaleLowerCase("vi"));
+    }
+  });
+
+  it("covers every task kind the pipeline can produce", () => {
+    for (const kind of [
+      "image", "voice_design", "tts", "video", "dub",
+      "lip_sync", "transcribe", "render", "frame",
+    ])
+      expect(KIND_LABELS[kind], kind).toBeTruthy();
   });
 });

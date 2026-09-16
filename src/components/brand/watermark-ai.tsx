@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Sparkles, Eraser } from "lucide-react";
 import Button from "@/components/ui/button";
+import { humanizeError } from "@/lib/error-messages";
 import Textarea from "@/components/ui/textarea";
 
 type Mode = "remove_background" | "generate";
@@ -132,9 +133,9 @@ export default function WatermarkAi({ projectId, ownerId, workspaceVersion, proj
     {error && <div role="alert" className="text-sm text-red-600"><p>{error}</p><Link href={`/projects/${projectId}/wallet`} className="underline">Điểm dự án</Link></div>}
     <div aria-live="polite" className="space-y-3">
       {jobs.map(job => <div key={job.id} className="space-y-2 rounded-lg border th-border-secondary p-3">
-        <p className="text-xs font-medium th-text-primary">{job.mode === "generate" ? "Watermark mới" : "Xóa nền logo"} · {statusLabels[job.status] || job.status}
+        <p className="text-xs font-medium th-text-primary">{job.mode === "generate" ? "Watermark mới" : "Xóa nền logo"} · {statusLabels[job.status] || "Đang xử lý"}
           {job.charged_points !== null ? ` · ${job.charged_points} điểm` : ` · đang giữ ${job.max_points} điểm`}</p>
-        {job.error && <p className="text-xs th-text-secondary">{job.error}</p>}
+        {job.error && <p className="text-xs th-text-secondary">{humanizeError(job.error)}</p>}
         {job.output_url && <>
           <div className="grid grid-cols-2 gap-2">
             {["bg-white", "bg-slate-800"].map(background => <div key={background} className={`rounded p-2 ${background}`}><Image src={job.output_url!} alt="Watermark AI trên nền sáng và tối" width={300} height={200} className="aspect-[3/2] w-full object-contain" unoptimized /></div>)}
