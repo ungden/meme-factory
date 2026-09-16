@@ -306,3 +306,58 @@ describe("quotePlan gates", () => {
     ).rejects.toMatchObject({ status: 409 });
   });
 });
+
+describe("perScene", () => {
+  const scene = (id: string) => ({ id }) as never;
+
+  it("runs the scenes concurrently rather than one after another", async () => {
+    const { perScene } = await import("./server");
+    let running = 0;
+    let peak = 0;
+    await perScene([scene("a"), scene("b"), scene("c")], async () => {
+      running += 1;
+      peak = Math.max(peak, running);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      running -= 1;
+      return [];
+    });
+    expect(peak).toBe(3);
+  });
+
+  it("flattens results in scene order", async () => {
+    const { perScene } = await import("./server");
+    const result = await perScene(
+      [scene("a"), scene("b"), scene("c")],
+      async (s) => {
+        // Finish out of order on purpose.
+        await new Promise((r) => setTimeout(r, s.id === "a" ? 15 : 1));
+        return [s.id];
+      },
+    );
+    expect(result).toEqual(["a", "b", "c"]);
+  });
+
+  /**
+   * The point of the helper. With a bare Promise.all the surfaced error is
+   * whichever scene rejected first in wall-clock time, so the same broken plan
+   * could report "Cảnh 1" or "Cảnh 3" depending on the network.
+   */
+  it("reports the first failure by scene order, not by timing", async () => {
+    const { perScene } = await import("./server");
+    await expect(
+      perScene([scene("a"), scene("b"), scene("c")], async (s) => {
+        if (s.id === "c") throw new Error("Cảnh 3 hỏng");
+        if (s.id === "a") {
+          await new Promise((r) => setTimeout(r, 20));
+          throw new Error("Cảnh 1 hỏng");
+        }
+        return [];
+      }),
+    ).rejects.toThrow("Cảnh 1 hỏng");
+  });
+
+  it("returns an empty list when every scene contributes nothing", async () => {
+    const { perScene } = await import("./server");
+    expect(await perScene([scene("a"), scene("b")], async () => [])).toEqual([]);
+  });
+});

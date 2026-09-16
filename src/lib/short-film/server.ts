@@ -1002,6 +1002,28 @@ export function task(
     hash: hash(input),
   };
 }
+/**
+ * Chạy phần việc của từng cảnh song song, nhưng báo lỗi ĐẦU TIÊN THEO THỨ TỰ
+ * CẢNH. Dùng Promise.all trần thì thông điệp người dùng nhận được phụ thuộc vào
+ * cảnh nào reject trước về mặt thời gian — cùng một kịch bản hỏng có thể lúc
+ * báo "Cảnh 2", lúc báo "Cảnh 5".
+ *
+ * Đánh đổi: mọi cảnh đều chạy kể cả khi một cảnh hỏng, nên có thể tốn vài lời
+ * gọi tra giá thừa trên một lượt báo giá thất bại. Không tốn điểm của người
+ * dùng: giá chỉ được tính, chưa hề trừ.
+ */
+export async function perScene<T>(
+  scenes: FilmScene[],
+  work: (scene: FilmScene) => Promise<T[]>,
+): Promise<T[]> {
+  const settled = await Promise.allSettled(scenes.map(work));
+  for (const result of settled)
+    if (result.status === "rejected") throw result.reason;
+  return settled.flatMap(
+    (result) => (result as PromiseFulfilledResult<T[]>).value,
+  );
+}
+
 export async function quotePlan(
   a: Access,
   plan: FilmPlan,
@@ -1086,7 +1108,10 @@ export async function quotePlan(
   const latest = (s: FilmScene, kind: FilmKind) =>
     currentSceneTask(eligible, s, kind, plan.audio_mode);
   if (stage === "prepare")
-    for (const s of scenes) {
+    tasks.push(...(await perScene(scenes, async (s) => {
+      // Mỗi cảnh gom việc của mình rồi mới trả về; không cảnh nào ghi chung vào
+      // mảng tasks, nên chạy song song vẫn giữ nguyên thứ tự kết quả.
+      const sceneTasks: QuotedTask[] = [];
       const performance = s.performance_direction || s.storyboard?.performanceDirection;
       if (performance) {
         const check = performanceCheck(performance);
@@ -1179,7 +1204,7 @@ export async function quotePlan(
                 inputImageCount: s.cast_snapshot.length,
                 prompt: input.prompt,
               });
-          tasks.push(task("image", input, p.customerPoints, s));
+          sceneTasks.push(task("image", input, p.customerPoints, s));
         }
       }
       if (s.dialogue && plan.audio_mode !== "native") {
@@ -1260,20 +1285,21 @@ export async function quotePlan(
             s,
             [],
           );
-          tasks.push(quoted);
+          sceneTasks.push(quoted);
         }
       }
-    }
+      return sceneTasks;
+    })));
   else if (stage === "video") {
     if (plan.audio_mode === "fixed" && !fixedVoiceEnabled(a.project.id))
       throw new FilmError(
         "Giọng cố định đang kiểm chứng. Bạn vẫn có thể chuẩn bị ảnh và nghe thử giọng.",
         409,
       );
-    for (const s of scenes) {
+    tasks.push(...(await perScene(scenes, async (s) => {
       const image = latest(s, "image"),
         audio = latest(s, "tts");
-      if (latest(s, "video") && body.regenerate !== true) continue;
+      if (latest(s, "video") && body.regenerate !== true) return [];
       if (!image || !accepted(image) || !referencePackReady(eligible, s))
         throw new FilmError(
           `Duyệt đủ bộ ảnh đạo diễn của cảnh ${s.scene_index + 1} trước.`,
@@ -1388,15 +1414,15 @@ export async function quotePlan(
         await modelPrice(plan.video_model, inputs, priceDeadline),
         s,
       );
-      tasks.push(v);
-    }
+      return [v];
+    })));
   } else if (stage === "finish" || stage === "transcript") {
-    for (const s of scenes) {
+    tasks.push(...(await perScene(scenes, async (s) => {
       const kind =
         stage === "finish" && plan.audio_mode !== "native" && s.dialogue
           ? finalClipKind(s, plan.audio_mode)
           : "transcribe";
-      if (!s.dialogue || latest(s, kind)) continue;
+      if (!s.dialogue || latest(s, kind)) return [];
       const video = latest(
         s,
         kind === "transcribe" && plan.audio_mode !== "native"
@@ -1413,7 +1439,7 @@ export async function quotePlan(
           throw new FilmError(
             "Clip chưa có lịch lồng tiếng. Tạo bản chuyển động theo bản thoại đã duyệt.",
           );
-        tasks.push(
+        return [
           task(
             "dub",
             {
@@ -1431,7 +1457,7 @@ export async function quotePlan(
             s,
             [video.id, ...schedule.map((cue) => String(cue.audioTaskId))],
           ),
-        );
+        ];
       } else if (kind === "lip_sync") {
         if (!audio?.result?.path) throw new FilmError("Thiếu audio đã duyệt.");
         const inputs = {
@@ -1439,7 +1465,7 @@ export async function quotePlan(
           audio: await signed(a, String(audio.result.path)),
           sync_mode: "silence",
         };
-        tasks.push(
+        return [
           task(
             kind,
             {
@@ -1457,7 +1483,7 @@ export async function quotePlan(
             await modelPrice(FILM_MODELS.lip_sync, inputs, priceDeadline),
             s,
           ),
-        );
+        ];
       } else {
         const inputs = {
           video: inputVideo,
@@ -1466,7 +1492,7 @@ export async function quotePlan(
           enable_timestamps: true,
           prompt: s.dialogue,
         };
-        tasks.push(
+        return [
           task(
             kind,
             {
@@ -1484,9 +1510,9 @@ export async function quotePlan(
             await modelPrice(FILM_MODELS.transcribe, inputs, priceDeadline),
             s,
           ),
-        );
+        ];
       }
-    }
+    })));
   } else if (stage === "render") {
     const clips = plan.video_plan_scenes.map((s) => {
       const clip = latest(s, finalClipKind(s, plan.audio_mode));
