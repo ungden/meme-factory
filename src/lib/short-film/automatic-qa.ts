@@ -48,12 +48,22 @@ async function judge(parts: Array<Record<string, unknown>>): Promise<Check> {
       httpOptions: { timeout: 45000 },
     },
   });
-  const value = JSON.parse(response.text || "{}") as {
+  // maxOutputTokens là 1200 và requirementResults có thể tới 24 mục, nên phản
+  // hồi hoàn toàn có thể bị cắt giữa chừng. Một SyntaxError trần sẽ trôi lên
+  // tận catch cuối của production và hiện ra dưới dạng "Unexpected end of JSON
+  // input" — vô nghĩa với người vận hành. Một kết quả QA bị cắt phải hỏng rõ
+  // ràng, tuyệt đối không đoán tiếp.
+  let value: {
     status?: string;
     issues?: unknown;
     summary?: unknown;
     requirementResults?: unknown;
   };
+  try {
+    value = JSON.parse(response.text || "{}");
+  } catch {
+    throw new Error("QA_RESULT_TRUNCATED");
+  }
   const status = ["passed", "needs_review", "failed"].includes(
     String(value.status),
   )

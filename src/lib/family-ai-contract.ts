@@ -17,6 +17,19 @@ import {
   type VisualRequirement,
   type DirectorReferenceImage,
 } from "./visual-direction";
+/**
+ * Số panel của một tập = số lượt thoại, cộng một panel phản ứng im lặng nếu
+ * nhịp cuối là reaction. Ba nơi từng tự tính lại phép này; lệch nhau một đơn vị
+ * là schema, validator và prompt bất đồng, và lỗi chỉ lộ ra sau khi đã gọi AI.
+ */
+export function storyShotCount(story: Story) {
+  return story.dialogue.length + (storyHasReaction(story) ? 1 : 0);
+}
+
+export function storyHasReaction(story: Story) {
+  return story.beats.at(-1)?.purpose === "reaction";
+}
+
 const string = { type: "string" };
 const object = (properties: Record<string, unknown>) => ({
   type: "object",
@@ -113,8 +126,7 @@ export function unpackStory(value: unknown) {
   };
 }
 export function shotResponseSchema(story: Story, ids: string[] = []) {
-  const hasReaction = story.beats.at(-1)?.purpose === "reaction";
-  const shotCount = story.dialogue.length + (hasReaction ? 1 : 0);
+  const shotCount = storyShotCount(story);
   const shot = object({
     action: string,
     setting: string,
@@ -276,8 +288,7 @@ export function compileStoryShots(
     };
     shots: Record<string, Record<string, unknown>>;
   };
-  const hasReaction = story.beats.at(-1)?.purpose === "reaction";
-  const shotCount = story.dialogue.length + (hasReaction ? 1 : 0);
+  const shotCount = storyShotCount(story);
   if (!v?.shots || Object.keys(v.shots).length !== shotCount)
     throw new Error("STORY_SHOTS_MISSING");
   const scenes = Array.from({ length: shotCount }, (_, i) => {

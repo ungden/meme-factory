@@ -10,6 +10,8 @@ import {
   shotResponseSchema,
   unpackStory,
   compileStoryboards,
+  storyHasReaction,
+  storyShotCount,
 } from "./family-ai-contract";
 import {
   validateGeneratedFamilyStory,
@@ -68,6 +70,32 @@ export type FamilyScriptPipelineState = {
   result?: Extract<CreativeAssistResult, { kind: "video_plan" }>;
   completedStages: FamilyScriptStageKind[];
 };
+
+/**
+ * Mỗi lần checkpoint, toàn bộ state được ghi vào short_film_script_runs.state.
+ * Không chặn trần thì danh sách lỗi (kèm nguyên văn phản hồi của model) cứ dài
+ * thêm qua từng lần resume và phình hàng đầu ra một bản ghi jsonb. Giữ các lần
+ * hỏng gần nhất là đủ để chẩn đoán.
+ */
+const MAX_VALIDATION_FAILURES = 10;
+const MAX_FAILURE_RESPONSE_CHARS = 2000;
+
+function recordFailure(
+  existing: FamilyDevelopmentTrace["validationFailures"],
+  failure: { stage: FamilyDevelopmentTrace["stage"]; error: string; response: unknown },
+): FamilyDevelopmentTrace["validationFailures"] {
+  const response =
+    typeof failure.response === "string"
+      ? failure.response.slice(0, MAX_FAILURE_RESPONSE_CHARS)
+      : failure.response === null || failure.response === undefined
+        ? null
+        : JSON.stringify(failure.response)?.slice(0, MAX_FAILURE_RESPONSE_CHARS) ??
+          null;
+  return [
+    ...(existing || []),
+    { ...failure, error: failure.error.slice(0, 1000), response },
+  ].slice(-MAX_VALIDATION_FAILURES);
+}
 
 export function emptyFamilyScriptState(): FamilyScriptPipelineState {
   return {
@@ -344,14 +372,14 @@ Mở ngay ở việc đang diễn ra. Chọn chi tiết dễ hình dung, khẩu 
         // the request itself. Transport/link errors and malformed/soft-format
         // failures keep their existing strict behavior.
         if (isProviderArgumentError(e)) {
-          this.state.validationFailures = [
-            ...(this.state.validationFailures || []),
+          this.state.validationFailures = recordFailure(
+            this.state.validationFailures,
             {
               stage: this.state.stage,
               error: e instanceof Error ? e.message : "FAMILY_MODEL_REJECTED",
               response: null,
             },
-          ];
+          );
           await this.checkpoint(this.state.stage);
           if (
             modelIndex < modelList.length - 1 &&
@@ -365,10 +393,10 @@ Mở ngay ở việc đang diễn ra. Chọn chi tiết dễ hình dung, khẩu 
         if (candidate === undefined && !(e instanceof SyntaxError)) throw e;
         const error =
           e instanceof Error ? e.message : "FAMILY_RESPONSE_INVALID";
-        this.state.validationFailures = [
-          ...(this.state.validationFailures || []),
+        this.state.validationFailures = recordFailure(
+          this.state.validationFailures,
           { stage: this.state.stage, error, response: candidate ?? null },
-        ];
+        );
         await this.checkpoint(this.state.stage);
         if (this.repairs++ >= 1) throw e;
         prompt = `${prompt}\nSửa bản vừa trả, không thay đề tài: ${JSON.stringify(candidate)}\nLỗi: ${error}`;
@@ -527,8 +555,8 @@ Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống
     const story: Story | undefined = this.state.story;
     if (!story) throw new Error("FAMILY_DRAFT_MISSING");
     if (!this.state.reviewPassed) throw new Error("FAMILY_REVIEW_MISSING");
-    const hasReaction = story.beats.at(-1)?.purpose === "reaction";
-    const shotCount = story.dialogue.length + (hasReaction ? 1 : 0);
+    const hasReaction = storyHasReaction(story);
+    const shotCount = storyShotCount(story);
     const maxVideoDuration = this.input.maxVideoDurationSeconds || 30;
     const groups = storyboardGroups(story.dialogue, hasReaction, maxVideoDuration);
     const storyGuests = story.guests || [];

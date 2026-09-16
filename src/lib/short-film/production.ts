@@ -45,6 +45,14 @@ import {
   seedanceMaxDuration,
 } from "../video-models";
 import { isProjectMediaPath } from "../project-media-path";
+import { errorCode } from "../error-messages";
+
+/** Mã báo hết ngân sách/điểm; mọi mã khác là lỗi thật và phải nổi lên. */
+const BUDGET_CODES = new Set([
+  "PRODUCTION_BUDGET_EXCEEDED",
+  "INSUFFICIENT_POINTS",
+  "BUDGET_BELOW_COMMITTED",
+]);
 
 type Run = {
   id: string;
@@ -321,28 +329,39 @@ const directorInput = {
     const message =
       error instanceof Error ? error.message : "SCRIPT_STAGE_FAILED";
     const attempts = (row?.attempts ?? 0) + 1;
-    await admin
-      .from("short_film_script_runs")
-      .upsert(
-        {
-          run_id: run.id,
+    // Ghi trạng thái stage và đỗ lượt chạy là hai việc riêng biệt. Trước đây
+    // chúng bị nối bằng `.then`: nếu upsert lỗi thì `patchRun` không bao giờ
+    // chạy, rejection bị bỏ rơi, và lượt nằm lại ở "running" cho tới khi hết
+    // lease mà không ai biết. Giờ luôn cố đỗ lượt, kể cả khi upsert hỏng.
+    try {
+      const { error: saveError } = await admin
+        .from("short_film_script_runs")
+        .upsert(
+          {
+            run_id: run.id,
+            stage,
+            status: "failed",
+            state: director.snapshot(),
+            attempts,
+            error: message.slice(0, 1000),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "run_id" },
+        );
+      if (saveError)
+        console.error("short-film script stage state not saved", {
+          runId: run.id,
           stage,
-          status: "failed",
-          state: director.snapshot(),
-          attempts,
-          error: message.slice(0, 1000),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "run_id" },
-      )
-      .then(async () => {
-        await patchRun(admin, run, {
-          status: "needs_review",
-          phase: "script",
-          error: message.slice(0, 1000),
-          snapshot: { scriptStage: stage, scriptStageError: message },
+          message: saveError.message,
         });
+    } finally {
+      await patchRun(admin, run, {
+        status: "needs_review",
+        phase: "script",
+        error: message.slice(0, 1000),
+        snapshot: { scriptStage: stage, scriptStageError: message },
       });
+    }
     // Keep the lease-owner heartbeat from another advance while we parked.
   }
 }
@@ -680,6 +699,10 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
       sceneIds: selection.sceneIds,
       productionRunId: run.id,
     });
+    // Lease được kiểm trước quotePlan, nhưng quotePlan đi mạng và mất vài giây.
+    // accept_film_quote trừ điểm KHÔNG hoàn tác được, nên kiểm lại ngay trước
+    // khi tiêu tiền thay vì tin vào kết quả kiểm từ trước lúc gọi mạng.
+    assertLease();
     const { error } = await admin.rpc("accept_film_quote", {
       p_quote: quote.id,
       p_actor: run.created_by,
@@ -692,14 +715,14 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
         .replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, "$1-$2-$3-$4-$5"),
     });
     if (error) {
-      if (
-        error.message.includes("BUDGET") ||
-        error.message.includes("INSUFFICIENT")
-      ) {
+      // Tra đúng mã thay vì dò chuỗi con: "BUDGET" cũng khớp những lỗi không
+      // phải hết ngân sách, và mã thô của Postgres từng bị ghi thẳng vào
+      // run.error rồi hiện nguyên văn cho người dùng.
+      if (BUDGET_CODES.has(errorCode(error) || "")) {
         await patchRun(admin, run, {
           status: "budget_blocked",
           phase: stage,
-          error: error.message,
+          error: errorCode(error),
           snapshot: { scriptCheck: "passed" },
         });
         return;
@@ -734,11 +757,22 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
       message,
       error: serialized || String(error || ""),
     });
+    // Đây là nỗ lực DUY NHẤT đánh dấu lượt cần xem lại. Nếu nó cũng hỏng (lease
+    // đã mất), lượt trở thành mồ côi và chỉ người vận hành gỡ được — nuốt im
+    // lặng thì không ai biết mà gỡ.
     await patchRun(admin, run, {
       status: "needs_review",
       phase: run.phase,
       error: message.slice(0, 1000),
-    }).catch(() => {});
+    }).catch((parkError) => {
+      console.error("short-film production run left orphaned", {
+        runId: run.id,
+        phase: run.phase,
+        originalMessage: message,
+        parkMessage:
+          parkError instanceof Error ? parkError.message : String(parkError),
+      });
+    });
   } finally {
     clearInterval(timer);
   }

@@ -577,6 +577,14 @@ export function finalClipKind(
 }
 
 /** Every utterance owns a speaker and an approved voice version; never infer from array position. */
+/**
+ * Người nói chưa có giọng được duyệt. Đây là một TRẠNG THÁI BÌNH THƯỜNG của quy
+ * trình, không phải hỏng hóc: lượt sản xuất quay về bước chuẩn bị cho tới khi
+ * có người duyệt giọng. Có lớp lỗi riêng để `speechTasks` chỉ nuốt đúng trường
+ * hợp này, còn mọi lỗi khác vẫn nổi lên thay vì biến thành "chưa có thoại".
+ */
+export class VoiceNotApprovedError extends Error {}
+
 export function speechLines(scene: FilmScene) {
   const beats = scene.storyboard?.beats || [
     {
@@ -592,7 +600,9 @@ export function speechLines(scene: FilmScene) {
       (c) => c.characterId === b.speakerCharacterId,
     );
     if (!cast?.voice)
-      throw new Error(`Duyệt giọng của ${cast?.name || "người nói"} trước.`);
+      throw new VoiceNotApprovedError(
+        `Duyệt giọng của ${cast?.name || "người nói"} trước.`,
+      );
     return [
       {
         beatIndex,
@@ -662,8 +672,12 @@ export function speechTasks(tasks: FilmTask[], scene: FilmScene) {
   let lines: ReturnType<typeof speechLines>;
   try {
     lines = speechLines(scene);
-  } catch {
-    return [undefined];
+  } catch (error) {
+    // Chưa duyệt giọng thì coi như chưa có thoại nào sẵn sàng — đúng ý đồ. Mọi
+    // lỗi khác (storyboard hỏng chẳng hạn) phải nổi lên; nuốt tất cả sẽ khiến
+    // nextProductionStage kẹt vĩnh viễn ở "prepare" mà không báo gì.
+    if (error instanceof VoiceNotApprovedError) return [undefined];
+    throw error;
   }
   return lines.map((line) =>
     tasks
