@@ -1,16 +1,17 @@
--- Caller wraps BEGIN / ROLLBACK. Verifies idempotency, one active run, budget guard and privileges.
+-- Caller wraps BEGIN / ROLLBACK. Verifies idempotency, one active run, budget
+-- guard, needs-review slot release and privileges. Run via `npm run test:sql`.
 DO $$
 declare p projects; plan_id uuid:=gen_random_uuid(); scene_id uuid:=gen_random_uuid(); run_id uuid; duplicate_id uuid; request_id uuid:=gen_random_uuid(); rejected boolean:=false; quote_a uuid; quote_b uuid; quote_c uuid;
 begin
   select * into p from projects order by created_at limit 1;
   perform save_film_plan(p.id,p.user_id,p.workspace_version,plan_id,null,
-    '{"title":"Production QA","brief":"QA","format":"9:16","resolution":"720p","audio_mode":"native","cast_snapshot":[],"target_duration_seconds":30}'::jsonb,
-    jsonb_build_array(jsonb_build_object('id',scene_id,'scene_index',0,'cast_snapshot','[]'::jsonb,'dialogue','','action','QA','setting','QA','camera','close','duration_seconds',5,'follows_previous',false,'image_prompt','QA','motion_prompt','QA','source_mode','manual','input_hash','qa')));
-  run_id:=create_film_production_run(p.id,p.user_id,p.workspace_version,plan_id,1,'',5,10,request_id,'manual',null);
-  duplicate_id:=create_film_production_run(p.id,p.user_id,p.workspace_version,plan_id,1,'',5,10,request_id,'manual',null);
+    '{"title":"Production QA","brief":"QA","format":"9:16","resolution":"720p","audio_mode":"native","video_model":"bytedance/seedance-2.5/text-to-video","cast_snapshot":[],"target_duration_seconds":30}'::jsonb,
+    jsonb_build_array(jsonb_build_object('id',scene_id,'scene_index',0,'cast_snapshot','[]'::jsonb,'dialogue','','action','QA','setting','QA','camera','close','duration_seconds',5,'image_prompt','QA','motion_prompt','QA','source_mode','manual','input_hash','qa')));
+  run_id:=create_film_production_run_v2(p.id,p.user_id,p.workspace_version,plan_id,1,'',5,10,request_id,'manual',null,null);
+  duplicate_id:=create_film_production_run_v2(p.id,p.user_id,p.workspace_version,plan_id,1,'',5,10,request_id,'manual',null,null);
   if duplicate_id<>run_id then raise exception 'Run idempotency failed';end if;
   begin
-    perform create_film_production_run(p.id,p.user_id,p.workspace_version,plan_id,1,'',5,10,gen_random_uuid(),'manual',null);
+    perform create_film_production_run_v2(p.id,p.user_id,p.workspace_version,plan_id,1,'',5,10,gen_random_uuid(),'manual',null,null);
     raise exception 'Two active runs allowed';
   exception when unique_violation then null; end;
   begin
@@ -32,11 +33,15 @@ begin
     update short_film_quotes set accepted_key=gen_random_uuid() where id=quote_c;
   exception when others then rejected:=position('PRODUCTION_BUDGET_EXCEEDED' in sqlerrm)>0; end;
   if not rejected then raise exception 'Budget changed between quote and acceptance was not rejected'; end if;
+  -- 20260910070127 bỏ 'needs_review' khỏi index short_film_one_active_run: một
+  -- lượt đang chờ người duyệt KHÔNG còn giữ chỗ của dự án, nếu không người dùng
+  -- sẽ bị kẹt không tạo được lượt mới cho tới khi vào duyệt tay.
   update short_film_production_runs set status='needs_review' where id=run_id;
   begin
-    perform create_film_production_run(p.id,p.user_id,p.workspace_version,plan_id,1,'',5,10,gen_random_uuid(),'manual',null);
-    raise exception 'Needs-review run did not keep the project slot';
-  exception when unique_violation then null; end;
+    perform create_film_production_run_v2(p.id,p.user_id,p.workspace_version,plan_id,1,'',5,10,gen_random_uuid(),'manual',null,null);
+  exception when unique_violation then
+    raise exception 'Needs-review run still blocks the project slot';
+  end;
   if has_table_privilege('authenticated','short_film_production_runs','INSERT')
     or has_table_privilege('authenticated','short_film_automation_settings','UPDATE')
     or has_function_privilege('authenticated','schedule_due_film_automations()','EXECUTE')

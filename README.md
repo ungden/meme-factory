@@ -48,10 +48,24 @@ Gemini, which is cheaper for that job.
 ```bash
 npm run test
 npx tsc --noEmit
+npm run lint
 npm run build
 ```
 
 All four commands pass on `main`. `npm test` needs the platform binary for Rolldown; if `vitest` fails with `Cannot find module './rolldown-binding.<platform>.node'`, install the matching optional dependency, e.g. `npm install @rolldown/binding-darwin-arm64 --no-save`.
+
+### Database checks before a release
+
+```bash
+SUPABASE_DB_URL=postgres://... npm run test:sql
+```
+
+`scripts/tests/*.sql` exercise the RPCs, privileges and indexes against a real
+Postgres, so they cannot run under vitest and are not part of `npm test`. Each
+file runs inside a transaction that is always rolled back; without
+`SUPABASE_DB_URL` the runner skips and exits 0. Point it at a test database, not
+production. This is a pre-release gate: `short-film-production-run.sql` had
+drifted out of sync with shipped behaviour precisely because nothing ran it.
 
 ## Continuity core
 

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "test:sql": "node scripts/run-sql-tests.mjs",
     "video-worker": "node scripts/wavespeed-worker.mjs"
   },
   "dependencies": {
