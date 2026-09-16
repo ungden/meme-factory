@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:sql": "node scripts/run-sql-tests.mjs",
     "video-worker": "node scripts/wavespeed-worker.mjs"
   },
@@ -31,6 +32,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
+    "@vitest/coverage-v8": "^4.1.10",
     "dotenv": "^17.3.1",
     "eslint": "^9",
     "eslint-config-next": "^16.2.10",
