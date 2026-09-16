@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:sql": "node scripts/run-sql-tests.mjs",
-    "video-worker": "node scripts/wavespeed-worker.mjs"
+    "video-worker": "node scripts/wavespeed-worker.mjs",
+    "check:migrations": "node scripts/check-migrations.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.44.0",
