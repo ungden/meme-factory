@@ -257,6 +257,10 @@ export default function Home() {
         <div className="mx-auto flex max-w-[1320px] flex-col gap-4 px-5 py-7 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">
           <div className="flex items-center gap-2 font-bold"><Sparkle size={16} weight="fill" className="th-text-accent" /> AIDA Media Studio</div>
           <p className="media-copy">Một nhân vật. Mọi nội dung.</p>
+          <nav className="flex items-center gap-4">
+            <Link href="/terms" className="media-copy underline-offset-4 hover:underline">Điều khoản sử dụng</Link>
+            <Link href="/privacy" className="media-copy underline-offset-4 hover:underline">Chính sách bảo mật</Link>
+          </nav>
         </div>
       </footer>
     </div>
