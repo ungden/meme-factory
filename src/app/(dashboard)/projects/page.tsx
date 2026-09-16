@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
@@ -24,7 +23,7 @@ import Input from "@/components/ui/input";
 import Textarea from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import AnnouncementBanner from "@/components/ui/announcement-banner";
-import { getProjectCover, getProjectRouteRef } from "@/lib/project-visuals";
+import { getProjectRouteRef } from "@/lib/project-visuals";
 import { fetchJsonCached, invalidateClientCache } from "@/lib/client-fetch";
 
 export default function ProjectsPage() {
@@ -38,6 +37,9 @@ export default function ProjectsPage() {
   const searchParams = useSearchParams();
   const toast = useToast();
   const [summaries, setSummaries] = useState<Record<string, { characterCount: number; outputCount: number; draftCount: number }>>({});
+  // Tách "chưa tải xong" khỏi "tải hỏng": gộp hai trạng thái khiến một dự án
+  // lâu năm bị gắn nhãn "Dự án mới" chỉ vì một lần gọi API thất bại.
+  const [summariesFailed, setSummariesFailed] = useState(false);
   const requestedDestination = () => {
     const output = searchParams.get("output");
     if (output === "Tạo phim ngắn") return "short-films";
@@ -50,8 +52,8 @@ export default function ProjectsPage() {
     if (IS_MOCK_MODE || !projects.length) return;
     let active = true;
     fetchJsonCached<{ summaries?: Record<string, { characterCount: number; outputCount: number; draftCount: number }> }>("/api/projects/summaries", 60_000)
-      .then((payload) => { if (active && payload?.summaries) setSummaries(payload.summaries); })
-      .catch(() => { if (active) setSummaries({}); });
+      .then((payload) => { if (active && payload?.summaries) { setSummaries(payload.summaries); setSummariesFailed(false); } })
+      .catch(() => { if (active) setSummariesFailed(true); });
     return () => { active = false; };
   }, [projects.length]);
 
@@ -126,9 +128,8 @@ export default function ProjectsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
-              {projects.map((project, index) => {
+              {projects.map((project) => {
                 const projectRef = getProjectRouteRef(project);
-                const cover = getProjectCover(project.name, project.description || "");
                 const summary = summaries[project.id];
                 return (
                 <article
@@ -138,7 +139,8 @@ export default function ProjectsPage() {
                 >
                   <button onClick={() => { const query = searchParams.toString(); const destination = requestedDestination(); router.push(`/projects/${projectRef}${destination ? `/${destination}` : ""}${query ? `?${query}` : ""}`); }} className="block w-full text-left" aria-label={`Mở dự án ${project.name}`}>
                     <div className="relative aspect-[16/8.6] overflow-hidden" style={{ background: "linear-gradient(135deg, var(--bg-tertiary), color-mix(in srgb, var(--accent-primary) 16%, var(--bg-tertiary)))" }}>
-                      {cover ? <Image src={cover} alt={`Ảnh bìa dự án ${project.name}`} fill priority={index === 0} sizes="(max-width: 1280px) 50vw, 33vw" className="object-cover transition duration-500 group-hover:scale-[1.03]" /> : <div className="absolute inset-0 flex items-center justify-center"><span className="rounded-2xl border px-4 py-3 text-center text-2xl font-bold th-text-primary" style={{ borderColor: "var(--border-primary)", background: "color-mix(in srgb, var(--bg-card) 82%, transparent)" }}>{project.name.trim().slice(0, 2).toLocaleUpperCase("vi")}<small className="mt-1 block text-xs font-normal th-text-tertiary">{summary && (summary.characterCount > 0 || summary.outputCount > 0) ? `${summary.characterCount} nhân vật · ${summary.outputCount} đầu ra` : "Dự án mới"}</small></span></div>}
+                      {/* Ảnh bìa là một asset workspace rõ ràng và hiện chưa có; luôn dùng chữ cái đầu. */}
+                      <div className="absolute inset-0 flex items-center justify-center"><span className="rounded-2xl border px-4 py-3 text-center text-2xl font-bold th-text-primary" style={{ borderColor: "var(--border-primary)", background: "color-mix(in srgb, var(--bg-card) 82%, transparent)" }}>{project.name.trim().slice(0, 2).toLocaleUpperCase("vi")}<small className="mt-1 block text-xs font-normal th-text-tertiary">{summary ? `${summary.characterCount} nhân vật · ${summary.outputCount} đầu ra` : summariesFailed ? "Chưa tải được số liệu" : "Đang tải số liệu"}</small></span></div>
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
                       <div className="absolute bottom-3 left-3 flex gap-2">
                         <span className="rounded-full border border-white/25 bg-black/45 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-md">FANPAGE</span>
@@ -171,7 +173,7 @@ export default function ProjectsPage() {
                     </div>
 
                     <div className="mt-5 flex items-center justify-between border-t pt-4 text-xs th-text-muted" style={{ borderColor: "var(--border-primary)" }}>
-                      <div className="flex gap-4"><span className="flex items-center gap-1.5"><Users size={13} /> {summary ? `${summary.characterCount} nhân vật` : "Đang tải"}</span><span className="flex items-center gap-1.5"><Images size={13} /> {summary ? `${summary.outputCount} đầu ra` : ""}</span></div>
+                      <div className="flex gap-4">{summary ? (<><span className="flex items-center gap-1.5"><Users size={13} /> {summary.characterCount} nhân vật</span><span className="flex items-center gap-1.5"><Images size={13} /> {summary.outputCount} đầu ra</span></>) : (<span>{summariesFailed ? "Chưa tải được số liệu" : "Đang tải số liệu"}</span>)}</div>
                       <button onClick={() => router.push(`/projects/${projectRef}`)} className="flex items-center gap-1.5 font-semibold th-text-accent">Mở dự án <ArrowRight size={13} /></button>
                     </div>
                     {summary && summary.draftCount > 0 && <button onClick={() => router.push(`/projects/${projectRef}/generate`)} className="mt-3 text-xs font-medium text-amber-600">{summary.draftCount} bộ nội dung đang làm dở · Tiếp tục</button>}

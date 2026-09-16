@@ -1,5 +1,6 @@
 import "server-only";
 import { isProjectMediaPath } from "@/lib/project-media-path";
+import { errorCode, humanizeError } from "@/lib/error-messages";
 import crypto from "node:crypto";
 import {
   validateStory,
@@ -72,11 +73,30 @@ export class FilmError extends Error {
     super(message);
   }
 }
-export const fail = (e: unknown) =>
-  NextResponse.json(
-    { error: e instanceof Error ? e.message : "Không xử lý được phim." },
-    { status: e instanceof FilmError ? e.status : 500 },
+/**
+ * Biên duy nhất biến lỗi thành phản hồi API. Trước đây hàm này trả thẳng
+ * `e.message`, nên mã máy như FAMILY_EDITORIAL_NEEDS_REVIEW hiện nguyên văn cho
+ * người dùng, còn một lỗi Postgres thô (object, không phải Error) thì rơi hết
+ * vào câu chung 500 và mất sạch thông tin thật.
+ *
+ * Giờ: log nguyên bản cho người vận hành, trả câu tiếng Việt cho người dùng,
+ * kèm `code` để hỗ trợ đối chiếu. FilmError vốn đã là tiếng Việt nên
+ * humanizeError giữ nguyên.
+ */
+export const fail = (e: unknown) => {
+  const status = e instanceof FilmError ? e.status : 500;
+  const code = errorCode(e);
+  if (status >= 500)
+    console.error("short-film request failed", {
+      code,
+      message: e instanceof Error ? e.message : String(e),
+      detail: e instanceof Error ? undefined : e,
+    });
+  return NextResponse.json(
+    { error: humanizeError(e, "Không xử lý được phim."), ...(code ? { code } : {}) },
+    { status },
   );
+};
 const UUID = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
 export async function access(request: NextRequest, ref: string) {
   const { supabase, user } = await getRequestUser(request);

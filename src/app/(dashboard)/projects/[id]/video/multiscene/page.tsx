@@ -13,6 +13,7 @@ import type {
 } from "@/lib/short-film/segment-contracts";
 import type { ChannelProfile, Story } from "@/lib/family-catalogue";
 import { notifyProjectBalanceChanged } from "@/lib/client-fetch";
+import { humanizeError } from "@/lib/error-messages";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
@@ -1694,7 +1695,7 @@ export default function ShortFilmPage() {
                 {productionRuns[0].max_points_per_film} điểm tối đa
                 {productionRuns[0].error && (
                   <p className="mt-1 th-text-danger">
-                    {productionRuns[0].error}
+                    {humanizeError(productionRuns[0].error)}
                   </p>
                 )}
                 <div className="mt-2 flex flex-wrap gap-2">

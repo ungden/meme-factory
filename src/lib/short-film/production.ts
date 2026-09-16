@@ -45,7 +45,7 @@ import {
   seedanceMaxDuration,
 } from "../video-models";
 import { isProjectMediaPath } from "../project-media-path";
-import { errorCode } from "../error-messages";
+import { errorCode, kindLabel, stageLabel } from "../error-messages";
 
 /** Mã báo hết ngân sách/điểm; mọi mã khác là lỗi thật và phải nổi lên. */
 const BUDGET_CODES = new Set([
@@ -311,7 +311,7 @@ const directorInput = {
     await patchRun(admin, run, {
       status: "needs_review",
       phase: "script",
-      error: `Bước ${stage} thất bại nhiều lần. Đổi ý tưởng hoặc kiểm tra lại.`,
+      error: `Bước ${stageLabel(stage)} thất bại nhiều lần. Đổi ý tưởng hoặc kiểm tra lại.`,
       snapshot: { scriptStage: stage },
     });
     return;
@@ -690,7 +690,7 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
         await patchRun(admin, run, {
           status: "needs_review",
           phase: `${task.kind}_check`,
-          error: `Công đoạn ${task.kind} cần xem lại.`,
+          error: `Công đoạn ${kindLabel(task.kind)} cần xem lại.`,
           snapshot: { scriptCheck: "passed", failedTaskId: task.id },
         });
         return;

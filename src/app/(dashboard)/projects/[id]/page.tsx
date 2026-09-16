@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useProject } from "@/lib/use-store";
 import Sidebar from "@/components/layout/sidebar";
+import { humanizeError } from "@/lib/error-messages";
 
 export default function ProjectOverviewPage() {
   const params = useParams();
@@ -47,6 +48,11 @@ export default function ProjectOverviewPage() {
     }[];
   } | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(true);
+  // Trước đây mọi lỗi tải đều rơi về `null`, mà `null` lại không phân biệt được
+  // với "dự án trống" — nên chỉ cần một lần chập mạng là một dự án đang có
+  // nhân vật và đầu ra lại hiện thẻ onboarding "Bắt đầu với nhân vật đầu tiên".
+  const [overviewFailed, setOverviewFailed] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -54,18 +60,27 @@ export default function ProjectOverviewPage() {
       signal: controller.signal,
       cache: "no-store",
     })
-      .then(async (response) => (response.ok ? response.json() : null))
+      .then(async (response) => {
+        if (!response.ok) throw new Error(String(response.status));
+        return response.json();
+      })
       .then((data) => {
-        if (!controller.signal.aborted) setOverview(data);
+        if (!controller.signal.aborted) {
+          setOverview(data);
+          setOverviewFailed(false);
+        }
       })
       .catch(() => {
-        if (!controller.signal.aborted) setOverview(null);
+        if (!controller.signal.aborted) {
+          setOverview(null);
+          setOverviewFailed(true);
+        }
       })
       .finally(() => {
         if (!controller.signal.aborted) setOverviewLoading(false);
       });
     return () => controller.abort();
-  }, [projectId]);
+  }, [projectId, reloadToken]);
 
   const characters = overview?.characters ?? [];
   const recentOutputs = overview?.recentOutputs ?? [];
@@ -115,7 +130,8 @@ export default function ProjectOverviewPage() {
       icon: TrendingUp,
     },
   ];
-  const isEmpty = stats.every((stat) => stat.value === 0);
+  // Chỉ được coi là trống khi đã tải ĐƯỢC dữ liệu và dữ liệu đó thực sự trống.
+  const isEmpty = !!overview && stats.every((stat) => stat.value === 0);
 
   return (
     <div className="flex">
@@ -181,14 +197,34 @@ export default function ProjectOverviewPage() {
                           : "Lượt làm phim gần nhất"}
                 </strong>
                 <small className="mt-0.5 block truncate text-xs th-text-secondary">
-                  {latestProduction.error ||
-                    (latestProduction.source === "scheduled"
+                  {latestProduction.error
+                    ? humanizeError(latestProduction.error)
+                    : latestProduction.source === "scheduled"
                       ? "Tự sản xuất hằng ngày"
-                      : "Tạo phim một lần")}
+                      : "Tạo phim một lần"}
                 </small>
               </span>
               <ArrowRight size={16} className="shrink-0 th-text-accent" />
             </Link>
+          )}
+
+          {overviewFailed && (
+            <section className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border th-border-danger th-bg-danger-light p-4">
+              <span className="text-sm th-text-danger">
+                Chưa tải được số liệu dự án. Nội dung của bạn vẫn an toàn.
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setOverviewLoading(true);
+                  setOverviewFailed(false);
+                  setReloadToken((token) => token + 1);
+                }}
+                className="rounded-lg border th-border px-3 py-1.5 text-sm font-semibold th-text-primary th-bg-hover"
+              >
+                Thử lại
+              </button>
+            </section>
           )}
 
           {isEmpty ? (
