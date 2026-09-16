@@ -61,7 +61,6 @@ type DraftScene = {
   durationSeconds: number;
   startImageUrl: string | null;
   endImageUrl: string | null;
-  followsPrevious: boolean;
 };
 export type DraftGuest = {
   key: string;
@@ -126,7 +125,6 @@ const sceneBlank = (): DraftScene => ({
   durationSeconds: 15,
   startImageUrl: null,
   endImageUrl: null,
-  followsPrevious: false,
 });
 const fromScene = (s: FilmScene): DraftScene => ({
   id: s.id,
@@ -143,7 +141,6 @@ const fromScene = (s: FilmScene): DraftScene => ({
   durationSeconds: s.duration_seconds,
   startImageUrl: s.start_image_url,
   endImageUrl: s.end_image_url,
-  followsPrevious: s.follows_previous,
 });
 const fromPlan = (p: FilmPlan): Draft => ({
   title: p.title,

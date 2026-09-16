@@ -19,21 +19,19 @@ const filmTask = (overrides: Partial<FilmTask>): FilmTask => ({
 });
 
 describe("automatic production reference packs", () => {
-  it("prepares every scene reference pack instead of extracting a previous last frame", async () => {
+  it("gives a later scene its own reference pack instead of reusing the previous clip", async () => {
     const { nextProductionStage } = await import("./production");
     const first = {
       id: "first",
       version: 1,
       scene_index: 0,
       dialogue: "",
-      follows_previous: false,
     } as FilmScene;
     const next = {
       id: "next",
       version: 1,
       scene_index: 1,
       dialogue: "",
-      follows_previous: true,
     } as FilmScene;
     const plan = {
       version: 1,

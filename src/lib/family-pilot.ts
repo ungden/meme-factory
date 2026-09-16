@@ -95,7 +95,6 @@ export function buildFamilyPilot(cast: FilmCast[], pilot: PilotEpisode[]) {
       durationSeconds: number;
       imagePrompt: string;
       motionPrompt: string;
-      followsPrevious: boolean;
     }> = e.turns.map((t, index) => {
       const c = role(t[0]);
       const adjacent = [...e.turns.slice(index + 1), ...e.turns.slice(0, index)]
@@ -115,7 +114,6 @@ export function buildFamilyPilot(cast: FilmCast[], pilot: PilotEpisode[]) {
         durationSeconds: Math.max(4, Math.ceil(t[1].split(/\s+/).length / 2.6)),
         imagePrompt: `${e.setting}. ${c.name} chuẩn bị nói, ${t[2].toLocaleLowerCase("vi")}.${adjacent ? ` ${adjacent.name} ở cạnh và đang lắng nghe.` : ""} Theo đúng ảnh chuẩn từng người. Không chữ, không bố cục lưới.`,
         motionPrompt: `${c.name} là người duy nhất nói: ${t[2]}. ${adjacent ? `${adjacent.name} chỉ nghe và phản ứng tự nhiên.` : ""} Giữ hướng nhìn và nhận diện từ ảnh đầu.`,
-        followsPrevious: false,
       };
     });
     if (e.reaction)
@@ -129,7 +127,6 @@ export function buildFamilyPilot(cast: FilmCast[], pilot: PilotEpisode[]) {
         durationSeconds: 4,
         imagePrompt: `${e.setting}. ${ids.map((id) => cast.find((c) => c.characterId === id)!.name).join(", ")} đúng ảnh chuẩn. ${e.reaction}. Không người khác, không chữ, không lưới.`,
         motionPrompt: e.reaction,
-        followsPrevious: false,
       });
     return {
       catalogueKey: `family-v1-${e.key}`,

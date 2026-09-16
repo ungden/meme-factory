@@ -74,7 +74,6 @@ export type PlannedScene = {
   intendedDurationSeconds?: number;
   imagePrompt: string;
   motionPrompt: string;
-  followsPrevious: boolean;
   performanceDirection?: PerformanceDirection | null;
   referencePlan?: SceneReferencePlan | null;
 };
@@ -227,7 +226,6 @@ function plannedScene(
       : {}),
     imagePrompt: text(item.imagePrompt, 1600),
     motionPrompt: text(item.motionPrompt, 1600),
-    followsPrevious: item.followsPrevious === true,
     ...(performanceDirection ? { performanceDirection } : {}),
     ...(storyboard?.referencePlan
       ? { referencePlan: storyboard.referencePlan }
@@ -348,10 +346,10 @@ function schemaFor(kind: CreativeAssistKind) {
   if (kind === "video_clip_plan")
     return '{"prompt":"","caption":"","dialogue":"","speakerCharacterId":"uuid or null","action":"","setting":""}';
   if (kind === "video_plan")
-    return '{"title":"","summary":"","scenes":[{"characterIds":["uuid"],"speakerCharacterId":"uuid or null","dialogue":"","action":"","setting":"","camera":"","durationSeconds":5,"imagePrompt":"","motionPrompt":"","followsPrevious":false,"performanceDirection":{"version":1,"lane":"deadpan_reversal","comicObjective":"","statusBefore":"","statusAfter":"","hook":"","beats":[{"physicalAction":"","expressionChange":"","gesture":"","propInteraction":"","reactionTarget":"","cameraMove":""},{"physicalAction":"","expressionChange":"","gesture":"","propInteraction":"","reactionTarget":"","cameraMove":""}],"revealOrCut":""}}]}';
+    return '{"title":"","summary":"","scenes":[{"characterIds":["uuid"],"speakerCharacterId":"uuid or null","dialogue":"","action":"","setting":"","camera":"","durationSeconds":5,"imagePrompt":"","motionPrompt":"","performanceDirection":{"version":1,"lane":"deadpan_reversal","comicObjective":"","statusBefore":"","statusAfter":"","hook":"","beats":[{"physicalAction":"","expressionChange":"","gesture":"","propInteraction":"","reactionTarget":"","cameraMove":""},{"physicalAction":"","expressionChange":"","gesture":"","propInteraction":"","reactionTarget":"","cameraMove":""}],"revealOrCut":""}}]}';
   if (kind === "performance_revision")
-    return '{"summary":"","scenes":[{"characterIds":["uuid"],"speakerCharacterId":"uuid or null","dialogue":"","action":"","setting":"","camera":"","durationSeconds":5,"imagePrompt":"","motionPrompt":"","followsPrevious":false,"performanceDirection":{"version":1,"lane":"deadpan_reversal","comicObjective":"","statusBefore":"","statusAfter":"","hook":"","beats":[{"physicalAction":"","expressionChange":"","gesture":"","propInteraction":"","reactionTarget":"","cameraMove":""},{"physicalAction":"","expressionChange":"","gesture":"","propInteraction":"","reactionTarget":"","cameraMove":""}],"revealOrCut":""}}]}';
-  return '{"summary":"","scenes":[{"characterIds":["uuid"],"speakerCharacterId":"uuid or null","dialogue":"","action":"","setting":"","camera":"","durationSeconds":5,"imagePrompt":"","motionPrompt":"","followsPrevious":false}]}';
+    return '{"summary":"","scenes":[{"characterIds":["uuid"],"speakerCharacterId":"uuid or null","dialogue":"","action":"","setting":"","camera":"","durationSeconds":5,"imagePrompt":"","motionPrompt":"","performanceDirection":{"version":1,"lane":"deadpan_reversal","comicObjective":"","statusBefore":"","statusAfter":"","hook":"","beats":[{"physicalAction":"","expressionChange":"","gesture":"","propInteraction":"","reactionTarget":"","cameraMove":""},{"physicalAction":"","expressionChange":"","gesture":"","propInteraction":"","reactionTarget":"","cameraMove":""}],"revealOrCut":""}}]}';
+  return '{"summary":"","scenes":[{"characterIds":["uuid"],"speakerCharacterId":"uuid or null","dialogue":"","action":"","setting":"","camera":"","durationSeconds":5,"imagePrompt":"","motionPrompt":""}]}';
 }
 
 function instruction(input: CreativeAssistInput) {

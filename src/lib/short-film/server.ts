@@ -570,8 +570,10 @@ export async function savePlan(
       duration_seconds: s.durationSeconds,
       start_image_url: s.startImageUrl,
       end_image_url: s.endImageUrl,
-      // Reference-guided Seedance receives the complete image pack directly.
-      // A prior clip's last frame is never promoted to the next scene input.
+      // Không còn là một tính năng: Seedance nhận trọn bộ ảnh tham chiếu, khung
+      // cuối của clip trước không bao giờ được dùng làm đầu vào cảnh sau. Vẫn
+      // phải ghi vì save_film_plan ép (s->>'follows_previous')::boolean vào một
+      // cột NOT NULL; thiếu khoá này là hỏng toàn bộ đường lưu kịch bản.
       follows_previous: false,
       image_prompt: s.imagePrompt,
       motion_prompt: s.motionPrompt,
@@ -773,7 +775,6 @@ export async function refreshPlanCastIfStale(a: Access, plan: FilmPlan) {
         durationSeconds: scene.duration_seconds,
         startImageUrl: scene.start_image_url,
         endImageUrl: scene.end_image_url,
-        followsPrevious: scene.follows_previous,
         imagePrompt: scene.image_prompt,
         motionPrompt: scene.motion_prompt,
         sourceMode: scene.source_mode,

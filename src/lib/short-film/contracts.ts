@@ -212,7 +212,6 @@ export type FilmScene = {
   start_image_url: string | null;
   end_image_url: string | null;
   source_mode: "manual" | "ai";
-  follows_previous: boolean;
   input_hash: string;
   media_links: Partial<Record<FilmKind, string>>;
   deleted_at: string | null;

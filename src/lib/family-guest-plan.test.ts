@@ -46,7 +46,6 @@ describe("per-video guest characters", () => {
             durationSeconds: 5,
             imagePrompt: "Ông phi công trong sân bay",
             motionPrompt: "cúi chào rồi giơ tay",
-            followsPrevious: false,
           },
           {
             characterIds: ["core-1"],
@@ -58,7 +57,6 @@ describe("per-video guest characters", () => {
             durationSeconds: 5,
             imagePrompt: "Bánh Bao ngước lên",
             motionPrompt: "ngước lên và hỏi",
-            followsPrevious: false,
           },
           {
             characterIds: ["core-1"],
@@ -70,7 +68,6 @@ describe("per-video guest characters", () => {
             durationSeconds: 4,
             imagePrompt: "Bánh Bao nhìn theo",
             motionPrompt: "nhìn theo ông phi công",
-            followsPrevious: false,
           },
         ],
       },
@@ -99,7 +96,6 @@ describe("per-video guest characters", () => {
             durationSeconds: 5,
             imagePrompt: "Nhìn quanh",
             motionPrompt: "nhìn quanh",
-            followsPrevious: false,
           },
           {
             characterIds: ["core-1"],
@@ -111,7 +107,6 @@ describe("per-video guest characters", () => {
             durationSeconds: 5,
             imagePrompt: "Lắc đầu",
             motionPrompt: "lắc đầu",
-            followsPrevious: false,
           },
           {
             characterIds: ["core-1"],
@@ -123,7 +118,6 @@ describe("per-video guest characters", () => {
             durationSeconds: 4,
             imagePrompt: "Ngồi xuống",
             motionPrompt: "ngồi xuống",
-            followsPrevious: false,
           },
         ],
       },

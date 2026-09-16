@@ -6,9 +6,9 @@ const context = { projectName: "Bánh Bao", characters: [{ id: "a", name: "Bánh
 describe("creative assist validator", () => {
   it("keeps only project characters and validates a paced three-scene plan", () => {
     const result = validateCreativeAssist("video_plan", { title: "Buổi sáng", summary: "...", scenes: [
-      { characterIds: ["a", "other"], speakerCharacterId: "a", dialogue: "Đi thôi nào!", action: "Bánh Bao chạy vào bếp", setting: "Căn bếp sáng", camera: "medium", durationSeconds: 5, imagePrompt: "Bánh Bao trong bếp", motionPrompt: "chạy vào bếp", followsPrevious: false },
-      { characterIds: ["a", "b"], speakerCharacterId: "b", dialogue: "Chờ tớ với!", action: "Đậu Đỏ gọi với", setting: "Căn bếp sáng", camera: "wide", durationSeconds: 5, imagePrompt: "Hai bạn trong bếp", motionPrompt: "Đậu Đỏ chạy tới", followsPrevious: false },
-      { characterIds: ["a", "b"], speakerCharacterId: null, dialogue: "", action: "Cả hai cười", setting: "Căn bếp sáng", camera: "close", durationSeconds: 5, imagePrompt: "Hai bạn cười", motionPrompt: "cùng cười", followsPrevious: false },
+      { characterIds: ["a", "other"], speakerCharacterId: "a", dialogue: "Đi thôi nào!", action: "Bánh Bao chạy vào bếp", setting: "Căn bếp sáng", camera: "medium", durationSeconds: 5, imagePrompt: "Bánh Bao trong bếp", motionPrompt: "chạy vào bếp" },
+      { characterIds: ["a", "b"], speakerCharacterId: "b", dialogue: "Chờ tớ với!", action: "Đậu Đỏ gọi với", setting: "Căn bếp sáng", camera: "wide", durationSeconds: 5, imagePrompt: "Hai bạn trong bếp", motionPrompt: "Đậu Đỏ chạy tới" },
+      { characterIds: ["a", "b"], speakerCharacterId: null, dialogue: "", action: "Cả hai cười", setting: "Căn bếp sáng", camera: "close", durationSeconds: 5, imagePrompt: "Hai bạn cười", motionPrompt: "cùng cười" },
     ] }, context, 15);
     expect(result.kind).toBe("video_plan");
     if (result.kind === "video_plan") expect(result.scenes[0].characterIds).toEqual(["a"]);

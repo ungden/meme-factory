@@ -27,7 +27,6 @@ export type SceneInput = {
   camera?: string;
   startImageUrl?: string | null;
   endImageUrl?: string | null;
-  followsPrevious?: boolean;
   imagePrompt?: string;
   motionPrompt?: string;
   sourceMode?: "manual" | "ai";
@@ -106,7 +105,6 @@ export function normalizeScene(scene: SceneInput): Required<
       typeof scene.endImageUrl === "string" && scene.endImageUrl
         ? scene.endImageUrl
         : null,
-    followsPrevious: scene.followsPrevious === true,
     imagePrompt:
       typeof scene.imagePrompt === "string"
         ? scene.imagePrompt.trim().slice(0, 1600)

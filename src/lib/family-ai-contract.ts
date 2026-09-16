@@ -318,7 +318,6 @@ export function compileStoryShots(
         : [...new Set(story.dialogue.map((d) => d.characterId))],
       speakerCharacterId: line?.characterId || null,
       dialogue: line?.text || "",
-      followsPrevious: false,
     };
   });
   return {
@@ -524,7 +523,6 @@ export function compileStoryboards(
       setting: String(first.setting),
       camera: String(first.camera),
       durationSeconds: providerDuration,
-      followsPrevious: false,
       storyboard,
       imagePrompt: `${first.imagePrompt}\nKhung đầu sạch của đoạn đối đáp: có đủ ${names} từ ảnh chuẩn, vị trí và hướng nhìn rõ theo trục đối thoại, đúng tỷ lệ vóc dáng. Chưa diễn ra hành động hoặc kết quả ở nhịp sau. Không lưới, nhãn giao diện, mũi tên, phụ đề hoặc nhiều bản sao nhân vật; chữ/số thật trên đạo cụ chỉ được giữ khi referencePlan yêu cầu.`,
       motionPrompt: beats.map((beat) => `${beat.startSeconds.toFixed(2)}–${beat.endSeconds.toFixed(2)}s: ${beat.motion}`).join("\n"),
