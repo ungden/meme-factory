@@ -1272,9 +1272,18 @@ export async function quotePlan(
         speechTasks(eligible, s).some((t) => !accepted(t))
       )
         throw new FilmError("Duyệt các lượt thoại trước khi tạo video.");
-      const referenceTasks = sceneReferenceImageTasks(eligible, s).map(
-        ({ referenceId, task: referenceTask }) => ({ referenceId, task: referenceTask! }),
+      // `referencePackReady` ở trên đã bảo đảm mọi ảnh đều có task được duyệt,
+      // nhưng nó kiểm trên một biến khác. Lọc thật thay vì khẳng định non-null:
+      // nếu điều kiện kia có đổi, ở đây hỏng rõ ràng thay vì nổ undefined lúc
+      // đang dựng payload trả tiền.
+      const referenceTasks = sceneReferenceImageTasks(eligible, s).flatMap(
+        ({ referenceId, task: referenceTask }) =>
+          referenceTask ? [{ referenceId, task: referenceTask }] : [],
       );
+      if (referenceTasks.length !== sceneReferenceImageTasks(eligible, s).length)
+        throw new FilmError(
+          `Bộ ảnh đạo diễn của cảnh ${s.scene_index + 1} chưa đủ. Hãy tạo lại phần còn thiếu.`,
+        );
       const references: Array<{
         url: string;
         binding: string;

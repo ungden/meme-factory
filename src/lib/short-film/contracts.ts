@@ -266,6 +266,19 @@ export type FilmPlan = {
   cast_snapshot: FilmCast[];
   video_plan_scenes: FilmScene[];
 };
+/**
+ * Đúng bằng ràng buộc check trên short_film_tasks.status
+ * (20260908114746_harden_short_film_pipeline.sql:34). Để kiểu `string` thì mọi
+ * phép so sánh trạng thái đều không được compiler kiểm lỗi gõ.
+ */
+export type FilmTaskStatus =
+  | "queued"
+  | "running"
+  | "reconciling"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
 export type FilmTask = {
   id: string;
   kind: FilmKind;
@@ -276,7 +289,7 @@ export type FilmTask = {
   displayName?: string;
   plan_version: number;
   points?: number;
-  status: string;
+  status: FilmTaskStatus;
   input: Record<string, unknown>;
   result: Record<string, unknown> | null;
   error: string | null;

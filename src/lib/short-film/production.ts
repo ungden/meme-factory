@@ -68,7 +68,22 @@ type Run = {
     description?: string;
     personality?: string;
   }>;
-  status: string;
+  /** Các giá trị short_film_production_runs.status thực sự cho phép. */
+  status:
+    | "queued"
+    | "scripting"
+    | "running"
+    | "paused"
+    | "budget_blocked"
+    | "needs_review"
+    | "completed"
+    | "failed"
+    | "cancelled";
+  /**
+   * `phase` là text tự do trong DB và được đặt động từ tên stage/kind
+   * (vd `${task.kind}_check`), nên không thu về union được; nhãn hiển thị nằm
+   * ở STAGE_LABELS trong error-messages.ts.
+   */
   phase: string;
   snapshot: Record<string, unknown>;
   input_snapshot?: Record<string, unknown>;
@@ -76,6 +91,21 @@ type Run = {
   lease_owner: string;
   video_model?: string;
 };
+
+/**
+ * Một hồ sơ kênh lấy từ snapshot chỉ dùng được khi có đủ các trường mà
+ * checkProductionScript thật sự đọc. Thiếu thì trả null để gọi lại từ DB.
+ */
+function snapshotChannelProfile(value: unknown): ChannelProfile | null {
+  if (!value || typeof value !== "object") return null;
+  const profile = value as Partial<ChannelProfile>;
+  return typeof profile.version === "number" &&
+    Array.isArray(profile.roles) &&
+    typeof profile.positioning === "string" &&
+    typeof profile.tone === "string"
+    ? (profile as ChannelProfile)
+    : null;
+}
 
 function frozenPlan(run: Run): FilmPlan | null {
   const value = run.input_snapshot?.plan;
@@ -573,8 +603,12 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
     }
     if (run.snapshot?.scriptCheck !== "passed") {
       if (!profile)
+        // input_snapshot là jsonb do một tiến trình trước ghi. Ép kiểu mà không
+        // kiểm tra nghĩa là một snapshot lệch hình dạng sẽ đi thẳng vào
+        // checkProductionScript — lời gọi AI có tính phí — và cho ra một kết
+        // luận sai nhưng rất tự tin. Dữ liệu không dùng được thì đọc lại từ DB.
         profile =
-          (run.input_snapshot?.channelProfile as ChannelProfile | null) ||
+          snapshotChannelProfile(run.input_snapshot?.channelProfile) ||
           (await creativeContext(a)).profile;
       const check = plan.script_review
         ? {
