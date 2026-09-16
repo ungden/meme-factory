@@ -30,6 +30,7 @@ import {
 } from "./media.mjs";
 import {
   ensureDiskSpace,
+  isProjectMediaPath,
   uploadMedia,
   VIDEO_MAX_BYTES,
 } from "./storage.mjs";
@@ -68,7 +69,9 @@ export function makeFilmWorker(db) {
     return data;
   }
   async function sign(storagePath, project) {
-    if (!storagePath?.startsWith(project + "/"))
+    // Cùng luật với src/lib/project-media-path.ts (nguồn chuẩn). Worker chạy
+    // .mjs nên không import được module TS; giữ y hệt các phép kiểm ở đó.
+    if (!isProjectMediaPath(project, storagePath))
       throw new Error("Sai phạm vi media.");
     const { data, error } = await db.storage
       .from("content-media")

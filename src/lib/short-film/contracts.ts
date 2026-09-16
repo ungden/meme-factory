@@ -302,6 +302,23 @@ export type QuotedTask = {
   points: number;
   hash: string;
 };
+/** Một kết quả được chấp nhận khi người duyệt hoặc QA tự động đã ký nhận nó. */
+export function isAcceptedTask(task?: FilmTask | null) {
+  return Boolean(task?.approved_at || task?.auto_accepted_at);
+}
+
+/**
+ * Thứ tự chọn kết quả hiện hành: bản đã được chấp nhận đứng trước, sau đó tới
+ * bản mới nhất. Dùng chung cho mọi nơi chọn task, để không nơi nào lặng lẽ
+ * chọn theo một quy tắc khác.
+ */
+export function byAcceptanceThenRecency(a: FilmTask, b: FilmTask) {
+  return (
+    Number(isAcceptedTask(b)) - Number(isAcceptedTask(a)) ||
+    Date.parse(b.created_at || "") - Date.parse(a.created_at || "")
+  );
+}
+
 export function shotDuration(audioSeconds: number, requested: number) {
   if (!Number.isFinite(audioSeconds) || audioSeconds < 0)
     throw new Error("Thời lượng audio không hợp lệ.");
@@ -438,14 +455,7 @@ export function currentSceneTask(
         t.status === "completed" &&
         t.kind === kind,
     )
-    .sort((a, b) => {
-      const accepted = (task: FilmTask) =>
-        Number(Boolean(task.approved_at || task.auto_accepted_at));
-      return (
-        accepted(b) - accepted(a) ||
-        Date.parse(b.created_at || "") - Date.parse(a.created_at || "")
-      );
-    });
+    .sort(byAcceptanceThenRecency);
   if (kind === "image") {
     const first = scene.storyboard?.referencePlan?.referenceImages[0];
     if (first)
@@ -532,17 +542,13 @@ export function sceneReferenceImageTasks(
           task.input.referenceImageId === reference.id &&
           task.status === "completed",
       )
-      .sort((a, b) =>
-        Number(Boolean(b.approved_at || b.auto_accepted_at)) -
-          Number(Boolean(a.approved_at || a.auto_accepted_at)) ||
-        Date.parse(b.created_at || "") - Date.parse(a.created_at || ""),
-      )[0],
+      .sort(byAcceptanceThenRecency)[0],
   }));
 }
 
 export function referencePackReady(tasks: FilmTask[], scene: FilmScene) {
   return sceneReferenceImageTasks(tasks, scene).every(({ task }) =>
-    Boolean(task?.approved_at || task?.auto_accepted_at),
+    isAcceptedTask(task),
   );
 }
 
@@ -675,14 +681,7 @@ export function speechTasks(tasks: FilmTask[], scene: FilmScene) {
             line.dialogue ||
             t.input.dialogue === line.dialogue),
       )
-      .sort((a, b) => {
-        const accepted = (task: FilmTask) =>
-          Number(Boolean(task.approved_at || task.auto_accepted_at));
-        return (
-          accepted(b) - accepted(a) ||
-          Date.parse(b.created_at || "") - Date.parse(a.created_at || "")
-        );
-      })[0],
+      .sort(byAcceptanceThenRecency)[0],
   );
 }
 /** Only called before a new video quote. Existing clips keep their frozen timing. */

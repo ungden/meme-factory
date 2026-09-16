@@ -30,6 +30,7 @@ import {
   measuredDubbedScene,
   finalClipKind,
   filmVideoInputs,
+  isAcceptedTask as accepted,
   type FilmPlan,
   type FilmCast,
   type FilmScene,
@@ -118,6 +119,38 @@ export async function readPlan(a: Access, id: string) {
       .sort((x: FilmScene, y: FilmScene) => x.scene_index - y.scene_index),
   } as FilmPlan;
 }
+/**
+ * Hồ sơ kênh mới nhất trong đúng phạm vi workspace. Tách riêng khỏi
+ * `channelProfileAt` một cách có chủ ý: dùng nhầm bản mới nhất cho một kịch bản
+ * đã ghim phiên bản sẽ đưa chỉ đạo hình ảnh sai vào một lượt tạo có trả tiền.
+ */
+export async function latestChannelProfile(a: Access) {
+  const { data } = await a.admin
+    .from("channel_profiles")
+    .select("profile")
+    .eq("project_id", a.project.id)
+    .eq("workspace_version", a.project.workspace_version)
+    .order("version", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data?.profile as ChannelProfile | null) || null;
+}
+
+/** Hồ sơ kênh ở đúng phiên bản một kịch bản đã ghim. */
+export async function channelProfileAt(a: Access, version: number) {
+  const { data, error } = await a.admin
+    .from("channel_profiles")
+    .select("profile")
+    .eq("project_id", a.project.id)
+    .eq("workspace_version", a.project.workspace_version)
+    .eq("version", version)
+    .maybeSingle();
+  return {
+    profile: (data?.profile as ChannelProfile | null) || null,
+    error: error || null,
+  };
+}
+
 export function checkVersion(
   a: Access,
   body: Record<string, unknown>,
@@ -179,17 +212,10 @@ export async function freezeCast(
     )
       throw new FilmError("Nhân vật khách mời không thuộc tập phim này.");
   }
-  const { data: channel } = await a.admin
-    .from("channel_profiles")
-    .select("profile")
-    .eq("project_id", a.project.id)
-    .eq("workspace_version", a.project.workspace_version)
-    .order("version", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const channelProfile = await latestChannelProfile(a);
   const coreCharacterIds = new Set(
-    Array.isArray(channel?.profile?.roles)
-      ? channel.profile.roles
+    Array.isArray(channelProfile?.roles)
+      ? channelProfile.roles
           .map((role: { characterId?: unknown }) => String(role.characterId || ""))
           .filter(Boolean)
       : [],
@@ -384,16 +410,8 @@ export async function savePlan(
     image_url: string;
   }> = [];
   if (guestInputs.length) {
-    const { data: channel } = await a.admin
-      .from("channel_profiles")
-      .select("profile")
-      .eq("project_id", a.project.id)
-      .eq("workspace_version", a.project.workspace_version)
-      .order("version", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const visualPrompt = (channel?.profile as ChannelProfile | undefined)
-      ?.visualDirection?.prompt;
+    const visualPrompt = (await latestChannelProfile(a))?.visualDirection
+      ?.prompt;
     for (const guest of guestInputs) {
       const { data: existing } = old
         ? await a.admin
@@ -584,13 +602,10 @@ export async function savePlan(
   if (story != null) {
     if (JSON.stringify(story).length > 25000)
       throw new FilmError("Câu chuyện quá dài.");
-    const { data: profile, error } = await a.admin
-      .from("channel_profiles")
-      .select("profile")
-      .eq("project_id", a.project.id)
-      .eq("workspace_version", a.project.workspace_version)
-      .eq("version", (story as Story).profileVersion)
-      .maybeSingle();
+    const { profile, error } = await channelProfileAt(
+      a,
+      (story as Story).profileVersion,
+    );
     if (error || !profile)
       throw new FilmError("Không tìm thấy phiên bản hồ sơ kênh.");
     try {
@@ -600,7 +615,7 @@ export async function savePlan(
         ...ids.filter((id) => !guestUuids.has(id)),
         ...guestByKey.keys(),
       ];
-      story = validateStory(story, profile.profile, storyAllowed);
+      story = validateStory(story, profile, storyAllowed);
     } catch (e) {
       throw new FilmError(
         e instanceof Error ? e.message : "Câu chuyện không hợp lệ.",
@@ -723,15 +738,7 @@ export async function refreshPlanCastIfStale(a: Access, plan: FilmPlan) {
 
   let story = plan.story;
   if (story) {
-    const { data: channel } = await a.admin
-      .from("channel_profiles")
-      .select("profile")
-      .eq("project_id", a.project.id)
-      .eq("workspace_version", a.project.workspace_version)
-      .order("version", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const profile = channel?.profile as ChannelProfile | null;
+    const profile = await latestChannelProfile(a);
     if (profile?.visualDirection?.prompt)
       story = { ...story, profileVersion: profile.version };
   }
@@ -874,8 +881,6 @@ export async function modelPrice(
     ),
   );
 }
-const accepted = (task?: FilmTask) =>
-  !!(task?.approved_at || task?.auto_accepted_at);
 export async function storeQuote(
   a: Access,
   tasks: QuotedTask[],
@@ -938,18 +943,7 @@ export async function quotePlan(
   // Coherence gate: never pay to render scenes that mix two revisions (fresh
   // dialogue over the previous episode's prompts/cast). Fails before quotes.
   try {
-    const { data: channelRow } = await a.admin
-      .from("channel_profiles")
-      .select("profile")
-      .eq("project_id", a.project.id)
-      .eq("workspace_version", a.project.workspace_version)
-      .order("version", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    assertMediaCoherent(
-      plan,
-      (channelRow?.profile as ChannelProfile | null) || null,
-    );
+    assertMediaCoherent(plan, await latestChannelProfile(a));
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     if (!message.includes("PLAN_MEDIA_INCOHERENT")) throw e;
@@ -1002,17 +996,8 @@ export async function quotePlan(
   let visualDirection = "";
   const profileVersion = (plan.story as Story | null)?.profileVersion;
   if (profileVersion) {
-    const { data: channel } = await a.admin
-      .from("channel_profiles")
-      .select("profile")
-      .eq("project_id", a.project.id)
-      .eq("workspace_version", a.project.workspace_version)
-      .eq("version", profileVersion)
-      .maybeSingle();
-    visualDirection = String(
-      (channel?.profile as { visualDirection?: { prompt?: unknown } } | null)
-        ?.visualDirection?.prompt || "",
-    ).trim();
+    const { profile } = await channelProfileAt(a, profileVersion);
+    visualDirection = String(profile?.visualDirection?.prompt || "").trim();
   }
   // An automatic run may only continue from work created by that run. Human
   // approved media can be reused deliberately; an unreviewed result from an

@@ -27,6 +27,7 @@ import {
 import {
   speechTasks,
   finalClipKind,
+  isAcceptedTask as accepted,
   currentSceneTask,
   referencePackReady,
   type FilmPlan,
@@ -43,6 +44,7 @@ import {
   seedanceReferenceModel,
   seedanceMaxDuration,
 } from "../video-models";
+import { isProjectMediaPath } from "../project-media-path";
 
 type Run = {
   id: string;
@@ -346,7 +348,9 @@ const directorInput = {
 }
 
 async function signed(admin: SupabaseClient, project: string, path: string) {
-  if (!path.startsWith(`${project}/`))
+  // Cùng một phép kiểm với server.ts: chỉ `startsWith` là chưa đủ, vì
+  // `project/../khac/x.mp4` vẫn lọt. Đây là đường mà pipeline tự động dùng.
+  if (!isProjectMediaPath(project, path))
     throw new Error("MEDIA_PROJECT_MISMATCH");
   const { data, error } = await admin.storage
     .from("content-media")
@@ -417,9 +421,6 @@ async function ensureTaskCheck(a: Access, run: Run, task: FilmTask) {
   return check.status;
 }
 
-function accepted(task?: FilmTask) {
-  return !!(task?.approved_at || task?.auto_accepted_at);
-}
 type StageSelection = {
   stage: "prepare" | "video" | "finish" | "transcript" | "check" | "render" | "completed";
   sceneIds: string[];
