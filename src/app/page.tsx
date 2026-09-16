@@ -7,19 +7,22 @@ import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import {
   ArrowRight,
   CaretDown,
+  FilmSlate,
   ImagesSquare,
   Moon,
   Sparkle,
   Sun,
+  UserCircle,
+  VideoCamera,
 } from "@phosphor-icons/react";
 import { useTheme } from "@/components/theme-provider";
 import { createClient } from "@/lib/supabase/client";
 
 const formats = [
-  { icon: Sparkle, label: "Nhân vật 3D", note: "Duyệt ảnh chuẩn trước khi dùng" },
+  { icon: UserCircle, label: "Nhân vật 3D", note: "Duyệt ảnh chuẩn trước khi dùng" },
   { icon: ImagesSquare, label: "Tạo ảnh", note: "Ý tưởng, nhân vật và tỷ lệ" },
-  { icon: ImagesSquare, label: "Tạo video", note: "Một clip nhanh từ mô tả hoặc ảnh" },
-  { icon: Sparkle, label: "Tạo phim ngắn", note: "AI viết, dựng cảnh, lồng tiếng và ghép phim" },
+  { icon: VideoCamera, label: "Tạo video", note: "Một clip nhanh từ mô tả hoặc ảnh" },
+  { icon: FilmSlate, label: "Tạo phim ngắn", note: "AI viết, dựng cảnh, lồng tiếng và ghép phim" },
 ];
 
 const steps = [
@@ -134,7 +137,7 @@ export default function Home() {
                   để đăng.
                 </h1>
                 <p className="media-copy mt-6 max-w-[500px] text-[16px] leading-[1.72] sm:text-[18px]">
-                  Xây nhân vật một lần, rồi dùng cùng phiên bản đã duyệt cho ảnh và video của dự án.
+                  Xây nhân vật một lần, rồi dùng cùng phiên bản đã duyệt cho ảnh, video và cả phim ngắn có lời thoại của dự án.
                 </p>
                 <div className="mt-8 flex flex-wrap items-center gap-4">
                   <button type="button" onClick={focusComposer} className="media-primary-button inline-flex h-[54px] items-center gap-3 rounded-xl px-6 text-[16px] font-semibold text-white">
@@ -173,7 +176,7 @@ export default function Home() {
                 <div className="grid gap-2 sm:grid-cols-2 xl:flex">
                   <label className="media-select flex min-w-[168px] cursor-pointer items-center gap-2 rounded-[15px] px-3 py-2">
                     <Image src="/media-studio/foxy-master.png" alt="Foxy" width={38} height={38} className="h-9 w-9 rounded-full object-cover" />
-                    <span className="min-w-0 flex-1"><small>Nhân vật</small><strong>Foxy</strong></span>
+                    <span className="min-w-0 flex-1"><small>Nhân vật</small><strong>{character}</strong></span>
                     <select aria-label="Chọn nhân vật" value={character} onChange={(event) => setCharacter(event.target.value)}><option>Foxy</option><option>Thêm nhân vật mới</option></select>
                     <CaretDown size={14} />
                   </label>
@@ -202,7 +205,7 @@ export default function Home() {
           <div className="grid gap-7 lg:grid-cols-[.7fr_1.3fr] lg:items-end lg:gap-10">
             <div>
               <span className="media-kicker">Một project. Một nguồn sự thật.</span>
-              <h2 className="mt-4 max-w-[520px] text-[36px] font-bold leading-[1.08] tracking-[-0.03em] sm:text-[50px]">Nhân vật, ảnh và video đi cùng nhau.</h2>
+              <h2 className="mt-4 max-w-[520px] text-[36px] font-bold leading-[1.08] tracking-[-0.03em] sm:text-[50px]">Nhân vật, ảnh, video và phim ngắn đi cùng nhau.</h2>
             </div>
             <p className="media-copy max-w-[590px] text-[16px] leading-7 lg:ml-auto">Foxy chỉ là ví dụ minh hoạ. Mỗi project dùng nhân vật và thương hiệu riêng mà bạn đã duyệt.</p>
           </div>
@@ -242,7 +245,7 @@ export default function Home() {
           <div className="media-final-cta relative grid overflow-hidden rounded-[28px] px-6 py-10 sm:px-10 sm:py-12 lg:grid-cols-[1fr_300px] lg:items-center lg:px-14 lg:py-10">
             <div className="relative z-10 text-center lg:text-left">
               <span className="media-hand-note text-[24px] text-[#f05a32] sm:text-[26px]">nội dung đều hơn, thương hiệu có chất hơn</span>
-              <h2 className="mt-3 max-w-[720px] text-[38px] font-extrabold leading-[1.05] tracking-[-0.035em] sm:text-[54px]">Một nhân vật. Ảnh và video đúng chất.</h2>
+              <h2 className="mt-3 max-w-[720px] text-[38px] font-extrabold leading-[1.05] tracking-[-0.035em] sm:text-[54px]">Một nhân vật. Từ tấm ảnh tới bộ phim ngắn.</h2>
               <p className="mx-auto mt-4 max-w-[590px] text-[15px] leading-6 text-black/65 lg:mx-0">Bắt đầu bằng một ý tưởng hoặc tạo nhân vật đầu tiên cho project của bạn.</p>
               <button type="button" onClick={focusComposer} className="media-primary-button mt-7 inline-flex h-[52px] items-center gap-3 rounded-xl px-6 text-[15px] font-semibold text-white">Bắt đầu tạo <ArrowRight size={19} weight="bold" /></button>
             </div>
