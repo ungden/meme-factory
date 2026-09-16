@@ -116,6 +116,72 @@ export function nextScriptStage(
   return FAMILY_SCRIPT_STAGES[index + 1] ?? "done";
 }
 
+/**
+ * Chỉ dẫn sửa dành cho NGƯỜI VIẾT, không phải cho người dùng cuối. Phần lớn mã
+ * lỗi tới tay model dưới dạng trần (STORY_WANTS_INVALID), tức là model phải đoán
+ * xem sai ở đâu — mà nó chỉ có đúng một lượt sửa. Bảng này nói thẳng cần đổi gì.
+ *
+ * Cố ý tách khỏi ERROR_MESSAGES trong error-messages.ts: bảng kia viết cho người
+ * dùng và thường kết bằng "Hãy cho AI viết lại", vô nghĩa khi chính AI đang đọc.
+ */
+const REPAIR_HINTS: Record<string, string> = {
+  STORY_STRUCTURE_INVALID:
+    "Thiếu hoặc bỏ trống một trong các trường bắt buộc: series (phải nằm đúng danh sách đã cho), situation, mechanism, outcome, payoff, setup, caption. Điền đủ, mỗi trường trên 3 ký tự.",
+  STORY_WANTS_INVALID:
+    "Cần tối thiểu hai mục wants, mỗi mục dùng đúng một characterId trong danh sách được phép và nêu điều nhân vật đó muốn.",
+  STORY_DIALOGUE_INVALID:
+    "Mỗi lượt thoại cần đủ characterId hợp lệ, text và action; tổng số lượt từ 3 đến 12.",
+  STORY_DIALOGUE_LINE_TOO_LONG:
+    "Có lượt thoại vượt 35 từ. Tách thành hai lượt hoặc rút ngắn, đừng cắt mất ý.",
+  STORY_COMIC_PREMISE_REQUIRED:
+    "Thiếu comicPremise. Ghi rõ normalExpectation, invertedReality và visibleContrast.",
+  STORY_COMIC_PREMISE_INVALID:
+    "comicPremise cần cả ba trường, mỗi trường từ 8 ký tự trở lên và dưới 1000.",
+  STORY_ENDING_REQUIRED:
+    "Thiếu endingPlan. Chọn mode, đặt stopAfterLine bằng đúng số lượt thoại, trích anchorQuote nguyên văn từ lượt cuối và nêu lý do dừng ở đó.",
+  STORY_PERFORMANCE_LANE_INVALID:
+    "performanceLane phải là đúng một giá trị trong danh sách lane đã cho.",
+  STORY_REPEATED_COMBINATION:
+    "Bộ ba situation/mechanism/outcome trùng một tập đã có. Đổi cách chuyện diễn ra, không chỉ đổi đồ vật hay tên.",
+  STORY_GUESTS_INVALID:
+    "guests phải là một mảng, tối đa hai người.",
+  STORY_GUEST_KEY_INVALID:
+    "Khách mời chỉ được dùng key guest-1 hoặc guest-2, và không lặp key.",
+  STORY_GUEST_DESCRIPTION_REQUIRED:
+    "Mỗi khách mời cần name và description tả ngoại hình đủ rõ để dựng ảnh (từ 8 ký tự).",
+  STORY_GUEST_UNDECLARED:
+    "Thoại hoặc wants dùng một key khách mời chưa khai trong guests. Khai đủ, hoặc đổi sang nhân vật đã có.",
+  STORY_SHOTS_MISSING:
+    "Số panel không khớp: cần đúng một panel cho mỗi lượt thoại, cộng một panel nữa nếu tập kết bằng reaction im lặng.",
+  CREATIVE_PERFORMANCE_DIRECTION_MISSING:
+    "Panel thiếu performanceDirection. Mỗi panel cần comicObjective, statusBefore/statusAfter, hook, tối thiểu hai beat hành động vật lý, reactionTarget và revealOrCut.",
+  PERFORMANCE_DIRECTION_INVALID:
+    "performanceDirection sai cấu trúc: version phải là 1, lane hợp lệ, và beats có từ 2 đến 6 mục với đủ các trường.",
+  PERFORMANCE_DIRECTION_WEAK:
+    "Hướng diễn còn chung chung. Thay nhãn cảm xúc bằng hành động nhìn thấy được, và statusBefore phải khác statusAfter.",
+  PERFORMANCE_LANE_MIXED:
+    "Các panel đang khai nhiều lane khác nhau. Dùng đúng một lane cho cả tập.",
+  FAMILY_PREMISES_INVALID:
+    "Cần đúng ba phương án A/B/C, mỗi phương án đủ situation, familiarPattern, observedBehavior, progression, stopPoint, risk và sampleExchange.",
+  FAMILY_PREMISES_DUPLICATED:
+    "Ba phương án quá giống nhau. Cho chúng khác nhau ở cách chuyện diễn ra, không chỉ khác đồ vật.",
+  FAMILY_SELECTION_INVALID:
+    "Phần chọn phương án cần verdict cho từng A/B/C, strongestDetail trích nguyên văn, và selectedId là một phương án được đánh develop (hoặc null nếu cả ba đều nhạt).",
+  FAMILY_EDITORIAL_REVIEW_INVALID:
+    "Bản nhận xét thiếu trường bắt buộc: cần watchability, endingCheck, speechCheck và intentCheck.",
+  STORYBOARD_LINE_TOO_LONG:
+    "Một lượt thoại dài hơn một clip nguồn cho phép. Rút ngắn câu đó trong phần dialogue.",
+};
+
+/** Nói cho người viết biết cần sửa gì, không chỉ ném lại mã lỗi. */
+export function repairHint(error: string) {
+  // Nhiều lỗi đã tự kèm giải thích sau dấu hai chấm; giữ nguyên.
+  if (error.includes(":")) return error;
+  const code = error.trim();
+  const hint = REPAIR_HINTS[code] || REPAIR_HINTS[code.replace(/_\d+.*$/, "")];
+  return hint ? `${code}: ${hint}` : code;
+}
+
 const FAMILY_PRO_MODEL = "gemini-3.1-pro-preview";
 const FAMILY_FLASH_MODEL = "gemini-3-flash-preview";
 
@@ -399,7 +465,7 @@ Mở ngay ở việc đang diễn ra. Chọn chi tiết dễ hình dung, khẩu 
         );
         await this.checkpoint(this.state.stage);
         if (this.repairs++ >= 1) throw e;
-        prompt = `${prompt}\nSửa bản vừa trả, không thay đề tài: ${JSON.stringify(candidate)}\nLỗi: ${error}`;
+        prompt = `${prompt}\nSửa bản vừa trả, không thay đề tài: ${JSON.stringify(candidate)}\nLỗi cần sửa: ${repairHint(error)}`;
       }
     }
   }

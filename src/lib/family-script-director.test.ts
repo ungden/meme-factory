@@ -1,10 +1,11 @@
 import { testPilot } from "./family-test-fixture";
-import { it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { buildFamilyPilot, familyPersonalities } from "./family-pilot";
 import {
   FamilyScriptDirector,
   emptyFamilyScriptState,
   nextScriptStage,
+  repairHint,
 } from "./family-script-director";
 const calls = vi.hoisted(() => ({
   prompts: [] as string[],
@@ -270,4 +271,37 @@ it("stops the stage after both models reject the request", async () => {
   ).rejects.toThrow("invalid argument");
   expect(calls.prompts).toHaveLength(2);
   expect(director.pipelineState.completedStages).toEqual([]);
+});
+
+describe("repairHint", () => {
+  it("explains a bare code the writer would otherwise have to guess at", () => {
+    const hint = repairHint("STORY_WANTS_INVALID");
+    expect(hint).toContain("STORY_WANTS_INVALID");
+    expect(hint).toContain("hai mục wants");
+  });
+
+  // Several validators already append their own explanation; repeating one
+  // would just make the repair prompt noisier.
+  it("leaves a message that already carries detail alone", () => {
+    const detailed = "STORY_SHOT_LIMIT: tối đa 12 shot kể cả reaction";
+    expect(repairHint(detailed)).toBe(detailed);
+  });
+
+  it("resolves a code carrying a numeric suffix", () => {
+    expect(repairHint("STORY_WORDS_87")).toContain("STORY_WORDS_87");
+  });
+
+  it("passes an unknown code through rather than inventing advice", () => {
+    expect(repairHint("BRAND_NEW_CODE")).toBe("BRAND_NEW_CODE");
+  });
+
+  it("never tells the writer to ask an AI to rewrite it", () => {
+    // The user-facing dictionary ends many entries that way; it must not leak
+    // into a prompt the model itself is reading.
+    for (const code of [
+      "STORY_STRUCTURE_INVALID", "STORY_DIALOGUE_INVALID",
+      "STORY_ENDING_REQUIRED", "PERFORMANCE_DIRECTION_WEAK",
+    ])
+      expect(repairHint(code), code).not.toMatch(/cho AI|AI viết lại|AI dựng lại/i);
+  });
 });
