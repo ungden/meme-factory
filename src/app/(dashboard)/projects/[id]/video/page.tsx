@@ -904,7 +904,7 @@ export default function VideoStudioPage() {
               {error && (
                 <p
                   role="alert"
-                  className="mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-700"
+                  className="mt-5 rounded-xl th-bg-danger-light p-3 text-sm th-text-danger"
                 >
                   {error}
                 </p>

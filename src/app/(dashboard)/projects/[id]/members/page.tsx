@@ -8,6 +8,8 @@ import Sidebar from "@/components/layout/sidebar";
 import Card, { CardContent } from "@/components/ui/card";
 import Button from "@/components/ui/button";
 import { UserPlus, Trash2 } from "lucide-react";
+import ConfirmModal from "@/components/ui/confirm-modal";
+import { useToast } from "@/components/ui/toast";
 
 interface ProjectMember {
   user_id: string;
@@ -34,6 +36,14 @@ export default function ProjectMembersPage() {
   const [isOwner, setIsOwner] = useState(false);
   const [memberEmail, setMemberEmail] = useState("");
   const [busy, setBusy] = useState(false);
+  const toast = useToast();
+  /** Một hộp xác nhận theo chủ đề thay cho window.confirm. */
+  const [confirmState, setConfirm] = useState<{
+    title: string;
+    message: string;
+    confirmText: string;
+    action: () => void;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -68,7 +78,7 @@ export default function ProjectMembersPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data?.error || "Không thể gửi lời mời");
+        toast.error(data?.error || "Không thể gửi lời mời");
       } else {
         setMemberEmail("");
         void fetchData();
@@ -79,8 +89,7 @@ export default function ProjectMembersPage() {
   };
 
   const removeMember = async (userId: string) => {
-    const ok = window.confirm("Xoá thành viên này khỏi dự án?");
-    if (!ok) return;
+    setConfirm(null);
     setBusy(true);
     try {
       const res = await fetch(`/api/projects/${projectId}/members?userId=${encodeURIComponent(userId)}`, {
@@ -88,7 +97,7 @@ export default function ProjectMembersPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data?.error || "Không thể xoá thành viên");
+        toast.error(data?.error || "Không thể xoá thành viên");
       } else {
         void fetchData();
       }
@@ -98,8 +107,7 @@ export default function ProjectMembersPage() {
   };
 
   const cancelInvitation = async (invitationId: string) => {
-    const ok = window.confirm("Huỷ lời mời này?");
-    if (!ok) return;
+    setConfirm(null);
     setBusy(true);
     try {
       const res = await fetch(`/api/projects/${projectId}/members?invitationId=${encodeURIComponent(invitationId)}`, {
@@ -107,7 +115,7 @@ export default function ProjectMembersPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data?.error || "Không thể huỷ lời mời");
+        toast.error(data?.error || "Không thể huỷ lời mời");
       } else {
         void fetchData();
       }
@@ -171,7 +179,14 @@ export default function ProjectMembersPage() {
                   </div>
                   {isOwner && !m.is_owner && (
                     <button
-                      onClick={() => removeMember(m.user_id)}
+                      onClick={() =>
+                        setConfirm({
+                          title: "Xoá thành viên?",
+                          message: `${m.email} sẽ mất quyền truy cập dự án này.`,
+                          confirmText: "Xoá thành viên",
+                          action: () => removeMember(m.user_id),
+                        })
+                      }
                       className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs"
                       style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444" }}
                       disabled={busy}
@@ -196,7 +211,14 @@ export default function ProjectMembersPage() {
                           <p className="text-xs th-text-muted">Đã mời lúc {new Date(inv.created_at).toLocaleString("vi-VN")}</p>
                         </div>
                         <button
-                          onClick={() => cancelInvitation(inv.id)}
+                          onClick={() =>
+                            setConfirm({
+                              title: "Huỷ lời mời?",
+                              message: `Lời mời gửi tới ${inv.invitee_email} sẽ không còn hiệu lực.`,
+                              confirmText: "Huỷ lời mời",
+                              action: () => cancelInvitation(inv.id),
+                            })
+                          }
                           className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs"
                           style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444" }}
                           disabled={busy}
@@ -210,6 +232,16 @@ export default function ProjectMembersPage() {
             )}
           </CardContent>
         </Card>
+        <ConfirmModal
+          isOpen={!!confirmState}
+          onClose={() => setConfirm(null)}
+          onConfirm={() => confirmState?.action()}
+          title={confirmState?.title || ""}
+          message={confirmState?.message || ""}
+          confirmText={confirmState?.confirmText}
+          variant="danger"
+          loading={busy}
+        />
       </main>
     </div>
   );

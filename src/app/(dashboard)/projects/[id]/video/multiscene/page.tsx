@@ -250,10 +250,12 @@ const episodePickerLabels: Record<EpisodePickerStatus, string> = {
   failed: "Cần xem lại",
 };
 const episodePickerClasses: Record<EpisodePickerStatus, string> = {
-  draft: "bg-slate-100 text-slate-600",
-  running: "bg-blue-50 text-blue-700",
-  ready: "bg-emerald-50 text-emerald-700",
-  failed: "bg-red-50 text-red-700",
+  // Literal Tailwind chỉ có bản sáng sẽ loè lên thành khối chói trong dark
+  // mode; dùng token theo chủ đề như phần còn lại của studio.
+  draft: "th-bg-tertiary th-text-secondary",
+  running: "th-bg-accent-light th-text-accent",
+  ready: "th-bg-success-light th-text-success",
+  failed: "th-bg-danger-light th-text-danger",
 };
 async function api(url: string, body?: unknown, method = "POST") {
   const r = await fetch(url, {
@@ -1287,6 +1289,26 @@ export default function ShortFilmPage() {
   };
   const control =
     "w-full rounded-lg border th-border px-3 py-2 th-bg-input th-text-primary text-sm";
+  // Trang nặng nhất của app trước đây render rỗng và disabled trong lúc chờ
+  // `ready`, trông hệt như một trang hỏng. Dùng skeleton như trang tổng quan.
+  if (!ready)
+    return (
+      <div className="flex">
+        <Sidebar projectId={ref} projectName={project?.name} />
+        <main className="min-h-dvh min-w-0 flex-1 px-4 pb-24 pt-20 lg:ml-56 lg:p-6">
+          <div className="mx-auto max-w-[1440px] animate-pulse space-y-4">
+            <div className="h-8 w-56 rounded-lg th-bg-card" />
+            <div className="h-4 w-full max-w-xl rounded th-bg-card" />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="h-40 rounded-xl th-bg-card" />
+              <div className="h-40 rounded-xl th-bg-card" />
+            </div>
+            <div className="h-64 rounded-xl th-bg-card" />
+            <span className="sr-only">Đang tải xưởng phim ngắn…</span>
+          </div>
+        </main>
+      </div>
+    );
   return (
     <div className="flex">
       <Sidebar projectId={ref} projectName={project?.name} />

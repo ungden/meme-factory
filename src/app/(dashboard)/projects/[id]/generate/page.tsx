@@ -1245,7 +1245,7 @@ export default function GeneratePage() {
                             {oneOffCharacters.map((name) => (
                               <span key={name} className="px-2 py-1 rounded-lg text-xs th-bg-accent-light th-text-accent flex items-center gap-1">
                                 @{name}
-                                <button type="button" onClick={() => removeOneOffCharacter(name)} className="th-text-accent">
+                                <button type="button" onClick={() => removeOneOffCharacter(name)} aria-label={`Bỏ nhân vật ${name}`} className="-m-1.5 p-1.5 th-text-accent">
                                   <X size={12} />
                                 </button>
                               </span>

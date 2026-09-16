@@ -640,7 +640,11 @@ export default function GalleryPage() {
                     )}
                     {!selectionMode && (
                       <div
-                        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"
+                        // Chỉ hiện khi rê chuột nghĩa là thiết bị cảm ứng không
+                        // bao giờ chạm tới được: người dùng điện thoại không tạo
+                        // lại hay tải nổi một ảnh lẻ. Dưới lg thì luôn hiện, và
+                        // focus bàn phím cũng mở được.
+                        className="absolute inset-0 flex items-center justify-center gap-2 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100"
                         style={{ background: "var(--bg-overlay)" }}
                       >
                         <button

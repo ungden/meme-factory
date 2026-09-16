@@ -95,7 +95,7 @@ export default function ProjectOverviewPage() {
           <div className="mx-auto max-w-7xl animate-pulse space-y-6">
             <div className="h-9 w-72 rounded-lg th-bg-tertiary" />
             <div className="h-72 rounded-3xl th-bg-card" />
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               {[1, 2, 3, 4].map((item) => (
                 <div key={item} className="h-44 rounded-2xl th-bg-card" />
               ))}

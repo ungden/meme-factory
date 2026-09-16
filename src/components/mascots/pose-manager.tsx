@@ -474,6 +474,7 @@ export default function PoseManager({
                         <button
                           onClick={() => setDeletePoseTarget(pose.id)}
                           className="p-2 bg-red-500/90 rounded-xl hover:bg-red-600 transition-colors"
+                          aria-label="Xoá tư thế"
                           title="Xoá tư thế"
                         >
                           <Trash2 size={16} className="text-white" />

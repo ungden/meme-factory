@@ -78,7 +78,7 @@ export default function AnnouncementBanner() {
               <p className="text-sm font-medium" style={{ color: config.text }}>{ann.title}</p>
               {ann.content && <p className="text-xs mt-0.5" style={{ color: config.text, opacity: 0.8 }}>{ann.content}</p>}
             </div>
-            <button onClick={() => dismiss(ann.id)} className="p-1 rounded-lg transition-all hover:opacity-70" style={{ color: config.text }}>
+            <button onClick={() => dismiss(ann.id)} aria-label="Đóng thông báo" className="p-1 rounded-lg transition-all hover:opacity-70" style={{ color: config.text }}>
               <X size={14} />
             </button>
           </div>

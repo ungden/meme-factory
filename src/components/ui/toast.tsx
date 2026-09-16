@@ -85,6 +85,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <p className="text-sm font-medium flex-1">{t.message}</p>
               <button
                 onClick={() => removeToast(t.id)}
+                aria-label="Đóng thông báo"
                 className="opacity-60 hover:opacity-100 transition-opacity flex-shrink-0"
               >
                 <X size={14} />
