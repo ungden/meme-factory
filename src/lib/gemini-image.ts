@@ -3,6 +3,9 @@ import { getGeminiApiKey } from "@/lib/server-secrets";
 import { resolveArtDirection, type ArtDirectionId } from "@/lib/mascot-art-direction";
 import { stripImageMetadata } from "@/lib/image-metadata";
 
+/** Vẽ ảnh chậm hơn sinh văn bản nhiều, nhưng vẫn phải có trần. */
+const GEMINI_IMAGE_TIMEOUT_MS = 120_000;
+
 // ============================================
 // Gemini Nano Banana 2 - Image Generation
 // Uses the stable gemini-3.1-flash-image model
@@ -205,6 +208,7 @@ Nếu nhân vật trong ảnh reference là con bò thì PHẢI vẽ con bò, l�
     model: IMAGE_MODEL,
     contents: contents,
     config: {
+      httpOptions: { timeout: GEMINI_IMAGE_TIMEOUT_MS },
       responseModalities: ["TEXT", "IMAGE"],
       imageConfig: {
         aspectRatio: aspectRatio,
@@ -339,6 +343,7 @@ export async function generateCharacterPose(
     model: IMAGE_MODEL,
     contents: contents,
     config: {
+      httpOptions: { timeout: GEMINI_IMAGE_TIMEOUT_MS },
       responseModalities: ["IMAGE"],
       imageConfig: {
         aspectRatio: poseAspectRatio,
@@ -387,6 +392,7 @@ export async function generateBackground(
     model: IMAGE_MODEL,
     contents: prompt,
     config: {
+      httpOptions: { timeout: GEMINI_IMAGE_TIMEOUT_MS },
       responseModalities: ["IMAGE"],
       imageConfig: {
         aspectRatio: aspectRatio,
@@ -485,6 +491,7 @@ YÊU CẦU BẮT BUỘC:
     model: IMAGE_MODEL,
     contents: [{ text: prompt }],
     config: {
+      httpOptions: { timeout: GEMINI_IMAGE_TIMEOUT_MS },
       responseModalities: ["TEXT", "IMAGE"],
       imageConfig: {
         aspectRatio: FORMAT_TO_ASPECT[params.aspectRatio || "4:5"] || "4:5",

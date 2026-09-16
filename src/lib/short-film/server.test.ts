@@ -1,0 +1,145 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { FilmTask } from "./contracts";
+
+vi.mock("server-only", () => ({}));
+vi.mock("@/lib/admin", () => ({ getSupabaseAdmin: vi.fn() }));
+vi.mock("@/lib/supabase/request-auth", () => ({ getRequestUser: vi.fn() }));
+
+const task = (overrides: Partial<FilmTask>): FilmTask =>
+  ({
+    id: "task",
+    kind: "image",
+    scene_id: null,
+    scene_version: null,
+    plan_version: 1,
+    status: "completed",
+    input: {},
+    result: null,
+    error: null,
+    approved_at: null,
+    created_at: "2026-09-10T00:00:00Z",
+    ...overrides,
+  }) as FilmTask;
+
+/**
+ * Mimics the two PostgREST queries tasksForPlan issues. `filtered` is what the
+ * accepted-only query returns; `recent` is the newest page.
+ */
+function adminReturning(recent: FilmTask[], acceptedOnly: FilmTask[]) {
+  return {
+    from: () => {
+      let isAcceptedQuery = false;
+      const builder: Record<string, unknown> = {
+        select: () => builder,
+        eq: () => builder,
+        or: () => {
+          isAcceptedQuery = true;
+          return builder;
+        },
+        order: () => builder,
+        limit: () =>
+          Promise.resolve({
+            data: isAcceptedQuery ? acceptedOnly : recent,
+            error: null,
+          }),
+      };
+      return builder;
+    },
+  };
+}
+
+const project = { id: "project-1", workspace_version: 2 };
+
+describe("tasksForPlan", () => {
+  async function run(recent: FilmTask[], acceptedOnly: FilmTask[]) {
+    const { tasksForPlan } = await import("./server");
+    return tasksForPlan(
+      { project, admin: adminReturning(recent, acceptedOnly) } as never,
+      "plan-1",
+    );
+  }
+
+  it("includes an approved task missing from the newest page", async () => {
+    const approved = task({
+      id: "approved-old",
+      approved_at: "2026-09-01T00:00:00Z",
+      created_at: "2026-09-01T00:00:00Z",
+    });
+    const recent = [
+      task({ id: "recent-a", created_at: "2026-09-12T00:00:00Z" }),
+      task({ id: "recent-b", created_at: "2026-09-11T00:00:00Z" }),
+    ];
+    const ids = (await run(recent, [approved])).map((t) => t.id);
+    expect(ids).toContain("approved-old");
+    expect(ids).toHaveLength(3);
+  });
+
+  it("does not duplicate a task present in both queries", async () => {
+    const shared = task({
+      id: "shared",
+      auto_accepted_at: "2026-09-12T00:00:00Z",
+      created_at: "2026-09-12T00:00:00Z",
+    });
+    const ids = (await run([shared], [shared])).map((t) => t.id);
+    expect(ids).toEqual(["shared"]);
+  });
+
+  it("returns newest first", async () => {
+    const older = task({ id: "older", created_at: "2026-09-01T00:00:00Z" });
+    const newer = task({ id: "newer", created_at: "2026-09-14T00:00:00Z" });
+    const ids = (await run([newer], [older])).map((t) => t.id);
+    expect(ids).toEqual(["newer", "older"]);
+  });
+});
+
+describe("modelPrice", () => {
+  const originalFetch = globalThis.fetch;
+  beforeEach(() => {
+    process.env.WAVESPEED_API_KEY = "test-key";
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("converts a provider price into whole points", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      Response.json({ data: { price: 0.1 } }),
+    ) as never;
+    const { modelPrice } = await import("./server");
+    expect(await modelPrice("model", {})).toBeGreaterThan(0);
+  });
+
+  it("sends an abort signal so a hung provider cannot pin the request", async () => {
+    const fetchMock = vi.fn(
+      async (_url: string, init?: RequestInit) => {
+        void _url;
+        void init;
+        return Response.json({ data: { price: 0.1 } });
+      },
+    );
+    globalThis.fetch = fetchMock as never;
+    const { modelPrice } = await import("./server");
+    await modelPrice("model", {});
+    expect(fetchMock.mock.calls[0]?.[1]).toHaveProperty("signal");
+  });
+
+  it.each([
+    ["a non-OK response", () => new Response("nope", { status: 500 })],
+    ["a zero price", () => Response.json({ data: { price: 0 } })],
+    ["a non-numeric price", () => Response.json({ data: { price: "x" } })],
+  ])("refuses to quote on %s", async (_label, make) => {
+    globalThis.fetch = vi.fn(async () => make()) as never;
+    const { modelPrice } = await import("./server");
+    await expect(modelPrice("model", {})).rejects.toThrow();
+  });
+
+  it("fails fast once the request's pricing budget is spent", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ data: { price: 0.1 } }));
+    globalThis.fetch = fetchMock as never;
+    const { modelPrice } = await import("./server");
+    await expect(
+      modelPrice("model", {}, Date.now() - 1),
+    ).rejects.toThrow(/chậm/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});

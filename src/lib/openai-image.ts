@@ -52,13 +52,24 @@ function base64ToBlob(base64: string, mimeType: string): Blob {
   return new Blob([new Uint8Array(bytes)], { type: mimeType || "image/png" });
 }
 
+/** Vẽ ảnh có thể mất hàng chục giây, nhưng treo vô hạn thì không. */
+const OPENAI_TIMEOUT_MS = 120_000;
+
 async function callOpenAi(path: string, body: BodyInit, headers: Record<string, string>) {
   const apiKey = await getOpenAiApiKey();
-  const response = await fetch(`https://api.openai.com/v1/${path}`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, ...headers },
-    body,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`https://api.openai.com/v1/${path}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, ...headers },
+      body,
+      signal: AbortSignal.timeout(OPENAI_TIMEOUT_MS),
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError")
+      throw new Error("PROVIDER_TIMEOUT");
+    throw error;
+  }
 
   const payload = (await response.json().catch(() => ({}))) as OpenAiImageResponse;
   if (!response.ok) {

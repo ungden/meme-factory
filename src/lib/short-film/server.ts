@@ -794,17 +794,50 @@ export async function signed(a: Access, path: string) {
   if (error || !data) throw new FilmError("Không đọc được media.");
   return data.signedUrl;
 }
+const TASK_PAGE_LIMIT = 500;
+
+/**
+ * Lịch sử task của một tập phim, có chặn trần.
+ *
+ * Chặn trần đơn thuần theo `created_at desc` là một lỗi tốn tiền: một tập được
+ * tạo lại nhiều lần sẽ đẩy các task CŨ NHẤT ra khỏi trang, kể cả task ĐÃ DUYỆT.
+ * `currentSceneTask` khi đó báo "chưa có ảnh được duyệt" và `nextProductionStage`
+ * mua lại đúng thứ người dùng đã trả tiền. Nên ngoài trang mới nhất, luôn lấy
+ * riêng toàn bộ task đã được chấp nhận rồi gộp theo id — chúng là thứ quyết
+ * định có phải trả tiền lần nữa hay không.
+ */
 export async function tasksForPlan(a: Access, id: string) {
-  const { data, error } = await a.admin
-    .from("short_film_tasks")
-    .select("*")
-    .eq("project_id", a.project.id)
-    .eq("workspace_version", a.project.workspace_version)
-    .eq("plan_id", id)
-    .order("created_at", { ascending: false })
-    .limit(250);
-  if (error) throw error;
-  return data as FilmTask[];
+  const scope = () =>
+    a.admin
+      .from("short_film_tasks")
+      .select("*")
+      .eq("project_id", a.project.id)
+      .eq("workspace_version", a.project.workspace_version)
+      .eq("plan_id", id);
+  const [recent, acceptedRows] = await Promise.all([
+    scope().order("created_at", { ascending: false }).limit(TASK_PAGE_LIMIT),
+    scope()
+      .or("approved_at.not.is.null,auto_accepted_at.not.is.null")
+      .order("created_at", { ascending: false })
+      .limit(TASK_PAGE_LIMIT),
+  ]);
+  if (recent.error) throw recent.error;
+  if (acceptedRows.error) throw acceptedRows.error;
+  const byId = new Map<string, FilmTask>();
+  for (const task of [
+    ...((recent.data || []) as FilmTask[]),
+    ...((acceptedRows.data || []) as FilmTask[]),
+  ])
+    byId.set(task.id, task);
+  if ((recent.data?.length || 0) >= TASK_PAGE_LIMIT)
+    console.warn("short-film task history truncated", {
+      planId: id,
+      projectId: a.project.id,
+      limit: TASK_PAGE_LIMIT,
+    });
+  return [...byId.values()].sort(
+    (x, y) => Date.parse(y.created_at || "") - Date.parse(x.created_at || ""),
+  );
 }
 export async function publicTasks(a: Access, tasks: FilmTask[]) {
   return Promise.all(
@@ -854,10 +887,24 @@ export async function publicTasks(a: Access, tasks: FilmTask[]) {
     })),
   );
 }
+/**
+ * Mỗi cảnh cần một lần tra giá và chúng chạy tuần tự trong vòng lặp báo giá.
+ * Với một tập nhiều cảnh và provider đang chậm, tổng thời gian có thể ăn hết
+ * suất chạy 180 giây của route rồi chết giữa chừng mà không nói gì. `deadline`
+ * cho phép hỏng sớm với thông điệp rõ ràng. (Chưa chuyển các vòng lặp sang
+ * Promise.all: chúng nằm trong nhánh báo giá chưa có test, nên để sau khi
+ * server.test.ts phủ xong.)
+ */
 export async function modelPrice(
   model: string,
   inputs: Record<string, unknown>,
+  deadline?: number,
 ) {
+  if (deadline && Date.now() > deadline)
+    throw new FilmError(
+      "Provider tra giá quá chậm nên chưa gửi lượt tạo. Hãy thử lại sau ít phút; bạn chưa bị trừ điểm.",
+      503,
+    );
   const r = await fetch("https://api.wavespeed.ai/api/v3/model/price", {
     method: "POST",
     headers: {
@@ -950,6 +997,9 @@ export async function quotePlan(
     if (!message.includes("PLAN_MEDIA_INCOHERENT")) throw e;
     throw new FilmError(coherenceMessage(message), 409);
   }
+  // Route báo giá có maxDuration 180 giây; chừa lại phần cho phần còn lại của
+  // request thay vì để chuỗi tra giá ăn hết rồi chết không thông báo.
+  const priceDeadline = Date.now() + 120_000;
   const stage = String(body.stage || "prepare");
   if (stage === "frame")
     throw new FilmError(
@@ -1165,7 +1215,7 @@ export async function quotePlan(
                 text: line.dialogue,
                 requestedSeconds: line.endSeconds - line.startSeconds,
               }).customerPoints
-            : await modelPrice(voiceModel, inputs);
+            : await modelPrice(voiceModel, inputs, priceDeadline);
           const quoted = task(
             "tts",
             {
@@ -1306,7 +1356,7 @@ export async function quotePlan(
           format: plan.format,
           resolution: plan.resolution,
         },
-        await modelPrice(plan.video_model, inputs),
+        await modelPrice(plan.video_model, inputs, priceDeadline),
         s,
       );
       tasks.push(v);
@@ -1375,7 +1425,7 @@ export async function quotePlan(
               performanceDirection: s.performance_direction || s.storyboard?.performanceDirection || null,
               cast: s.cast_snapshot,
             },
-            await modelPrice(FILM_MODELS.lip_sync, inputs),
+            await modelPrice(FILM_MODELS.lip_sync, inputs, priceDeadline),
             s,
           ),
         );
@@ -1402,7 +1452,7 @@ export async function quotePlan(
               storyboard: s.storyboard || null,
               duration: video.result.duration,
             },
-            await modelPrice(FILM_MODELS.transcribe, inputs),
+            await modelPrice(FILM_MODELS.transcribe, inputs, priceDeadline),
             s,
           ),
         );

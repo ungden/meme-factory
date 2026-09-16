@@ -78,15 +78,35 @@ function apiKey() {
   return key;
 }
 
-async function request(path: string, init: RequestInit) {
-  const response = await fetch(`${API}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${apiKey()}`,
-      "Content-Type": "application/json",
-      ...init.headers,
-    },
-  });
+/**
+ * Không có timeout, một kết nối treo sẽ giữ trọn suất chạy serverless tới giới
+ * hạn của nền tảng. Tra giá và đọc kết quả phải nhanh; gửi việc thì được lâu
+ * hơn — cùng mức 45 giây mà media worker đang dùng.
+ */
+const QUICK_TIMEOUT_MS = 15_000;
+const SUBMIT_TIMEOUT_MS = 45_000;
+
+async function request(
+  path: string,
+  init: RequestInit,
+  timeoutMs = QUICK_TIMEOUT_MS,
+) {
+  let response: Response;
+  try {
+    response = await fetch(`${API}${path}`, {
+      ...init,
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: {
+        Authorization: `Bearer ${apiKey()}`,
+        "Content-Type": "application/json",
+        ...init.headers,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError")
+      throw new Error("PROVIDER_TIMEOUT");
+    throw error;
+  }
   const json = await response.json().catch(() => ({}));
   if (!response.ok)
     throw new Error(
@@ -125,10 +145,11 @@ export async function submitSeedanceVideo(
   webhook: string,
 ) {
   const endpoint = `/${getSeedanceModel(input)}`;
-  return request(`${endpoint}?webhook=${encodeURIComponent(webhook)}`, {
-    method: "POST",
-    body: JSON.stringify(providerInputs(input)),
-  });
+  return request(
+    `${endpoint}?webhook=${encodeURIComponent(webhook)}`,
+    { method: "POST", body: JSON.stringify(providerInputs(input)) },
+    SUBMIT_TIMEOUT_MS,
+  );
 }
 
 export async function getWaveSpeedPrediction(id: string) {

@@ -1,6 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 import { getGeminiApiKey } from "@/lib/server-secrets";
 
+/** Sinh văn bản: giới hạn như các lời gọi Gemini có cấu trúc khác trong repo. */
+const GEMINI_TEXT_TIMEOUT_MS = 45_000;
+
 async function getClient() {
   const apiKey = await getGeminiApiKey();
   return new GoogleGenAI({ apiKey });
@@ -95,6 +98,7 @@ Trả về JSON đúng schema:
     model: "gemini-3-flash-preview",
     contents: [{ text: prompt }],
     config: {
+      httpOptions: { timeout: GEMINI_TEXT_TIMEOUT_MS },
       responseMimeType: "application/json",
       temperature: 0.55,
     },
@@ -152,6 +156,7 @@ Chỉ trả JSON array, không kèm văn bản khác.`;
     model: "gemini-3-flash-preview",
     contents: [{ text: prompt }],
     config: {
+      httpOptions: { timeout: GEMINI_TEXT_TIMEOUT_MS },
       responseMimeType: "application/json",
       temperature: 0.7,
     },
@@ -357,6 +362,7 @@ CHỈ trả về JSON array, không có text khác.`;
     model: "gemini-3-flash-preview",
     contents: contents,
     config: {
+      httpOptions: { timeout: GEMINI_TEXT_TIMEOUT_MS },
       responseMimeType: "application/json",
       temperature: 0.9,
     },
