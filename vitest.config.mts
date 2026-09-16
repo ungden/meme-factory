@@ -27,10 +27,10 @@ export default defineConfig({
       // A ratchet, not an aspiration: set just under what the suite reaches
       // today so a drop is caught, and raised as coverage grows.
       thresholds: {
-        statements: 28,
-        branches: 21,
-        functions: 32,
-        lines: 29,
+        statements: 38,
+        branches: 31,
+        functions: 38,
+        lines: 39,
       },
     },
   },
