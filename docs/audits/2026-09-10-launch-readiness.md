@@ -1,5 +1,10 @@
 # AIDA — audit phát hành ngày 10/09/2026
 
+> **Cập nhật 16/09/2026 — đọc phần này trước.** Bốn trong năm blocker P1 bên
+> dưới đã được sửa, nhưng bảng "Việc vẫn chặn mở bán phim tự động" vẫn ghi là
+> chưa. Trạng thái đúng ở [phụ lục cuối trang](#phụ-lục-16092026--trạng-thái-thực-tế).
+> Phần còn lại của tài liệu giữ nguyên làm hồ sơ của ngày 10/09.
+
 **Kết luận: chưa nên mở bán đại trà lời hứa “một nút tự ra phim mỗi ngày”.** Đã triển khai giá mới và sửa các lỗi bảo vệ tiền/điểm, đường tải media và hiển thị thư viện. Bản phim 16:9 đã sửa giọng phát được trên production, nhưng pipeline tự động mới chưa có lượt hoàn tất đủ để chứng minh vận hành cho khách hàng.
 
 Phạm vi thực kiểm: source, quyền/RPC và dữ liệu Supabase production, deployment Vercel/Railway, trình duyệt đăng nhập tại aida.vn, kiểm thử tự động và FFmpeg fixture. Không sinh thêm media trả phí, không chuyển tiền ngân hàng, không bật lịch hoặc thay ngân sách của người dùng trong audit.
@@ -79,3 +84,61 @@ Migration production: `20260909200627_launch_billing_guard_and_markup_30`. Commi
 - Database hiện có 0 cấu hình lịch; lịch tự động không được bật trong audit. Chưa nên quảng bá “mỗi ngày tự ra phim” hoặc “luôn cố định giọng/mặt” trước các canary tương ứng.
 
 Bước kế tiếp có giá trị nhất: sửa giao dịch duyệt/đóng lượt và ngân sách resume, thêm idempotency mua gói; sau đó chạy một phim canary qua đúng giao diện sản phẩm với ngân sách được duyệt, đối soát từng job/điểm/artifact. Không cần sinh lại các video cũ để kiểm tra giá hoặc thư viện.
+
+
+---
+
+## Phụ lục 16/09/2026 — trạng thái thực tế
+
+Audit gốc được viết trước khi các bản sửa tương ứng được commit, nên nó mô tả
+sai sản phẩm suốt sáu ngày. Đây là đối chiếu lại từng mục, kèm bằng chứng.
+
+### Blocker P1: đã đóng
+
+| Mục trong audit gốc | Trạng thái | Bằng chứng |
+|---|---|---|
+| Duyệt thành phẩm phải kết thúc đúng lượt sản xuất | **Đã sửa** | RPC `review_content_output` đóng luôn lượt chạy (`status='completed'`, xoá lease) — `20260910071320_fix_review_content_output_ambiguity.sql`. Index `short_film_one_active_run` bỏ `needs_review` nên lượt chờ duyệt không còn giữ chỗ dự án — `20260910070127`. Test: `src/app/api/content-outputs/[id]/approve/route.test.ts`. |
+| Tiếp tục khi nâng ngân sách chưa thực hiện đủ | **Đã sửa** | `control_film_production_run_v2` nhận và áp hạn mức trong cùng transition có khoá — `20260910070127`. Route truyền `p_max_film`/`p_max_day`. |
+| Cảnh nối hành động chưa tự chạy | **Đã bỏ tính năng** | Phim ngắn dùng bộ ảnh tham chiếu; `AUTO_CONTINUOUS_SCENE_NEEDS_REVIEW` không còn tồn tại. `follows_previous` được đánh dấu ngừng dùng ở `20260916120000`. |
+| Chưa có idempotency cho retry mua gói | **Đã sửa (phần ứng dụng)** | `buy_points_idempotent` + bảng `point_purchase_receipts`, client bắt buộc gửi UUID ổn định — `20260910070127`. Phần chuyển khoản ngân hàng thật vẫn chưa kiểm chứng. |
+
+### Việc đợt 16/09 đóng thêm
+
+- **Không mua lại thứ đã trả tiền.** `tasksForPlan` chặn trần theo `created_at`
+  mà không phát hiện tràn, nên một tập tạo lại nhiều lần có thể đánh rơi chính
+  task ĐÃ DUYỆT và bị báo giá lại. Nay có truy vấn bù chỉ lấy task đã chấp nhận.
+- **Không trừ điểm khi đã mất lease.** `accept_film_quote` từng chạy dựa trên
+  một lần kiểm lease từ trước khi gọi mạng; nay kiểm lại ngay trước lệnh trừ.
+- **Provider không treo vô hạn.** Mọi lời gọi WaveSpeed/OpenAI/Gemini đều có
+  timeout; trước đó chỉ `modelPrice` có.
+- **Lỗi không còn biến mất.** Chuỗi `.then` không await khiến một lượt hỏng nằm
+  lại ở `running` tới khi hết lease mà không ai biết.
+- **Người dùng không còn thấy mã máy.** Từ điển lỗi tiếng Việt ở
+  `src/lib/error-messages.ts`, kèm test quét `src/lib` và `supabase/migrations`
+  để bắt mã mới chưa có bản dịch.
+- **Hàm RPC legacy 11 tham số** `create_film_production_run` đã được drop
+  (`20260916120000`); nó không biết `video_model` lẫn `guests`.
+- **`scripts/tests/short-film-production-run.sql`** trước đó khẳng định hành vi
+  đã bị đảo ngược và không nằm trong lệnh test nào. Nay đã sửa và chạy được qua
+  `npm run test:sql`.
+- **UX:** Việt hoá phần còn sót, sửa nhãn `transcribe_check` từng hiện "Kiểm tra
+  kiểm tra lời", tách trạng thái lỗi khỏi trạng thái rỗng ở trang dự án, phân
+  trang thư viện, terms/privacy đọc được trong dark mode và đã có liên kết.
+
+### Còn lại — không đóng được bằng code
+
+1. **Canary phim lồng tiếng đầu-cuối.** Cần một lượt thật đi hết script → hình →
+   video → giọng → phụ đề → ghép → lưu/duyệt, rồi thử restart. Không có lượt nào
+   như vậy trong hồ sơ.
+2. **Chuyển khoản SePay thật qua webhook mới.** SQL đã chứng minh nhận tiền đúng
+   và không cộng hai lần, nhưng chưa có giao dịch ngân hàng thật.
+3. **Duyệt giọng của chủ kênh.** `SHORT_FILM_FIXED_VOICE_ENABLED` vẫn tắt; đây
+   là cổng của con người, không phải của test.
+
+### Kiểm chứng đợt này
+
+456 unit test trong 57 file pass (trước đợt này: 355 test / 51 file); `tsc --noEmit`, `eslint` và `next build` sạch.
+Coverage đã được đo và có ngưỡng sàn cho các module tiêu tiền hoặc xác thực
+provider (`npm run test:coverage`). Terms/privacy được kiểm bằng trình duyệt
+thật ở cả hai theme. Không sinh media trả phí, không chuyển tiền, không bật lịch
+tự động trong đợt này.
