@@ -77,6 +77,25 @@ describe("content-sized Seedance storyboard production", () => {
       expect(normalizeScene(s).storyboard).toEqual(s.storyboard);
     }
   });
+  // Tập "Cát bay vào mắt" mất đoạn cõng con và hồi tưởng vì mọi lượt bắt buộc
+  // có lời. Nhịp không lời phải có thời lượng hình riêng và không có người nói.
+  it("gives a silent beat screen time and no speaker", () => {
+    const silentStory = structuredClone(story);
+    silentStory.dialogue[2] = {
+      characterId: "bao",
+      text: "",
+      action: "Hồi tưởng: ông nội cõng Bố hồi bé đi dọc bãi biển",
+    };
+    const result = compileStoryboards(panels, silentStory, characters);
+    const beats = result.scenes.flatMap((scene) => scene.storyboard.beats);
+    expect(beats[2]).toMatchObject({ speakerCharacterId: null, dialogue: "" });
+    expect(beats[2].endSeconds - beats[2].startSeconds).toBeCloseTo(3.15, 2);
+    expect(beats.filter((beat) => beat.dialogue).map((beat) => beat.dialogue)).toEqual(
+      silentStory.dialogue.filter((line) => line.text).map((line) => line.text),
+    );
+    expect(storyboardGroups([{ text: "" }, { text: "Một câu ngắn." }], false).flat()).toEqual([0, 1]);
+  });
+
   it("never packs more than two spoken turns into one provider clip", () => {
     expect(storyboardGroups(story.dialogue, false)).toEqual([
       [0, 1],

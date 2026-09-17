@@ -50,6 +50,23 @@ describe("family catalogue", () => {
       expect(p.scenes.at(-1)?.dialogue).toBe("");
     }
   });
+  it("accepts a few silent beats with a concrete action but still needs spoken turns", () => {
+    const allowed = cast.map((c) => c.characterId);
+    const base = plans[0].story;
+    const silent = (i: number, action = "Bố cõng con đi chậm dọc mép nước lúc hoàng hôn") => ({
+      ...base.dialogue[i],
+      text: "",
+      action,
+    });
+    const withSilent = { ...base, dialogue: [silent(0), ...base.dialogue.slice(1)] };
+    expect(() => validateStory(withSilent, profile, allowed)).not.toThrow();
+    expect(() =>
+      validateStory({ ...base, dialogue: [silent(0, "Cõng con"), ...base.dialogue.slice(1)] }, profile, allowed),
+    ).toThrow("STORY_DIALOGUE_INVALID");
+    expect(() =>
+      validateStory({ ...base, dialogue: base.dialogue.map((_, i) => (i < 4 ? silent(i) : base.dialogue[i])) }, profile, allowed),
+    ).toThrow("STORY_DIALOGUE_INVALID");
+  });
   it("rejects foreign cast and repeated situation-mechanism-outcome", () => {
     expect(() => validateStory(plans[0].story, profile, ["other"])).toThrow(
       "WANTS",

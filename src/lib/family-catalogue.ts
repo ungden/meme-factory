@@ -309,6 +309,12 @@ export function validateStory(
     throw new Error(
       `STORY_BEATS_INVALID: cần hook, 0–4 turn, payoff và reaction chỉ khi làm câu chuyện hay hơn; nhận ${JSON.stringify(s.beats?.map((b) => b.purpose))}`,
     );
+  // Lượt có text rỗng là nhịp không lời có chủ đích (cõng con dọc biển, hồi
+  // tưởng). Trước đây mọi lượt bắt buộc có lời nên AI phải bỏ những cảnh người
+  // dùng yêu cầu. Nhịp không lời cần action đủ cụ thể để dựng hình.
+  const silentLines = Array.isArray(s.dialogue)
+    ? s.dialogue.filter((d) => typeof d?.text === "string" && !d.text.trim())
+    : [];
   if (
     !Array.isArray(s.dialogue) ||
     s.dialogue.length < 3 ||
@@ -316,9 +322,12 @@ export function validateStory(
     s.dialogue.some(
       (d) =>
         !allowed.includes(d.characterId) ||
-        !d.text?.trim() ||
-        !d.action?.trim(),
-    )
+        typeof d.text !== "string" ||
+        !d.action?.trim() ||
+        (!d.text.trim() && d.action.trim().split(/\s+/).length < 6),
+    ) ||
+    silentLines.length > 3 ||
+    s.dialogue.length - silentLines.length < 2
   )
     throw new Error("STORY_DIALOGUE_INVALID");
   if (s.dialogue.length + (reactionIndex >= 0 ? 1 : 0) > 12)
@@ -348,7 +357,7 @@ export function validateStory(
       );
   }
   const words = s.dialogue.reduce(
-    (n, d) => n + d.text.trim().split(/\s+/).length,
+    (n, d) => n + d.text.trim().split(/\s+/).filter(Boolean).length,
     0,
   );
   if (words < 15 || words > 120)
@@ -384,4 +393,4 @@ export function validateGeneratedFamilyStory(
   return { ...story, performanceLane: story.performanceLane || "deadpan_reversal" };
 }
 export const STORY_SCHEMA =
-  '{"performanceLane":"deadpan_reversal|adult_format_parody|literal_logic|physical_escalation|cinematic_cool", "comicPremise":{"normalExpectation":"","invertedReality":"","visibleContrast":""}, "series":"", "situation":"", "mechanism":"", "outcome":"", "guests":[{"key":"guest-1","name":"","description":"ngoại hình rõ để dựng ảnh","personality":""}], "wants":[{"characterId":"uuid hoặc guest-1/guest-2","want":""}], "beats":{"hook":"","turns":[],"payoff":"","reaction":""}, "endingPlan":{"mode":"hard_cut|silent_reaction|resolved","stopAfterLine":1,"anchorQuote":"nguyên văn từ lượt cuối","reason":"vì sao dừng đúng ở đây"}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid hoặc guest-1/guest-2","text":"","action":""}]}';
+  '{"performanceLane":"deadpan_reversal|adult_format_parody|literal_logic|physical_escalation|cinematic_cool", "comicPremise":{"normalExpectation":"","invertedReality":"","visibleContrast":""}, "series":"", "situation":"", "mechanism":"", "outcome":"", "guests":[{"key":"guest-1","name":"","description":"ngoại hình rõ để dựng ảnh","personality":""}], "wants":[{"characterId":"uuid hoặc guest-1/guest-2","want":""}], "beats":{"hook":"","turns":[],"payoff":"","reaction":""}, "endingPlan":{"mode":"hard_cut|silent_reaction|resolved","stopAfterLine":1,"anchorQuote":"nguyên văn từ lượt cuối","reason":"vì sao dừng đúng ở đây"}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid hoặc guest-1/guest-2","text":"lời nói; để rỗng nếu là nhịp không lời","action":""}]}';

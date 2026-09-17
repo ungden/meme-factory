@@ -243,12 +243,23 @@ export function validateStoryboard(
  * exchange becomes enough visual material instead of being rushed into one
  * static shot. A final silent reaction may share that last clip.
  */
+/**
+ * Nhịp không lời (text rỗng): cõng con dọc biển, hồi tưởng, nhìn một kỷ vật.
+ * Không có thoại để đo nên dùng một khoảng hình cố định đủ để khán giả đọc được
+ * hành động.
+ */
+export const SILENT_BEAT_SECONDS = 3;
+
+export function beatSeconds(text: string) {
+  return text.trim() ? spokenSeconds(text) : SILENT_BEAT_SECONDS;
+}
+
 export function storyboardGroups(
   lines: { text: string }[],
   reaction: boolean,
   maxSeconds = STORYBOARD_MAX_SECONDS,
 ): number[][] {
-  const weights = lines.map((l) => spokenSeconds(l.text));
+  const weights = lines.map((l) => beatSeconds(l.text));
   if (reaction) weights.push(1.2);
   if (
     !weights.length ||

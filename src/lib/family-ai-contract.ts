@@ -1,6 +1,6 @@
 import {
   storyboardGroups,
-  spokenSeconds,
+  beatSeconds,
   validateStoryboard,
   storyboardDialogue,
   type StoryboardBeat,
@@ -421,11 +421,15 @@ export function compileStoryShots(
     return {
       ...shot,
       ...(performanceDirection ? { performanceDirection } : {}),
-      ...(line
+      ...(line?.text.trim()
         ? {
             imagePrompt: `${shot.imagePrompt || ""}\nRàng buộc: ${characters.find((c) => c.id === line.characterId)?.name || "người nói"} là người duy nhất nói và phải nhìn rõ mặt. Người nghe chỉ hiện khi cần cho phản ứng tự nhiên. Không lưới, nhãn giao diện hay phụ đề; giữ nguyên chữ/số thật trên đạo cụ nếu visualRequirements yêu cầu đọc.`,
           }
-        : {}),
+        : line
+          ? {
+              imagePrompt: `${shot.imagePrompt || ""}\nRàng buộc: nhịp không lời, không ai nói; khung hình kể bằng hành động. Không lưới, nhãn giao diện hay phụ đề.`,
+            }
+          : {}),
       characterIds: line
         ? [
             line.characterId,
@@ -439,7 +443,7 @@ export function compileStoryShots(
             ),
           ].slice(0, 2)
         : [...new Set(story.dialogue.map((d) => d.characterId))],
-      speakerCharacterId: line?.characterId || null,
+      speakerCharacterId: line?.text.trim() ? line.characterId : null,
       dialogue: line?.text || "",
     };
   });
@@ -501,7 +505,8 @@ export function compileStoryboards(
       // Speech is the timing source of truth. Give each turn only enough room
       // for its real delivery plus a short reaction/action beat; the provider
       // may contain tail padding, but the finished film must not inherit it.
-      return spokenSeconds(story.dialogue[i].text) + Number(shot.pauseAfterSeconds ?? 0.15);
+      // Nhịp không lời không có thoại để đo; beatSeconds cho nó thời lượng hình cố định.
+      return beatSeconds(story.dialogue[i].text) + Number(shot.pauseAfterSeconds ?? 0.15);
     });
     const sum = weights.reduce((n, w) => n + w, 0);
     if (sum > maxProviderSeconds - 0.5)
@@ -523,7 +528,7 @@ export function compileStoryboards(
       return {
         startSeconds,
         endSeconds: cursor,
-        speakerCharacterId: line?.characterId || null,
+        speakerCharacterId: line?.text.trim() ? line.characterId : null,
         dialogue: line?.text || "",
         pauseAfterSeconds: Number(shot.pauseAfterSeconds ?? 0.15),
         action: String(shot.action),

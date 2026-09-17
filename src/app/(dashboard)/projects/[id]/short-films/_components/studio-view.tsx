@@ -467,9 +467,13 @@ export function ScriptPanel({ title, lines, editHref }: { title: string; lines: 
         <ol className="flex flex-col gap-3 border-t th-border px-4 py-4 sm:px-5">
           {lines.map((line, index) => (
             <li key={index} className="flex flex-col gap-0.5">
-              <p className="text-sm th-text-primary">
-                <span className="font-semibold">{line.speaker}:</span> {line.text}
-              </p>
+              {line.text.trim() ? (
+                <p className="text-sm th-text-primary">
+                  <span className="font-semibold">{line.speaker}:</span> {line.text}
+                </p>
+              ) : (
+                <p className="text-sm italic th-text-secondary">Cảnh không lời</p>
+              )}
               {line.action && <p className="text-xs th-text-secondary">{line.action}</p>}
             </li>
           ))}

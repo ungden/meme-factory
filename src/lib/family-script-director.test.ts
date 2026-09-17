@@ -241,6 +241,33 @@ it("builds storyboards part by part and resumes from the saved parts", async () 
   ).toEqual(story.dialogue.map((line) => line.text));
 });
 
+it("storyboards a wordless beat without inventing or dropping dialogue", async () => {
+  calls.responses = [{ candidates }, selection, story, reviewFor()];
+  const director = new FamilyScriptDirector(input);
+  for (const stage of ["premises", "selection", "draft", "review"] as const)
+    await director.runStage(stage, Date.now() + 90000);
+  const silentStory = structuredClone(director.pipelineState.story!);
+  silentStory.dialogue[1] = {
+    ...silentStory.dialogue[1],
+    text: "",
+    action: "Hồi tưởng: ông nội cõng Bố hồi bé đi dọc bãi biển lúc hoàng hôn",
+  };
+  const resumed = new FamilyScriptDirector(input);
+  resumed.restore({ ...director.snapshot(), story: silentStory });
+  calls.prompts = [];
+  calls.responses = shotChunkGroups(silentStory).map((group, g) => ({
+    ...(g === 0 ? { title: plans[0].title, summary: plans[0].brief } : {}),
+    shots: group.map((i) => plans[0].scenes[i]),
+  }));
+  while (!resumed.done) await resumed.runStage("shots", Date.now() + 90000);
+  expect(calls.prompts.join("\n")).toContain("nhịp KHÔNG LỜI");
+  const beats = resumed.finalResult!.scenes.flatMap((scene) => scene.storyboard?.beats || []);
+  expect(beats[1]).toMatchObject({ dialogue: "", speakerCharacterId: null });
+  expect(beats.filter((beat) => beat.dialogue).map((beat) => beat.dialogue)).toEqual(
+    silentStory.dialogue.filter((line) => line.text).map((line) => line.text),
+  );
+});
+
 it("parks a stuck stage with its state intact and resumes only that stage", async () => {
   calls.responses = [{ candidates }];
   const director = new FamilyScriptDirector(input);
