@@ -39,3 +39,10 @@ test("uses a bounded atempo filter and canonical short-film WAV output", () => {
   ]);
   assert.throws(() => atempoArguments("raw.wav", "line.wav", 1.3));
 });
+
+test("gives a very short line absolute slack after normalization", () => {
+  const decision = speechTempoDecision(2.16, 1.21);
+  assert.equal(decision.tempo, 1.25);
+  assert.equal(decision.withinTarget, true);
+  assert.equal(speechTempoDecision(8, 4).withinTarget, false);
+});

@@ -1,5 +1,8 @@
 export const MAX_SHORT_FORM_TEMPO = 1.25;
 export const PACE_TOLERANCE = 1.12;
+// Câu rất ngắn ("Bố sao vậy?", mục tiêu ~1,2 giây) nói tự nhiên vẫn dài hơn
+// hai mươi phần trăm; tính thêm một khoảng dư tuyệt đối để không chặn nhầm.
+export const SHORT_LINE_SLACK_SECONDS = 0.6;
 
 /**
  * Decide whether a generated voice line needs a bounded, pitch-preserving
@@ -37,7 +40,7 @@ export function speechTempoDecision(actualSeconds, targetSeconds) {
     tempo: Math.round(tempo * 10000) / 10000,
     expectedSeconds,
     status: tempo > 1.001 ? "normalized" : "natural",
-    withinTarget: expectedSeconds <= target * 1.2,
+    withinTarget: expectedSeconds <= Math.max(target * 1.2, target + SHORT_LINE_SLACK_SECONDS),
   };
 }
 
