@@ -6,6 +6,7 @@ import {
   emptyFamilyScriptState,
   nextScriptStage,
   repairHint,
+  shotChunkGroups,
 } from "./family-script-director";
 const calls = vi.hoisted(() => ({
   prompts: [] as string[],
@@ -148,11 +149,12 @@ const reviewFor = () => ({
     })),
   },
 });
-const shotResult = () => ({
-  title: plans[0].title,
-  summary: plans[0].brief,
-  shots: Object.fromEntries(plans[0].scenes.map((s, i) => [`shot${i + 1}`, s])),
-});
+/** Bước shots gọi AI theo từng phần; mỗi phần trả đúng các panel của nó. */
+const shotResults = () =>
+  shotChunkGroups(plans[0].story).map((group, g) => ({
+    ...(g === 0 ? { title: plans[0].title, summary: plans[0].brief } : {}),
+    shots: group.map((i) => plans[0].scenes[i]),
+  }));
 const input = {
   kind: "video_plan" as const,
   intent: "Một câu chuyện",
@@ -176,7 +178,7 @@ it("runs exactly one stage per call and resumes from the persisted snapshot", as
     selection,
     story,
     reviewFor(),
-    shotResult(),
+    ...shotResults(),
   ];
   const director = new FamilyScriptDirector(input);
   await director.runStage("premises", Date.now() + 90000);
@@ -202,7 +204,38 @@ it("runs exactly one stage per call and resumes from the persisted snapshot", as
   expect(continued.done).toBe(true);
   expect(continued.finalResult?.kind).toBe("video_plan");
   expect(continued.finalResult?.story?.development?.stage).toBe("complete");
-  expect(calls.prompts).toHaveLength(5);
+  expect(calls.prompts).toHaveLength(4 + shotChunkGroups(plans[0].story).length);
+});
+
+it("builds storyboards part by part and resumes from the saved parts", async () => {
+  const parts = shotResults();
+  expect(parts.length).toBeGreaterThan(1);
+  calls.responses = [{ candidates }, selection, story, reviewFor()];
+  const director = new FamilyScriptDirector(input);
+  for (const stage of ["premises", "selection", "draft", "review"] as const)
+    await director.runStage(stage, Date.now() + 90000);
+
+  // Không đủ thời gian cho lượt gọi thứ hai: dừng sau phần đầu, stage chưa xong.
+  calls.responses = [parts[0]];
+  await director.runStage("shots", Date.now() + 40000);
+  expect(director.done).toBe(false);
+  expect(director.pipelineState.shotChunks?.filter(Boolean)).toHaveLength(1);
+
+  calls.prompts = [];
+  calls.responses = parts.slice(1);
+  const resumed = new FamilyScriptDirector(input);
+  resumed.restore(director.snapshot());
+  await resumed.runStage("shots", Date.now() + 90000);
+  expect(resumed.done).toBe(true);
+  expect(resumed.pipelineState.shotChunks).toBeUndefined();
+  expect(calls.prompts).toHaveLength(parts.length - 1);
+  expect(calls.prompts[0]).toContain("ĐÃ CHỐT Ở PHẦN 1");
+  expect(
+    resumed.finalResult?.scenes
+      .flatMap((scene) => scene.storyboard?.beats || [])
+      .filter((beat) => beat.dialogue)
+      .map((beat) => beat.dialogue),
+  ).toEqual(story.dialogue.map((line) => line.text));
 });
 
 it("parks a stuck stage with its state intact and resumes only that stage", async () => {

@@ -34,4 +34,33 @@ describe("performance direction Vietnamese actions", () => {
     });
     expect(issues).toEqual([]);
   });
+
+  it("accepts short cast names as reaction targets and everyday gestures as actions", () => {
+    const issues = lintPerformanceDirection({
+      version: 1,
+      lane: "cinematic_emotion",
+      comicObjective: "Đứa trẻ nhường phần bánh cho Mẹ.",
+      statusBefore: "Mẹ định chia bánh cho con.",
+      statusAfter: "Con từ chối như người lớn.",
+      hook: "Đậu Đỏ đẩy đĩa bánh về phía Mẹ.",
+      beats: [
+        {
+          physicalAction: "Xua tay",
+          expressionChange: "Mím môi kiên quyết.",
+          gesture: "Lắc đầu nhẹ",
+          reactionTarget: "Mẹ",
+          cameraMove: "Máy đứng yên.",
+        },
+        {
+          physicalAction: "Lắc đầu nhẹ",
+          expressionChange: "Mắt nhìn xuống.",
+          gesture: "Tay đặt lên bàn.",
+          reactionTarget: "Bố",
+          cameraMove: "Push-in ngắn.",
+        },
+      ],
+      revealOrCut: "Hard cut khi Mẹ khựng lại.",
+    });
+    expect(issues).toEqual([]);
+  });
 });

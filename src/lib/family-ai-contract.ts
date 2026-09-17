@@ -131,7 +131,11 @@ export function unpackStory(value: unknown) {
  * ngưỡng ngay cả với một panel. Vì vậy shots là mảng một định nghĩa, còn giới
  * hạn số phần tử do compileStoryShots/compileStoryboards tự áp.
  */
-export function shotResponseSchema(story: Story, ids: string[] = []) {
+export function shotResponseSchema(
+  story: Story,
+  ids: string[] = [],
+  { header = true }: { header?: boolean } = {},
+) {
   const shotCount = storyShotCount(story);
   const shot = object({
     action: string,
@@ -244,6 +248,12 @@ export function shotResponseSchema(story: Story, ids: string[] = []) {
       }),
     },
   });
+  const shots = {
+    type: "array",
+    description: `Đúng ${shotCount} panel theo thứ tự; phần tử đầu là panel đầu tiên được yêu cầu.`,
+    items: shot,
+  };
+  if (!header) return object({ shots });
   return object({
     title: string,
     summary: string,
@@ -262,18 +272,73 @@ export function shotResponseSchema(story: Story, ids: string[] = []) {
         }),
       },
     }),
-    shots: {
-      type: "array",
-      description: `Đúng ${shotCount} panel theo thứ tự; phần tử đầu là shot1.`,
-      items: shot,
-    },
+    shots,
   });
 }
 /** Text and cast are compiled from the accepted story, not rewritten by the shot planner. */
 const SHOT_LIMITS = { props: 8, visualRequirements: 8, referenceImages: 4 } as const;
 
-/** Nhận shots dạng mảng (schema hiện tại) hoặc shot1..shotN (dữ liệu cũ) và cắt các mảng về giới hạn. */
-export function normalizeShotResponse(value: unknown) {
+function propId(value: unknown, fallback: string) {
+  const slug = String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "d")
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^[-_]+|[-_]+$/g, "")
+    .slice(0, 64);
+  return slug || fallback;
+}
+
+/**
+ * Model hay viết lại cùng một đạo cụ với chữ hơi khác ("Trong suốt"/"trong suốt")
+ * hoặc id có dấu cách/dấu tiếng Việt, khiến validator storyboard chặn cả tập.
+ * Lần xuất hiện đầu của một id quyết định nhận diện; các panel sau chỉ đổi người
+ * cầm và vị trí.
+ */
+function canonicalProps(
+  list: unknown,
+  identities: Map<string, Record<string, unknown>>,
+) {
+  if (!Array.isArray(list)) return list;
+  const seen = new Set<string>();
+  const props = list.flatMap((raw, index) => {
+    if (!raw || typeof raw !== "object") return [];
+    const prop = { ...(raw as Record<string, unknown>) };
+    const id = propId(prop.id ?? prop.label, `prop-${index + 1}`);
+    if (seen.has(id)) return [];
+    seen.add(id);
+    const count = Math.round(Number(prop.count));
+    const own = {
+      label: String(prop.label || "").trim() || id,
+      color: String(prop.color || "").trim() || "không nêu",
+      size: String(prop.size || "").trim() || "không nêu",
+      marks: String(prop.marks || "").trim(),
+      count: Number.isFinite(count) ? Math.min(20, Math.max(1, count)) : 1,
+    };
+    const identity = identities.get(id) || own;
+    identities.set(id, identity);
+    return [
+      {
+        ...prop,
+        ...identity,
+        id,
+        position: String(prop.position || "").trim() || "trong khung",
+      },
+    ];
+  });
+  return props.length ? props : undefined;
+}
+
+/**
+ * Nhận shots dạng mảng (schema hiện tại) hoặc shot1..shotN (dữ liệu cũ), cắt các
+ * mảng về giới hạn và chuẩn hoá đạo cụ. priorShots là các panel đã dựng ở đoạn
+ * trước: đạo cụ trùng id giữ nguyên nhận diện đã có.
+ */
+export function normalizeShotResponse(
+  value: unknown,
+  priorShots: unknown[] = [],
+) {
   const v = value as { shots?: unknown } | null;
   if (!v || typeof v !== "object") return value;
   const entries: Array<[string, unknown]> = Array.isArray(v.shots)
@@ -282,6 +347,9 @@ export function normalizeShotResponse(value: unknown) {
       ? Object.entries(v.shots)
       : [];
   if (!entries.length) return value;
+  const identities = new Map<string, Record<string, unknown>>();
+  for (const shot of priorShots)
+    canonicalProps((shot as { props?: unknown } | null)?.props, identities);
   const shots = Object.fromEntries(
     entries.map(([key, raw]) => {
       if (!raw || typeof raw !== "object") return [key, raw];
@@ -291,10 +359,26 @@ export function normalizeShotResponse(value: unknown) {
         if (Array.isArray(list))
           shot[field] = list.length ? list.slice(0, limit) : undefined;
       }
+      if (shot.props !== undefined)
+        shot.props = canonicalProps(shot.props, identities);
       return [key, shot];
     }),
   );
   return { ...v, shots };
+}
+
+/** Phần câu chuyện ứng với một nhóm panel (chỉ số toàn phim) để dựng và kiểm tra riêng từng đoạn. */
+export function storySlice(story: Story, group: number[]): Story {
+  const includesReaction = group.some((i) => i >= story.dialogue.length);
+  return {
+    ...story,
+    dialogue: group
+      .filter((i) => i < story.dialogue.length)
+      .map((i) => story.dialogue[i]),
+    beats: includesReaction
+      ? story.beats
+      : story.beats.filter((beat) => beat.purpose !== "reaction"),
+  };
 }
 
 export function compileStoryShots(
@@ -452,7 +536,11 @@ export function compileStoryboards(
           .trim(),
         openingState: { note: String(shot.openingState || "") },
         closingState: { note: String(shot.closingState || "") },
-        props: Array.isArray(shot.props) ? shot.props : [],
+        props: (Array.isArray(shot.props) ? shot.props : []).map((prop) =>
+          prop.holderCharacterId && !characterIds.includes(prop.holderCharacterId)
+            ? { ...prop, holderCharacterId: "" }
+            : prop,
+        ),
         ...(shot.performanceDirection &&
         typeof shot.performanceDirection === "object"
           ? {

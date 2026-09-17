@@ -34,7 +34,7 @@ const GENERIC_ONLY = /^(?:tự nhiên|nghiêm túc|ngây thơ|đáng yêu|vui v�
 // Vietnamese verbs ending in diacritics (for example "chỉ" and "gỡ"), which
 // made valid directions fail before any paid generation.
 const hasConcreteVerb = (value: string) =>
-  /(?:^|[\s,.;:!?()])(?:bật|kéo|giật|đập|chộp|rút|đẩy|ném|đặt|mở|đóng|chặn|chỉ|quay|ngoái|lùi|tiến|nhảy|trượt|đứng|ngồi|đi|chạy|đưa|giơ|lấy|bẻ|giấu|đo|đếm|gõ|hất|né|khựng|đổi|trao|cúi|ngẩng|liếc|nhìn|há|mím|phồng|nhăn|nhướng|sững|đơ|thở|nuốt|rụt|vẫy|bước|khoanh|vỗ|dí|kẹp|chồm|xoay|nghiêng|bật ngửa|hất cằm|nheo|mở to|siết|buông|gỡ|ôm)(?=$|[\s,.;:!?()])/iu.test(
+  /(?:^|[\s,.;:!?()])(?:bật|kéo|giật|đập|chộp|rút|đẩy|ném|đặt|mở|đóng|chặn|chỉ|quay|ngoái|lùi|tiến|nhảy|trượt|đứng|ngồi|đi|chạy|đưa|giơ|lấy|bẻ|giấu|đo|đếm|gõ|hất|né|khựng|đổi|trao|cúi|ngẩng|liếc|nhìn|há|mím|phồng|nhăn|nhướng|sững|đơ|thở|nuốt|rụt|vẫy|bước|khoanh|vỗ|dí|kẹp|chồm|xoay|nghiêng|bật ngửa|hất cằm|nheo|mở to|siết|buông|gỡ|ôm|cầm|nắm|ghi|viết|lật|thổi|lau|xoa|vuốt|cắt|xắn|cắn|ăn|uống|rót|múc|gắp|nhặt|cất|bỏ|treo|gấp|mặc|cởi|đội|đeo|lắc|xua|gật|ngước|nhún|gãi|hôn|thơm|cười|khóc|dựa|tựa|nằm|quỳ|rướn|với|chạm|sờ|ấn|bấm|vặn|xếp|dọn|quét|rửa|đỡ|bế|nhón|nép|núp|trốn|huých|kiễng|chống|vung|lăn|thả|nhấc|nâng|ngó|dò|soi|quét mắt)(?=$|[\s,.;:!?()])/iu.test(
     value,
   );
 
@@ -95,7 +95,8 @@ export function lintPerformanceDirection(
     issues.push({ field: "beats", reason: "Không thể dùng toàn nhãn cảm xúc chung chung." });
   if (d.statusBefore.trim() === d.statusAfter.trim())
     issues.push({ field: "status", reason: "Phải có thay đổi quyền chủ động hoặc trạng thái." });
-  if (d.beats.some((b) => GENERIC_ONLY.test(b.reactionTarget) || b.reactionTarget.trim().length < 4))
+  // "Mẹ", "Bố" là người cụ thể; chỉ chặn nhãn chung chung hoặc gần như rỗng.
+  if (d.beats.some((b) => GENERIC_ONLY.test(b.reactionTarget) || b.reactionTarget.trim().length < 2))
     issues.push({ field: "reactionTarget", reason: "Phản ứng phải hướng vào người hoặc đạo cụ cụ thể." });
   if (!hasConcreteVerb(d.revealOrCut) && !/hard.?cut|cắt|giữ|khựng|lộ|bật mí/iu.test(d.revealOrCut))
     issues.push({ field: "revealOrCut", reason: "Cần điểm lộ, phản ứng hoặc điểm cắt rõ." });

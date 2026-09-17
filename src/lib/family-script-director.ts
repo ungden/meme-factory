@@ -10,8 +10,9 @@ import {
   shotResponseSchema,
   unpackStory,
   compileStoryboards,
+  normalizeShotResponse,
   storyHasReaction,
-  storyShotCount,
+  storySlice,
 } from "./family-ai-contract";
 import {
   validateGeneratedFamilyStory,
@@ -68,6 +69,8 @@ export type FamilyScriptPipelineState = {
   reviewCount: number;
   reviewPassed?: boolean;
   result?: Extract<CreativeAssistResult, { kind: "video_plan" }>;
+  /** Kết quả đã kiểm của từng đoạn storyboard; null là đoạn chưa dựng. */
+  shotChunks?: (Record<string, unknown> | null)[];
   completedStages: FamilyScriptStageKind[];
 };
 
@@ -107,6 +110,32 @@ export function emptyFamilyScriptState(): FamilyScriptPipelineState {
     reviewCount: 0,
     completedStages: [],
   };
+}
+
+/** Số panel tối đa trong một lượt gọi dựng storyboard. */
+export const SHOT_CHUNK_PANELS = 4;
+
+/**
+ * Chia các đoạn clip (storyboardGroups) thành từng lượt gọi: gộp đoạn liền nhau
+ * tới SHOT_CHUNK_PANELS panel. Một đoạn clip dài hơn vẫn đi riêng một lượt,
+ * vì đoạn clip là đơn vị kiểm tra storyboard.
+ */
+export function shotChunkGroups(
+  story: Story,
+  maxVideoDurationSeconds = 30,
+): number[][] {
+  const chunks: number[][] = [];
+  for (const group of storyboardGroups(
+    story.dialogue,
+    storyHasReaction(story),
+    maxVideoDurationSeconds,
+  )) {
+    const last = chunks.at(-1);
+    if (last && last.length + group.length <= SHOT_CHUNK_PANELS)
+      last.push(...group);
+    else chunks.push([...group]);
+  }
+  return chunks;
 }
 
 export function nextScriptStage(
@@ -327,7 +356,6 @@ export class FamilyScriptDirector {
   private readonly intent: string;
   private readonly writerContext: string;
   private state: FamilyScriptPipelineState;
-  private repairs = 0;
   private providerFallbacks = 0;
 
   constructor(
@@ -422,6 +450,9 @@ Mở ngay ở việc đang diễn ra. Chọn chi tiết dễ hình dung, khẩu 
   ): Promise<T> {
     const modelList = models?.length ? models : [this.model];
     let modelIndex = 0;
+    // Mỗi lời gọi có một lượt sửa riêng. Ngân sách chung cả pipeline từng khiến
+    // bước shots không còn lượt sửa nào khi bản chữ đã dùng mất lượt duy nhất.
+    let repairs = 0;
     while (true) {
       let candidate: unknown;
       try {
@@ -464,7 +495,7 @@ Mở ngay ở việc đang diễn ra. Chọn chi tiết dễ hình dung, khẩu 
           { stage: this.state.stage, error, response: candidate ?? null },
         );
         await this.checkpoint(this.state.stage);
-        if (this.repairs++ >= 1) throw e;
+        if (repairs++ >= 1) throw e;
         prompt = `${prompt}\nSửa bản vừa trả, không thay đề tài: ${JSON.stringify(candidate)}\nLỗi cần sửa: ${repairHint(error)}`;
       }
     }
@@ -621,10 +652,8 @@ Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống
     const story: Story | undefined = this.state.story;
     if (!story) throw new Error("FAMILY_DRAFT_MISSING");
     if (!this.state.reviewPassed) throw new Error("FAMILY_REVIEW_MISSING");
-    const hasReaction = storyHasReaction(story);
-    const shotCount = storyShotCount(story);
     const maxVideoDuration = this.input.maxVideoDurationSeconds || 30;
-    const groups = storyboardGroups(story.dialogue, hasReaction, maxVideoDuration);
+    const groups = shotChunkGroups(story, maxVideoDuration);
     const storyGuests = story.guests || [];
     const shotAllowed = [...this.allowed, ...storyGuests.map((guest) => guest.key)];
     const shotContext: CreativeContext = {
@@ -639,8 +668,36 @@ Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống
         })),
       ],
     };
-    const result = await this.checked(
-      `${contextText(shotContext, shotAllowed)}
+    const targetSeconds = this.input.targetDurationSeconds || 35;
+    const compileShots = (value: unknown, part: Story) => {
+      const r = validateCreativeAssist(
+        "video_plan",
+        compileStoryboards(value, part, shotContext.characters, maxVideoDuration),
+        shotContext,
+        targetSeconds,
+      );
+      if (r.kind !== "video_plan") throw new Error("FAMILY_PLAN_INVALID");
+      const spoken = r.scenes
+        .flatMap((s) => s.storyboard?.beats || [])
+        .filter((s) => s.dialogue);
+      if (
+        spoken.length !== part.dialogue.length ||
+        spoken.some(
+          (s, i) =>
+            s.dialogue !== part.dialogue[i].text ||
+            s.speakerCharacterId !== part.dialogue[i].characterId,
+        )
+      )
+        throw new Error(
+          "FAMILY_DIALOGUE_CHANGED: giữ nguyên thoại, thứ tự và người nói của từng nhịp storyboard",
+        );
+      return r;
+    };
+    const shotList = (chunk: Record<string, unknown> | null | undefined) =>
+      Object.entries((chunk?.shots || {}) as Record<string, unknown>)
+        .sort(([a], [b]) => Number(a.slice(4)) - Number(b.slice(4)))
+        .map(([, shot]) => shot);
+    const basePrompt = `${contextText(shotContext, shotAllowed)}
 CÂU CHUYỆN ĐÃ SOẠN: ${JSON.stringify(story)}
 ${FILM_INTERACTION_POLICY}
 LỚP ĐẠO DIỄN BIỂU CẢM: lane=${story.performanceLane || "deadpan_reversal"}. Mỗi panel phải trả performanceDirection với comicObjective, statusBefore/statusAfter, hook, tối thiểu hai beat hành động vật lý, reactionTarget cụ thể và revealOrCut. Hai beat có thể là hai pha của CÙNG hành động hoặc hành động chính và phản ứng đồng thời của người nghe; không bắt mỗi câu có hai trò, hai góc máy hoặc một cú lật. Dùng hành vi nhìn thấy được; không dùng riêng các nhãn “tự nhiên”, “nghiêm túc”, “ngây thơ”, “đáng yêu”, “gật đầu”, “nhìn ngơ”.
@@ -648,36 +705,101 @@ DỰNG STORYBOARD: chia thành ${groups.length} clip nguồn. Server tự chọn
 Trong cùng đoạn: cùng bối cảnh, ánh sáng, vị trí nhân vật, hướng nhìn và trục máy. Có thể pan theo người nói hoặc cắt đối đáp theo storyboard; không đổi cảnh ngẫu nhiên. Hành động bắt đầu ngay, người nghe phản ứng trong khi người kia nói, không đứng đợi tới lượt. Viết motionPrompt cho từng nhịp bằng hành động cụ thể, KHÔNG thêm mốc giây riêng; server gắn mốc liên tục theo lượng thoại và hành động. Chỉ một người nói tại mỗi thời điểm, đến nhịp sau mới đổi người. Không slow motion, kéo dài âm tiết, khoảng chờ mở đầu hoặc lặp động tác để đủ thời lượng.
 Trước khi mô tả ảnh, hãy hiểu logic thị giác riêng của tập và trả visualDirection ở cấp toàn phim: storyMechanism, audienceMustSee, và characterKnowledge cho từng người gồm họ biết gì và chi tiết nào chưa được lộ trước thời điểm nào. Xác định điều gì gây lệch/hài, khán giả phải thấy gì và ở thời điểm nào, đạo cụ/hành động nào quyết định câu chuyện. Không bê checklist tiền, cặp hay micro sang tập khác. Mỗi panel phải có visualRequirements và referenceImages. visualRequirements chỉ liệt kê bằng chứng thật sự cần nhìn thấy (với lane adult_format_parody, đạo cụ nhận diện format của chính tập này là critical); dùng kind=count/text và legibility=countable/readable khi số lượng hoặc chữ/số là dữ kiện của câu chuyện. Mỗi critical requirement phải được ít nhất một reference image bao phủ. referenceImages là các ảnh riêng độ phân giải đầy đủ đưa cùng nhau vào reference_images của Seedance; role=scene cho bố cục/trạng thái, character cho nhận diện, prop cho vật thể quyết định, environment cho bối cảnh. Không tạo first/last-frame contract và không dùng grid/storyboard sheet làm input video. Chỉ đặt requiresOwnSource=true khi góc nhìn, trạng thái hoặc nhịp diễn khác đến mức không nên nằm chung một clip liên tục.
 Panel đầu mỗi đoạn là một khung sạch có đủ người sẽ xuất hiện trong đoạn đó; đủ ảnh chuẩn từng người, đúng tỷ lệ, trang phục và vị trí. Mỗi panel phải có openingState, closingState và props. Mỗi đạo cụ có id ổn định xuyên các panel, tên, màu, kích thước, dấu hiệu, số lượng, người cầm và vị trí; cùng vật không được tự đổi màu/kích thước hay nhân bản. Chữ/số thật trên đạo cụ được yêu cầu bởi câu chuyện phải được giữ; chỉ cấm phụ đề, nhãn giao diện, mũi tên và chữ trang trí do model tự thêm. closingState của panel trước phải khớp openingState của panel sau, kể cả người đã rời khung. Trang phục, giày dép và trạng thái đạo cụ giữ nguyên qua các panel, chỉ đổi khi có hành động nhìn thấy được làm đổi. Các panel sau mô tả diễn tiến hành động/camera. Kết đoạn có tư thế, đạo cụ và hướng nhìn khớp đầu đoạn tiếp; giữ trục đối thoại để nối bằng hard cut. Không cố thêm reaction sau điểm dừng đã chọn. Với parody giữ tín hiệu nhận diện format.
-Chỉ trả title, summary, visualDirection và shots là mảng đúng ${shotCount} panel theo thứ tự (phần tử 1 là shot1). Mỗi panel có action, setting, camera, durationSeconds, imagePrompt, motionPrompt và listenerCharacterIds. shot1..shot${story.dialogue.length} tương ứng các lượt thoại; ${hasReaction ? "panel cuối phản ứng im lặng đã có trong story" : "không thêm panel kết"}. imagePrompt tối đa 300 ký tự, motionPrompt tối đa 600. Không viết lại dialogue/speaker. ${this.input.targetDurationSeconds || 35} giây là mục tiêu kể chuyện, không phải độ dài bắt buộc; mỗi clip nguồn dùng đúng số giây cần thiết trong khoảng 4–${maxVideoDuration} và được cắt theo nội dung/transcript thật, không bịa transcript.`,
-      (v) => {
-        const r = validateCreativeAssist(
-          "video_plan",
-          compileStoryboards(v, story, shotContext.characters, maxVideoDuration),
-          shotContext,
-          this.input.targetDurationSeconds || 35,
-        );
-        if (r.kind !== "video_plan") throw new Error("FAMILY_PLAN_INVALID");
-        const spoken = r.scenes
-          .flatMap((s) => s.storyboard?.beats || [])
-          .filter((s) => s.dialogue);
-        if (
-          spoken.length !== story.dialogue.length ||
-          spoken.some(
-            (s, i) =>
-              s.dialogue !== story.dialogue[i].text ||
-              s.speakerCharacterId !== story.dialogue[i].characterId,
-          )
+`;
+
+    // Dựng từng đoạn clip một lượt gọi: output nhỏ, không chạm timeout, đoạn hỏng
+    // chỉ phải dựng lại chính nó. Tiến độ nằm trong state để lượt sau chạy tiếp.
+    const chunks =
+      this.state.shotChunks?.length === groups.length
+        ? [...this.state.shotChunks]
+        : groups.map(() => null);
+    for (let g = 0; g < groups.length; g++) {
+      if (chunks[g]) continue;
+      // Một lời gọi có thể mất tới 45 giây; không bắt đầu đoạn mới khi không đủ
+      // thời gian. Stage chưa xong, lượt sau tiếp tục từ đoạn này.
+      if (chunks.some(Boolean) && deadlineMs - Date.now() < 50000) {
+        this.state.shotChunks = chunks;
+        await this.checkpoint(this.state.stage);
+        return;
+      }
+      const group = groups[g];
+      const part = storySlice(story, group);
+      const header = chunks[0] as {
+        title?: string;
+        summary?: string;
+        visualDirection?: unknown;
+      } | null;
+      const priorShots = chunks.slice(0, g).flatMap(shotList);
+      const lastShot = priorShots.at(-1) as
+        | { closingState?: string; props?: unknown }
+        | undefined;
+      const panelNumbers = group.map((i) => i + 1);
+      const chunkPrompt = `${basePrompt}
+LƯỢT NÀY CHỈ DỰNG PHẦN ${g + 1}/${groups.length}: panel ${panelNumbers.join(", ")} (đánh số toàn phim). ${group
+        .map((i) =>
+          story.dialogue[i]
+            ? `Panel ${i + 1} là lượt thoại ${i + 1}.`
+            : `Panel ${i + 1} là phản ứng im lặng cuối phim.`,
         )
-          throw new Error(
-            "FAMILY_DIALOGUE_CHANGED: giữ nguyên thoại, thứ tự và người nói của từng nhịp storyboard",
-          );
-        return r;
-      },
-      deadlineMs,
-      shotResponseSchema(story, shotAllowed),
-      undefined,
-      familyStageModels("shots"),
-    );
+        .join(" ")}
+${
+  header
+    ? `ĐÃ CHỐT Ở PHẦN 1, GIỮ NGUYÊN: visualDirection=${JSON.stringify(header.visualDirection)}
+PHẦN TRƯỚC KẾT Ở: ${JSON.stringify(lastShot?.closingState || "")}
+ĐẠO CỤ ĐÃ CÓ (dùng lại đúng id, tên, màu, kích thước, dấu hiệu, số lượng): ${JSON.stringify([...new Map(priorShots.flatMap((shot) => ((shot as { props?: { id: string }[] }).props || []).map((prop) => [prop.id, prop] as const))).values()])}
+Chỉ trả shots là mảng đúng ${group.length} panel theo thứ tự trên.`
+    : `Chỉ trả title, summary, visualDirection (cho toàn phim) và shots là mảng đúng ${group.length} panel theo thứ tự trên.`
+}
+Mỗi panel có action, setting, camera, durationSeconds, imagePrompt, motionPrompt và listenerCharacterIds. imagePrompt tối đa 300 ký tự, motionPrompt tối đa 600. Không viết lại dialogue/speaker. ${this.input.targetDurationSeconds || 35} giây là mục tiêu kể chuyện, không phải độ dài bắt buộc; mỗi clip nguồn dùng đúng số giây cần thiết trong khoảng 4–${maxVideoDuration} và được cắt theo nội dung/transcript thật, không bịa transcript.`;
+      const accepted = await this.checked(
+        chunkPrompt,
+        (v) => {
+          const normalized = normalizeShotResponse(
+            header
+              ? {
+                  ...(v as Record<string, unknown>),
+                  title: header.title,
+                  summary: header.summary,
+                  visualDirection: header.visualDirection,
+                }
+              : v,
+            priorShots,
+          ) as Record<string, unknown>;
+          compileShots(normalized, part);
+          return normalized;
+        },
+        deadlineMs,
+        shotResponseSchema(part, shotAllowed, { header: !header }),
+        undefined,
+        familyStageModels("shots"),
+      );
+      chunks[g] = accepted;
+      this.state.shotChunks = chunks;
+      await this.checkpoint(this.state.stage);
+    }
+
+    const header = chunks[0] as {
+      title: string;
+      summary: string;
+      visualDirection?: unknown;
+    };
+    let result: Extract<CreativeAssistResult, { kind: "video_plan" }>;
+    try {
+      result = compileShots(
+        normalizeShotResponse({
+          title: header.title,
+          summary: header.summary,
+          visualDirection: header.visualDirection,
+          shots: chunks.flatMap(shotList),
+        }),
+        story,
+      );
+    } catch (error) {
+      // Các đoạn đạt riêng lẻ nhưng ghép lại không hợp lệ: dựng lại từ đầu thay vì
+      // kẹt mãi ở cùng một bộ đoạn đã lưu.
+      this.state.shotChunks = undefined;
+      throw error;
+    }
     await this.checkpoint("complete");
     const finalStory: Story = {
       ...story,
@@ -698,14 +820,23 @@ Chỉ trả title, summary, visualDirection và shots là mảng đúng ${shotCo
       story: finalStory,
       caption: story.caption,
     };
+    this.state.shotChunks = undefined;
     this.state.completedStages.push("shots");
   }
 
   /** One-shot driver for interactive use: runs every remaining stage in order. */
   async runAll(deadlineMs: number) {
     for (const stage of FAMILY_SCRIPT_STAGES) {
-      if (this.state.completedStages.includes(stage)) continue;
-      await this.runStage(stage, Math.min(deadlineMs, Date.now() + 90000));
+      // shots có thể trả về khi mới dựng xong một phần; chạy tiếp tới khi xong.
+      while (!this.state.completedStages.includes(stage)) {
+        const built = (this.state.shotChunks || []).filter(Boolean).length;
+        await this.runStage(stage, Math.min(deadlineMs, Date.now() + 90000));
+        if (
+          !this.state.completedStages.includes(stage) &&
+          (this.state.shotChunks || []).filter(Boolean).length === built
+        )
+          throw new Error("FAMILY_WRITING_TIMEOUT");
+      }
     }
     if (!this.state.result) throw new Error("FAMILY_PLAN_INVALID");
     return this.state.result;

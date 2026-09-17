@@ -3,6 +3,7 @@ import { it, expect, vi, beforeEach } from "vitest";
 import { buildFamilyPilot, familyPersonalities } from "./family-pilot";
 import { creativeAssistModel, generateCreativeAssist } from "./creative-assist";
 import { compileStoryShots, unpackStory } from "./family-ai-contract";
+import { shotChunkGroups } from "./family-script-director";
 const calls = vi.hoisted(() => ({
   prompts: [] as string[],
   responses: [] as unknown[],
@@ -90,11 +91,16 @@ const evidence = {
     "Không dùng chuỗi đấu giá hay đổi tên bộ phận cơ thể của reference.",
 };
 
-const shotResult = (p: (typeof plans)[number]) => ({
-  title: p.title,
-  summary: p.brief,
-  shots: Object.fromEntries(p.scenes.map((s, i) => [`shot${i + 1}`, s])),
-});
+/** Bước shots gọi AI theo từng phần; mỗi phần trả đúng các panel của nó. */
+const shotResults = (
+  p: (typeof plans)[number],
+  story: (typeof plans)[number]["story"] = p.story,
+) =>
+  shotChunkGroups(story).map((group, g) => ({
+    ...(g === 0 ? { title: p.title, summary: p.brief } : {}),
+    shots: group.map((i) => p.scenes[i]),
+  }));
+const SHOT_CALLS = shotChunkGroups(plans[0].story).length;
 const input = {
   kind: "video_plan" as const,
   intent: "Một câu chuyện",
@@ -218,14 +224,14 @@ it("keeps existing text models", () => {
   );
 });
 it("records all alternatives and comparison, then freezes reviewed dialogue into shots", async () => {
-  queue(plans[0].story, reviewFor(), shotResult(plans[0]));
+  queue(plans[0].story, reviewFor(), ...shotResults(plans[0]));
   const checkpoints: unknown[] = [];
   const result = await generateCreativeAssist(input, {
     onEditorialProgress: async (t) => {
       checkpoints.push(t);
     },
   });
-  expect(calls.prompts).toHaveLength(5);
+  expect(calls.prompts).toHaveLength(4 + SHOT_CALLS);
   if (result.kind !== "video_plan") throw Error("Wrong kind");
   expect(result.story?.profileVersion).toBe(11);
   expect(result.story?.development?.candidates).toHaveLength(3);
@@ -301,12 +307,12 @@ it("revises only after a concrete review, preserving both drafts", async () => {
       },
     ],
   };
-  queue(stiff, fail, plans[0].story, reviewFor(), shotResult(plans[0]));
+  queue(stiff, fail, plans[0].story, reviewFor(), ...shotResults(plans[0]));
   const result = await generateCreativeAssist(input);
   expect(
     result.kind === "video_plan" && result.story?.development?.drafts,
   ).toHaveLength(2);
-  expect(calls.prompts).toHaveLength(7);
+  expect(calls.prompts).toHaveLength(6 + SHOT_CALLS);
 });
 it("removes a forced spoken tail instead of inventing another ending", async () => {
   const forcedTail = {
@@ -342,7 +348,7 @@ it("removes a forced spoken tail instead of inventing another ending", async () 
     forcedReview,
     plans[0].story,
     reviewFor(),
-    shotResult(plans[0]),
+    ...shotResults(plans[0]),
   );
   const result = await generateCreativeAssist(input);
   if (result.kind !== "video_plan") throw Error("Wrong kind");
@@ -370,7 +376,7 @@ it("does not continue an unproductive revision loop", async () => {
   expect(calls.prompts).toHaveLength(6);
 });
 it("retains reviewed work when checkpoint storage fails before shot planning", async () => {
-  queue(plans[0].story, reviewFor(), shotResult(plans[0]));
+  queue(plans[0].story, reviewFor(), ...shotResults(plans[0]));
   await expect(
     generateCreativeAssist(input, {
       onEditorialProgress: async (t) => {
@@ -384,7 +390,7 @@ it("normalizes provider durations without altering the editorial timing or exact
   queue(
     plans[0].story,
     reviewFor(),
-    shotResult({
+    ...shotResults({
       ...plans[0],
       scenes: plans[0].scenes.map((s) => ({
         ...s,
@@ -412,7 +418,7 @@ it("sizes provider clips from complete dialogue instead of a fixed multiple", as
   queue(
     plans[0].story,
     reviewFor(),
-    shotResult({
+    ...shotResults({
       ...plans[0],
       scenes: plans[0].scenes.map((s) => ({ ...s, durationSeconds: 9 })),
     }),
@@ -423,8 +429,8 @@ it("sizes provider clips from complete dialogue instead of a fixed multiple", as
   expect(r.scenes.some((s) => s.durationSeconds !== 15)).toBe(true);
   expect(r.scenes.every((s) => s.durationSeconds >= 4 && s.durationSeconds <= 30)).toBe(true);
 });
-it("limits malformed response repair globally and never drops invalid shots", async () => {
-  const bad = shotResult({
+it("limits malformed response repair per call and never drops invalid shots", async () => {
+  const bad = shotResults({
     ...plans[0],
     scenes: plans[0].scenes.map((s) => ({ ...s, imagePrompt: "" })),
   });
@@ -434,10 +440,13 @@ it("limits malformed response repair globally and never drops invalid shots", as
     selection,
     plans[0].story,
     reviewFor(),
-    bad,
+    bad[0],
+    bad[0],
   ];
+  // Mỗi lời gọi có một lượt sửa riêng: phần storyboard hỏng được sửa đúng một
+  // lần rồi dừng, không bỏ qua panel hỏng.
   await expect(generateCreativeAssist(input)).rejects.toThrow("INVALID");
-  expect(calls.prompts).toHaveLength(6);
+  expect(calls.prompts).toHaveLength(7);
 });
 it("preserves a sibling-only staged parody without inventing a parent or final reaction", async () => {
   const story = {
@@ -466,7 +475,7 @@ it("preserves a sibling-only staged parody without inventing a parent or final r
     ...s,
     listenerCharacterIds: [story.dialogue[1].characterId],
   }));
-  queue(story, reviewFor(story), shotResult({ ...plans[0], scenes }));
+  queue(story, reviewFor(story), ...shotResults({ ...plans[0], scenes }, story));
   const r = await generateCreativeAssist({
     ...input,
     selectedCharacterIds: [cast[0].characterId, cast[1].characterId],
@@ -551,7 +560,7 @@ it("does not turn a legacy reaction label into an extra ending shot", () => {
 });
 
 it("stops at the time budget with the current draft checkpoint intact", async () => {
-  queue(plans[0].story, reviewFor(), shotResult(plans[0]));
+  queue(plans[0].story, reviewFor(), ...shotResults(plans[0]));
   let time = 1000;
   const clock = vi.spyOn(Date, "now").mockImplementation(() => time);
   let saved: { stage: string; drafts: unknown[] } | undefined;
@@ -579,11 +588,11 @@ it("repairs malformed JSON once but does not retry transport failures", async ()
     selection,
     plans[0].story,
     reviewFor(),
-    shotResult(plans[0]),
+    ...shotResults(plans[0]),
   ];
   const result = await generateCreativeAssist(input);
   expect(result.kind).toBe("video_plan");
-  expect(calls.prompts).toHaveLength(6);
+  expect(calls.prompts).toHaveLength(5 + SHOT_CALLS);
   calls.prompts = [];
   calls.responses = [new Error("connection closed")];
   await expect(generateCreativeAssist(input)).rejects.toThrow(

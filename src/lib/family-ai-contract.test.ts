@@ -148,6 +148,35 @@ describe("normalizeShotResponse", () => {
     expect(normalized.shots.shot1.referenceImages).toHaveLength(4);
     expect(normalized.shots.shot2.visualRequirements).toBeUndefined();
   });
+
+  // Model hay viết lại cùng đạo cụ với chữ hơi khác hoặc id có dấu; trước đây
+  // validator storyboard chặn cả tập vì những khác biệt vô nghĩa này.
+  it("keeps a prop's identity from its first appearance and slugs its id", () => {
+    const first = {
+      id: "hộp bánh",
+      label: "Hộp nhựa",
+      color: "Trong suốt",
+      size: "Vừa",
+      marks: "",
+      count: 1,
+      holderCharacterId: "char-a",
+      position: "Trên tay",
+    };
+    const normalized = normalizeShotResponse(
+      {
+        shots: [
+          { ...shot(), props: [{ ...first, id: "hop-banh", color: "trong suốt", count: 0, position: "" }] },
+        ],
+      },
+      [{ props: [first] }],
+    ) as { shots: Record<string, { props: Record<string, unknown>[] }> };
+    expect(normalized.shots.shot1.props[0]).toMatchObject({
+      id: "hop-banh",
+      color: "Trong suốt",
+      count: 1,
+      position: "trong khung",
+    });
+  });
 });
 
 describe("compileStoryShots", () => {

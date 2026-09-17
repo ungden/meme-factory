@@ -334,7 +334,11 @@ const directorInput = {
       return;
     }
     await director.runStage(stage, Date.now() + 90000);
-    const nextStage = nextScriptStage(stage);
+    // shots dựng từng đoạn và có thể dừng giữa chừng khi hết thời gian của lượt;
+    // khi đó giữ nguyên stage để lượt sau dựng tiếp từ state đã lưu.
+    const nextStage = director.pipelineState.completedStages.includes(stage)
+      ? nextScriptStage(stage)
+      : stage;
     await admin
       .from("short_film_script_runs")
       .upsert(
@@ -352,7 +356,7 @@ const directorInput = {
     await patchRun(admin, run, {
       status: "running",
       phase: "script",
-      snapshot: { scriptStage: stage, scriptStageCompleted: true },
+      snapshot: { scriptStage: stage, scriptStageCompleted: nextStage !== stage },
       delay_seconds: 2,
     });
   } catch (error) {
