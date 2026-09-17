@@ -1,9 +1,14 @@
-/** Clip ranges use independent ASR from this exact source clip, never planned dialogue. */
+/**
+ * Clip ranges use independent ASR from this exact source clip, never planned dialogue.
+ * keepStart: clip có storyboard xếp nội dung từ giây 0, có thể mở bằng nhịp không
+ * lời (cõng con, hồi tưởng); chỉ cắt đuôi, không cắt phần trước câu nói đầu.
+ */
 export function speechRange(
   duration,
   segments,
   enabled,
   minimumOutSeconds = 0,
+  keepStart = false,
 ) {
   if (!Number.isFinite(duration) || duration <= 0)
     throw new Error("INVALID_CLIP_DURATION");
@@ -30,7 +35,7 @@ export function speechRange(
   )
     throw new Error("INVALID_MINIMUM_EDIT_OUT");
   return {
-    inSeconds: Math.max(0, segments[0].start - 0.2),
+    inSeconds: keepStart ? 0 : Math.max(0, segments[0].start - 0.2),
     outSeconds: Math.min(
       duration,
       Math.max(minimumOutSeconds, segments.at(-1).end + 0.25),

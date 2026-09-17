@@ -458,6 +458,7 @@ export function makeFilmWorker(db) {
           transcript?.result.segments,
           spec.trimSpeech === true,
           Number(spec.minimumOutSeconds || 0),
+          spec.keepStart === true,
         );
       const report = await normalizeClip(
         original,

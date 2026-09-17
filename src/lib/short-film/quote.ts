@@ -636,6 +636,8 @@ async function quoteRender({
       version: s.version,
       trimSpeech: !!plan.trim_speech && !!s.dialogue,
       minimumOutSeconds: (clip.input.storyboard as FilmScene["storyboard"])?.contentEndSeconds || s.storyboard?.contentEndSeconds || 0,
+      // Storyboard xếp nội dung từ giây 0 và có thể mở bằng nhịp không lời.
+      keepStart: Boolean(clip.input.storyboard || s.storyboard),
     };
   });
   tasks.push(

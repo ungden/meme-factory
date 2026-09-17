@@ -15,6 +15,11 @@ test("uses actual timing with margins and preserves internal pause", () =>
     inSeconds: 0.8,
     outSeconds: 4.25,
   }));
+test("keeps a storyboard clip's wordless opening and only trims the tail", () =>
+  assert.deepEqual(speechRange(8, [{ start: 3.15, end: 7.36, text: "Bố chạy nhanh lên" }], true, 7.4, true), {
+    inSeconds: 0,
+    outSeconds: 7.61,
+  }));
 test("subtitle offsets follow edited clips", () =>
   assert.equal(
     shiftTranscript(segments, { inSeconds: 0.8, outSeconds: 4.25 }, 7)[1].end,

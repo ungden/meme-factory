@@ -25,7 +25,7 @@ export async function POST(
       // còn thiếu, báo giá và tạo lại; kết quả cũ vẫn giữ để đối chiếu.
       if (t.approved_at || t.auto_accepted_at)
         throw new FilmError("Kết quả đã được duyệt, không thể yêu cầu tạo lại.", 409);
-      if (!["image", "frame", "tts", "video", "lip_sync", "dub"].includes(t.kind))
+      if (!["image", "frame", "tts", "video", "lip_sync", "dub", "render"].includes(t.kind))
         throw new FilmError("Công đoạn này không tạo lại riêng được.", 409);
       const reason = String(body.reason || "").trim().slice(0, 300);
       if (!reason) throw new FilmError("Ghi ngắn lý do cần tạo lại.");
