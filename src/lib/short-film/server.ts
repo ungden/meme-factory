@@ -2,6 +2,7 @@ import "server-only";
 import { isProjectMediaPath } from "@/lib/project-media-path";
 import { errorCode, humanizeError } from "@/lib/error-messages";
 import crypto from "node:crypto";
+import { manifestHash } from "@/lib/continuity/hashing";
 import {
   validateStory,
   type ChannelProfile,
@@ -32,6 +33,43 @@ import {
 } from "../video-models";
 import { normalizeFamilyFatherTerms } from "../family-terminology";
 import { automaticGuestVoice } from "./guest-voices";
+/** Các trường của một cảnh đã lưu tham gia input_hash, cùng dạng với lúc lưu. */
+export function sceneHashInput(scene: Record<string, unknown>) {
+  const storyboard = scene.storyboard as
+    | { beats?: Record<string, unknown>[]; performanceDirection?: unknown }
+    | null
+    | undefined;
+  return {
+    // Lúc lưu, cảnh có storyboard lấy hướng diễn từ storyboard, nhưng cột được
+    // ghi null; dựng lại cùng luật để cảnh không đổi so khớp được.
+    performance_direction: scene.performance_direction || storyboard?.performanceDirection || null,
+    cast_snapshot: scene.cast_snapshot,
+    speaker_character_id: scene.speaker_character_id ?? null,
+    dialogue: scene.dialogue,
+    action: scene.action,
+    setting: scene.setting,
+    camera: scene.camera,
+    duration_seconds: scene.duration_seconds,
+    start_image_url: scene.start_image_url ?? null,
+    end_image_url: scene.end_image_url ?? null,
+    follows_previous: scene.follows_previous ?? false,
+    image_prompt: scene.image_prompt,
+    motion_prompt: scene.motion_prompt,
+    source_mode: scene.source_mode,
+    ...(storyboard
+      ? {
+          storyboard: {
+            ...storyboard,
+            beats: (storyboard.beats || []).map(({ segmentId: _segmentId, ...beat }) => {
+              void _segmentId;
+              return beat;
+            }),
+          },
+        }
+      : {}),
+  };
+}
+
 export const hash = (v: unknown) =>
   crypto.createHash("sha256").update(JSON.stringify(v)).digest("hex");
 function stableSegmentId(sceneId: string, sequenceIndex: number) {
@@ -590,12 +628,25 @@ export async function savePlan(
           }),
         }
       : null;
+    const hashInput = {
+      ...visual,
+      ...(storyboardForHash ? { storyboard: storyboardForHash } : {}),
+    };
+    // input_hash dùng JSON.stringify nên phụ thuộc thứ tự khoá, mà jsonb sắp lại
+    // khoá khi lưu. Chỉ đọc lên rồi lưu lại một tập do AI làm cũng đổi hash, tăng
+    // version mọi cảnh và bỏ hết ảnh/giọng/video đã làm. So nội dung bằng chuỗi
+    // ổn định với cảnh đã lưu; không đổi thì giữ nguyên hash (và version).
+    const previous = old?.video_plan_scenes.find((scene) => scene.id === sceneId);
+    const sameAsPrevious =
+      previous &&
+      manifestHash(hashInput) ===
+        manifestHash(sceneHashInput(previous as unknown as Record<string, unknown>));
     return {
       ...row,
-      input_hash: hash({
-        ...visual,
-        ...(storyboardForHash ? { storyboard: storyboardForHash } : {}),
-      }),
+      input_hash:
+        sameAsPrevious && previous.input_hash
+          ? previous.input_hash
+          : hash(hashInput),
     };
   });
   let story = body.story === undefined ? old?.story : body.story;

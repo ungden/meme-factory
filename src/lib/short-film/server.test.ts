@@ -361,3 +361,18 @@ describe("perScene", () => {
     expect(await perScene([scene("a"), scene("b")], async () => [])).toEqual([]);
   });
 });
+
+// Lưu lại một tập do AI làm mà không sửa gì từng tăng version mọi cảnh: jsonb
+// sắp lại khoá và cột performance_direction được ghi null cho cảnh storyboard.
+describe("scene hash input", () => {
+  it("matches a saved scene regardless of key order and derived direction", async () => {
+    const { sceneHashInput } = await import("./server");
+    const { manifestHash } = await import("@/lib/continuity/hashing");
+    const direction = { lane: "cinematic_emotion", hook: "Bố cõng con." };
+    const storyboard = { version: 2, performanceDirection: direction, beats: [{ dialogue: "", action: "Cõng con", segmentId: "abc" }] };
+    const saved = { dialogue: "", action: "Cõng con", performance_direction: null, storyboard, cast_snapshot: [{ name: "Bố", characterId: "bo" }], source_mode: "manual" };
+    const sent = { source_mode: "manual", cast_snapshot: [{ characterId: "bo", name: "Bố" }], storyboard: { beats: [{ action: "Cõng con", dialogue: "" }], performanceDirection: { hook: "Bố cõng con.", lane: "cinematic_emotion" }, version: 2 }, performance_direction: direction, action: "Cõng con", dialogue: "" };
+    expect(manifestHash(sceneHashInput(saved))).toBe(manifestHash(sceneHashInput(sent)));
+    expect(manifestHash(sceneHashInput(saved))).not.toBe(manifestHash(sceneHashInput({ ...sent, action: "Bế con" })));
+  });
+});
