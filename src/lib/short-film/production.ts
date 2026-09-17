@@ -238,7 +238,22 @@ async function saveScriptResult(
   videoModel: string,
   format: string,
 ) {
-  const guests = result.guests || [];
+  // Khách mời người dùng khai cho lượt chạy phải đi cùng kịch bản khi lưu, kể
+  // cả kết quả đã lưu trong state trước khi director tự gộp.
+  const scenesUse = (key: string) =>
+    result.scenes.some(
+      (scene) =>
+        scene.characterIds.includes(key) ||
+        scene.storyboard?.beats.some((beat) => beat.speakerCharacterId === key),
+    );
+  const guests = [
+    ...new Map(
+      [
+        ...(Array.isArray(run.guests) ? run.guests : []).filter((guest) => scenesUse(guest.key)),
+        ...(result.guests || []),
+      ].map((guest) => [guest.key, guest] as const),
+    ).values(),
+  ];
   return savePlan(a, {
     title: result.title,
     brief: run.intent || result.summary,

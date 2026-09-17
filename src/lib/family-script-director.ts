@@ -506,10 +506,33 @@ Mở ngay ở việc đang diễn ra. Chọn chi tiết dễ hình dung, khẩu 
 
   private declared(value: unknown) {
     const normalized = normalizeFamilyFatherTerms(unpackStory(value)) as Story;
-    const guests = normalizeStoryGuests(
+    const declaredGuests = normalizeStoryGuests(
       (normalized as { guests?: unknown }).guests,
     );
-    const story = { ...normalized, guests };
+    // Người viết hay khai lại khách mời người dùng đã cung cấp bằng guest-1/2,
+    // tạo hai bản "Ông nội" trong cùng cảnh. Gộp về khoá của người dùng.
+    const provided = this.input.guestCharacters || [];
+    const sameName = (a: string, b: string) =>
+      a.normalize("NFC").trim().toLowerCase() === b.normalize("NFC").trim().toLowerCase();
+    const remap = new Map(
+      declaredGuests.flatMap((guest) => {
+        const match = provided.find((item) => sameName(item.name, guest.name));
+        return match ? [[guest.key, match.key] as const] : [];
+      }),
+    );
+    const guests = declaredGuests.filter((guest) => !remap.has(guest.key));
+    const story = {
+      ...normalized,
+      dialogue: normalized.dialogue.map((line) => ({
+        ...line,
+        characterId: remap.get(line.characterId) || line.characterId,
+      })),
+      wants: (normalized.wants || []).map((want) => ({
+        ...want,
+        characterId: remap.get(want.characterId) || want.characterId,
+      })),
+      guests,
+    };
     assertDeclaredGuests(story);
     return {
       story,
@@ -587,7 +610,7 @@ Viết bản đầy đủ bằng tiếng Việt, khai thác hành vi/quan hệ c
 Chọn performanceLane đúng một trong: ${PERFORMANCE_LANES.join(", ")}. Mô tả lane bằng hành động trong thoại/action; không tự khen bản thân là hài.
 MỌI CẢNH NGƯỜI DÙNG NÊU RÕ trong ý tưởng (ví dụ: cõng con đi dọc biển, một đoạn hồi tưởng, nhìn kỷ vật) phải thành lượt riêng theo đúng thứ tự, không gộp vào action của lượt khác và không lược đi cho gọn. Cảnh không cần lời dùng NHỊP KHÔNG LỜI: text là chuỗi rỗng, characterId là người hành động chính, action tả cụ thể việc nhìn thấy (tối thiểu 6 từ; hồi tưởng ghi rõ "hồi tưởng" và ai làm gì). Tối đa 3 nhịp không lời, vẫn cần ít nhất 2 lượt có lời; lượt cuối nên có lời hoặc là reaction. Câu nói mà ý tưởng nêu ra (ví dụ con hỏi "Bố sao vậy", Bố bảo "cát bay vào mắt", con hứa sau này cõng lại Bố) phải được CHÍNH người đó NÓI trong text, không chỉ tả trong action, và giữ đúng người nói như ý tưởng.
 Thời lượng ${this.input.targetDurationSeconds || 35} giây chỉ là mục tiêu gần đúng. Hoàn tất trọn diễn biến và kết thúc người dùng yêu cầu trước; nếu câu chuyện tự nhiên cần dài hơn thì viết thêm lượt đến đúng điểm kết, nếu xong sớm thì dừng, tuyệt đối không cắt mất kết hoặc kéo lời để chạm mốc. Tổng 15–120 đơn vị lời thoại, mỗi lượt tối đa 35; tối đa 12 lượt kể cả reaction. Có thể không có reaction nếu đã đủ điểm dừng. Viết tình huống đang diễn ra, lời kể chỉ khi format cần và cách kể tự có sức hút.
-Nhân vật: chỉ dùng cast đã chọn. Nếu câu chuyện thật sự cần một người ngoài gia đình (trên máy bay, hàng xóm đến gõ cửa, người kiểm định…), được thêm TỐI ĐA MỘT nhân vật khách mời một tập trong mục guests: key guest-1, name ngắn, description tả rõ ngoại hình/trang phục đủ để dựng ảnh nhận diện, personality. Dùng đúng key guest-1 cho thoại và wants của người đó. Không khai khách mời nếu không cần thiết; không tự sáng chế nhân vật khác.
+Nhân vật: chỉ dùng cast đã chọn. Khách mời đã có trong danh sách nhân vật thì dùng đúng ID của họ, không khai lại thành guest-1/guest-2. Nếu câu chuyện thật sự cần một người ngoài gia đình (trên máy bay, hàng xóm đến gõ cửa, người kiểm định…), được thêm TỐI ĐA MỘT nhân vật khách mời một tập trong mục guests: key guest-1, name ngắn, description tả rõ ngoại hình/trang phục đủ để dựng ảnh nhận diện, personality. Dùng đúng key guest-1 cho thoại và wants của người đó. Không khai khách mời nếu không cần thiết; không tự sáng chế nhân vật khác.
 endingPlan.mode chọn hard_cut, silent_reaction hoặc resolved. stopAfterLine bắt buộc bằng đúng số lượt thoại; anchorQuote trích nguyên văn từ thoại/action lượt cuối; reason nói vì sao phép đảo/quan hệ hạ đúng ở đó. payoff và beats.payoff là mô tả điểm dừng để tương thích dữ liệu, KHÔNG phải yêu cầu punchline. Nếu dùng silent_reaction thì beats.reaction mô tả phản ứng không thoại; hai mode còn lại để reaction rỗng. Trước khi trả, thử xóa lần lượt các câu cuối: cắt mọi câu không làm mất điểm rơi. Không thêm câu mở vấn đề mới sau khi chuyện đã hạ, không nối câu đùa thứ hai để “finish”. Trước khi trả, đọc từng câu từ góc nhìn người đang nói: hai chị em nói với nhau dùng chị/em, “chị em mình/tụi mình”; nói với bố mẹ dùng “tụi con”; không để một bé tự gọi cả hai là “hai đứa”.
 comicPremise: với tập hài ghi thường thức/format gốc, điều bị đảo/lệch và tín hiệu nhìn/nghe thấy; với tập cảm động ghi khoảnh khắc bình thường, emotionalCause và chi tiết nhìn thấy được dẫn tới cảm xúc. Phần thoại/action phải tự thể hiện, không dựa vào lời tác giả tự khen. Không thêm người ngoài cast, không ép parody thành việc chăm bố mẹ hoặc tập cảm động thành joke.
 Trả JSON: ${STORY_SCHEMA}`,
@@ -662,18 +685,41 @@ Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống
     if (!this.state.reviewPassed) throw new Error("FAMILY_REVIEW_MISSING");
     const maxVideoDuration = this.input.maxVideoDurationSeconds || 30;
     const groups = shotChunkGroups(story, maxVideoDuration);
-    const storyGuests = story.guests || [];
+    // Khách mời gồm cả người dùng khai sẵn cho lượt (ông nội, Bố hồi bé) lẫn
+    // khách AI tự thêm. Chỉ lấy khách AI khai thì khi lưu, khoá của khách người
+    // dùng không được đổi thành id và bị ghi thẳng vào cột uuid.
+    const storyGuests = [
+      ...new Map(
+        [
+          ...(this.input.guestCharacters || []).map((guest) => ({
+            key: guest.key,
+            name: guest.name,
+            description: guest.description || "",
+            personality: guest.personality || "",
+          })),
+          ...(story.guests || []),
+        ].map((guest) => [guest.key, guest] as const),
+      ).values(),
+    ].filter((guest) =>
+      story.dialogue.some(
+        (line) =>
+          line.characterId === guest.key ||
+          line.action.normalize("NFC").includes(guest.name.normalize("NFC")),
+      ),
+    );
     const shotAllowed = [...this.allowed, ...storyGuests.map((guest) => guest.key)];
     const shotContext: CreativeContext = {
       ...this.context,
       characters: [
         ...this.context.characters,
-        ...storyGuests.map((guest) => ({
-          id: guest.key,
-          name: guest.name,
-          description: guest.description,
-          personality: guest.personality || null,
-        })),
+        ...storyGuests
+          .filter((guest) => !this.context.characters.some((c) => c.id === guest.key))
+          .map((guest) => ({
+            id: guest.key,
+            name: guest.name,
+            description: guest.description,
+            personality: guest.personality || null,
+          })),
       ],
     };
     const targetSeconds = this.input.targetDurationSeconds || 35;

@@ -282,6 +282,44 @@ it("lets a user-written idea remake a recent story but guards AI-chosen topics",
   await expect(run(undefined)).rejects.toThrow("STORY_REPEATED_COMBINATION");
 });
 
+it("returns guests the user declared for the run when the story uses them", async () => {
+  const guest = { key: "guest-ong-noi", name: "Ông nội", description: "Ông tóc bạc, áo sơ mi bạc màu", personality: "Trầm" };
+  const withGuest = { ...input, guestCharacters: [guest] };
+  calls.responses = [{ candidates }, selection, story, reviewFor()];
+  const director = new FamilyScriptDirector(withGuest);
+  for (const stage of ["premises", "selection", "draft", "review"] as const)
+    await director.runStage(stage, Date.now() + 90000);
+  const guestStory = structuredClone(director.pipelineState.story!);
+  guestStory.dialogue[1] = {
+    characterId: guest.key,
+    text: "",
+    action: "Hồi tưởng: Ông nội cõng Bố hồi bé đi dọc bãi biển lúc hoàng hôn",
+  };
+  const resumed = new FamilyScriptDirector(withGuest);
+  resumed.restore({ ...director.snapshot(), story: guestStory });
+  calls.responses = shotChunkGroups(guestStory).map((group, g) => ({
+    ...(g === 0 ? { title: plans[0].title, summary: plans[0].brief } : {}),
+    shots: group.map((i) => plans[0].scenes[i]),
+  }));
+  while (!resumed.done) await resumed.runStage("shots", Date.now() + 90000);
+  expect(resumed.finalResult?.guests?.map((item) => item.key)).toEqual(["guest-ong-noi"]);
+});
+
+it("folds a writer-declared copy of a user guest back onto the user's guest key", async () => {
+  const guest = { key: "guest-ong-noi", name: "Ông nội", description: "Ông tóc bạc, áo sơ mi bạc màu", personality: "Trầm" };
+  const copied = {
+    ...story,
+    guests: [{ key: "guest-1", name: "Ông nội", description: "Ông tóc bạc khoảng 60 tuổi", personality: "" }],
+    dialogue: story.dialogue.map((line, i) => (i === 1 ? { ...line, characterId: "guest-1" } : line)),
+  };
+  calls.responses = [{ candidates }, selection, copied];
+  const director = new FamilyScriptDirector({ ...input, guestCharacters: [guest] });
+  for (const stage of ["premises", "selection", "draft"] as const)
+    await director.runStage(stage, Date.now() + 90000);
+  expect(director.pipelineState.story?.guests).toEqual([]);
+  expect(director.pipelineState.story?.dialogue[1].characterId).toBe("guest-ong-noi");
+});
+
 it("parks a stuck stage with its state intact and resumes only that stage", async () => {
   calls.responses = [{ candidates }];
   const director = new FamilyScriptDirector(input);
