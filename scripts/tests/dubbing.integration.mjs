@@ -66,6 +66,10 @@ test('uses the same transcript threshold as dubbed QA without weakening native a
     false,
   );
   assert.equal(transcriptMatchesClip(transcript, 'other'), false);
+  const withAmbience = dubArguments('video.mp4', ['a.wav'], [{ startSeconds: 3.2, endSeconds: 5.5, duration: 2 }], 6, 'out.mp4', [{ start: 0, end: 3 }]);
+  const graph = withAmbience[withAmbience.indexOf('-filter_complex') + 1];
+  assert.match(graph, /\[0:a\].*between\(t,0\.000,3\.000\).*\[amb\]/);
+  assert.match(graph, /amix=inputs=2/);
   const unreadable = { input: { videoTaskId: 'dub', audioMode: 'dubbed' }, result: { speechError: 1, asrIssue: 'Timestamp ASR không hợp lệ.', transcriptSource: 'locked_tts_schedule' } };
   assert.equal(transcriptMatchesClip(unreadable, 'dub'), false);
   assert.equal(transcriptMatchesClip({ ...unreadable, approved_at: '2026-09-17T10:57:00Z' }, 'dub'), true);

@@ -9,6 +9,7 @@ import {
   filmVideoInputs,
   measuredDubbedScene,
   sceneUsesAmbientAudio,
+  sceneHasWordlessBeat,
   remapStoryboardCharacters,
   type FilmScene,
   type FilmTask,
@@ -128,6 +129,14 @@ describe("per-turn dubbing", () => {
     expect(ambient.prompt).not.toContain("SILENT VIDEO");
     expect(sceneUsesAmbientAudio(scene, "dubbed")).toBe(false);
     expect(sceneUsesAmbientAudio(silent, "native")).toBe(false);
+  });
+  it("asks for native ambience when a spoken scene opens with a wordless beat", () => {
+    const mixed = structuredClone(scene);
+    mixed.storyboard!.beats[0] = { ...mixed.storyboard!.beats[0], dialogue: "", speakerCharacterId: null };
+    const packet = { urls: ["frame"], bindings: ["@image1 = scene: khung cảnh."] };
+    expect(sceneHasWordlessBeat(mixed, "dubbed")).toBe(true);
+    expect(filmVideoInputs(mixed, "dubbed", "16:9", "720p", packet).generate_audio).toBe(true);
+    expect(sceneHasWordlessBeat(scene, "dubbed")).toBe(false);
   });
   it("remaps guest keys inside storyboard beats when a plan is saved", () => {
     const board = structuredClone(scene.storyboard!);

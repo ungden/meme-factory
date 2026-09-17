@@ -32,7 +32,12 @@ export function validateDubCue(cue, audio, videoTask, measuredDuration) {
   )
     throw new Error("DUB_DURATION_MISMATCH: thoại không vừa nhịp diễn.");
 }
-export function dubArguments(video, audioFiles, schedule, duration, output) {
+/**
+ * ambientWindows: khoảng [start, end] của nhịp không lời trong clip. Audio gốc
+ * của Seedance chỉ được nghe trong các khoảng này (tiếng sóng, gió); lúc có thoại
+ * thì tắt để không lẫn tiếng nói do model tự tạo.
+ */
+export function dubArguments(video, audioFiles, schedule, duration, output, ambientWindows = []) {
   if (
     !schedule.length ||
     schedule.length !== audioFiles.length ||
@@ -58,8 +63,19 @@ export function dubArguments(video, audioFiles, schedule, duration, output) {
     (cue, i) =>
       `[${i + 1}:a]aresample=48000,aformat=channel_layouts=stereo,adelay=${Math.round(cue.startSeconds * 1000)}:all=1[a${i}]`,
   );
+  const windows = ambientWindows.filter(
+    (w) => Number.isFinite(w?.start) && Number.isFinite(w?.end) && w.end - w.start >= 0.3,
+  );
+  if (windows.length) {
+    const inside = windows
+      .map((w) => `between(t,${Math.max(0, w.start).toFixed(3)},${Math.min(duration, w.end).toFixed(3)})`)
+      .join("+");
+    filters.push(
+      `[0:a]aresample=48000,aformat=channel_layouts=stereo,volume=0.35,volume=0:enable='not(${inside})',apad,atrim=duration=${duration}[amb]`,
+    );
+  }
   filters.push(
-    `${schedule.map((_, i) => `[a${i}]`).join("")}amix=inputs=${schedule.length}:normalize=0:dropout_transition=0,apad,atrim=duration=${duration}[dub]`,
+    `${schedule.map((_, i) => `[a${i}]`).join("")}${windows.length ? "[amb]" : ""}amix=inputs=${schedule.length + (windows.length ? 1 : 0)}:normalize=0:dropout_transition=0,apad,atrim=duration=${duration}[dub]`,
   );
   return [
     "-i",

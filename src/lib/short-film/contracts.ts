@@ -361,6 +361,22 @@ export function sceneUsesAmbientAudio(
   return !spoken;
 }
 
+/**
+ * Cảnh có lời nhưng mở/kết bằng nhịp không lời (cõng con đi dọc biển rồi mới
+ * nói) cũng cần tiếng môi trường ở nhịp đó; nếu không phim câm vài giây. Audio
+ * gốc chỉ được giữ trong khoảng không lời khi lồng tiếng.
+ */
+export function sceneHasWordlessBeat(
+  scene: Pick<FilmScene, "storyboard">,
+  mode: "native" | "fixed" | "dubbed",
+) {
+  return (
+    mode === "dubbed" &&
+    Boolean(scene.storyboard?.beats.some((beat) => !beat.dialogue?.trim())) &&
+    Boolean(scene.storyboard?.beats.some((beat) => beat.dialogue?.trim()))
+  );
+}
+
 export function compileFilmMotion(
   scene: FilmScene,
   mode: "native" | "fixed" | "dubbed",
@@ -396,7 +412,7 @@ export function compileFilmMotion(
       `PACING: bắt đầu ngay giây 0, nói nhanh tự nhiên nhưng rõ, không kéo dài âm tiết, không slow motion, không lặp câu hoặc lặp động tác. Hoàn tất toàn bộ diễn biến ở ${Number(board.contentEndSeconds ?? board.durationSeconds).toFixed(2)} giây; sau đó chỉ giữ tư thế kết, tuyệt đối không thêm hành động hoặc lời mới. Mốc thời gian định hướng nhịp diễn; nói trọn câu trước đổi lượt, không chồng lời. Người nghe phản ứng ngay trong lượt nói. Pan/cắt theo storyboard, giữ hướng nhìn và trục đối thoại; không chuyển cảnh trang trí hoặc đổi bối cảnh.`,
       mode === "native"
         ? "AUDIO: giọng đúng người đang nói, rõ ở tiền cảnh; nhạc không lời vui vẻ, tinh nghịch nhẹ, âm lượng thấp. Không thêm lời thoại, phụ đề, nhãn thời gian hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ tham chiếu."
-        : sceneUsesAmbientAudio(scene, mode)
+        : sceneUsesAmbientAudio(scene, mode) || sceneHasWordlessBeat(scene, mode)
           ? AMBIENT_AUDIO_DIRECTION
           : "SILENT VIDEO: không phát lời thoại, không nhạc. Diễn môi và phản ứng theo đúng lịch từng người để lồng tiếng riêng. Không phụ đề, nhãn thời gian hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ.",
     ].join("\n");
@@ -472,7 +488,10 @@ export function filmVideoInputs(
     aspect_ratio: format,
     duration,
     resolution,
-    generate_audio: mode === "native" || sceneUsesAmbientAudio(scene, mode),
+    generate_audio:
+      mode === "native" ||
+      sceneUsesAmbientAudio(scene, mode) ||
+      sceneHasWordlessBeat(scene, mode),
   };
 }
 

@@ -407,7 +407,13 @@ export function makeFilmWorker(db) {
     }
     await checkpoint(t, {});
     const output = path.join(dir, "dubbed.mp4");
-    await ffmpeg(dubArguments(file, files, t.input.schedule, inspection.duration, output));
+    const ambientWindows =
+      inspection.audio && video.input?.providerInputs?.generate_audio
+        ? (video.input.storyboard?.beats || [])
+            .filter((beat) => !String(beat.dialogue || "").trim())
+            .map((beat) => ({ start: Number(beat.startSeconds), end: Number(beat.endSeconds) }))
+        : [];
+    await ffmpeg(dubArguments(file, files, t.input.schedule, inspection.duration, output, ambientWindows));
     await checkpoint(t, {});
     const checked = await probe(output);
     if (!checked.video || !checked.audio || checked.width !== inspection.width || checked.height !== inspection.height || Math.abs(checked.duration - inspection.duration) > 0.1) throw new Error("DUB_OUTPUT_INVALID");
