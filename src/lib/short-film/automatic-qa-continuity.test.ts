@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { FilmTask } from "./contracts";
 
-const sent = vi.hoisted(() => ({ parts: [] as Array<Record<string, unknown>> }));
+const sent = vi.hoisted(() => ({ parts: [] as Array<Record<string, unknown>>, failures: [] as Error[], calls: 0 }));
 vi.mock("@google/genai", () => ({
   GoogleGenAI: class {
     models = {
       generateContent: async (r: { contents: { parts: Array<Record<string, unknown>> }[] }) => {
+        sent.calls += 1;
+        const failure = sent.failures.shift();
+        if (failure) throw failure;
         sent.parts = r.contents[0].parts;
         return { text: JSON.stringify({ status: "passed", issues: [], summary: "ok", requirementResults: [] }) };
       },
@@ -48,6 +51,17 @@ describe("video continuity check", () => {
     expect(texts).toContain("Bố cõng Đậu Đỏ đi dọc mép nước");
     const last = sent.parts.at(-1) as { inlineData?: { data: string } };
     expect(Buffer.from(last.inlineData!.data, "base64").toString()).toBe("https://media/previous-sheet");
+  });
+
+  it("retries a transient Gemini timeout once instead of parking the run", async () => {
+    vi.stubGlobal("fetch", async () => new Response(new Uint8Array([1]), { headers: { "content-type": "image/jpeg" } }));
+    sent.calls = 0;
+    sent.failures = [new Error('{"error":{"code":504,"message":"Deadline expired","status":"DEADLINE_EXCEEDED"}}')];
+    const check = await checkVisualTask(video, "https://media/clip", []);
+    expect(check.status).toBe("passed");
+    expect(sent.calls).toBe(2);
+    sent.failures = [new Error("INVALID_ARGUMENT")];
+    await expect(checkVisualTask(video, "https://media/clip", [])).rejects.toThrow("INVALID_ARGUMENT");
   });
 
   it("checks a clip alone when no previous scene is approved", async () => {

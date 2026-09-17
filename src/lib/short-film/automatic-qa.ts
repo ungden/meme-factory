@@ -37,17 +37,28 @@ const resultSchema = {
 
 async function judge(parts: Array<Record<string, unknown>>): Promise<Check> {
   const ai = new GoogleGenAI({ apiKey: await getGeminiApiKey() });
-  const response = await ai.models.generateContent({
-    model: process.env.CREATIVE_TEXT_MODEL || "gemini-3-flash-preview",
-    contents: [{ role: "user", parts }],
-    config: {
-      responseMimeType: "application/json",
-      responseJsonSchema: resultSchema,
-      maxOutputTokens: 1200,
-      thinkingConfig: { thinkingLevel: "LOW" as ThinkingLevel },
-      httpOptions: { timeout: 45000 },
-    },
-  });
+  const request = () =>
+    ai.models.generateContent({
+      model: process.env.CREATIVE_TEXT_MODEL || "gemini-3-flash-preview",
+      contents: [{ role: "user", parts }],
+      config: {
+        responseMimeType: "application/json",
+        responseJsonSchema: resultSchema,
+        maxOutputTokens: 1200,
+        thinkingConfig: { thinkingLevel: "LOW" as ThinkingLevel },
+        httpOptions: { timeout: 45000 },
+      },
+    });
+  // Một lần 504/503/429 của Gemini từng đỗ cả lượt sản xuất ở bước chấm video
+  // đã quay xong. Thử lại một lần cho lỗi tạm thời; lỗi khác vẫn nổi lên.
+  let response;
+  try {
+    response = await request();
+  } catch (error) {
+    if (!/DEADLINE_EXCEEDED|UNAVAILABLE|RESOURCE_EXHAUSTED|"code":\s*(?:429|503|504)/.test(String((error as Error)?.message ?? error)))
+      throw error;
+    response = await request();
+  }
   // maxOutputTokens là 1200 và requirementResults có thể tới 24 mục, nên phản
   // hồi hoàn toàn có thể bị cắt giữa chừng. Một SyntaxError trần sẽ trôi lên
   // tận catch cuối của production và hiện ra dưới dạng "Unexpected end of JSON
