@@ -24,6 +24,7 @@ import {
   type PreviousSceneEvidence,
   checkTechnicalTask,
   checkVisualTask,
+  verifyUnreadableSpeech,
   visualEvidencePath,
 } from "./automatic-qa";
 import {
@@ -481,6 +482,17 @@ async function previousSceneEvidence(
 async function ensureTaskCheck(a: Access, run: Run, task: FilmTask) {
   if (task.approved_at || task.auto_accepted_at) return "passed";
   let check = checkTechnicalTask(task);
+  if (task.kind === "transcribe" && task.result?.asrIssue && task.input.videoTaskId) {
+    const { data: clip } = await a.admin
+      .from("short_film_tasks")
+      .select("*")
+      .eq("id", String(task.input.videoTaskId))
+      .eq("project_id", a.project.id)
+      .maybeSingle();
+    const path = clip ? visualEvidencePath(clip as FilmTask) : "";
+    if (path)
+      check = await verifyUnreadableSpeech(task, await signed(a.admin, a.project.id, path));
+  }
   if (["image", "frame", "video", "lip_sync", "dub"].includes(task.kind)) {
     // Speaker routing cannot be proven from a static contact sheet. Feed the
     // actual clip to the multimodal check; oversized clips stay needs_review.

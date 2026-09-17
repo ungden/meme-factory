@@ -318,6 +318,71 @@ export async function checkVisualTask(
   }
 }
 
+/** Tỷ lệ lỗi từ giữa lời kịch bản và lời nghe được (cùng luật với worker). */
+export function speechWordError(expected: string, actual: string) {
+  const clean = (text: string) =>
+    text
+      .toLowerCase()
+      .normalize("NFC")
+      .replace(/[^\p{L}\p{N}\s]/gu, "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+  const a = clean(expected);
+  const b = clean(actual);
+  let row = [0, ...b.map((_, i) => i + 1)];
+  for (let i = 1; i <= a.length; i++) {
+    const next = [i];
+    for (let j = 1; j <= b.length; j++)
+      next[j] = Math.min(next[j - 1] + 1, row[j] + 1, row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    row = next;
+  }
+  return row[b.length] / Math.max(1, a.length);
+}
+
+/**
+ * Whisper bịa lời trên clip mở bằng nhịp không lời, khiến mỗi tập phải có
+ * người nghe lại. Với bản lồng tiếng, nhờ Gemini chép lời chính clip đó: khớp
+ * kịch bản thì tự đạt, lệch mới cần người.
+ */
+export async function verifyUnreadableSpeech(task: FilmTask, mediaUrl: string): Promise<Check> {
+  const dialogue = String(task.input.dialogue || "");
+  const ai = new GoogleGenAI({ apiKey: await getGeminiApiKey() });
+  const response = await ai.models.generateContent({
+    model: process.env.CREATIVE_TEXT_MODEL || "gemini-3-flash-preview",
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: "Chép nguyên văn mọi lời nói tiếng Việt nghe được trong media, theo thứ tự. Không thêm mô tả âm thanh. Không có lời thì trả chuỗi rỗng." },
+          await inline(mediaUrl),
+        ],
+      },
+    ],
+    config: {
+      responseMimeType: "application/json",
+      responseJsonSchema: { type: "object", properties: { text: { type: "string" } }, required: ["text"], additionalProperties: false },
+      maxOutputTokens: 600,
+      thinkingConfig: { thinkingLevel: "LOW" as ThinkingLevel },
+      httpOptions: { timeout: 45000 },
+    },
+  });
+  let heard = "";
+  try {
+    heard = String((JSON.parse(response.text || "{}") as { text?: unknown }).text || "");
+  } catch {
+    heard = "";
+  }
+  const error = speechWordError(dialogue, heard);
+  return error <= 0.3
+    ? { status: "passed", issues: [], evidence: { verifier: "gemini", heard, speechError: error, asrIssue: task.result?.asrIssue } }
+    : {
+        status: "needs_review",
+        issues: ["Lời nghe được lệch kịch bản; cần nghe lại cảnh này."],
+        evidence: { verifier: "gemini", heard, speechError: error, asrIssue: task.result?.asrIssue },
+      };
+}
+
 /** Moving media is checked through a full-duration proxy. The delivery master
  * remains untouched and can be much larger than Gemini's inline payload. */
 export function visualEvidencePath(task: FilmTask): string {

@@ -107,7 +107,7 @@ export function transcriptMatchesClip(transcript, clipId) {
   // Whisper có thể bịa lời trên clip mở bằng nhịp không lời. Transcript đã khoá
   // theo lịch TTS và được người nghe lại, duyệt thì dùng được để dựng.
   if (
-    transcript?.approved_at &&
+    (transcript?.approved_at || transcript?.auto_accepted_at) &&
     transcript?.result?.transcriptSource === "locked_tts_schedule"
   )
     return true;
