@@ -53,6 +53,8 @@ describe("performance direction Vietnamese actions", () => {
     expect(lintPerformanceDirection(direction)).toEqual([]);
     // "cõng" từng không được nhận là động từ, chặn cả lượt dựng hồi tưởng.
     expect(lintPerformanceDirection({ ...direction, hook: "Ông nội cõng Bố hồi bé dọc bãi biển." })).toEqual([]);
+    expect(lintPerformanceDirection({ ...direction, hook: "Bố đột ngột khựng bước giữa bãi cát." })).toEqual([]);
+    expect(lintPerformanceDirection({ ...direction, hook: "Hình ảnh hai ông cháu trong nắng chiều." }).map((issue) => issue.field)).toEqual(["hook"]);
     expect(
       lintPerformanceDirection({
         ...direction,

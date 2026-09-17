@@ -34,7 +34,7 @@ const GENERIC_ONLY = /^(?:tự nhiên|nghiêm túc|ngây thơ|đáng yêu|vui v�
 // Vietnamese verbs ending in diacritics (for example "chỉ" and "gỡ"), which
 // made valid directions fail before any paid generation.
 const hasConcreteVerb = (value: string) =>
-  /(?:^|[\s,.;:!?()])(?:bật|kéo|giật|đập|chộp|rút|đẩy|ném|đặt|mở|đóng|chặn|chỉ|quay|ngoái|lùi|tiến|nhảy|trượt|đứng|ngồi|đi|chạy|đưa|giơ|lấy|bẻ|giấu|đo|đếm|gõ|hất|né|khựng|đổi|trao|cúi|ngẩng|liếc|nhìn|há|mím|phồng|nhăn|nhướng|sững|đơ|thở|nuốt|rụt|vẫy|bước|khoanh|vỗ|dí|kẹp|chồm|xoay|nghiêng|bật ngửa|hất cằm|nheo|mở to|siết|buông|gỡ|ôm|cầm|nắm|ghi|viết|lật|thổi|lau|xoa|vuốt|cắt|xắn|cắn|ăn|uống|rót|múc|gắp|nhặt|cất|bỏ|treo|gấp|mặc|cởi|đội|đeo|lắc|xua|gật|ngước|nhún|gãi|hôn|thơm|cười|khóc|dựa|tựa|nằm|quỳ|rướn|với|chạm|sờ|ấn|bấm|vặn|xếp|dọn|quét|rửa|đỡ|bế|nhón|nép|núp|trốn|huých|kiễng|chống|vung|lăn|thả|nhấc|nâng|ngó|dò|soi|quét mắt|cõng|bế|bồng|địu|dắt|ẵm|nhấc bổng|bế bổng|thổi|chu môi|dụi|lau|vuốt ve|xoa đầu|thơm má)(?=$|[\s,.;:!?()])/iu.test(
+  /(?:^|[\s,.;:!?()])(?:bật|kéo|giật|đập|chộp|rút|đẩy|ném|đặt|mở|đóng|chặn|chỉ|quay|ngoái|lùi|tiến|nhảy|trượt|đứng|ngồi|đi|chạy|đưa|giơ|lấy|bẻ|giấu|đo|đếm|gõ|hất|né|khựng|đổi|trao|cúi|ngẩng|liếc|nhìn|há|mím|phồng|nhăn|nhướng|sững|đơ|thở|nuốt|rụt|vẫy|bước|khoanh|vỗ|dí|kẹp|chồm|xoay|nghiêng|bật ngửa|hất cằm|nheo|mở to|siết|buông|gỡ|ôm|cầm|nắm|ghi|viết|lật|thổi|lau|xoa|vuốt|cắt|xắn|cắn|ăn|uống|rót|múc|gắp|nhặt|cất|bỏ|treo|gấp|mặc|cởi|đội|đeo|lắc|xua|gật|ngước|nhún|gãi|hôn|thơm|cười|khóc|dựa|tựa|nằm|quỳ|rướn|với|chạm|sờ|ấn|bấm|vặn|xếp|dọn|quét|rửa|đỡ|bế|nhón|nép|núp|trốn|huých|kiễng|chống|vung|lăn|thả|nhấc|nâng|ngó|dò|soi|quét mắt|cõng|bế|bồng|dừng|địu|dắt|ẵm|nhấc bổng|bế bổng|thổi|chu môi|dụi|lau|vuốt ve|xoa đầu|thơm má)(?=$|[\s,.;:!?()])/iu.test(
     value,
   );
 
@@ -52,8 +52,12 @@ const hasVisibleCue = (value: string) => {
   const text = value.normalize("NFC").trim();
   return hasConcreteVerb(text) || BODY_PART.test(text);
 };
-// Chỉ beat hành động dùng luật "chủ ngữ + động từ + đối tượng"; hook vẫn phải
-// có động từ hoặc bộ phận cơ thể, để câu tả cảm xúc dài không lọt qua.
+// Hook tả một khái niệm ("Hình ảnh ông nội…", "Lời hứa ngây ngô…") thay vì một
+// người đang làm gì thì không quay được ở giây đầu.
+const ABSTRACT_OPENING =
+  /^(?:hình ảnh|lời hứa|cảm xúc|khoảnh khắc|kỷ niệm|ký ức|tình cảm|sự|nỗi|niềm|không khí|ý nghĩa)(?=$|[\s,.;:!?])/iu;
+// Hook: có động từ/bộ phận cơ thể, hoặc một câu hành động có chủ thể; danh
+// sách động từ không bao giờ đủ ("dừng", "cõng" từng chặn cả lượt dựng).
 const hasConcreteAction = (value: string) => {
   const text = value.normalize("NFC").trim();
   return (
@@ -111,7 +115,7 @@ export function lintPerformanceDirection(
 ): PerformanceIssue[] {
   const d = validatePerformanceDirection(direction);
   const issues: PerformanceIssue[] = [];
-  if (!hasVisibleCue(d.hook))
+  if (!hasVisibleCue(d.hook) && (ABSTRACT_OPENING.test(d.hook.normalize("NFC").trim()) || !hasConcreteAction(d.hook)))
     issues.push({ field: "hook", reason: "Hook phải là hành động nhìn thấy trong giây đầu." });
   if (d.beats.filter((b) => hasConcreteAction(b.physicalAction)).length < 2)
     issues.push({ field: "beats", reason: "Cần ít nhất hai hành động vật lý cụ thể." });
