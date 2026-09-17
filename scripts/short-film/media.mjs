@@ -296,7 +296,11 @@ export function captionSegments(segments) {
   }
   return out;
 }
-export async function normalizeClip(source, target, format, resolution, range) {
+/**
+ * ambient=true: audio là âm thanh môi trường của cảnh không lời. Chuẩn hoá về
+ * -30 LUFS thay vì mức thoại -16, để tiếng sóng/gió không to bằng giọng nói.
+ */
+export async function normalizeClip(source, target, format, resolution, range, { ambient = false } = {}) {
   const [w, h] = dimensions(format, resolution);
   const p = await probe(source);
   const start = range?.inSeconds ?? 0,
@@ -321,7 +325,9 @@ export async function normalizeClip(source, target, format, resolution, range) {
     "-vf",
     `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30`,
     "-af",
-    "loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000",
+    ambient
+      ? "loudnorm=I=-30:TP=-9:LRA=11,aresample=48000"
+      : "loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000",
     "-c:v",
     "libx264",
     "-pix_fmt",

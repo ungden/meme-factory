@@ -235,19 +235,35 @@ async function inline(url: string) {
   };
 }
 
+/** Cảnh liền trước đã duyệt, dùng để bắt lỗi liên tục giữa hai clip sinh độc lập. */
+export type PreviousSceneEvidence = {
+  contactSheetUrl: string;
+  action: string;
+  setting: string;
+};
+
 export async function checkVisualTask(
   task: FilmTask,
   mediaUrl: string,
   referenceUrls: string[],
+  previous?: PreviousSceneEvidence,
 ): Promise<Check> {
   try {
     const parts: Array<Record<string, unknown>> = [
       {
-        text: `Kiểm tra media của một shot phim theo đúng phong cách ảnh chuẩn. Media đầu tiên là kết quả; các ảnh sau là ảnh chuẩn từng nhân vật. Với kind image, kiểm tra đúng mục đích và role của reference image trong TASK: scene khóa bố cục/trạng thái, character khóa nhận diện, prop có thể chỉ là cận đạo cụ, environment khóa bối cảnh. Không buộc mọi ref chứa toàn bộ cast và không đòi ảnh tĩnh thể hiện chuyển động ngoài moment đã yêu cầu. Những ảnh đã đạt sẽ được gửi cùng nhau qua reference_images, không phải first/last frame. Với kind video và audioMode dubbed, đây là chuyển động im tiếng trước lồng tiếng: chỉ kiểm tra hình và đúng người diễn từng lượt, không đòi audio. Với kind dub, FFmpeg giữ nguyên bitstream hình của video nguồn đã kiểm tra và chỉ ghép các audio TTS đã khóa theo schedule; tập trung nghe đúng giọng, đúng thứ tự, đủ nguyên văn, đúng khoảng thời gian và không chồng tiếng. Đây là bản lồng tiếng/voice-over, không resynthesize khuôn mặt. Với media hình, chỉ passed khi đúng số người cần có, đúng nhận diện, trang phục, đạo cụ và hình không lỗi. Chữ/số thật trên đạo cụ được phép và phải đọc đúng khi visualRequirements yêu cầu; chỉ cấm phụ đề, nhãn giao diện và chữ trang trí tự sinh. Trả requirementResults cho TỪNG visualRequirement với id nguyên vẹn, status, observation mô tả điều thực sự nhìn thấy và region chỉ vùng ảnh. countable/readable chỉ passed khi đếm/đọc được ở ảnh thật; không suy từ prompt. Nếu thiếu bằng chứng thì uncertain và toàn media needs_review. Với video có storyboard, kiểm tra từng lượt theo thứ tự; người khác phản ứng không lời. Mốc beat là dự kiến, không dùng làm bằng chứng audio thực. Không suy đoán và không dùng kịch bản dự kiến thay cho bằng chứng nghe/nhìn.\nTASK: ${JSON.stringify({ audioMode: task.input.audioMode, kind: task.kind, cast: task.input.cast, dialogue: task.input.dialogue, speakerCharacterId: task.input.speakerCharacterId, setting: task.input.setting, schedule: task.input.schedule, storyboard: task.input.storyboard, referenceImageId: task.input.referenceImageId, referenceRole: task.input.referenceRole, referencePurpose: task.input.referencePurpose, referenceBindings: task.input.referenceBindings, visualStoryMechanism: task.input.visualStoryMechanism, visualRequirements: task.input.visualRequirements })}`,
+        text: `Kiểm tra media của một shot phim theo đúng phong cách ảnh chuẩn. Media đầu tiên là kết quả; các ảnh sau là ảnh chuẩn từng nhân vật. Với kind image, kiểm tra đúng mục đích và role của reference image trong TASK: scene khóa bố cục/trạng thái, character khóa nhận diện, prop có thể chỉ là cận đạo cụ, environment khóa bối cảnh. Không buộc mọi ref chứa toàn bộ cast và không đòi ảnh tĩnh thể hiện chuyển động ngoài moment đã yêu cầu. Những ảnh đã đạt sẽ được gửi cùng nhau qua reference_images, không phải first/last frame. Với kind video và audioMode dubbed, đây là chuyển động im tiếng trước lồng tiếng: chỉ kiểm tra hình và đúng người diễn từng lượt, không đòi audio; riêng khi ambientAudio=true (cảnh không lời), audio chỉ được là âm thanh môi trường, có lời nói, tiếng người hoặc nhạc thì needs_review. Với kind dub, FFmpeg giữ nguyên bitstream hình của video nguồn đã kiểm tra và chỉ ghép các audio TTS đã khóa theo schedule; tập trung nghe đúng giọng, đúng thứ tự, đủ nguyên văn, đúng khoảng thời gian và không chồng tiếng. Đây là bản lồng tiếng/voice-over, không resynthesize khuôn mặt. Với media hình, chỉ passed khi đúng số người cần có, đúng nhận diện, trang phục, đạo cụ và hình không lỗi. Chữ/số thật trên đạo cụ được phép và phải đọc đúng khi visualRequirements yêu cầu; chỉ cấm phụ đề, nhãn giao diện và chữ trang trí tự sinh. Trả requirementResults cho TỪNG visualRequirement với id nguyên vẹn, status, observation mô tả điều thực sự nhìn thấy và region chỉ vùng ảnh. countable/readable chỉ passed khi đếm/đọc được ở ảnh thật; không suy từ prompt. Nếu thiếu bằng chứng thì uncertain và toàn media needs_review. Với video có storyboard, kiểm tra từng lượt theo thứ tự; người khác phản ứng không lời. Mốc beat là dự kiến, không dùng làm bằng chứng audio thực. Không suy đoán và không dùng kịch bản dự kiến thay cho bằng chứng nghe/nhìn.\nTASK: ${JSON.stringify({ audioMode: task.input.audioMode, ambientAudio: task.input.audioMode !== "native" && (task.input.providerInputs as { generate_audio?: boolean } | undefined)?.generate_audio === true, kind: task.kind, cast: task.input.cast, dialogue: task.input.dialogue, speakerCharacterId: task.input.speakerCharacterId, setting: task.input.setting, schedule: task.input.schedule, storyboard: task.input.storyboard, referenceImageId: task.input.referenceImageId, referenceRole: task.input.referenceRole, referencePurpose: task.input.referencePurpose, referenceBindings: task.input.referenceBindings, visualStoryMechanism: task.input.visualStoryMechanism, visualRequirements: task.input.visualRequirements })}`,
       },
       await inline(mediaUrl),
     ];
     for (const url of referenceUrls.slice(0, 4)) parts.push(await inline(url));
+    // Mỗi clip được sinh riêng nên dễ gãy liên tục: đang cõng thành đứng dưới
+    // đất, chân trần thành đi giày. So với cảnh liền trước đã được duyệt.
+    if (previous) {
+      parts.push({
+        text: `LIÊN TỤC VỚI CẢNH LIỀN TRƯỚC: ảnh tiếp theo là 3 khung (đầu/giữa/cuối) của cảnh trước, hành động "${previous.action}", bối cảnh "${previous.setting}". So với khung cuối của nó, media kết quả phải giữ tư thế đang duy trì (đang cõng/bế/ngồi), trang phục, giày dép, đạo cụ trên tay và thời điểm ánh sáng, trừ khi TASK mô tả rõ hành động làm đổi hoặc đây là hồi tưởng/chuyển cảnh có chủ đích. Lệch vô lý thì needs_review và nêu đúng điểm lệch trong issues.`,
+      });
+      parts.push(await inline(previous.contactSheetUrl));
+    }
     const check = await judge(parts);
     const requirements = Array.isArray(task.input.visualRequirements)
       ? (task.input.visualRequirements as Array<{ id?: string; importance?: string }>)

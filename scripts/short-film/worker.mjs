@@ -465,6 +465,12 @@ export function makeFilmWorker(db) {
         t.input.format,
         t.input.resolution,
         range,
+        {
+          ambient:
+            clip.kind === "video" &&
+            clip.input?.audioMode !== "native" &&
+            clip.input?.providerInputs?.generate_audio === true,
+        },
       );
       clips.push(normalized);
       const sourceSegments = transcript?.result.segments ||

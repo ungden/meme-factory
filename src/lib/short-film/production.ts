@@ -20,6 +20,7 @@ import {
 } from "../family-catalogue";
 import {
   checkProductionScript,
+  type PreviousSceneEvidence,
   checkTechnicalTask,
   checkVisualTask,
   visualEvidencePath,
@@ -412,6 +413,45 @@ async function signed(admin: SupabaseClient, project: string, path: string) {
   return data.signedUrl;
 }
 
+/** Ảnh 3 khung của clip đã duyệt ở cảnh liền trước; không có thì bỏ qua kiểm tra liên tục. */
+async function previousSceneEvidence(
+  a: Access,
+  planId: string,
+  task: FilmTask,
+): Promise<PreviousSceneEvidence | undefined> {
+  if (!task.scene_id) return undefined;
+  const { data: scenes } = await a.admin
+    .from("video_plan_scenes")
+    .select("id,scene_index,action,setting")
+    .eq("video_plan_id", planId)
+    .is("deleted_at", null);
+  const current = scenes?.find((scene) => scene.id === task.scene_id);
+  const prior = current
+    ? scenes
+        ?.filter((scene) => scene.scene_index < current.scene_index)
+        .sort((x, y) => y.scene_index - x.scene_index)[0]
+    : undefined;
+  if (!prior) return undefined;
+  const { data: clip } = await a.admin
+    .from("short_film_tasks")
+    .select("result")
+    .eq("project_id", a.project.id)
+    .eq("scene_id", prior.id)
+    .eq("kind", "video")
+    .eq("status", "completed")
+    .or("approved_at.not.is.null,auto_accepted_at.not.is.null")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const sheet = (clip?.result as { qaFramePath?: string } | null)?.qaFramePath;
+  if (!sheet) return undefined;
+  return {
+    contactSheetUrl: await signed(a.admin, a.project.id, sheet),
+    action: String(prior.action || ""),
+    setting: String(prior.setting || ""),
+  };
+}
+
 async function ensureTaskCheck(a: Access, run: Run, task: FilmTask) {
   if (task.approved_at || task.auto_accepted_at) return "passed";
   let check = checkTechnicalTask(task);
@@ -460,6 +500,9 @@ async function ensureTaskCheck(a: Access, run: Run, task: FilmTask) {
         task,
         media,
         [...authoredReferences, ...castReferences].filter(Boolean),
+        task.kind === "video" && run.plan_id
+          ? await previousSceneEvidence(a, run.plan_id, task)
+          : undefined,
       );
     }
   }

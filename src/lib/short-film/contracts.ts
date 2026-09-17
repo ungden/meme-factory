@@ -341,6 +341,26 @@ export function shotDuration(audioSeconds: number, requested: number) {
     );
   return seconds;
 }
+const AMBIENT_AUDIO_DIRECTION =
+  "AUDIO: chỉ âm thanh môi trường tự nhiên của bối cảnh (sóng, gió, bước chân, tiếng vật dụng), nhỏ và liên tục. Tuyệt đối không lời nói, không tiếng người, không nhạc. Không phụ đề, nhãn thời gian hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ.";
+
+/**
+ * Ở chế độ lồng tiếng, clip có lời được tạo im tiếng vì giọng sẽ lồng riêng.
+ * Cảnh không lời (hồi tưởng, phản ứng kết) thì không có gì để lồng: tạo im tiếng
+ * làm phim câm hẳn vài giây. WaveSpeed tính Seedance cùng giá dù có audio, nên
+ * các cảnh này nhận âm thanh môi trường gốc của model.
+ */
+export function sceneUsesAmbientAudio(
+  scene: Pick<FilmScene, "dialogue" | "storyboard">,
+  mode: "native" | "fixed" | "dubbed",
+) {
+  if (mode === "native") return false;
+  const spoken = scene.storyboard
+    ? scene.storyboard.beats.some((beat) => beat.dialogue?.trim())
+    : Boolean(scene.dialogue?.trim());
+  return !spoken;
+}
+
 export function compileFilmMotion(
   scene: FilmScene,
   mode: "native" | "fixed" | "dubbed",
@@ -376,7 +396,9 @@ export function compileFilmMotion(
       `PACING: bắt đầu ngay giây 0, nói nhanh tự nhiên nhưng rõ, không kéo dài âm tiết, không slow motion, không lặp câu hoặc lặp động tác. Hoàn tất toàn bộ diễn biến ở ${Number(board.contentEndSeconds ?? board.durationSeconds).toFixed(2)} giây; sau đó chỉ giữ tư thế kết, tuyệt đối không thêm hành động hoặc lời mới. Mốc thời gian định hướng nhịp diễn; nói trọn câu trước đổi lượt, không chồng lời. Người nghe phản ứng ngay trong lượt nói. Pan/cắt theo storyboard, giữ hướng nhìn và trục đối thoại; không chuyển cảnh trang trí hoặc đổi bối cảnh.`,
       mode === "native"
         ? "AUDIO: giọng đúng người đang nói, rõ ở tiền cảnh; nhạc không lời vui vẻ, tinh nghịch nhẹ, âm lượng thấp. Không thêm lời thoại, phụ đề, nhãn thời gian hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ tham chiếu."
-        : "SILENT VIDEO: không phát lời thoại, không nhạc. Diễn môi và phản ứng theo đúng lịch từng người để lồng tiếng riêng. Không phụ đề, nhãn thời gian hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ.",
+        : sceneUsesAmbientAudio(scene, mode)
+          ? AMBIENT_AUDIO_DIRECTION
+          : "SILENT VIDEO: không phát lời thoại, không nhạc. Diễn môi và phản ứng theo đúng lịch từng người để lồng tiếng riêng. Không phụ đề, nhãn thời gian hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ.",
     ].join("\n");
   }
   const duration = Math.max(4, Math.min(30, scene.duration_seconds || 5));
@@ -405,7 +427,9 @@ export function compileFilmMotion(
       : "ACTIVE SPEAKER: không ai nói; mọi nhân vật giữ miệng đóng.",
     mode === "native"
       ? "AUDIO: lời thoại rõ ở tiền cảnh; nhạc nền không lời vui vẻ, ấm áp, tinh nghịch nhẹ kiểu gia đình, âm lượng thấp và liên tục. Không thêm lời nói, tiếng đệm, phụ đề hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ."
-      : "AUDIO: không lời thoại và không nhạc; audio lồng tiếng sẽ được đồng bộ riêng. Không thêm phụ đề hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ.",
+      : sceneUsesAmbientAudio(scene, mode)
+        ? AMBIENT_AUDIO_DIRECTION
+        : "AUDIO: không lời thoại và không nhạc; audio lồng tiếng sẽ được đồng bộ riêng. Không thêm phụ đề hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -448,7 +472,7 @@ export function filmVideoInputs(
     aspect_ratio: format,
     duration,
     resolution,
-    generate_audio: mode === "native",
+    generate_audio: mode === "native" || sceneUsesAmbientAudio(scene, mode),
   };
 }
 

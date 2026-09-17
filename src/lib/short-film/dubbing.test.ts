@@ -8,6 +8,7 @@ import {
   finalClipKind,
   filmVideoInputs,
   measuredDubbedScene,
+  sceneUsesAmbientAudio,
   type FilmScene,
   type FilmTask,
 } from "./contracts";
@@ -107,6 +108,25 @@ describe("per-turn dubbing", () => {
     expect(input.reference_images).toEqual(["frame"]);
     expect(input.aspect_ratio).toBe("16:9");
     expect(input).not.toHaveProperty("image");
+  });
+  // Cảnh không lời ở chế độ lồng tiếng không có gì để lồng; tạo im tiếng làm phim
+  // câm hẳn (tập "Cát bay vào mắt" câm 5 giây ở hồi tưởng và cảnh kết).
+  it("asks for ambient audio only on dubbed scenes without any spoken beat", () => {
+    const silent = structuredClone(scene);
+    silent.dialogue = "";
+    silent.storyboard!.beats = silent.storyboard!.beats.map((beat) => ({
+      ...beat,
+      dialogue: "",
+      speakerCharacterId: null,
+    }));
+    const packet = { urls: ["frame"], bindings: ["@image1 = scene: khung cảnh."] };
+    const ambient = filmVideoInputs(silent, "dubbed", "16:9", "720p", packet);
+    expect(sceneUsesAmbientAudio(silent, "dubbed")).toBe(true);
+    expect(ambient.generate_audio).toBe(true);
+    expect(ambient.prompt).toContain("chỉ âm thanh môi trường");
+    expect(ambient.prompt).not.toContain("SILENT VIDEO");
+    expect(sceneUsesAmbientAudio(scene, "dubbed")).toBe(false);
+    expect(sceneUsesAmbientAudio(silent, "native")).toBe(false);
   });
   it("preserves an intentional pause and a silent reaction in measured timing", () => {
     const planned = structuredClone(scene);
