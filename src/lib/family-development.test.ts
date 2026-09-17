@@ -1,5 +1,6 @@
 import { it, expect } from "vitest";
 import {
+  compactDevelopmentTrace,
   validatePremises,
   validateSelection,
   validateEditorialReview,
@@ -418,6 +419,19 @@ it("grounds a quote that names the actor before a verbatim action but rejects in
       story,
     ),
   ).toThrow("FAMILY_EDITORIAL_REVIEW_INVALID");
+});
+
+it("compacts the development trace saved with a story", () => {
+  const failures = Array.from({ length: 10 }, (_, i) => ({
+    stage: "selection",
+    error: `FAMILY_SELECTION_INVALID ${i}`,
+    response: "x".repeat(2000),
+  }));
+  const compact = compactDevelopmentTrace({ stage: "complete" as const, validationFailures: failures });
+  expect(compact.validationFailures).toHaveLength(5);
+  expect(compact.validationFailures?.every((failure) => failure.response === null)).toBe(true);
+  expect(compact.validationFailures?.at(-1)?.error).toBe("FAMILY_SELECTION_INVALID 9");
+  expect(compactDevelopmentTrace(undefined)).toBeUndefined();
 });
 
 it("derives acceptance from the editorial verdict, not a second contradictory flag", () => {

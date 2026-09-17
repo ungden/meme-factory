@@ -1,6 +1,7 @@
 import "server-only";
 import crypto from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { compactDevelopmentTrace } from "../family-development";
 import {
   FamilyScriptDirector,
   FAMILY_SCRIPT_STAGES,
@@ -242,7 +243,10 @@ async function saveScriptResult(
     title: result.title,
     brief: run.intent || result.summary,
     caption: result.caption || "",
-    story: result.story,
+    // Kết quả đã lưu trong state trước bản sửa vẫn mang nhật ký đầy đủ.
+    story: result.story
+      ? { ...result.story, development: compactDevelopmentTrace(result.story.development) }
+      : result.story,
     guests,
     targetDurationSeconds: 35,
     format,

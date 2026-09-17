@@ -31,6 +31,7 @@ import {
   validatePremises,
   validateSelection,
   validateEditorialReview,
+  compactDevelopmentTrace,
   type FamilyDevelopmentTrace,
 } from "./family-development";
 import { GoogleGenAI, type ThinkingLevel } from "@google/genai";
@@ -816,7 +817,7 @@ Mỗi panel có action, setting, camera, durationSeconds, imagePrompt, motionPro
         return (last as { evidence?: Record<string, string> } | undefined)
           ?.evidence;
       })(),
-      development: this.trace(),
+      development: compactDevelopmentTrace(this.trace()),
       intendedShotSeconds: result.scenes.map(
         (s) => s.intendedDurationSeconds || s.durationSeconds,
       ),

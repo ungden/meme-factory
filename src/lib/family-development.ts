@@ -85,6 +85,26 @@ export type FamilyDevelopmentTrace = {
     review?: EditorialReview;
   }[];
 };
+/**
+ * Bản nhật ký phát triển để lưu cùng kịch bản. Phản hồi thô của các lần model
+ * trả sai (tới 2.000 ký tự mỗi lần) chỉ cần khi gỡ lỗi lượt đang chạy; lưu
+ * nguyên vào story từng làm kịch bản vượt giới hạn 25.000 ký tự của savePlan
+ * sau vài lần thử lại, và lượt sản xuất kẹt ở bước lưu.
+ */
+export function compactDevelopmentTrace<T extends { validationFailures?: FamilyDevelopmentTrace["validationFailures"] } | undefined>(
+  trace: T,
+): T {
+  if (!trace?.validationFailures) return trace;
+  return {
+    ...trace,
+    validationFailures: trace.validationFailures.slice(-5).map((failure) => ({
+      stage: failure.stage,
+      error: String(failure.error).slice(0, 300),
+      response: null,
+    })),
+  };
+}
+
 const string = { type: "string" };
 const object = (properties: Record<string, unknown>) => ({
   type: "object",
