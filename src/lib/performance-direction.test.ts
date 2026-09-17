@@ -35,6 +35,27 @@ describe("performance direction Vietnamese actions", () => {
     expect(issues).toEqual([]);
   });
 
+  // Lượt chạy thật từng bị chặn vì "vươn" không có trong danh sách động từ.
+  it("counts a body part in motion as a physical action but not a feeling", () => {
+    const direction = {
+      version: 1 as const,
+      lane: "cinematic_emotion" as const,
+      comicObjective: "Đậu Đỏ hứa sẽ cõng lại Bố.",
+      statusBefore: "Bố đang giấu nước mắt.",
+      statusAfter: "Con chủ động dỗ Bố.",
+      hook: "Đậu Đỏ ngẩng đầu nhìn Bố.",
+      beats: [
+        { physicalAction: "Đậu Đỏ ngẩng đầu và nhìn thẳng vào mắt Bố.", expressionChange: "Mắt mở to.", gesture: "Tay buông xuôi.", reactionTarget: "Bố", cameraMove: "Máy đứng yên." },
+        { physicalAction: "Đậu Đỏ vươn hai tay về phía trước hướng lên Bố.", expressionChange: "Cười tươi.", gesture: "Kiễng chân.", reactionTarget: "Bố", cameraMove: "Push-in ngắn." },
+      ],
+      revealOrCut: "Hard cut khi Bố bế con lên.",
+    };
+    expect(lintPerformanceDirection(direction)).toEqual([]);
+    expect(
+      lintPerformanceDirection({ ...direction, hook: "Lời hứa ngây ngô nhưng chứa đựng tình cảm to lớn." }).map((issue) => issue.field),
+    ).toEqual(["hook"]);
+  });
+
   it("accepts short cast names as reaction targets and everyday gestures as actions", () => {
     const issues = lintPerformanceDirection({
       version: 1,
