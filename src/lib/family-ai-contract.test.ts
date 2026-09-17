@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   compileStoryShots,
   compileStoryboards,
+  mentionedCharacters,
   normalizeShotResponse,
   shotResponseSchema,
   storyHasReaction,
@@ -179,6 +180,22 @@ describe("normalizeShotResponse", () => {
   });
 });
 
+describe("mentionedCharacters", () => {
+  // Tập "Cát bay vào mắt": cảnh "Bố cõng Đậu Đỏ" chỉ gắn Bố nên ảnh vẽ một bé khác,
+  // và cảnh hồi tưởng thiếu "Bố hồi bé".
+  const people = [
+    { id: "bo", name: "Bố" },
+    { id: "do", name: "Đậu Đỏ" },
+    { id: "ong", name: "Ông nội" },
+    { id: "bo-be", name: "Bố hồi bé" },
+  ];
+  it("finds everyone named in an action, preferring the longer name", () => {
+    expect(mentionedCharacters("Bố đang cõng Đậu Đỏ, dừng lại.", people)).toEqual(["bo", "do"]);
+    expect(mentionedCharacters("Hồi tưởng: Ông nội cõng Bố hồi bé đi dọc bãi biển.", people)).toEqual(["ong", "bo-be"]);
+    expect(mentionedCharacters("Sóng vỗ vào bờ cát.", people)).toEqual([]);
+  });
+});
+
 describe("compileStoryShots", () => {
   it("binds each panel to its spoken line and speaker", () => {
     const compiled = compileStoryShots(reply(2), story(), CAST);
@@ -198,6 +215,18 @@ describe("compileStoryShots", () => {
       ).toThrow(/STORY_SHOT_2_INVALID/);
     },
   );
+
+  it("casts the people named in a silent beat's action", () => {
+    const silent = story({
+      dialogue: [
+        { characterId: "char-a", text: "", action: "Bánh Bao cõng Đậu Đỏ đi dọc bờ biển lúc hoàng hôn" },
+        { characterId: "char-b", text: "Vậy chị cắt đi", action: "khoanh tay" },
+      ],
+    });
+    const compiled = compileStoryShots(reply(2), silent, CAST);
+    expect(compiled.scenes[0].speakerCharacterId).toBeNull();
+    expect(compiled.scenes[0].characterIds).toEqual(["char-a", "char-b"]);
+  });
 
   it("accepts panels returned as an array", () => {
     const { shots } = reply(2);

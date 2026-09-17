@@ -381,6 +381,31 @@ export function storySlice(story: Story, group: number[]): Story {
   };
 }
 
+/**
+ * Nhân vật được gọi tên trong một đoạn mô tả, theo thứ tự xuất hiện. Tên dài
+ * khớp trước và phần đã khớp bị xoá, để "Bố hồi bé" không bị đếm thêm là "Bố".
+ */
+export function mentionedCharacters(
+  text: string,
+  characters: { id: string; name: string }[],
+) {
+  let rest = ` ${text.normalize("NFC")} `;
+  const found: { id: string; at: number }[] = [];
+  for (const character of [...characters].sort((a, b) => b.name.length - a.name.length)) {
+    const name = character.name.normalize("NFC").trim();
+    if (!name) continue;
+    const pattern = new RegExp(
+      `(?<![\\p{L}\\p{N}])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{N}])`,
+      "iu",
+    );
+    const match = pattern.exec(rest);
+    if (!match) continue;
+    found.push({ id: character.id, at: match.index });
+    rest = rest.replace(new RegExp(pattern.source, "giu"), (value) => " ".repeat(value.length));
+  }
+  return found.sort((a, b) => a.at - b.at).map((item) => item.id);
+}
+
 export function compileStoryShots(
   value: unknown,
   story: Story,
@@ -432,16 +457,18 @@ export function compileStoryShots(
           : {}),
       characterIds: line
         ? [
-            line.characterId,
-            ...(
-              (Array.isArray(shot.listenerCharacterIds)
-                ? shot.listenerCharacterIds
-                : []) as string[]
-            ).filter(
-              (id) =>
-                id !== line.characterId && characters.some((c) => c.id === id),
-            ),
-          ].slice(0, 2)
+            ...new Set([
+              line.characterId,
+              // Người được nhắc tên trong action phải có ảnh chuẩn trong cảnh:
+              // "Bố cõng Đậu Đỏ" chỉ gắn Bố thì ảnh tự vẽ một bé khác.
+              ...mentionedCharacters(line.action, characters),
+              ...(
+                (Array.isArray(shot.listenerCharacterIds)
+                  ? shot.listenerCharacterIds
+                  : []) as string[]
+              ).filter((id) => characters.some((c) => c.id === id)),
+            ]),
+          ].slice(0, line.text.trim() ? 2 : 3)
         : [...new Set(story.dialogue.map((d) => d.characterId))],
       speakerCharacterId: line?.text.trim() ? line.characterId : null,
       dialogue: line?.text || "",
