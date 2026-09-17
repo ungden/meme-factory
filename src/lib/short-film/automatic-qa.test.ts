@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkTechnicalTask, visualEvidencePath } from "./automatic-qa";
+import { checkTechnicalTask, visualEvidencePath, withoutLipIssues } from "./automatic-qa";
 import type { FilmTask } from "./contracts";
 
 function task(
@@ -59,6 +59,28 @@ describe("automatic short-film evidence checks", () => {
     const check = checkTechnicalTask(dubbed);
     expect(check.status).toBe("needs_review");
     expect(check.issues[0]).toContain("nghe lại");
+  });
+
+  // Người dùng: video phải nói đủ câu, nhưng khẩu hình không khớp thì không
+  // được chặn hay bắt tạo lại.
+  it("never blocks a clip only for lip movement", () => {
+    const lipOnly = withoutLipIssues({
+      status: "needs_review",
+      issues: ["Khẩu hình Đậu Đỏ không khớp lời thoại", "Người nghe mấp máy môi"],
+      evidence: { requirementResults: [{ status: "passed" }] },
+    });
+    expect(lipOnly.status).toBe("passed");
+    expect(lipOnly.evidence.lipNotes).toHaveLength(2);
+    const realProblem = withoutLipIssues({
+      status: "failed",
+      issues: ["Môi lệch nhịp", "Đậu Đỏ đi giày trắng thay vì chân trần"],
+      evidence: {},
+    });
+    expect(realProblem.status).toBe("failed");
+    expect(realProblem.issues).toEqual(["Đậu Đỏ đi giày trắng thay vì chân trần"]);
+    const action = withoutLipIssues({ status: "needs_review", issues: ["Không thấy Đậu Đỏ chu môi thổi vào mắt Bố"], evidence: {} });
+    expect(action.status).toBe("needs_review");
+    expect(withoutLipIssues({ status: "needs_review", issues: ["Miệng Bố không khớp lời thoại"], evidence: {} }).status).toBe("passed");
   });
 
   it("requires every final artifact and actual audio/video evidence", () => {

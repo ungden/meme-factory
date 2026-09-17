@@ -246,6 +246,30 @@ async function inline(url: string) {
   };
 }
 
+// Chỉ lỗi khớp môi với lời nói; "chu môi thổi" là hành động và vẫn được kiểm.
+const LIP_ISSUE = /khẩu hình|lip[\s-]?sync|mấp máy|nhép|(?:khớp|đồng bộ|cử động|chuyển động)[^.]{0,15}(?:môi|miệng)|(?:môi|miệng)[^.]{0,25}(?:khớp|lệch|nhịp|âm|lời)/iu;
+
+/**
+ * Khẩu hình không khớp lời không được chặn hay bắt tạo lại clip: lời đủ câu đã
+ * được kiểm ở bước soát lời. Nếu lỗi còn lại chỉ là khẩu hình thì coi là đạt và
+ * giữ ghi chú trong evidence.
+ */
+export function withoutLipIssues(check: Check): Check {
+  const lipNotes = check.issues.filter((issue) => LIP_ISSUE.test(issue));
+  if (!lipNotes.length) return check;
+  const issues = check.issues.filter((issue) => !LIP_ISSUE.test(issue));
+  const requirementFailed = Array.isArray(check.evidence.requirementResults)
+    && (check.evidence.requirementResults as Array<{ status?: string; observation?: string }>).some(
+      (result) => result.status !== "passed" && !LIP_ISSUE.test(String(result.observation || "")),
+    );
+  return {
+    ...check,
+    status: issues.length || requirementFailed ? check.status : "passed",
+    issues,
+    evidence: { ...check.evidence, lipNotes },
+  };
+}
+
 /** Cảnh liền trước đã duyệt, dùng để bắt lỗi liên tục giữa hai clip sinh độc lập. */
 export type PreviousSceneEvidence = {
   contactSheetUrl: string;
@@ -262,7 +286,7 @@ export async function checkVisualTask(
   try {
     const parts: Array<Record<string, unknown>> = [
       {
-        text: `Kiểm tra media của một shot phim theo đúng phong cách ảnh chuẩn. Media đầu tiên là kết quả; các ảnh sau là ảnh chuẩn từng nhân vật. Với kind image, kiểm tra đúng mục đích và role của reference image trong TASK: scene khóa bố cục/trạng thái, character khóa nhận diện, prop có thể chỉ là cận đạo cụ, environment khóa bối cảnh. Không buộc mọi ref chứa toàn bộ cast và không đòi ảnh tĩnh thể hiện chuyển động ngoài moment đã yêu cầu. Những ảnh đã đạt sẽ được gửi cùng nhau qua reference_images, không phải first/last frame. Với kind video và audioMode dubbed, đây là chuyển động im tiếng trước lồng tiếng: chỉ kiểm tra hình và đúng người diễn từng lượt, không đòi audio; riêng khi ambientAudio=true (cảnh không lời), audio chỉ được là âm thanh môi trường, có lời nói, tiếng người hoặc nhạc thì needs_review. Với kind dub, FFmpeg giữ nguyên bitstream hình của video nguồn đã kiểm tra và chỉ ghép các audio TTS đã khóa theo schedule; tập trung nghe đúng giọng, đúng thứ tự, đủ nguyên văn, đúng khoảng thời gian và không chồng tiếng. Đây là bản lồng tiếng/voice-over, không resynthesize khuôn mặt. Với media hình, chỉ passed khi đúng số người cần có, đúng nhận diện, trang phục, đạo cụ và hình không lỗi. Chữ/số thật trên đạo cụ được phép và phải đọc đúng khi visualRequirements yêu cầu; chỉ cấm phụ đề, nhãn giao diện và chữ trang trí tự sinh. Trả requirementResults cho TỪNG visualRequirement với id nguyên vẹn, status, observation mô tả điều thực sự nhìn thấy và region chỉ vùng ảnh. countable/readable chỉ passed khi đếm/đọc được ở ảnh thật; không suy từ prompt. Nếu thiếu bằng chứng thì uncertain và toàn media needs_review. Với video có storyboard, kiểm tra từng lượt theo thứ tự; người khác phản ứng không lời. KHẨU HÌNH: phim AI không cần khớp môi từng chữ; người nói chỉ cần nhép môi trong lượt của mình là đạt. Không đánh lỗi vì môi lệch nhịp, mở miệng chưa đúng âm hay nhép thêm chút sau câu; chỉ needs_review khi rõ ràng nhầm người nói (người nghe nói thay suốt lượt) hoặc người nói hoàn toàn bất động miệng trong cả lượt. Mốc beat là dự kiến, không dùng làm bằng chứng audio thực. Không suy đoán và không dùng kịch bản dự kiến thay cho bằng chứng nghe/nhìn.\nTASK: ${JSON.stringify({ audioMode: task.input.audioMode, ambientAudio: task.input.audioMode !== "native" && (task.input.providerInputs as { generate_audio?: boolean } | undefined)?.generate_audio === true && !(task.input.storyboard as { beats?: { dialogue?: string }[] } | undefined)?.beats?.some((beat) => beat.dialogue?.trim()), kind: task.kind, cast: task.input.cast, dialogue: task.input.dialogue, speakerCharacterId: task.input.speakerCharacterId, setting: task.input.setting, schedule: task.input.schedule, storyboard: task.input.storyboard, referenceImageId: task.input.referenceImageId, referenceRole: task.input.referenceRole, referencePurpose: task.input.referencePurpose, referenceBindings: task.input.referenceBindings, visualStoryMechanism: task.input.visualStoryMechanism, visualRequirements: task.input.visualRequirements })}`,
+        text: `Kiểm tra media của một shot phim theo đúng phong cách ảnh chuẩn. Media đầu tiên là kết quả; các ảnh sau là ảnh chuẩn từng nhân vật. Với kind image, kiểm tra đúng mục đích và role của reference image trong TASK: scene khóa bố cục/trạng thái, character khóa nhận diện, prop có thể chỉ là cận đạo cụ, environment khóa bối cảnh. Không buộc mọi ref chứa toàn bộ cast và không đòi ảnh tĩnh thể hiện chuyển động ngoài moment đã yêu cầu. Những ảnh đã đạt sẽ được gửi cùng nhau qua reference_images, không phải first/last frame. Với kind video và audioMode dubbed, đây là chuyển động im tiếng trước lồng tiếng: chỉ kiểm tra hình và đúng người diễn từng lượt, không đòi audio; riêng khi ambientAudio=true (cảnh không lời), audio chỉ được là âm thanh môi trường, có lời nói, tiếng người hoặc nhạc thì needs_review. Với kind dub, FFmpeg giữ nguyên bitstream hình của video nguồn đã kiểm tra và chỉ ghép các audio TTS đã khóa theo schedule; tập trung nghe đúng giọng, đúng thứ tự, đủ nguyên văn, đúng khoảng thời gian và không chồng tiếng. Đây là bản lồng tiếng/voice-over, không resynthesize khuôn mặt. Với media hình, chỉ passed khi đúng số người cần có, đúng nhận diện, trang phục, đạo cụ và hình không lỗi. Chữ/số thật trên đạo cụ được phép và phải đọc đúng khi visualRequirements yêu cầu; chỉ cấm phụ đề, nhãn giao diện và chữ trang trí tự sinh. Trả requirementResults cho TỪNG visualRequirement với id nguyên vẹn, status, observation mô tả điều thực sự nhìn thấy và region chỉ vùng ảnh. countable/readable chỉ passed khi đếm/đọc được ở ảnh thật; không suy từ prompt. Nếu thiếu bằng chứng thì uncertain và toàn media needs_review. Với video có storyboard, kiểm tra từng lượt theo thứ tự; người khác phản ứng không lời. KHẨU HÌNH KHÔNG BAO GIỜ LÀ LÝ DO needs_review hoặc failed: môi lệch nhịp, sai âm, nhép thừa, người nghe mấp máy hay người nói ít cử động miệng đều chỉ ghi chú trong summary. Lời thoại phải đủ trọn câu được kiểm ở bước soát lời, không suy từ khẩu hình. Mốc beat là dự kiến, không dùng làm bằng chứng audio thực. Không suy đoán và không dùng kịch bản dự kiến thay cho bằng chứng nghe/nhìn.\nTASK: ${JSON.stringify({ audioMode: task.input.audioMode, ambientAudio: task.input.audioMode !== "native" && (task.input.providerInputs as { generate_audio?: boolean } | undefined)?.generate_audio === true && !(task.input.storyboard as { beats?: { dialogue?: string }[] } | undefined)?.beats?.some((beat) => beat.dialogue?.trim()), kind: task.kind, cast: task.input.cast, dialogue: task.input.dialogue, speakerCharacterId: task.input.speakerCharacterId, setting: task.input.setting, schedule: task.input.schedule, storyboard: task.input.storyboard, referenceImageId: task.input.referenceImageId, referenceRole: task.input.referenceRole, referencePurpose: task.input.referencePurpose, referenceBindings: task.input.referenceBindings, visualStoryMechanism: task.input.visualStoryMechanism, visualRequirements: task.input.visualRequirements })}`,
       },
       await inline(mediaUrl),
     ];
@@ -275,7 +299,7 @@ export async function checkVisualTask(
       });
       parts.push(await inline(previous.contactSheetUrl));
     }
-    const check = await judge(parts);
+    const check = withoutLipIssues(await judge(parts));
     const requirements = Array.isArray(task.input.visualRequirements)
       ? (task.input.visualRequirements as Array<{ id?: string; importance?: string }>)
       : [];
