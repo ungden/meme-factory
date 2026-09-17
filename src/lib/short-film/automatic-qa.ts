@@ -349,6 +349,14 @@ export function checkTechnicalTask(task: FilmTask): Check {
         }
       : { status: "failed", issues: ["TTS thiếu audio hợp lệ."], evidence: r };
   }
+  if (task.kind === "transcribe" && r.asrIssue)
+    return {
+      status: "needs_review",
+      issues: [
+        "Máy nhận dạng giọng không đọc được lời (thường do đoạn im lặng dài ở đầu cảnh); phụ đề dùng lời lồng tiếng đã khoá, cần nghe lại cảnh này.",
+      ],
+      evidence: { asrIssue: r.asrIssue, transcriptSource: r.transcriptSource },
+    };
   if (task.kind === "transcribe")
     return Number(r.speechError) <=
       (task.input.audioMode === "dubbed" ? 0.3 : 0.2) &&

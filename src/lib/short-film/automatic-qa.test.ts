@@ -46,6 +46,21 @@ describe("automatic short-film evidence checks", () => {
     expect(checkTechnicalTask(dubbed).status).toBe("passed");
   });
 
+  // Whisper từng trả "Hãy subscribe cho kênh…" dài 30 giây cho clip 8 giây mở
+  // bằng nhịp không lời; bản lồng tiếng giữ lịch TTS và chờ người nghe lại.
+  it("asks for a listen when ASR could not read a dubbed clip", () => {
+    const dubbed = task("transcribe", {
+      asrIssue: "Timestamp ASR không hợp lệ.",
+      transcriptSource: "locked_tts_schedule",
+      speechError: 1,
+      segments: [{ start: 3.2, end: 5, text: "Bố chạy nhanh lên" }],
+    });
+    dubbed.input = { audioMode: "dubbed", dialogue: "Bố chạy nhanh lên" };
+    const check = checkTechnicalTask(dubbed);
+    expect(check.status).toBe("needs_review");
+    expect(check.issues[0]).toContain("nghe lại");
+  });
+
   it("requires every final artifact and actual audio/video evidence", () => {
     expect(
       checkTechnicalTask(

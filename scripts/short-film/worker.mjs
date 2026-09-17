@@ -719,13 +719,26 @@ export function makeFilmWorker(db) {
               await download(out, file, 5 * 1024 * 1024);
               data = await readFile(file, "utf8");
             }
-            const parsed = parseTranscript(data, Number(t.input.duration));
             const locked =
               t.input.audioMode === "dubbed"
                 ? lockedTranscriptSegments(t.input.dubbingSchedule)
                 : null;
+            // Whisper hay "bịa" câu kiểu "Hãy subscribe cho kênh…" dài hơn cả clip
+            // khi đầu audio im lặng lâu (nhịp không lời). Với bản lồng tiếng, lời
+            // đã khoá theo lịch TTS: giữ lịch làm transcript và ghi lỗi nhận
+            // dạng để QA yêu cầu nghe lại, thay vì làm hỏng cả lượt sản xuất.
+            let parsed;
+            let asrIssue;
+            try {
+              parsed = parseTranscript(data, Number(t.input.duration));
+            } catch (error) {
+              if (!locked) throw error;
+              asrIssue = error instanceof Error ? error.message : String(error);
+              parsed = { text: "", segments: [] };
+            }
             result = {
               ...parsed,
+              ...(asrIssue ? { asrIssue } : {}),
               ...(locked
                 ? {
                     rawText: parsed.text,
