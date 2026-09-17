@@ -209,8 +209,10 @@ const normalized = (s: string) =>
 // this accepts a citation list, never a paraphrase or an invented combined sentence.
 function groundedQuote(quote: string, sources: string[]) {
   if (sources.some((s) => s.includes(quote))) return true;
+  // Dấu lược kiểu "[...]" hoặc "(…)" là cách trích quen thuộc; bỏ cả ngoặc để
+  // mảnh "câu A. [" không bị coi là trích sai.
   const parts = quote
-    .split(/\s+\/\s+|\.{3}|…/)
+    .split(/\s+\/\s+|\s*[[(]?(?:\.{3}|…)[\])]?\s*/)
     .map((p) => p.trim())
     .filter(Boolean);
   return (

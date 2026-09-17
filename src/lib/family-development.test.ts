@@ -387,6 +387,23 @@ it("grounds per-scene intent evidence and accepts missing markers only for a rev
   ).toThrow("FAMILY_EDITORIAL_REVIEW_INVALID");
 });
 
+it("grounds a quote that elides with bracketed dots", () => {
+  const first = story.dialogue[0].text;
+  const second = story.dialogue[1].text;
+  const result = validateEditorialReview(
+    {
+      ...review,
+      intentCheck: {
+        status: "faithful",
+        evidence: `${first} [...] ${second}`,
+        reason: "Hai lượt được trích có lược ở giữa theo cách viết thông thường.",
+      },
+    },
+    story,
+  );
+  expect(result.passed).toBe(true);
+});
+
 it("derives acceptance from the editorial verdict, not a second contradictory flag", () => {
   expect(
     validateEditorialReview({ ...review, passed: false }, story).passed,
