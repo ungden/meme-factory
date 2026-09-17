@@ -42,7 +42,9 @@ describe("film production invariants", () => {
     expect(fixed).toContain("AUDIO: không lời thoại và không nhạc");
     expect(fixed).toContain("0.0–");
     expect(fixed).toContain("hành động bắt đầu ở giây 0");
-    expect(fixed).toContain("Người nghe giữ miệng đóng");
+    expect(fixed).toContain("Người nghe chủ yếu giữ miệng đóng");
+    // Phim AI chỉ cần người nói nhép môi, không đòi khớp từng chữ.
+    expect(fixed).toContain("không cần khớp từng chữ");
     expect(fixed).not.toContain("Cast: Bánh Bao: áo vàng");
   });
   it("keeps an authored motion timeline and camera instead of forcing a competing camera move", () => {
@@ -64,7 +66,7 @@ describe("film production invariants", () => {
     expect(active).toContain(base.motion_prompt);
     expect(active).toContain("stable camera");
     expect(active).not.toContain("controlled handheld");
-    expect(active).toContain("Đậu Đỏ là người nói duy nhất");
+    expect(active).toContain("Đậu Đỏ là người nói");
     expect(active).toContain("không thêm tiếng đệm hoặc câu đáp");
     const reaction = compileFilmMotion(
       { ...base, dialogue: "", camera: "static reaction medium shot" },

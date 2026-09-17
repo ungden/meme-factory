@@ -414,7 +414,7 @@ export function compileFilmMotion(
         ? "AUDIO: giọng đúng người đang nói, rõ ở tiền cảnh; nhạc không lời vui vẻ, tinh nghịch nhẹ, âm lượng thấp. Không thêm lời thoại, phụ đề, nhãn thời gian hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ tham chiếu."
         : sceneUsesAmbientAudio(scene, mode) || sceneHasWordlessBeat(scene, mode)
           ? AMBIENT_AUDIO_DIRECTION
-          : "SILENT VIDEO: không phát lời thoại, không nhạc. Diễn môi và phản ứng theo đúng lịch từng người để lồng tiếng riêng. Không phụ đề, nhãn thời gian hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ.",
+          : "SILENT VIDEO: không phát lời thoại, không nhạc. Người nói nhép môi tự nhiên trong lượt của mình (không cần khớp từng chữ), người nghe phản ứng; lồng tiếng riêng. Không phụ đề, nhãn thời gian hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ.",
     ].join("\n");
   }
   const duration = Math.max(4, Math.min(30, scene.duration_seconds || 5));
@@ -439,7 +439,7 @@ export function compileFilmMotion(
       : []),
     `CONTINUITY: chỉ có ${scene.cast_snapshot.map((c) => c.name).join(", ")}; giữ nguyên mặt, tóc, trang phục và tỷ lệ từ reference images. Không thêm người, không đổi vai hoặc đổi vị trí vô lý.`,
     scene.dialogue
-      ? `ACTIVE SPEAKER: ${speaker || "người nói đã chỉ định"} là người nói duy nhất và là người duy nhất cử động môi theo lời. Người nghe giữ miệng đóng, chỉ phản ứng bằng mắt, nét mặt và cơ thể. ${mode === "native" ? `Nói đúng một câu nguyên văn tiếng Việt, không thêm tiếng đệm hoặc câu đáp: “${scene.dialogue}”.` : "Tập trung rõ gương mặt người nói; không phát lời vì audio sẽ được đồng bộ riêng."}`
+      ? `ACTIVE SPEAKER: ${speaker || "người nói đã chỉ định"} là người nói và nhép môi tự nhiên trong lúc nói (không cần khớp từng chữ). Người nghe chủ yếu giữ miệng đóng, phản ứng bằng mắt, nét mặt và cơ thể. ${mode === "native" ? `Nói đúng một câu nguyên văn tiếng Việt, không thêm tiếng đệm hoặc câu đáp: “${scene.dialogue}”.` : "Tập trung rõ gương mặt người nói; không phát lời vì audio sẽ được đồng bộ riêng."}`
       : "ACTIVE SPEAKER: không ai nói; mọi nhân vật giữ miệng đóng.",
     mode === "native"
       ? "AUDIO: lời thoại rõ ở tiền cảnh; nhạc nền không lời vui vẻ, ấm áp, tinh nghịch nhẹ kiểu gia đình, âm lượng thấp và liên tục. Không thêm lời nói, tiếng đệm, phụ đề hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ."
