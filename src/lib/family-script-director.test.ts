@@ -268,6 +268,20 @@ it("storyboards a wordless beat without inventing or dropping dialogue", async (
   );
 });
 
+it("lets a user-written idea remake a recent story but guards AI-chosen topics", async () => {
+  const recentContext = { ...input.context, recentStories: [story] };
+  const run = async (intent: string | undefined) => {
+    // Bản bị chặn được sửa một lần, nên cần thêm một phản hồi cho lượt sửa.
+    calls.responses = [{ candidates }, selection, story, story];
+    const director = new FamilyScriptDirector({ ...input, intent, context: recentContext });
+    for (const stage of ["premises", "selection", "draft"] as const)
+      await director.runStage(stage, Date.now() + 90000);
+    return director;
+  };
+  await expect(run("Làm lại tập soạn túi đồ cho bố")).resolves.toBeTruthy();
+  await expect(run(undefined)).rejects.toThrow("STORY_REPEATED_COMBINATION");
+});
+
 it("parks a stuck stage with its state intact and resumes only that stage", async () => {
   calls.responses = [{ candidates }];
   const director = new FamilyScriptDirector(input);

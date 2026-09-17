@@ -290,9 +290,9 @@ async function advanceScriptStage(admin: SupabaseClient, run: Run) {
 
 const directorInput = {
     kind: "video_plan" as const,
-    intent:
-      run.intent ||
-      "Tự đề xuất một chuyện gia đình mới, không lặp 20 tập gần nhất.",
+    // Để trống khi người dùng không viết ý tưởng: director tự chọn đề tài và
+    // giữ chống lặp 20 tập gần nhất; ý tưởng người dùng viết thì được làm lại.
+    intent: run.intent?.trim() || undefined,
     context,
     selectedCharacterIds: profile.roles
       .map((r) => r.characterId)

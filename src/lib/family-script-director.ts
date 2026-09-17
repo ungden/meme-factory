@@ -355,6 +355,7 @@ export class FamilyScriptDirector {
   private readonly allowed: string[];
   private readonly context: CreativeContext;
   private readonly intent: string;
+  private readonly userDirected: boolean;
   private readonly writerContext: string;
   private state: FamilyScriptPipelineState;
   private providerFallbacks = 0;
@@ -384,6 +385,7 @@ export class FamilyScriptDirector {
         })),
       ],
     };
+    this.userDirected = Boolean(input.intent?.trim());
     this.intent =
       input.intent || "Chọn một chuyện mới từ gia đình và 20 tập gần nhất.";
     // Let the writer explore with a short positive brief. The rejection benchmark
@@ -522,7 +524,11 @@ Mở ngay ở việc đang diễn ra. Chọn chi tiết dễ hình dung, khẩu 
       story,
       this.profile,
       [...this.allowed, ...(story.guests || []).map((guest) => guest.key)],
-      this.context.recentStories,
+      // Chống lặp dành cho đề tài AI tự chọn. Khi người dùng viết ý tưởng, họ có
+      // thể chủ động làm lại một tập cũ ("Cát bay vào mắt" bị chặn vì trùng các
+      // lần làm trước); danh sách tập gần đây vẫn nằm trong prompt để tránh lặp
+      // những gì họ không yêu cầu.
+      this.userDirected ? [] : this.context.recentStories,
     );
   }
 
