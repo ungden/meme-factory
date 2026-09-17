@@ -132,8 +132,24 @@ export function performanceCheck(value: unknown): PerformanceCheck {
 
 export function assertPerformanceDirection(direction: PerformanceDirection) {
   const issues = lintPerformanceDirection(direction);
-  if (issues.length)
-    throw new Error(`PERFORMANCE_DIRECTION_WEAK: ${issues.map((i) => i.field).join(",")}`);
+  if (issues.length) {
+    // Chỉ ghi tên trường thì model đang sửa phải đoán câu nào bị chê và thường
+    // trượt lại đúng lỗi đó; kèm lý do và nguyên văn để lượt sửa nhắm trúng.
+    const d = direction;
+    const quoted: Record<string, string> = {
+      hook: d.hook,
+      revealOrCut: d.revealOrCut,
+      status: `${d.statusBefore} → ${d.statusAfter}`,
+      beats: d.beats.map((b) => b.physicalAction).join(" | "),
+      reactionTarget: d.beats.map((b) => b.reactionTarget).join(" | "),
+    };
+    const details = issues
+      .map((i) => `${i.field}: ${i.reason} Đang viết: "${String(quoted[i.field] ?? "").slice(0, 160)}"`)
+      .join("; ");
+    throw new Error(
+      `PERFORMANCE_DIRECTION_WEAK: ${issues.map((i) => i.field).join(",")} — ${details}`.slice(0, 900),
+    );
+  }
   return direction;
 }
 
