@@ -216,10 +216,13 @@ export default function ShortFilmPage() {
             return undefined;
           }
         })();
+        // Màn "Tạo phim" mở đúng tập qua ?plan=; không có thì giữ tập đang mở gần nhất.
+        const wanted = new URLSearchParams(window.location.search).get("plan");
         const p = (
-          savedId === null
+          (wanted && j.plans?.find((p: FilmPlan) => p.id === wanted)) ||
+          (savedId === null
             ? undefined
-            : j.plans?.find((p: FilmPlan) => p.id === savedId) || j.plans?.[0]
+            : j.plans?.find((p: FilmPlan) => p.id === savedId) || j.plans?.[0])
         ) as FilmPlan | undefined;
         const key = `aida:film:${j.accountId}:${ref}:${j.workspaceVersion}`;
         setStorageKey(key);

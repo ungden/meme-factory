@@ -35,7 +35,14 @@ export async function GET(
       .eq("production_run_id", run.id)
       .order("created_at");
     if (taskError) throw taskError;
-    return NextResponse.json({ run, tasks: tasks || [] });
+    // Lý do kiểm tra tự động không đạt; thiếu nó màn chỉ nói "cần xem lại".
+    const { data: checks, error: checkError } = await a.admin
+      .from("short_film_automatic_checks")
+      .select("task_id,status,evidence,created_at")
+      .eq("run_id", run.id)
+      .order("created_at");
+    if (checkError) throw checkError;
+    return NextResponse.json({ run, tasks: tasks || [], checks: checks || [] });
   } catch (error) {
     return fail(error);
   }
