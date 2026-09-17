@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   compileStoryShots,
   compileStoryboards,
+  normalizeShotResponse,
+  shotResponseSchema,
   storyHasReaction,
   storyShotCount,
   unpackStory,
@@ -119,6 +121,35 @@ describe("unpackStory", () => {
   });
 });
 
+describe("shotResponseSchema", () => {
+  // Gemini từ chối (400 INVALID_ARGUMENT) schema chép panel thành shot1..shotN
+  // hoặc có minItems/maxItems lồng trong panel, kể cả khi chỉ có một panel.
+  it("describes the panel once as an array item without nested array bounds", () => {
+    const schema = shotResponseSchema(story(), ["char-a", "char-b"]) as unknown as {
+      properties: { shots: { type: string; items: unknown } };
+    };
+    expect(schema.properties.shots.type).toBe("array");
+    const item = JSON.stringify(schema.properties.shots.items);
+    expect(item).not.toMatch(/minItems|maxItems/);
+    expect(JSON.stringify(schema)).not.toMatch(/"shot1"/);
+  });
+});
+
+describe("normalizeShotResponse", () => {
+  it("maps an array reply onto shot1..shotN and caps list sizes", () => {
+    const normalized = normalizeShotResponse({
+      title: "t",
+      shots: [
+        { ...shot(), referenceImages: Array.from({ length: 6 }, (_, i) => ({ id: `r${i}` })) },
+        { ...shot(), visualRequirements: [] },
+      ],
+    }) as { shots: Record<string, Record<string, unknown>> };
+    expect(Object.keys(normalized.shots)).toEqual(["shot1", "shot2"]);
+    expect(normalized.shots.shot1.referenceImages).toHaveLength(4);
+    expect(normalized.shots.shot2.visualRequirements).toBeUndefined();
+  });
+});
+
 describe("compileStoryShots", () => {
   it("binds each panel to its spoken line and speaker", () => {
     const compiled = compileStoryShots(reply(2), story(), CAST);
@@ -138,6 +169,19 @@ describe("compileStoryShots", () => {
       ).toThrow(/STORY_SHOT_2_INVALID/);
     },
   );
+
+  it("accepts panels returned as an array", () => {
+    const { shots } = reply(2);
+    const compiled = compileStoryShots(
+      { title: "t", summary: "s", shots: [shots.shot1, shots.shot2] },
+      story(),
+      CAST,
+    );
+    expect(compiled.scenes.map((scene) => scene.speakerCharacterId)).toEqual([
+      "char-a",
+      "char-b",
+    ]);
+  });
 
   it("refuses a reply with the wrong number of panels", () => {
     expect(() => compileStoryShots(reply(1), story(), CAST)).toThrow(

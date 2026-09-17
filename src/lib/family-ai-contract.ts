@@ -125,6 +125,12 @@ export function unpackStory(value: unknown) {
     ],
   };
 }
+/**
+ * Gemini trả 400 INVALID_ARGUMENT khi schema quá phức tạp: chép định nghĩa panel
+ * thành shot1..shotN, hay giới hạn minItems/maxItems lồng trong panel, đều vượt
+ * ngưỡng ngay cả với một panel. Vì vậy shots là mảng một định nghĩa, còn giới
+ * hạn số phần tử do compileStoryShots/compileStoryboards tự áp.
+ */
 export function shotResponseSchema(story: Story, ids: string[] = []) {
   const shotCount = storyShotCount(story);
   const shot = object({
@@ -154,7 +160,7 @@ export function shotResponseSchema(story: Story, ids: string[] = []) {
     },
     props: {
       type: "array",
-      maxItems: 8,
+      description: "Tối đa 8 đạo cụ.",
       items: object({
         id: string,
         label: string,
@@ -175,8 +181,7 @@ export function shotResponseSchema(story: Story, ids: string[] = []) {
       hook: string,
       beats: {
         type: "array",
-        minItems: 2,
-        maxItems: 6,
+        description: "Từ 2 đến 6 nhịp hành động; ít hơn 2 là không hợp lệ.",
         items: object({
           physicalAction: string,
           expressionChange: string,
@@ -186,18 +191,20 @@ export function shotResponseSchema(story: Story, ids: string[] = []) {
           cameraMove: string,
         }),
       },
-      revealOrCut: string,
+      revealOrCut: {
+        type: "string",
+        description: "Một câu cụ thể: điều gì lộ ra hoặc cắt ở khoảnh khắc nào; không chỉ ghi \"cut\".",
+      },
     }),
     listenerCharacterIds: {
       type: "array",
-      maxItems: 1,
+      description: "Tối đa 1 người nghe.",
       items: ids.length ? { type: "string", enum: ids } : string,
     },
     requiresOwnSource: { type: "boolean" },
     visualRequirements: {
       type: "array",
-      minItems: 1,
-      maxItems: 8,
+      description: "Từ 1 đến 8 yêu cầu.",
       items: object({
         id: string,
         kind: {
@@ -218,8 +225,7 @@ export function shotResponseSchema(story: Story, ids: string[] = []) {
     },
     referenceImages: {
       type: "array",
-      minItems: 1,
-      maxItems: 4,
+      description: "Từ 1 đến 4 ảnh; mỗi requirement critical phải được ít nhất một ảnh bao phủ.",
       items: object({
         id: string,
         role: {
@@ -232,8 +238,7 @@ export function shotResponseSchema(story: Story, ids: string[] = []) {
         prompt: string,
         requirementIds: {
           type: "array",
-          minItems: 1,
-          maxItems: 8,
+          description: "Ít nhất 1 id trong visualRequirements của panel này.",
           items: string,
         },
       }),
@@ -246,14 +251,10 @@ export function shotResponseSchema(story: Story, ids: string[] = []) {
       storyMechanism: string,
       audienceMustSee: {
         type: "array",
-        minItems: 1,
-        maxItems: 12,
         items: string,
       },
       characterKnowledge: {
         type: "array",
-        minItems: 1,
-        maxItems: 12,
         items: object({
           characterId: ids.length ? { type: "string", enum: ids } : string,
           knows: string,
@@ -261,20 +262,47 @@ export function shotResponseSchema(story: Story, ids: string[] = []) {
         }),
       },
     }),
-    shots: object(
-      Object.fromEntries(
-        Array.from({ length: shotCount }, (_, i) => [`shot${i + 1}`, shot]),
-      ),
-    ),
+    shots: {
+      type: "array",
+      description: `Đúng ${shotCount} panel theo thứ tự; phần tử đầu là shot1.`,
+      items: shot,
+    },
   });
 }
 /** Text and cast are compiled from the accepted story, not rewritten by the shot planner. */
+const SHOT_LIMITS = { props: 8, visualRequirements: 8, referenceImages: 4 } as const;
+
+/** Nhận shots dạng mảng (schema hiện tại) hoặc shot1..shotN (dữ liệu cũ) và cắt các mảng về giới hạn. */
+export function normalizeShotResponse(value: unknown) {
+  const v = value as { shots?: unknown } | null;
+  if (!v || typeof v !== "object") return value;
+  const entries: Array<[string, unknown]> = Array.isArray(v.shots)
+    ? v.shots.map((shot, i) => [`shot${i + 1}`, shot])
+    : v.shots && typeof v.shots === "object"
+      ? Object.entries(v.shots)
+      : [];
+  if (!entries.length) return value;
+  const shots = Object.fromEntries(
+    entries.map(([key, raw]) => {
+      if (!raw || typeof raw !== "object") return [key, raw];
+      const shot = { ...(raw as Record<string, unknown>) };
+      for (const [field, limit] of Object.entries(SHOT_LIMITS)) {
+        const list = shot[field];
+        if (Array.isArray(list))
+          shot[field] = list.length ? list.slice(0, limit) : undefined;
+      }
+      return [key, shot];
+    }),
+  );
+  return { ...v, shots };
+}
+
 export function compileStoryShots(
   value: unknown,
   story: Story,
   characters: { id: string; name: string }[] = [],
 ) {
-  const v = value as {
+  const v = normalizeShotResponse(value) as {
     title: string;
     summary: string;
     visualDirection?: {
@@ -346,14 +374,15 @@ export function compileStoryboards(
   characters: { id: string; name: string }[] = [],
   maxProviderSeconds = 30,
 ) {
-  const planned = compileStoryShots(value, story, characters);
+  const normalized = normalizeShotResponse(value);
+  const planned = compileStoryShots(normalized, story, characters);
   const hasReaction = story.beats.at(-1)?.purpose === "reaction";
   const initialGroups = storyboardGroups(
     story.dialogue,
     hasReaction,
     maxProviderSeconds,
   );
-  const raw = (value as { shots: Record<string, Record<string, unknown>> })
+  const raw = (normalized as { shots: Record<string, Record<string, unknown>> })
     .shots;
   // The director may split a shot when its camera/state is too different for a
   // continuous source clip. Visual evidence itself is carried by references.
