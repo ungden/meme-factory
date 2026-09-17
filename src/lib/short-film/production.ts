@@ -365,8 +365,15 @@ const directorInput = {
       delay_seconds: 2,
     });
   } catch (error) {
+    // Lỗi Supabase là object thường, không phải Error; trước đây chỉ còn lại
+    // "SCRIPT_STAGE_FAILED" và không ai biết bước lưu hỏng vì đâu.
+    const raw = error as { message?: unknown; code?: unknown; details?: unknown } | null;
     const message =
-      error instanceof Error ? error.message : "SCRIPT_STAGE_FAILED";
+      error instanceof Error
+        ? error.message
+        : typeof raw?.message === "string"
+          ? [raw.code, raw.message, raw.details].filter((part) => typeof part === "string" && part).join(" · ")
+          : "SCRIPT_STAGE_FAILED";
     const attempts = (row?.attempts ?? 0) + 1;
     // Ghi trạng thái stage và đỗ lượt chạy là hai việc riêng biệt. Trước đây
     // chúng bị nối bằng `.then`: nếu upsert lỗi thì `patchRun` không bao giờ
