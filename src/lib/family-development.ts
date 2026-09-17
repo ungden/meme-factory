@@ -207,8 +207,34 @@ const normalized = (s: string) =>
     .trim();
 // A reviewer may separate literal excerpts with a slash or ellipsis. Every part must exist;
 // this accepts a citation list, never a paraphrase or an invented combined sentence.
+const normalizeQuote = (value: string) =>
+  value
+    .normalize("NFC")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/^[\s"“”‘’'.,;:!?…-]+|[\s"“”‘’'.,;:!?…-]+$/g, "");
+
+/**
+ * Trích nguyên văn nhưng chịu được cách viết tự nhiên: khác hoa thường, dấu câu
+ * ở hai đầu, hoặc thêm tên người làm trước action ("Đậu Đỏ chu môi…" cho action
+ * "Chu môi…"). Phần còn lại vẫn phải đủ dài để không lọt câu bịa.
+ */
+function looselyIncluded(part: string, sources: string[]) {
+  const wanted = normalizeQuote(part);
+  if (wanted.length < 2) return false;
+  const pool = sources.map(normalizeQuote);
+  if (pool.some((s) => s.includes(wanted))) return true;
+  const tokens = wanted.split(" ");
+  for (let skip = 1; skip <= 3 && tokens.length - skip >= 5; skip++) {
+    const rest = tokens.slice(skip).join(" ");
+    if (pool.some((s) => s.includes(rest))) return true;
+  }
+  return false;
+}
+
 function groundedQuote(quote: string, sources: string[]) {
   if (sources.some((s) => s.includes(quote))) return true;
+  if (looselyIncluded(quote, sources)) return true;
   // Dấu lược kiểu "[...]" hoặc "(…)" là cách trích quen thuộc; bỏ cả ngoặc để
   // mảnh "câu A. [" không bị coi là trích sai.
   const parts = quote
@@ -219,7 +245,7 @@ function groundedQuote(quote: string, sources: string[]) {
     parts.length > 1 &&
     parts.length <= 4 &&
     parts.every(
-      (p) => p.trim().length >= 2 && sources.some((s) => s.includes(p.trim())),
+      (p) => p.trim().length >= 2 && looselyIncluded(p, sources),
     )
   );
 }

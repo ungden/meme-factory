@@ -404,6 +404,22 @@ it("grounds a quote that elides with bracketed dots", () => {
   expect(result.passed).toBe(true);
 });
 
+it("grounds a quote that names the actor before a verbatim action but rejects invented text", () => {
+  const line = story.dialogue.find((d) => d.action.trim().split(/\s+/).length >= 5)!;
+  const named = `Nhân vật ${line.action.charAt(0).toLowerCase()}${line.action.slice(1)}`;
+  const accepted = validateEditorialReview(
+    { ...review, intentCheck: { status: "faithful", evidence: named, reason: "Trích action của lượt kèm tên người đang làm." } },
+    story,
+  );
+  expect(accepted.passed).toBe(true);
+  expect(() =>
+    validateEditorialReview(
+      { ...review, intentCheck: { status: "faithful", evidence: "Nhân vật chạy ra biển nhặt vỏ sò", reason: "Câu này không có trong bản diễn nên phải bị từ chối." } },
+      story,
+    ),
+  ).toThrow("FAMILY_EDITORIAL_REVIEW_INVALID");
+});
+
 it("derives acceptance from the editorial verdict, not a second contradictory flag", () => {
   expect(
     validateEditorialReview({ ...review, passed: false }, story).passed,
