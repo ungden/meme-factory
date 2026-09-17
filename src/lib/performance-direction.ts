@@ -43,9 +43,23 @@ const hasConcreteVerb = (value: string) =>
 // được; nhãn cảm xúc chung chung thì không nhắc tới bộ phận nào.
 const BODY_PART =
   /(?:^|[\s,.;:!?()])(?:tay|bàn tay|ngón tay|cánh tay|chân|bàn chân|đầu|mắt|mặt|má|môi|miệng|vai|lưng|cổ|ngực|bụng|người|thân|trán|mũi|tóc|cằm|gối|đùi|hông|eo)(?=$|[\s,.;:!?()])/iu;
-const hasConcreteAction = (value: string) => {
-  const text = value.normalize("NFC");
+// "Đậu Đỏ nhận dép" từng bị chặn vì "nhận" không có trong danh sách. Một câu
+// có chủ ngữ, động từ và đối tượng (từ ba từ) cũng là hành động nhìn thấy
+// được, miễn không chỉ là nhãn cảm xúc chung chung.
+const FEELING_ONLY =
+  /^(?:(?:rất|hơi|vô cùng|thật)\s+)?(?:xúc động|hạnh phúc|buồn bã|buồn|vui vẻ|vui|tự nhiên|nghiêm túc|ngây thơ|đáng yêu|cảm động|ấm áp|bối rối|ngạc nhiên)(?:\s+(?:và|,)\s+.*)?[.!]?$/iu;
+const hasVisibleCue = (value: string) => {
+  const text = value.normalize("NFC").trim();
   return hasConcreteVerb(text) || BODY_PART.test(text);
+};
+// Chỉ beat hành động dùng luật "chủ ngữ + động từ + đối tượng"; hook vẫn phải
+// có động từ hoặc bộ phận cơ thể, để câu tả cảm xúc dài không lọt qua.
+const hasConcreteAction = (value: string) => {
+  const text = value.normalize("NFC").trim();
+  return (
+    hasVisibleCue(text) ||
+    (text.split(/\s+/).length >= 3 && !GENERIC_ONLY.test(text) && !FEELING_ONLY.test(text))
+  );
 };
 
 export type PerformanceIssue = { field: string; reason: string };
@@ -97,7 +111,7 @@ export function lintPerformanceDirection(
 ): PerformanceIssue[] {
   const d = validatePerformanceDirection(direction);
   const issues: PerformanceIssue[] = [];
-  if (!hasConcreteAction(d.hook))
+  if (!hasVisibleCue(d.hook))
     issues.push({ field: "hook", reason: "Hook phải là hành động nhìn thấy trong giây đầu." });
   if (d.beats.filter((b) => hasConcreteAction(b.physicalAction)).length < 2)
     issues.push({ field: "beats", reason: "Cần ít nhất hai hành động vật lý cụ thể." });

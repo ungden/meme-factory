@@ -52,8 +52,21 @@ describe("performance direction Vietnamese actions", () => {
     };
     expect(lintPerformanceDirection(direction)).toEqual([]);
     expect(
-      lintPerformanceDirection({ ...direction, hook: "Lời hứa ngây ngô nhưng chứa đựng tình cảm to lớn." }).map((issue) => issue.field),
-    ).toEqual(["hook"]);
+      lintPerformanceDirection({
+        ...direction,
+        beats: [
+          { ...direction.beats[0], physicalAction: "Bố đặt Đậu Đỏ xuống và ngồi xổm." },
+          { ...direction.beats[1], physicalAction: "Đậu Đỏ nhận dép." },
+        ],
+      }),
+    ).toEqual([]);
+    expect(
+      lintPerformanceDirection({
+        ...direction,
+        hook: "Lời hứa ngây ngô nhưng chứa đựng tình cảm to lớn.",
+        beats: [direction.beats[0], { ...direction.beats[1], physicalAction: "Vui vẻ" }],
+      }).map((issue) => issue.field),
+    ).toEqual(["hook", "beats"]);
   });
 
   it("accepts short cast names as reaction targets and everyday gestures as actions", () => {
