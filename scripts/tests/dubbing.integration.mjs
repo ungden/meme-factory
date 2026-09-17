@@ -66,6 +66,9 @@ test('uses the same transcript threshold as dubbed QA without weakening native a
     false,
   );
   assert.equal(transcriptMatchesClip(transcript, 'other'), false);
+  const unreadable = { input: { videoTaskId: 'dub', audioMode: 'dubbed' }, result: { speechError: 1, asrIssue: 'Timestamp ASR không hợp lệ.', transcriptSource: 'locked_tts_schedule' } };
+  assert.equal(transcriptMatchesClip(unreadable, 'dub'), false);
+  assert.equal(transcriptMatchesClip({ ...unreadable, approved_at: '2026-09-17T10:57:00Z' }, 'dub'), true);
 });
 test('builds subtitle text from the locked TTS schedule, not ASR homophones', () => {
   assert.deepEqual(

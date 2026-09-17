@@ -87,8 +87,15 @@ export function dubArguments(video, audioFiles, schedule, duration, output) {
 
 export function transcriptMatchesClip(transcript, clipId) {
   const threshold = transcript?.input?.audioMode === "dubbed" ? 0.3 : 0.2;
+  if (transcript?.input?.videoTaskId !== clipId) return false;
+  // Whisper có thể bịa lời trên clip mở bằng nhịp không lời. Transcript đã khoá
+  // theo lịch TTS và được người nghe lại, duyệt thì dùng được để dựng.
+  if (
+    transcript?.approved_at &&
+    transcript?.result?.transcriptSource === "locked_tts_schedule"
+  )
+    return true;
   return (
-    transcript?.input?.videoTaskId === clipId &&
     Number.isFinite(Number(transcript?.result?.speechError)) &&
     Number(transcript.result.speechError) <= threshold
   );
