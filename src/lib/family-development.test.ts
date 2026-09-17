@@ -356,6 +356,37 @@ it("grounds intent evidence that cites multiple quoted lines", () => {
   ).toThrow("FAMILY_EDITORIAL_REVIEW_INVALID");
 });
 
+// Reviewer từng viết "Cảnh 4: Bố bảo cát bay vào mắt (Lượt 4)" dù câu đó không
+// có trong kịch bản. Mỗi cảnh phải có câu trích thật, cảnh thiếu ghi "thiếu".
+it("grounds per-scene intent evidence and accepts missing markers only for a revision", () => {
+  const perScene = `Cảnh 1: "${story.dialogue[0].text}"; Cảnh 2: "thiếu"`;
+  const revision = validateEditorialReview(
+    {
+      ...review,
+      intentCheck: {
+        status: "needs_revision",
+        evidence: perScene,
+        reason: "Cảnh thứ hai trong ý tưởng chưa có lượt nào diễn ra trong bản chữ.",
+      },
+    },
+    story,
+  );
+  expect(revision.passed).toBe(false);
+  expect(() =>
+    validateEditorialReview(
+      {
+        ...review,
+        intentCheck: {
+          status: "faithful",
+          evidence: perScene,
+          reason: "Tự nhận đủ cảnh dù có một cảnh ghi thiếu phải bị từ chối.",
+        },
+      },
+      story,
+    ),
+  ).toThrow("FAMILY_EDITORIAL_REVIEW_INVALID");
+});
+
 it("derives acceptance from the editorial verdict, not a second contradictory flag", () => {
   expect(
     validateEditorialReview({ ...review, passed: false }, story).passed,

@@ -169,7 +169,10 @@ export const editorialReviewSchema = object({
   }),
   intentCheck: object({
     status: { type: "string", enum: ["faithful", "needs_revision"] },
-    evidence: string,
+    evidence: {
+      type: "string",
+      description: 'Mỗi cảnh ý tưởng yêu cầu một câu trích nguyên văn trong ngoặc kép: Cảnh 1: "…"; Cảnh 2: "…".',
+    },
     reason: string,
   }),
   watchability: object({
@@ -362,7 +365,13 @@ export function validateEditorialReview(
   // Keep the failure actionable for the single repair pass. Models sometimes
   // cite a phrase from the user's brief instead of the exact line they wrote;
   // that must become `needs_revision`, rather than a second identical review.
-  if (intent && !groundedEvidence(intent.evidence, storyEvidence))
+  // Cảnh bị thiếu được ghi là "thiếu": không có câu nguyên văn nào để trích, nên
+  // không đòi dấu này phải có trong bản diễn khi reviewer đã kết luận cần sửa.
+  const intentEvidence =
+    intent?.status === "needs_revision" && typeof intent.evidence === "string"
+      ? intent.evidence.replace(/Cảnh\s*\d+\s*:\s*["“]thiếu["”]\s*;?/giu, "").trim()
+      : intent?.evidence;
+  if (intent && intentEvidence && !groundedEvidence(intentEvidence, storyEvidence))
     throw new Error(
       "FAMILY_EDITORIAL_REVIEW_INVALID: intentCheck.evidence phải trích nguyên văn từ bản diễn; nếu chi tiết yêu cầu chưa xảy ra, đặt status=needs_revision và trích câu/hành động thực tế",
     );
@@ -391,7 +400,7 @@ export function validateEditorialReview(
     !["faithful", "needs_revision"].includes(intent.status) ||
     !hasText(intent.evidence, 2) ||
     !hasText(intent.reason, 15) ||
-    !groundedEvidence(intent.evidence, storyEvidence) ||
+    (intentEvidence !== "" && !groundedEvidence(String(intentEvidence), storyEvidence)) ||
     !w ||
     !["ready_for_user", "revise", "reject"].includes(w.decision) ||
     !hasText(w.reason, 15) ||
