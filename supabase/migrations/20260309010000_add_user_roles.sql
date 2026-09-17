@@ -24,6 +24,8 @@ create policy "Admins can manage all roles"
 -- Index
 create index if not exists idx_user_roles_user_id on public.user_roles(user_id);
 
--- Gán admin cho tduong297@gmail.com
+-- Gán admin cho tduong297@gmail.com (nếu user tồn tại, tránh lỗi ở local DB)
 insert into public.user_roles (user_id, role)
-values ('3d3a86e2-2161-42a0-92e7-4dedea03be22', 'admin');
+select '3d3a86e2-2161-42a0-92e7-4dedea03be22', 'admin'
+where exists (select 1 from auth.users where id = '3d3a86e2-2161-42a0-92e7-4dedea03be22')
+on conflict (user_id) do update set role = 'admin';

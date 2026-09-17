@@ -108,5 +108,6 @@ $$;
 
 -- Create wallet for existing admin user
 INSERT INTO public.wallets (user_id, balance)
-VALUES ('3d3a86e2-2161-42a0-92e7-4dedea03be22', 0)
+SELECT '3d3a86e2-2161-42a0-92e7-4dedea03be22', 0
+WHERE EXISTS (SELECT 1 FROM auth.users WHERE id = '3d3a86e2-2161-42a0-92e7-4dedea03be22')
 ON CONFLICT (user_id) DO NOTHING;
