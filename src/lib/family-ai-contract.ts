@@ -496,6 +496,7 @@ export function compileStoryboards(
     story.dialogue,
     hasReaction,
     maxProviderSeconds,
+    story.performanceLane,
   );
   const raw = (normalized as { shots: Record<string, Record<string, unknown>> })
     .shots;
@@ -533,7 +534,7 @@ export function compileStoryboards(
       // for its real delivery plus a short reaction/action beat; the provider
       // may contain tail padding, but the finished film must not inherit it.
       // Nhịp không lời không có thoại để đo; beatSeconds cho nó thời lượng hình cố định.
-      return beatSeconds(story.dialogue[i].text) + Number(shot.pauseAfterSeconds ?? 0.15);
+      return beatSeconds(story.dialogue[i].text, story.performanceLane) + Number(shot.pauseAfterSeconds ?? 0.15);
     });
     const sum = weights.reduce((n, w) => n + w, 0);
     if (sum > maxProviderSeconds - 0.5)
@@ -611,7 +612,28 @@ export function compileStoryboards(
                     legibility: "recognizable" as const,
                   },
                 ];
-            for (const requirement of shotRequirements)
+            // Giày dép là lỗi liên tục QA ảnh chỉ bắt khi có yêu cầu tường minh
+            // (Đậu Đỏ đi giày trắng giữa các cảnh chân trần từng lọt qua). Panel
+            // có ghi trạng thái giày dép thì tự thêm yêu cầu critical cho nó.
+            const opening = String(shot.openingState || "");
+            const footwearPattern = /chân trần|đi đất|giày|dép|guốc|tất|vớ/iu;
+            const needsFootwear =
+              footwearPattern.test(opening) &&
+              !shotRequirements.some((requirement) => footwearPattern.test(requirement.description));
+            const withFootwear: VisualRequirement[] = needsFootwear
+              ? [
+                  ...shotRequirements,
+                  {
+                    id: "footwear",
+                    kind: "spatial",
+                    description: `Giày dép đúng trạng thái đã ghi: ${opening.slice(0, 240)}`,
+                    visibleWhen: "opening",
+                    importance: "critical",
+                    legibility: "recognizable",
+                  },
+                ]
+              : shotRequirements;
+            for (const requirement of withFootwear)
               requirements.push({ ...requirement, id: `${prefix}_${requirement.id}` });
             const shotImages = Array.isArray(shot.referenceImages)
               ? (shot.referenceImages as DirectorReferenceImage[])
@@ -626,11 +648,14 @@ export function compileStoryboards(
                     requirementIds: ["composition"],
                   },
                 ];
-            for (const image of shotImages)
+            for (const [imageIndex, image] of shotImages.entries())
               referenceImages.push({
                 ...image,
                 id: `${prefix}_${image.id}`,
-                requirementIds: image.requirementIds.map((id) => `${prefix}_${id}`),
+                requirementIds: [
+                  ...image.requirementIds,
+                  ...(needsFootwear && imageIndex === 0 ? ["footwear"] : []),
+                ].map((id) => `${prefix}_${id}`),
               });
           }
           if (!referenceImages.some((image) => image.role === "scene") && referenceImages[0])

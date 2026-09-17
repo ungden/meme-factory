@@ -449,28 +449,44 @@ async function previousSceneEvidence(
   if (!task.scene_id) return undefined;
   const { data: scenes } = await a.admin
     .from("video_plan_scenes")
-    .select("id,scene_index,action,setting")
+    .select("id,scene_index,action,setting,cast_snapshot")
     .eq("video_plan_id", planId)
     .is("deleted_at", null);
   const current = scenes?.find((scene) => scene.id === task.scene_id);
+  const castOf = (scene: { cast_snapshot?: unknown }) =>
+    new Set(((scene.cast_snapshot as { characterId: string }[] | null) || []).map((c) => c.characterId));
+  // So với cảnh gần nhất có chung nhân vật: cảnh hồi tưởng xen giữa (không có
+  // Đậu Đỏ) không được che mất lỗi giày dép của Đậu Đỏ ở cảnh sau.
+  const currentCast = current ? castOf(current) : new Set<string>();
   const prior = current
     ? scenes
-        ?.filter((scene) => scene.scene_index < current.scene_index)
+        ?.filter(
+          (scene) =>
+            scene.scene_index < current.scene_index &&
+            [...castOf(scene)].some((id) => currentCast.has(id)),
+        )
         .sort((x, y) => y.scene_index - x.scene_index)[0]
     : undefined;
   if (!prior) return undefined;
-  const { data: clip } = await a.admin
+  // Clip đã duyệt cho 3 khung; khi chưa có clip (ảnh tham chiếu được kiểm trước
+  // khi quay), dùng ảnh tham chiếu đã duyệt của cảnh trước. Bắt lỗi liên tục từ
+  // ảnh thì khỏi tốn tiền quay video sai (Đậu Đỏ đi giày trắng giữa cảnh chân trần).
+  const { data: accepted } = await a.admin
     .from("short_film_tasks")
-    .select("result")
+    .select("kind,result,updated_at")
     .eq("project_id", a.project.id)
     .eq("scene_id", prior.id)
-    .eq("kind", "video")
+    .in("kind", ["video", "image"])
     .eq("status", "completed")
     .or("approved_at.not.is.null,auto_accepted_at.not.is.null")
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const sheet = (clip?.result as { qaFramePath?: string } | null)?.qaFramePath;
+    .order("updated_at", { ascending: false });
+  const clip = (accepted || []).find((item) => item.kind === "video" && (item.result as { qaFramePath?: string })?.qaFramePath);
+  const image = (accepted || []).find((item) => item.kind === "image" && (item.result as { path?: string })?.path);
+  const sheet =
+    task.kind === "video"
+      ? (clip?.result as { qaFramePath?: string } | undefined)?.qaFramePath
+      : (clip?.result as { qaFramePath?: string } | undefined)?.qaFramePath ||
+        (image?.result as { path?: string } | undefined)?.path;
   if (!sheet) return undefined;
   return {
     contactSheetUrl: await signed(a.admin, a.project.id, sheet),
@@ -538,7 +554,7 @@ async function ensureTaskCheck(a: Access, run: Run, task: FilmTask) {
         task,
         media,
         [...authoredReferences, ...castReferences].filter(Boolean),
-        task.kind === "video" && run.plan_id
+        ["video", "image"].includes(task.kind) && run.plan_id
           ? await previousSceneEvidence(a, run.plan_id, task)
           : undefined,
       );

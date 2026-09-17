@@ -94,6 +94,19 @@ describe("content-sized Seedance storyboard production", () => {
       silentStory.dialogue.filter((line) => line.text).map((line) => line.text),
     );
     expect(storyboardGroups([{ text: "" }, { text: "Một câu ngắn." }], false).flat()).toEqual([0, 1]);
+    const cinematic = compileStoryboards(panels, { ...silentStory, performanceLane: "cinematic_emotion" }, characters);
+    const slow = cinematic.scenes.flatMap((scene) => scene.storyboard.beats)[2];
+    expect(slow.endSeconds - slow.startSeconds).toBeCloseTo(4.65, 2);
+  });
+
+  it("adds a critical footwear requirement when a panel states footwear", () => {
+    const source = structuredClone(panels);
+    Object.assign(source.shots.shot1, { openingState: "Bố chân trần cầm dép; Đậu Đỏ chân trần." });
+    const plan = compileStoryboards(source, story, characters).scenes[0].storyboard.referencePlan!;
+    const footwear = plan.requirements.find((item) => item.id === "shot1_footwear");
+    expect(footwear).toMatchObject({ importance: "critical" });
+    expect(plan.referenceImages.some((image) => image.requirementIds.includes("shot1_footwear"))).toBe(true);
+    expect(plan.requirements.some((item) => item.id === "shot2_footwear")).toBe(false);
   });
 
   it("never packs more than two spoken turns into one provider clip", () => {

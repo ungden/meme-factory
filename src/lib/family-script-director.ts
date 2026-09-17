@@ -130,6 +130,7 @@ export function shotChunkGroups(
     story.dialogue,
     storyHasReaction(story),
     maxVideoDurationSeconds,
+    story.performanceLane,
   )) {
     const last = chunks.at(-1);
     if (last && last.length + group.length <= SHOT_CHUNK_PANELS)
@@ -756,7 +757,7 @@ Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống
     const basePrompt = `${contextText(shotContext, shotAllowed)}
 Ý TƯỞNG NGƯỜI DÙNG: ${this.intent}
 CÂU CHUYỆN ĐÃ SOẠN: ${JSON.stringify(story)}
-RÀNG BUỘC XUYÊN PHIM: mọi yêu cầu trong ý tưởng về trạng thái nhìn thấy được kéo dài qua nhiều cảnh (chân trần, cầm dép, trang phục, vết bẩn, đồ vật đang cầm, đang cõng/bế) phải được ghi rõ vào openingState/closingState và props của TỪNG panel liên quan, kể cả khi ảnh chuẩn nhân vật mặc/đi khác; không để model ảnh tự lấy lại giày dép hay trang phục mặc định.
+RÀNG BUỘC XUYÊN PHIM: openingState của mỗi panel ghi rõ giày dép của TỪNG nhân vật trong khung (chân trần hay đi giày/dép gì), giữ nhất quán giữa các panel cùng bối cảnh; ảnh chuẩn nhân vật có giày không có nghĩa trong cảnh phải đi giày. Mọi yêu cầu trong ý tưởng về trạng thái nhìn thấy được kéo dài qua nhiều cảnh (chân trần, cầm dép, trang phục, vết bẩn, đồ vật đang cầm, đang cõng/bế) phải được ghi rõ vào openingState/closingState và props của TỪNG panel liên quan, kể cả khi ảnh chuẩn nhân vật mặc/đi khác; không để model ảnh tự lấy lại giày dép hay trang phục mặc định.
 ${FILM_INTERACTION_POLICY}
 LỚP ĐẠO DIỄN BIỂU CẢM: lane=${story.performanceLane || "deadpan_reversal"}. Mỗi panel phải trả performanceDirection với comicObjective, statusBefore/statusAfter, hook, tối thiểu hai beat hành động vật lý, reactionTarget cụ thể và revealOrCut. Hai beat có thể là hai pha của CÙNG hành động hoặc hành động chính và phản ứng đồng thời của người nghe; không bắt mỗi câu có hai trò, hai góc máy hoặc một cú lật. Dùng hành vi nhìn thấy được; không dùng riêng các nhãn “tự nhiên”, “nghiêm túc”, “ngây thơ”, “đáng yêu”, “gật đầu”, “nhìn ngơ”.
 DỰNG STORYBOARD: chia thành ${groups.length} clip nguồn. Server tự chọn duration nguyên 4–${maxVideoDuration} giây cho từng request Seedance từ lượng thoại và hành động; phim cuối tiếp tục cắt ở đúng contentEndSeconds. Các nhịp thoại/panel được nhóm sẵn (chỉ số từ 1): ${JSON.stringify(groups.map((g) => g.map((i) => i + 1)))}. Mỗi panel là một nhịp bên trong đoạn, KHÔNG phải một job video riêng. GIỮ NGUYÊN câu thoại, thứ tự và người nói. Không thêm lời. durationSeconds ở panel chỉ là nhịp diễn dự kiến; server xếp timeline đủ cho lời và hành động, không kéo giãn theo mốc cố định.

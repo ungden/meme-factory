@@ -249,17 +249,21 @@ export function validateStoryboard(
  * hành động.
  */
 export const SILENT_BEAT_SECONDS = 3;
+/** Tập điện ảnh cần nhịp không lời dài hơn để cảm xúc kịp đọng (hồi tưởng, cõng con). */
+export const CINEMATIC_SILENT_BEAT_SECONDS = 4.5;
 
-export function beatSeconds(text: string) {
-  return text.trim() ? spokenSeconds(text) : SILENT_BEAT_SECONDS;
+export function beatSeconds(text: string, lane?: string) {
+  if (text.trim()) return spokenSeconds(text);
+  return lane?.startsWith("cinematic") ? CINEMATIC_SILENT_BEAT_SECONDS : SILENT_BEAT_SECONDS;
 }
 
 export function storyboardGroups(
   lines: { text: string }[],
   reaction: boolean,
   maxSeconds = STORYBOARD_MAX_SECONDS,
+  lane?: string,
 ): number[][] {
-  const weights = lines.map((l) => beatSeconds(l.text));
+  const weights = lines.map((l) => beatSeconds(l.text, lane));
   if (reaction) weights.push(1.2);
   if (
     !weights.length ||
