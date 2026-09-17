@@ -476,6 +476,39 @@ export function filmVideoInputs(
   };
 }
 
+/**
+ * Đổi id nhân vật bên trong storyboard: người nói, người cầm đạo cụ và cast của
+ * trạng thái đầu/cuối. Khi lưu, khoá khách mời (guest-ong-noi) thành id của
+ * plan; chỉ đổi ở cấp cảnh thì storyboard bị kiểm với cast uuid và bị từ chối
+ * (STORYBOARD_SEGMENT_STATE_INVALID).
+ */
+export function remapStoryboardCharacters(
+  storyboard: FilmStoryboard,
+  map: (id: string) => string,
+): FilmStoryboard {
+  const remapState = <T extends { cast?: { characterId: string }[] } | undefined>(state: T): T =>
+    state?.cast
+      ? { ...state, cast: state.cast.map((entry) => ({ ...entry, characterId: map(entry.characterId) })) }
+      : state;
+  return {
+    ...storyboard,
+    beats: storyboard.beats.map((beat) => ({
+      ...beat,
+      speakerCharacterId: beat.speakerCharacterId ? map(beat.speakerCharacterId) : beat.speakerCharacterId,
+      openingState: remapState(beat.openingState),
+      closingState: remapState(beat.closingState),
+      ...(beat.props
+        ? {
+            props: beat.props.map((prop) => ({
+              ...prop,
+              holderCharacterId: prop.holderCharacterId ? map(prop.holderCharacterId) : prop.holderCharacterId,
+            })),
+          }
+        : {}),
+    })),
+  };
+}
+
 /** A completed result is current only if its immutable dependencies are current. */
 export function currentSceneTask(
   tasks: FilmTask[],

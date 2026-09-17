@@ -9,6 +9,7 @@ import {
   filmVideoInputs,
   measuredDubbedScene,
   sceneUsesAmbientAudio,
+  remapStoryboardCharacters,
   type FilmScene,
   type FilmTask,
 } from "./contracts";
@@ -127,6 +128,21 @@ describe("per-turn dubbing", () => {
     expect(ambient.prompt).not.toContain("SILENT VIDEO");
     expect(sceneUsesAmbientAudio(scene, "dubbed")).toBe(false);
     expect(sceneUsesAmbientAudio(silent, "native")).toBe(false);
+  });
+  it("remaps guest keys inside storyboard beats when a plan is saved", () => {
+    const board = structuredClone(scene.storyboard!);
+    board.beats[0] = {
+      ...board.beats[0],
+      speakerCharacterId: "guest-ong-noi",
+      props: [{ id: "dep", label: "Dép lê", color: "nâu", size: "vừa", count: 2, holderCharacterId: "guest-ong-noi", position: "tay phải" }],
+      openingState: { note: "Ông cõng cháu", cast: [{ characterId: "guest-ong-noi", presence: "present" }] },
+    };
+    const ids: Record<string, string> = { "guest-ong-noi": "11111111-1111-4111-8111-111111111111" };
+    const remapped = remapStoryboardCharacters(board, (id) => ids[id] || id);
+    expect(remapped.beats[0].speakerCharacterId).toBe(ids["guest-ong-noi"]);
+    expect(remapped.beats[0].props?.[0].holderCharacterId).toBe(ids["guest-ong-noi"]);
+    expect(remapped.beats[0].openingState?.cast?.[0].characterId).toBe(ids["guest-ong-noi"]);
+    expect(remapped.beats[1].speakerCharacterId).toBe(board.beats[1].speakerCharacterId);
   });
   it("preserves an intentional pause and a silent reaction in measured timing", () => {
     const planned = structuredClone(scene);

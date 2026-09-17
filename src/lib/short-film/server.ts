@@ -17,6 +17,7 @@ import {
   BILLING_POINT_FLOOR_VND
 } from "@/lib/ai-pricing";
 import {
+  remapStoryboardCharacters,
   type FilmPlan,
   type FilmCast,
   type FilmScene,
@@ -466,7 +467,10 @@ export async function savePlan(
     const speakerCharacterId = scene.speakerCharacterId
       ? guestByKey.get(scene.speakerCharacterId)?.id || scene.speakerCharacterId
       : scene.speakerCharacterId;
-    return { ...scene, characterIds, speakerCharacterId };
+    const storyboard = scene.storyboard
+      ? remapStoryboardCharacters(scene.storyboard, (id) => guestByKey.get(id)?.id || id)
+      : scene.storyboard;
+    return { ...scene, characterIds, speakerCharacterId, storyboard };
   });
   const ids = [...new Set(remappedInputs.flatMap((s) => s.characterIds || []))];
   const guestUuids = new Set(
