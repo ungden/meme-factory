@@ -961,6 +961,19 @@ export default function ShortFilmPage() {
     );
     await run(result.quote as Quote);
   }
+  async function regenerate(t: FilmTask) {
+    const reason = window.prompt(
+      "Kết quả sai ở đâu? AI sẽ tạo lại công đoạn này ở lượt chạy tiếp theo.",
+    );
+    if (!reason?.trim()) return;
+    await api(`${base}/film-tasks/${t.id}`, {
+      action: "regenerate",
+      reason,
+      workspaceVersion: workspace,
+    });
+    await refresh();
+    setNote("Đã đánh dấu tạo lại. Tiếp tục lượt sản xuất để tạo bản mới.");
+  }
   async function approve(t: FilmTask) {
     await api(`${base}/film-tasks/${t.id}`, {
       action: "approve",
@@ -2479,13 +2492,22 @@ export default function ShortFilmPage() {
                             {task.status === "completed" &&
                               !task.approved_at &&
                               !task.auto_accepted_at && (
-                              <button
-                                disabled={!!busy}
-                                onClick={() => act("Duyệt ảnh", () => approve(task))}
-                                className="min-h-10 rounded-lg border th-border px-3 font-medium th-text-accent"
-                              >
-                                Đã xem · duyệt
-                              </button>
+                              <>
+                                <button
+                                  disabled={!!busy}
+                                  onClick={() => act("Duyệt ảnh", () => approve(task))}
+                                  className="min-h-10 rounded-lg border th-border px-3 font-medium th-text-accent"
+                                >
+                                  Đã xem · duyệt
+                                </button>
+                                <button
+                                  disabled={!!busy}
+                                  onClick={() => act("Tạo lại ảnh", () => regenerate(task))}
+                                  className="min-h-10 rounded-lg border th-border px-3 th-text-secondary"
+                                >
+                                  Tạo lại
+                                </button>
+                              </>
                             )}
                           </div>
                         </article>
@@ -2610,6 +2632,17 @@ export default function ShortFilmPage() {
                               : t.kind === "render"
                                 ? "Duyệt phim"
                                 : "Đã xem · duyệt"}
+                          </button>
+                        )}
+                        {["image", "frame", "tts", "video", "lip_sync", "dub"].includes(t.kind) &&
+                          !t.approved_at &&
+                          !t.auto_accepted_at && (
+                          <button
+                            disabled={!!busy}
+                            onClick={() => act("Tạo lại", () => regenerate(t))}
+                            className="min-h-11 rounded-lg border th-border px-3 text-sm th-text-secondary"
+                          >
+                            Tạo lại
                           </button>
                         )}
                         {t.url && (

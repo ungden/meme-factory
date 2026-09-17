@@ -230,6 +230,9 @@ it("builds storyboards part by part and resumes from the saved parts", async () 
   expect(resumed.pipelineState.shotChunks).toBeUndefined();
   expect(calls.prompts).toHaveLength(parts.length - 1);
   expect(calls.prompts[0]).toContain("ĐÃ CHỐT Ở PHẦN 1");
+  // Ràng buộc xuyên phim (chân trần, cầm dép) nằm trong ý tưởng; storyboard phải nhận được.
+  expect(calls.prompts[0]).toContain(`Ý TƯỞNG NGƯỜI DÙNG: ${input.intent}`);
+  expect(calls.prompts[0]).toContain("RÀNG BUỘC XUYÊN PHIM");
   expect(
     resumed.finalResult?.scenes
       .flatMap((scene) => scene.storyboard?.beats || [])

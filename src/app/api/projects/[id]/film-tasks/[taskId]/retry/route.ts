@@ -18,6 +18,8 @@ export async function POST(
     if (
       !t ||
       t.status !== "failed" ||
+      // Người duyệt đã loại kết quả này; "thử lại lưu" sẽ khôi phục đúng bản hỏng.
+      t.checkpoint?.regenerationRequested ||
       (!t.checkpoint?.providerCompleted &&
         !t.checkpoint?.generatedImage &&
         !["render", "frame", "dub"].includes(t.kind))

@@ -62,3 +62,22 @@ describe("film task retry", () => {
     );
   });
 });
+
+describe("film task retry after a regenerate request", () => {
+  it("does not restore a result the reviewer rejected", async () => {
+    update.mockClear();
+    const original = task.checkpoint;
+    task.checkpoint = { ...original, regenerationRequested: true } as typeof task.checkpoint;
+    const response = await POST(
+      new Request("https://aida.vn/api/projects/project/film-tasks/task/retry", {
+        method: "POST",
+        body: JSON.stringify({ workspaceVersion: 4 }),
+      }) as never,
+      { params: Promise.resolve({ id: "project", taskId: "task" }) },
+    );
+    task.checkpoint = original;
+    expect(response.status).toBe(409);
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
