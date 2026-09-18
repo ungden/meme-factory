@@ -26,6 +26,7 @@ import { createClient } from "@/lib/supabase/client";
 
 import { useTheme } from "@/components/theme-provider";
 import { IS_MOCK_MODE } from "@/lib/use-store";
+import NotificationBell from "@/components/layout/notification-bell";
 import { useWallet } from "@/contexts/WalletContext";
 import { Coins, Shield } from "lucide-react";
 import { clearClientCache, fetchJsonCached } from "@/lib/client-fetch";
@@ -232,10 +233,10 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
     <>
       {/* Logo */}
       <div
-        className="border-b px-4 py-4"
+        className="flex items-center justify-between gap-2 border-b px-4 py-4"
         style={{ borderColor: "var(--border-primary)" }}
       >
-        <Link href="/projects" className="flex items-center gap-2.5">
+        <Link href="/projects" className="flex min-h-11 items-center gap-2.5 lg:min-h-0">
           <div
             className="flex h-9 w-9 items-center justify-center rounded-xl text-white th-shadow-sm"
             style={{ background: "var(--accent)" }}
@@ -251,6 +252,9 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
             </span>
           </div>
         </Link>
+        <span className="hidden lg:block">
+          <NotificationBell />
+        </span>
       </div>
 
       {/* Point Balance */}
@@ -457,6 +461,10 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
   return (
     <>
       {/* Mobile hamburger button */}
+      <div className="fixed top-4 right-4 z-50 lg:hidden">
+        <NotificationBell />
+      </div>
+
       <button
         onClick={() => setMobileOpen(true)}
         aria-label="Mở menu"
