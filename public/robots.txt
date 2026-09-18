@@ -1,7 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /api/
-Disallow: /projects/
-Disallow: /login
-
-Sitemap: https://meme-factory-bice.vercel.app/sitemap.xml

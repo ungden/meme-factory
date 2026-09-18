@@ -1,4 +1,11 @@
-export const GA_ID = "G-6VSHM22RWN";
+/**
+ * Mã đo lường Google Analytics.
+ *
+ * Đọc từ biến môi trường để mỗi môi trường (production, preview, local) đo vào
+ * đúng chỗ của nó; giá trị mặc định giữ nguyên mã đang chạy để không mất số
+ * liệu khi biến chưa được đặt. Đây là mã công khai, không phải bí mật.
+ */
+export const GA_ID = process.env.NEXT_PUBLIC_GA_ID || "G-6VSHM22RWN";
 
 declare global {
   interface Window {

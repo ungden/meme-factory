@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import GARouteTracker from "@/components/analytics/ga-route-tracker";
-import { GA_ID } from "@/lib/analytics";
+import AnalyticsConsent from "@/components/analytics/analytics-consent";
 import "./globals.css";
 
 const inter = Inter({
@@ -87,17 +87,6 @@ export default function RootLayout({
             __html: `(function(){try{var t=localStorage.getItem('aida-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.classList.add(t);document.documentElement.style.colorScheme=t}catch(e){document.documentElement.classList.add('light')}})();`,
           }}
         />
-        <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', '${GA_ID}');
-            `,
-          }}
-        />
       </head>
       <body className={`${inter.variable} ${hand.variable} font-sans antialiased`}>
         <ThemeProvider>
@@ -106,6 +95,7 @@ export default function RootLayout({
               <GARouteTracker />
             </Suspense>
             {children}
+            <AnalyticsConsent />
           </ToastProvider>
         </ThemeProvider>
       </body>

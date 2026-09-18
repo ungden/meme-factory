@@ -27,7 +27,7 @@ import {
   ArrowDown,
   Sparkles,
 } from "lucide-react";
-import { useCharacters, useProject } from "@/lib/use-store";
+import { useCharacters } from "@/lib/use-store";
 import {
   GEMINI_TTS_MODELS,
   GEMINI_VOICE_PRESETS,
@@ -68,7 +68,6 @@ import {
 
 export default function ShortFilmPage() {
   const { id: ref } = useParams<{ id: string }>();
-  const { project } = useProject(ref);
   const { characters } = useCharacters(ref);
   const base = `/api/projects/${ref}`;
   const [draft, setDraft] = useState<Draft>(blank);
