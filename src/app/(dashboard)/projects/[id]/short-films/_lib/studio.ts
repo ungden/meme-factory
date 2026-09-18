@@ -152,6 +152,32 @@ export function taskNoun(kind: string) {
 }
 
 /**
+ * Đổi lỗi kỹ thuật thành một câu người dùng đọc được.
+ *
+ * `task.error` được ghi thẳng từ thông báo của ngoại lệ, nên nó có thể là tiếng
+ * Anh của thư viện mạng — lượt chạy 19/09 dừng với đúng chữ "This operation was
+ * aborted". Chủ fanpage đọc dòng này trong màn hình theo dõi; một câu tiếng Anh
+ * ở đó vừa vô nghĩa vừa không nói được họ nên làm gì. Thông báo do hệ thống tự
+ * viết (đã là tiếng Việt) thì giữ nguyên.
+ */
+export function readableFailure(message: string | null | undefined): string {
+  const text = String(message || "").trim();
+  if (!text) return "Bước này không xong. Bấm tạo lại để thử lần nữa.";
+  // Có dấu tiếng Việt nghĩa là thông báo của chính hệ thống, đã viết cho người đọc.
+  if (/[àáâãèéêìíòóôõùúýăđĩũơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]/iu.test(text))
+    return text;
+  if (/abort|timeout|timed out|ETIMEDOUT|ECONNRESET|socket|network|fetch failed/iu.test(text))
+    return "Lần gọi này quá lâu nên bị ngắt giữa chừng. Bấm tạo lại để thử lần nữa.";
+  if (/\b(429|rate limit|quota|too many requests)\b/iu.test(text))
+    return "Bên tạo media đang quá tải. Chờ một lát rồi bấm tạo lại.";
+  if (/\b(401|403|unauthorized|forbidden|api key)\b/iu.test(text))
+    return "Kết nối tới bên tạo media bị từ chối. Báo cho đội hỗ trợ giúp mình.";
+  if (/\b(5\d\d|internal server error|bad gateway|service unavailable)\b/iu.test(text))
+    return "Bên tạo media đang gặp sự cố. Chờ một lát rồi bấm tạo lại.";
+  return "Bước này không xong. Bấm tạo lại để thử lần nữa.";
+}
+
+/**
  * Việc cần người dùng quyết định. Trước đây màn chỉ hiện "Công đoạn X cần xem
  * lại" mà không chỉ ra kết quả nào và vì sao; ở đây trả đúng task, lý do và
  * cảnh để giao diện đặt media cạnh hai lựa chọn "Dùng bản này" / "Tạo lại".
@@ -198,7 +224,7 @@ export function attentionFor(
       issues: check?.evidence?.issues?.length
         ? check.evidence.issues
         : task.error
-          ? [task.error]
+          ? [readableFailure(task.error)]
           : run.error
             ? [run.error]
             : [],

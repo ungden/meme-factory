@@ -3,6 +3,7 @@ import {
   attentionFor,
   episodeSummaries,
   latestFilm,
+  readableFailure,
   runHeadline,
   runStep,
   shortTitle,
@@ -115,5 +116,28 @@ describe("episode list", () => {
     ]);
     expect(film?.id).toBe("approved");
     expect(shortTitle("  một   ý tưởng  ")).toBe("một ý tưởng");
+  });
+});
+
+describe("readableFailure", () => {
+  it("đổi lỗi mạng tiếng Anh thành câu người dùng đọc được", () => {
+    expect(readableFailure("This operation was aborted")).toBe(
+      "Lần gọi này quá lâu nên bị ngắt giữa chừng. Bấm tạo lại để thử lần nữa.",
+    );
+  });
+
+  it("giữ nguyên thông báo hệ thống đã viết bằng tiếng Việt", () => {
+    const message = "Lời thoại dài hơn 30 giây. Hãy chia thành hai cảnh trước khi tạo video.";
+    expect(readableFailure(message)).toBe(message);
+  });
+
+  it("nói rõ khi bên tạo media quá tải", () => {
+    expect(readableFailure("Provider 429; too many requests")).toBe(
+      "Bên tạo media đang quá tải. Chờ một lát rồi bấm tạo lại.",
+    );
+  });
+
+  it("không để trống khi không có thông báo nào", () => {
+    expect(readableFailure(null)).toBe("Bước này không xong. Bấm tạo lại để thử lần nữa.");
   });
 });
