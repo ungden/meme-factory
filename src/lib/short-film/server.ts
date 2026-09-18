@@ -32,6 +32,7 @@ import {
   seedanceMaxDuration
 } from "../video-models";
 import { normalizeFamilyFatherTerms } from "../family-terminology";
+import { usesFatherTerminology } from "../channel-behaviour";
 import { automaticGuestVoice } from "./guest-voices";
 /** Các trường của một cảnh đã lưu tham gia input_hash, cùng dạng với lúc lưu. */
 export function sceneHashInput(scene: Record<string, unknown>) {
@@ -556,8 +557,10 @@ export async function savePlan(
     } as FilmCast;
   });
   const cast = [...coreCast, ...guestCast];
+  // Quy tắc xưng hô đến từ hồ sơ kênh; phần "có nhân vật tên Bố" giữ lại vì nó
+  // mô tả đúng nội dung kịch bản chứ không phải danh tính khách hàng.
   const canonicalFamily =
-    a.project.name === "Bánh Bao & Đậu Đỏ" ||
+    usesFatherTerminology(await latestChannelProfile(a)) ||
     cast.some((character) => character.name === "Bố");
   const normalizedInputs = canonicalFamily
     ? normalizeFamilyFatherTerms(remappedInputs)

@@ -9,7 +9,9 @@ import {
   publicTasks,
   fail,
   FilmError,
+  latestChannelProfile,
 } from "@/lib/short-film/server";
+import { voicesLocked } from "@/lib/channel-behaviour";
 import {
   DESIGNED_CHILD_VOICES,
   GEMINI_TTS_MODELS,
@@ -35,7 +37,7 @@ export async function GET(
       .eq("workspace_version", a.project.workspace_version)
       .order("version", { ascending: false });
     if (error) throw error;
-    const familyVoicesLocked = a.project.name === "Bánh Bao & Đậu Đỏ";
+    const familyVoicesLocked = voicesLocked(await latestChannelProfile(a));
     const visibleVoices = familyVoicesLocked
       ? (voices || []).filter((voice) => !!voice.approved_at)
       : voices || [];
@@ -81,7 +83,7 @@ export async function POST(
     const a = await access(r, (await params).id);
     const body = await r.json();
     checkVersion(a, body);
-    if (a.project.name === "Bánh Bao & Đậu Đỏ")
+    if (voicesLocked(await latestChannelProfile(a)))
       throw new FilmError(
         "Giọng của bốn nhân vật trong dự án đã được chốt; không tạo hoặc duyệt thêm giọng ở đây.",
         409,

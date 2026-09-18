@@ -6,6 +6,7 @@ import ConfirmModal from "@/components/ui/confirm-modal";
 import { FilmStoryboardEditor } from "@/components/film-storyboard-editor";
 import { FilmSegmentEditor } from "@/components/film-segment-editor";
 import { storyboardDialogue } from "@/lib/film-storyboard";
+import { voicesLocked } from "@/lib/channel-behaviour";
 import { compileStoryboards } from "@/lib/family-ai-contract";
 import type {
   FilmSegmentPatch,
@@ -114,7 +115,9 @@ export default function ShortFilmPage() {
   const lock = useRef(false),
     edited = useRef(false),
     generation = useRef(0);
-  const familyVoicesLocked = project?.name === "Bánh Bao & Đậu Đỏ";
+  // Cờ nằm trong hồ sơ kênh, không phải tên dự án: đổi tên dự án không được
+  // làm đổi hành vi, và khách khác cũng bật được cái này.
+  const familyVoicesLocked = voicesLocked(channel);
   const requestKeys = useRef<Record<string, string>>({});
   const change = (patch: Partial<Draft>) => {
     edited.current = true;

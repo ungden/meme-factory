@@ -36,6 +36,20 @@ export type ChannelProfile = {
   series: readonly string[];
   avoid: string[];
   references: Array<{ source: string; mechanism: string; lesson: string }>;
+  /**
+   * Giọng của các nhân vật lõi đã chốt: không tạo hay duyệt thêm giọng mới, và
+   * chỉ hiện những giọng đã duyệt.
+   *
+   * Trước đây hành vi này được bật bằng cách so tên dự án với chuỗi
+   * "Bánh Bao & Đậu Đỏ" ở bốn file khác nhau — nghĩa là khách thứ hai không bao
+   * giờ có được nó, và khách thứ nhất mất nó ngay khi đổi tên dự án.
+   */
+  voicesLocked?: boolean;
+  /**
+   * Quy tắc xưng hô riêng của kênh. "family-father" chuẩn hoá cách gọi người bố
+   * trong lời thoại do AI sinh ra.
+   */
+  terminologyRules?: "family-father";
 };
 export type RecentStory = Pick<
   Story,

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { access, savePlan, fail } from "@/lib/short-film/server";
+import { access, savePlan, fail, latestChannelProfile } from "@/lib/short-film/server";
 import { fixedVoiceEnabled } from "@/lib/short-film/features";
 import { normalizeFamilyFatherTerms } from "@/lib/family-terminology";
+import { usesFatherTerminology } from "@/lib/channel-behaviour";
 export async function GET(
   r: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -119,7 +120,7 @@ export async function GET(
       fixedVoiceEnabled: fixedVoiceEnabled(a.project.id),
     };
     return NextResponse.json(
-      a.project.name === "Bánh Bao & Đậu Đỏ"
+      usesFatherTerminology(await latestChannelProfile(a))
         ? normalizeFamilyFatherTerms(payload)
         : payload,
     );

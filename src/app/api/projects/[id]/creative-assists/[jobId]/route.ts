@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { access, fail, FilmError } from "@/lib/short-film/server";
+import { access, fail, FilmError, latestChannelProfile } from "@/lib/short-film/server";
+import { usesFatherTerminology } from "@/lib/channel-behaviour";
 import { normalizeFamilyFatherTerms } from "@/lib/family-terminology";
 export async function GET(
   request: NextRequest,
@@ -21,11 +22,9 @@ export async function GET(
     if (error || !job) throw new FilmError("Không tìm thấy lượt soạn AI.", 404);
     const { input_snapshot, ...safeJob } = job;
     const publicJob = { ...safeJob, intent: input_snapshot?.intent || "" };
+    const profile = await latestChannelProfile(a);
     return NextResponse.json({
-      job:
-        a.project.name === "Bánh Bao & Đậu Đỏ"
-          ? normalizeFamilyFatherTerms(publicJob)
-          : publicJob,
+      job: usesFatherTerminology(profile) ? normalizeFamilyFatherTerms(publicJob) : publicJob,
     });
   } catch (e) {
     return fail(e);
