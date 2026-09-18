@@ -483,6 +483,23 @@ export function compileStoryShots(
 }
 
 /** Panels are planned per story beat; each provider clip is sized to its content. */
+/**
+ * Khung hình này có thể nhìn thấy bàn chân không.
+ *
+ * Yêu cầu chứng minh trạng thái giày dép trong một khung cắt ngang đùi là yêu
+ * cầu không thể đáp ứng: người kiểm tra trả về "uncertain" và cả lượt chạy đỗ
+ * lại chờ người, dù ảnh chẳng có gì sai. Chỉ gắn yêu cầu khi khung hình đủ rộng
+ * để thấy chân; khung không ghi rõ thì vẫn gắn, vì lỗi đi giày giữa các cảnh
+ * chân trần từng lọt qua đúng ở những khung như vậy.
+ */
+export function framingCanShowFeet(camera: string): boolean {
+  const text = camera.toLocaleLowerCase("vi");
+  if (!text.trim()) return true;
+  const tooTight =
+    /close[\s-]?up|medium|cận|trung cảnh|bán thân|nửa người|từ thắt lưng|waist|chest|over[\s-]?the[\s-]?shoulder|máy cầm tay cận/u;
+  return !tooTight.test(text);
+}
+
 export function compileStoryboards(
   value: unknown,
   story: Story,
@@ -619,6 +636,7 @@ export function compileStoryboards(
             const footwearPattern = /chân trần|đi đất|giày|dép|guốc|tất|vớ/iu;
             const needsFootwear =
               footwearPattern.test(opening) &&
+              framingCanShowFeet(String(shot.camera || "")) &&
               !shotRequirements.some((requirement) => footwearPattern.test(requirement.description));
             const withFootwear: VisualRequirement[] = needsFootwear
               ? [

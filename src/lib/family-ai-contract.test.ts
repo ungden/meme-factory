@@ -8,6 +8,7 @@ import {
   storyHasReaction,
   storyShotCount,
   unpackStory,
+  framingCanShowFeet,
 } from "./family-ai-contract";
 import type { Story } from "./family-catalogue";
 
@@ -323,5 +324,24 @@ describe("compileStoryboards", () => {
       const content = scene.storyboard?.contentEndSeconds ?? Infinity;
       expect(content).toBeLessThanOrEqual(scene.storyboard?.durationSeconds ?? 0);
     }
+  });
+});
+
+describe("framingCanShowFeet", () => {
+  it("bỏ yêu cầu giày dép ở khung cắt ngang người", () => {
+    for (const camera of [
+      "Medium shot, ngang tầm mắt",
+      "Close-up khuôn mặt",
+      "Cận cảnh tay cầm muỗng",
+      "Trung cảnh hai chị em",
+      "Bán thân, máy tĩnh",
+      "Over-the-shoulder từ phía sau",
+    ])
+      expect(framingCanShowFeet(camera)).toBe(false);
+  });
+
+  it("giữ yêu cầu ở khung rộng và khi khung không ghi rõ", () => {
+    for (const camera of ["Wide shot cả căn bếp", "Toàn cảnh phòng khách", "Khung vừa", ""])
+      expect(framingCanShowFeet(camera)).toBe(true);
   });
 });
