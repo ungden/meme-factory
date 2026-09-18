@@ -378,28 +378,47 @@ export function validateEditorialReview(
   story: Story,
 ): EditorialReview {
   const r = value as EditorialReview;
-  if (
-    !r ||
-    !editorialEvidenceKeys.every((k) => hasText(r.evidence?.[k], 11)) ||
-    !Array.isArray(r.issues) ||
-    r.issues.length > 12 ||
-    r.issues.some(
-      (i) =>
-        !i ||
-        ![i.location, i.quote, i.reason].every((v) => hasText(v, 1)) ||
-        !groundedQuote(i.quote, [
-          story.setup,
-          story.payoff,
-          ...story.beats.map((b) => b.description),
-          ...story.dialogue.flatMap((d) => [
-            d.text,
-            d.action,
-            `${d.text} (${d.action})`,
-          ]),
-        ]),
-    )
-  )
-    throw new Error("FAMILY_EDITORIAL_REVIEW_INVALID");
+  // Mỗi lý do hỏng được đặt tên riêng. Một mã lỗi chung cho năm nguyên nhân
+  // khác nhau nghĩa là lần sau gặp lại vẫn phải đoán: lượt chạy dừng ở
+  // `needs_review`, người dùng đọc "FAMILY_EDITORIAL_REVIEW_INVALID", và không
+  // ai biết reviewer đã trả về cái gì.
+  if (!r) throw new Error("FAMILY_EDITORIAL_REVIEW_INVALID: không nhận được nhận xét");
+  const thinEvidence = editorialEvidenceKeys.filter((k) => !hasText(r.evidence?.[k], 11));
+  if (thinEvidence.length)
+    throw new Error(
+      `FAMILY_EDITORIAL_REVIEW_INVALID: dẫn chứng quá ngắn hoặc thiếu ở ${thinEvidence.join(", ")}`,
+    );
+  if (!Array.isArray(r.issues))
+    throw new Error("FAMILY_EDITORIAL_REVIEW_INVALID: issues phải là danh sách");
+  if (r.issues.length > 12)
+    throw new Error(
+      `FAMILY_EDITORIAL_REVIEW_INVALID: ${r.issues.length} lỗi là quá nhiều để sửa trong một lượt (tối đa 12)`,
+    );
+  const storySources = [
+    story.setup,
+    story.payoff,
+    ...story.beats.map((b) => b.description),
+    ...story.dialogue.flatMap((d) => [
+      d.text,
+      d.action,
+      `${d.text} (${d.action})`,
+    ]),
+  ];
+  r.issues.forEach((i, index) => {
+    const at = `issues[${index}]`;
+    if (!i) throw new Error(`FAMILY_EDITORIAL_REVIEW_INVALID: ${at} rỗng`);
+    const missing = (["location", "quote", "reason"] as const).filter(
+      (key) => !hasText(i[key], 1),
+    );
+    if (missing.length)
+      throw new Error(`FAMILY_EDITORIAL_REVIEW_INVALID: ${at} thiếu ${missing.join(", ")}`);
+    // Cùng mức khoan dung với intentCheck.evidence: reviewer hay viết
+    // `Câu 3: "…"` thay vì dán trần câu thoại, và đó vẫn là trích đúng.
+    if (!groundedEvidence(i.quote, storySources))
+      throw new Error(
+        `FAMILY_EDITORIAL_REVIEW_INVALID: ${at}.quote không có trong bản diễn — ${i.quote.slice(0, 80)}`,
+      );
+  });
   const w = r.watchability;
   const ending = r.endingCheck;
   const speech = r.speechCheck;

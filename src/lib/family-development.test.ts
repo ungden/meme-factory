@@ -490,3 +490,36 @@ it("requires revision when a line uses an unnatural speaker viewpoint", () => {
   expect(result.passed).toBe(false);
   expect(result.watchability.decision).toBe("revise");
 });
+
+it("nói rõ dẫn chứng nào quá ngắn thay vì một mã lỗi chung", () => {
+  expect(() =>
+    validateEditorialReview({ ...review, evidence: { ...review.evidence, contrast: "ngắn" } }, story),
+  ).toThrow(/dẫn chứng quá ngắn.*contrast/);
+});
+
+it("nói rõ trường nào thiếu trong một lỗi được nêu", () => {
+  expect(() =>
+    validateEditorialReview(
+      { ...review, issues: [{ location: "Câu 1", quote: "", reason: "Thoại dài" }] },
+      story,
+    ),
+  ).toThrow(/issues\[0\] thiếu quote/);
+});
+
+it("chấp nhận trích dẫn đặt trong ngoặc kép như intentCheck", () => {
+  const quoted = `Câu 1: "${story.dialogue[0].text}"`;
+  const r = validateEditorialReview(
+    { ...review, issues: [{ location: "Câu 1", quote: quoted, reason: "Thoại hơi dài so với nhịp" }] },
+    story,
+  );
+  expect(r.issues[0].quote).toBe(quoted);
+});
+
+it("chỉ ra đúng câu trích không có trong bản diễn", () => {
+  expect(() =>
+    validateEditorialReview(
+      { ...review, issues: [{ location: "Câu 1", quote: "Một câu chưa ai nói", reason: "Không khớp" }] },
+      story,
+    ),
+  ).toThrow(/issues\[0\]\.quote không có trong bản diễn/);
+});
