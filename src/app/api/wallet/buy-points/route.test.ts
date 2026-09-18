@@ -17,7 +17,9 @@ describe("point package price consent", () => {
       method: "POST", headers: { authorization: "Bearer fixture" }, body: JSON.stringify(body),
     }));
     expect(response.status).toBe(409);
-    expect(rpc).not.toHaveBeenCalled();
+    // Bộ đếm rate limit cũng đi qua `rpc`; điều phải giữ là KHÔNG có lời gọi
+    // nào chạm vào tiền.
+    expect(rpc).not.toHaveBeenCalledWith("buy_points_idempotent", expect.anything());
   });
   it("uses server package values when the displayed price matches", async () => {
     rpc.mockResolvedValue({ data: { success: true, points: 100, balance: 0 }, error: null });
@@ -34,6 +36,6 @@ describe("point package price consent", () => {
       body: JSON.stringify({ packageId: "basic", expectedPrice: 50000, expectedPoints: 100 }),
     }));
     expect(response.status).toBe(400);
-    expect(rpc).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalledWith("buy_points_idempotent", expect.anything());
   });
 });

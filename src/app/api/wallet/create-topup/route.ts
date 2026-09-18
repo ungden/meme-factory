@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/admin";
+import { RATE_LIMITS, checkRateLimit, rateLimitMessage } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
@@ -13,6 +14,13 @@ export async function POST(req: Request) {
     if (authError || !user) {
       return NextResponse.json({ error: "Phiên đăng nhập hết hạn" }, { status: 401 });
     }
+
+    const throttle = await checkRateLimit(supabaseAdmin, RATE_LIMITS.createTopup, user.id);
+    if (!throttle.allowed)
+      return NextResponse.json(
+        { error: rateLimitMessage(throttle) },
+        { status: 429, headers: { "retry-after": String(Math.ceil(throttle.resetIn)) } },
+      );
 
     const body = await req.json();
     const amount = Number(body?.amount);

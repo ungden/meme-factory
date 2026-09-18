@@ -16,6 +16,7 @@ import {
 } from "@/lib/gemini-image";
 import { POINT_LABELS, type PointAction } from "@/lib/point-pricing";
 import { spendProjectPoints } from "@/lib/project-points";
+import { RATE_LIMITS, checkRateLimit, rateLimitMessage } from "@/lib/rate-limit";
 import { assertPriceCoversCost, getPointCost } from "@/lib/point-pricing.server";
 import {
   calculateGoogleImageActualCost,
@@ -81,6 +82,13 @@ export async function POST(request: NextRequest) {
     }
 
     actorUserId = user.id;
+
+    const throttle = await checkRateLimit(getSupabaseAdmin(), RATE_LIMITS.generateImage, user.id);
+    if (!throttle.allowed)
+      return NextResponse.json(
+        { error: rateLimitMessage(throttle), code: "RATE_LIMITED" },
+        { status: 429, headers: { "retry-after": String(Math.ceil(throttle.resetIn)) } },
+      );
 
     const body = await request.json();
     const { type, project_id } = body;

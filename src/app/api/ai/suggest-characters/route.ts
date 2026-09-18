@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/supabase/request-auth";
 import { suggestCharactersForFanpage } from "@/lib/gemini";
+import { getSupabaseAdmin } from "@/lib/admin";
+import { RATE_LIMITS, checkRateLimit, rateLimitMessage } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,6 +11,13 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const throttle = await checkRateLimit(getSupabaseAdmin(), RATE_LIMITS.suggestCharacters, user.id);
+    if (!throttle.allowed)
+      return NextResponse.json(
+        { error: rateLimitMessage(throttle) },
+        { status: 429, headers: { "retry-after": String(Math.ceil(throttle.resetIn)) } },
+      );
 
     const body = await request.json();
     const project_id = String(body?.project_id || "");
