@@ -75,6 +75,32 @@ database. Supabase nhớ migration bằng con số timestamp: áp SQL ngoài
 `supabase db push` sẽ ghi con số của lúc bấm, và lần push sau chạy lại migration
 đó. Ngày 16/09/2026 có 20 migration lệch kiểu này cùng lúc.
 
+## Triển khai
+
+Cả hai nơi đều tự động deploy khi `main` được đẩy lên.
+
+| | Vercel (`meme-factory`) | Railway (`aida-video-worker`) |
+|---|---|---|
+| Nguồn | GitHub `ungden/meme-factory`, nhánh `main` | GitHub `ungden/meme-factory`, nhánh `main` |
+| Build | Next.js mặc định | `Dockerfile.video-worker` (`RAILWAY_DOCKERFILE_PATH`) |
+| Chạy | Web + API + cron | `next start` nội bộ + `scripts/wavespeed-worker.mjs` |
+
+Container Railway phục vụ chính bộ code Next đó ở `127.0.0.1:$PORT` cho worker
+gọi vào, nên nó cần **cả biến của app** (`NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`) chứ không chỉ biến của worker. Thiếu chúng thì
+proxy trả 503 cho mọi lời gọi nội bộ và worker chạy trong vô ích.
+
+`CRON_SECRET` phải có trên Vercel, nếu không cron của Vercel gọi vào
+`/api/cron/*` sẽ bị 401 và lưới an toàn khi worker chết không hoạt động — lỗi
+này im lặng, chỉ thấy khi đọc log runtime.
+
+Kiểm tra nhanh sau khi deploy:
+
+```bash
+curl -s https://aida.vn/api/health | jq
+railway logs | tail -20
+```
+
 ## Vận hành
 
 ### Sức khoẻ hệ thống
