@@ -843,6 +843,15 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
     }
     const selection = nextProductionStage(plan, eligible);
     const { stage } = selection;
+    const sceneScope = new Set(selection.sceneIds.map(String));
+    // Đếm trên toàn bộ task của kịch bản, không chỉ task thuộc lượt này: thao
+    // tác "tạo lại" tách task hỏng ra khỏi lượt chạy, nên nó không còn nằm
+    // trong `own`.
+    const regenerationRound = tasks.filter(
+      (task) =>
+        task.status === "failed" &&
+        (!task.scene_id || sceneScope.has(String(task.scene_id))),
+    ).length;
     if (stage === "check") {
       await patchRun(admin, run, {
         status: "needs_review",
@@ -888,10 +897,20 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
     const { error } = await admin.rpc("accept_film_quote", {
       p_quote: quote.id,
       p_actor: run.created_by,
+      // Vòng tạo lại thứ mấy cũng nằm trong khoá. Thiếu nó thì lần tạo lại THỨ
+      // HAI của cùng một công đoạn sinh đúng khoá cũ, `accept_film_quote` từ
+      // chối bằng IDEMPOTENCY_KEY_REUSED, và lượt chạy chết với một mã thô —
+      // trong khi QA ảnh từ chối nhiều lần là chuyện bình thường.
+      //
+      // Đếm task đã hỏng chứ không đếm tổng số task: số này đứng yên trong một
+      // vòng (kể cả sau khi task thay thế được tạo) nên một lần gọi lại vì mất
+      // phản hồi vẫn ra đúng khoá cũ và không bị trừ điểm hai lần.
       p_key: crypto
         .createHash("md5")
         .update(
-          `${run.id}:${plan.id}:${plan.version}:${stage}:${[...selection.sceneIds].sort().join(",")}`,
+          `${run.id}:${plan.id}:${plan.version}:${stage}:${[...selection.sceneIds]
+            .sort()
+            .join(",")}:r${regenerationRound}`,
         )
         .digest("hex")
         .replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, "$1-$2-$3-$4-$5"),
