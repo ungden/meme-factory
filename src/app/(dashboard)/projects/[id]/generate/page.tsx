@@ -16,6 +16,7 @@ import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import Input from "@/components/ui/input";
 import Textarea from "@/components/ui/textarea";
 import Modal from "@/components/ui/modal";
+import OutOfPointsModal from "@/components/wallet/out-of-points-modal";
 import { useToast } from "@/components/ui/toast";
 import { Zap, Sparkles, Download, Save, RotateCcw, ChevronRight, Wand2, ImageIcon, Loader2, Upload, X, Tags, Plus, Clapperboard } from "lucide-react";
 import type { MemeContent, MemeFormat, SelectedCharacter, EmotionTag, ImageGenResponse } from "@/types/database";
@@ -66,6 +67,8 @@ export default function GeneratePage() {
   const [aiImageBase64, setAiImageBase64] = useState<string | null>(null);
   const [aiGenerationRequestId, setAiGenerationRequestId] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  // Hết điểm không phải là một lỗi để đọc rồi thôi: nó là một việc cần làm tiếp.
+  const [pointsNeeded, setPointsNeeded] = useState<{ required: number; current: number } | null>(null);
   const [aiReferenceManifest, setAiReferenceManifest] = useState<ImageGenResponse["reference_manifest"] | null>(null);
 
   // Reference images for meme ideas
@@ -830,6 +833,8 @@ export default function GeneratePage() {
           project_id: project?.id || projectId,
           reason: result.code || "api_error",
         });
+        if (result.code === "INSUFFICIENT_POINTS" && typeof result.required === "number")
+          setPointsNeeded({ required: result.required, current: result.current ?? 0 });
         setAiError(result.error);
       } else if (result.image) {
         setAiImageBase64(result.image);
@@ -1655,6 +1660,15 @@ export default function GeneratePage() {
             </div>
           </div>
         )}
+
+        <OutOfPointsModal
+          open={Boolean(pointsNeeded)}
+          onClose={() => setPointsNeeded(null)}
+          required={pointsNeeded?.required ?? 0}
+          current={pointsNeeded?.current ?? 0}
+          action="Tạo ảnh"
+          onFunded={() => setAiError(null)}
+        />
 
         <Modal isOpen={showQuickCharacterModal} onClose={() => setShowQuickCharacterModal(false)} title="Tạo nhanh nhân vật">
           <form onSubmit={handleQuickCreateCharacter} className="space-y-4">

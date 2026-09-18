@@ -15,6 +15,7 @@ import {
   type GenerateBackgroundParams,
 } from "@/lib/gemini-image";
 import { POINT_LABELS, type PointAction } from "@/lib/point-pricing";
+import { spendProjectPoints } from "@/lib/project-points";
 import { assertPriceCoversCost, getPointCost } from "@/lib/point-pricing.server";
 import {
   calculateGoogleImageActualCost,
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
     // Verify user can access this project (owner or shared member via RLS)
     const { data: project } = await supabase
       .from("projects")
-      .select("id")
+      .select("id, name, user_id")
       .eq("id", project_id)
       .maybeSingle();
 
@@ -120,31 +121,33 @@ export async function POST(request: NextRequest) {
     if (cost > 0) await assertPriceCoversCost(action, cost);
 
     if (cost > 0) {
-      const { data: deductResult, error: deductRpcErr } = await getSupabaseAdmin().rpc("atomic_deduct_project_points", {
-        _project_id: projectId,
-        _actor_user_id: user.id,
-        _cost: cost,
-        _description: `${POINT_LABELS[action]} (-${cost} points) từ ví dự án`,
-        _request_id: generationRequestId,
-        _ai_action: type,
-        _metadata: {
-          type,
-          project_id: projectId,
+      const admin = getSupabaseAdmin();
+      const spent = await spendProjectPoints(
+        async (name, args) => admin.rpc(name, args),
+        {
+          projectId,
+          projectOwnerId: String(project.user_id),
+          actorUserId: user.id,
+          cost,
+          description: `${POINT_LABELS[action]} (-${cost} điểm)`,
+          requestId: generationRequestId,
+          aiAction: type,
+          metadata: { type, project_id: projectId },
+          projectName: String(project.name || ""),
         },
-      });
+      );
 
-      if (deductRpcErr) {
-        throw new Error(`Lỗi trừ points: ${deductRpcErr.message}`);
+      if (!spent.ok && spent.code === "FAILED") {
+        throw new Error(`Lỗi trừ points: ${spent.message}`);
       }
 
-      if (!deductResult?.success) {
-        const currentPoints = deductResult?.points ?? 0;
+      if (!spent.ok) {
         return NextResponse.json(
           {
-            error: `Ví dự án không đủ points. ${POINT_LABELS[action]} cần ${cost} points, hiện có ${currentPoints} points.`,
+            error: `Không đủ điểm. ${POINT_LABELS[action]} cần ${cost} điểm, bạn đang có ${spent.available} điểm.`,
             code: "INSUFFICIENT_POINTS",
             required: cost,
-            current: currentPoints,
+            current: spent.available,
           },
           { status: 402 }
         );

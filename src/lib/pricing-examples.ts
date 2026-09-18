@@ -1,5 +1,5 @@
 import { BILLING_POINT_FLOOR_VND } from "./ai-pricing";
-import { FREE_TRIAL_POINTS, POINT_COSTS } from "./point-pricing";
+import { FREE_TRIAL_POINTS, POINT_COSTS, POINT_PACKAGES } from "./point-pricing";
 
 /**
  * "Một điểm mua được gì" — bảng ví dụ cho trang giá công khai.
@@ -38,4 +38,16 @@ export function trialImageCount(): number {
 
 export function pointsToVnd(points: number): number {
   return points * BILLING_POINT_FLOOR_VND;
+}
+
+/**
+ * Gói nạp nhỏ nhất đủ bù phần thiếu.
+ *
+ * Người đang thiếu 12 điểm không cần nghe về gói 1.000 điểm; họ cần một con số
+ * và một nút. Thiếu nhiều hơn mọi gói thì trả gói lớn nhất.
+ */
+export function suggestPackage(shortfallPoints: number) {
+  const needed = Math.max(1, Math.ceil(shortfallPoints));
+  const sorted = [...POINT_PACKAGES].sort((a, b) => a.points - b.points);
+  return sorted.find((pkg) => pkg.points >= needed) ?? sorted[sorted.length - 1];
 }

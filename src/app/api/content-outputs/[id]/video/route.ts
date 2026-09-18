@@ -3,6 +3,7 @@ import { resolveClipDubbing } from "@/lib/clip-dubbing";
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/supabase/request-auth";
 import { getSupabaseAdmin } from "@/lib/admin";
+import { spendProjectPoints } from "@/lib/project-points";
 import { getSeedanceModel, submitSeedanceVideo } from "@/lib/wavespeed";
 import type { VideoRequest } from "@/lib/wavespeed";
 import {
@@ -138,7 +139,7 @@ export async function POST(
     };
     const projectId = output.content_sets.project_id as string;
     const { data: brand, error: brandError } = await supabase.from("projects")
-      .select("watermark_url,watermark_position,watermark_opacity")
+      .select("watermark_url,watermark_position,watermark_opacity,name,user_id")
       .eq("id", projectId).single();
     if (brandError || !brand) throw new Error("Không tải được thương hiệu dự án.");
     const manifestHash = await crypto.subtle
@@ -218,34 +219,41 @@ export async function POST(
         );
       throw new Error(jobError?.message || "Không lưu được job video.");
     }
-    const { data: deduction, error: deductError } =
-      await getSupabaseAdmin().rpc("atomic_deduct_project_points", {
-        _project_id: projectId,
-        _actor_user_id: user.id,
-        _cost: quote.customerPoints,
-        _description: `Tạo video ${SEEDANCE_VARIANTS.find((item) => item.id === video.model)?.label} ${video.duration}s ${video.resolution} (-${quote.customerPoints} điểm)`,
-        _request_id: requestId,
-        _ai_action: "video",
-        _metadata: {
+    const billing = getSupabaseAdmin();
+    const spent = await spendProjectPoints(
+      async (name, args) => billing.rpc(name, args),
+      {
+        projectId,
+        projectOwnerId: String(brand.user_id),
+        actorUserId: user.id,
+        cost: quote.customerPoints,
+        description: `Tạo video ${SEEDANCE_VARIANTS.find((item) => item.id === video.model)?.label} ${video.duration}s ${video.resolution} (-${quote.customerPoints} điểm)`,
+        requestId,
+        aiAction: "video",
+        metadata: {
           model,
           mode: video.mode,
           duration: video.duration,
           resolution: video.resolution,
           content_output_id: id,
         },
-      });
-    if (deductError || !deduction?.success) {
+        projectName: String(brand.name || ""),
+      },
+    );
+    if (!spent.ok) {
       // A rejected charge never reached the provider. Remove the temporary
       // concurrency lock so it cannot appear as a failed media generation.
       await getSupabaseAdmin()
         .from("generation_jobs")
         .delete()
         .eq("id", job.id);
+      if (spent.code === "FAILED") throw new Error(spent.message);
       return NextResponse.json(
         {
-          error: `Ví dự án không đủ điểm. Cần ${quote.customerPoints} điểm.`,
+          error: `Không đủ điểm. Cần ${quote.customerPoints} điểm, bạn đang có ${spent.available} điểm.`,
+          code: "INSUFFICIENT_POINTS",
           required: quote.customerPoints,
-          current: deduction?.points ?? 0,
+          current: spent.available,
         },
         { status: 402 },
       );

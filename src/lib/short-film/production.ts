@@ -48,6 +48,7 @@ import {
   seedanceMaxDuration,
 } from "../video-models";
 import { isProjectMediaPath } from "../project-media-path";
+import { ensureProjectPoints } from "../project-points";
 import { errorCode, kindLabel, stageLabel } from "../error-messages";
 
 /** Mã báo hết ngân sách/điểm; mọi mã khác là lỗi thật và phải nổi lên. */
@@ -663,6 +664,33 @@ async function patchRun(
   if (error || !data) throw new Error(error?.message || "RUN_LEASE_LOST");
 }
 
+/**
+ * Bù cho ví dự án đủ điểm cho một báo giá sắp được chấp nhận.
+ *
+ * Im lặng khi không bù được: bước trừ điểm ngay sau đó sẽ báo hết ngân sách
+ * đúng như trước, và người dùng thấy một thông điệp thay vì hai.
+ */
+async function topUpProjectWallet(
+  admin: SupabaseClient,
+  run: Run,
+  needed: number,
+) {
+  if (!Number.isFinite(needed) || needed <= 0) return;
+  const [{ data: project }, { data: wallet }] = await Promise.all([
+    admin.from("projects").select("user_id, name").eq("id", run.project_id).maybeSingle(),
+    admin.from("project_wallets").select("points").eq("project_id", run.project_id).maybeSingle(),
+  ]);
+  if (!project) return;
+  await ensureProjectPoints(async (name, args) => admin.rpc(name, args), {
+    projectId: run.project_id,
+    projectOwnerId: String(project.user_id),
+    actorUserId: run.created_by,
+    currentPoints: Number(wallet?.points ?? 0),
+    needed,
+    projectName: String(project.name || ""),
+  });
+}
+
 export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
   const a = await accessForRun(admin, run);
   let leaseLost = false;
@@ -838,6 +866,10 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
     // accept_film_quote trừ điểm KHÔNG hoàn tác được, nên kiểm lại ngay trước
     // khi tiêu tiền thay vì tin vào kết quả kiểm từ trước lúc gọi mạng.
     assertLease();
+    // Ví dự án và ví cá nhân là hai chỗ, nhưng người dùng chỉ thấy một số dư.
+    // accept_film_quote trừ điểm bên trong SQL nên không chèn được bước chuyển
+    // ví vào giữa; chuyển trước ở đây cho cùng kết quả.
+    await topUpProjectWallet(admin, run, quote.points);
     const { error } = await admin.rpc("accept_film_quote", {
       p_quote: quote.id,
       p_actor: run.created_by,

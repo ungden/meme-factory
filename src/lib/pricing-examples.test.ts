@@ -27,3 +27,18 @@ describe("pointsToVnd", () => {
     expect(pointsToVnd(20)).toBe(10000);
   });
 });
+
+describe("suggestPackage", () => {
+  it("chọn gói nhỏ nhất đủ bù phần thiếu", async () => {
+    const { suggestPackage } = await import("./pricing-examples");
+    expect(suggestPackage(5).points).toBe(20);
+    expect(suggestPackage(20).points).toBe(20);
+    expect(suggestPackage(21).points).toBe(100);
+    expect(suggestPackage(350).points).toBe(400);
+  });
+
+  it("trả gói lớn nhất khi thiếu nhiều hơn mọi gói", async () => {
+    const { suggestPackage } = await import("./pricing-examples");
+    expect(suggestPackage(99999).points).toBe(1000);
+  });
+});

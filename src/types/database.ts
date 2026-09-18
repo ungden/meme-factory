@@ -298,6 +298,9 @@ export interface ImageGenResponse {
     effectiveDate: string;
   };
   error?: string;
+  /** Khi hết điểm: cần bao nhiêu và đang có bao nhiêu, để hiện đúng số phải nạp. */
+  required?: number;
+  current?: number;
   code?: string;
 }
 

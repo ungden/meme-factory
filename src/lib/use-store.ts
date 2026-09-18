@@ -669,7 +669,13 @@ export async function generateImage(
     }
 
     const err = await res.json().catch(() => ({ error: "Image generation failed" }));
-    return { image: "", error: err.error || "Image generation failed", code: err.code };
+    return {
+      image: "",
+      error: err.error || "Image generation failed",
+      code: err.code,
+      required: typeof err.required === "number" ? err.required : undefined,
+      current: typeof err.current === "number" ? err.current : undefined,
+    };
   } catch {
     return {
       image: "",
