@@ -19,6 +19,18 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Những route này xác thực bằng token trong header, không bao giờ đọc cookie
+  // phiên. Làm mới phiên cho chúng chỉ thêm một lượt gọi mạng tới Supabase cho
+  // mỗi nhịp của worker — vài nghìn lượt mỗi ngày, không đổi lại điều gì.
+  if (
+    pathname.startsWith("/api/internal/") ||
+    pathname.startsWith("/api/cron/") ||
+    pathname.startsWith("/api/webhooks/") ||
+    pathname === "/api/health"
+  ) {
+    return NextResponse.next();
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
