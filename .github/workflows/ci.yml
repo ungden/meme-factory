@@ -43,8 +43,12 @@ jobs:
     name: Migrations · SQL tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Chỉ chạy khi repo có secret; PR từ fork không có secret nên bỏ qua.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # Kiểm thử SQL ghi tạm lên database thật (trong transaction rồi rollback),
+    # nên KHÔNG được trỏ vào production. Job này chỉ bật khi repo đã có một
+    # database kiểm thử: đặt variable HAS_TEST_DATABASE=true và secret
+    # SUPABASE_DB_URL. Chưa có thì chạy tay trước mỗi lần phát hành:
+    #   SUPABASE_DB_URL=postgres://... npm run test:sql
+    if: vars.HAS_TEST_DATABASE == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

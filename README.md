@@ -65,6 +65,11 @@ nằm trong `npm test`. Mỗi file chạy trong một transaction luôn bị rol
 vẫn phải trỏ vào database kiểm thử, không phải production. Thiếu
 `SUPABASE_DB_URL` thì bỏ qua ở máy cá nhân nhưng **fail trong CI**.
 
+Job `database` trong CI chỉ bật khi repo có một **database kiểm thử riêng**:
+đặt variable `HAS_TEST_DATABASE=true` và secret `SUPABASE_DB_URL`. Đừng trỏ vào
+production — dù có rollback thì vẫn là ghi tạm lên dữ liệu thật. Chưa có
+database kiểm thử thì chạy tay hai lệnh trên trước mỗi lần phát hành.
+
 `check:migrations` đối chiếu `supabase/migrations` với sổ migration trên
 database. Supabase nhớ migration bằng con số timestamp: áp SQL ngoài
 `supabase db push` sẽ ghi con số của lúc bấm, và lần push sau chạy lại migration
