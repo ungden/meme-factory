@@ -295,7 +295,7 @@ export async function checkVisualTask(
     // đất, chân trần thành đi giày. So với cảnh liền trước đã được duyệt.
     if (previous) {
       parts.push({
-        text: `LIÊN TỤC VỚI CẢNH LIỀN TRƯỚC: ảnh tiếp theo là hình đã duyệt của cảnh trước (3 khung đầu/giữa/cuối hoặc ảnh tham chiếu), hành động "${previous.action}", bối cảnh "${previous.setting}". So với trạng thái cuối của nó, kể cả giày dép của TỪNG nhân vật (chân trần hay đi giày), media kết quả phải giữ tư thế đang duy trì (đang cõng/bế/ngồi), trang phục, giày dép, đạo cụ trên tay và thời điểm ánh sáng, trừ khi TASK mô tả rõ hành động làm đổi hoặc đây là hồi tưởng/chuyển cảnh có chủ đích. Lệch vô lý thì needs_review và nêu đúng điểm lệch trong issues.`,
+        text: `LIÊN TỤC VỚI CẢNH LIỀN TRƯỚC: ảnh tiếp theo là hình đã duyệt của cảnh trước (3 khung đầu/giữa/cuối hoặc ảnh tham chiếu), hành động "${previous.action}", bối cảnh "${previous.setting}". So với trạng thái cuối của nó, kể cả giày dép của TỪNG nhân vật (chân trần hay đi giày), media kết quả phải giữ tư thế đang duy trì (đang cõng/bế/ngồi), trang phục, giày dép, đạo cụ trên tay và thời điểm ánh sáng, trừ khi TASK mô tả rõ hành động làm đổi hoặc đây là hồi tưởng/chuyển cảnh có chủ đích. Khi TASK ghi cùng một bối cảnh, đó phải là ĐÚNG CĂN PHÒNG đó: cùng đồ đạc, cùng thiết bị và vị trí của chúng, cùng màu tủ/tường/sàn, cùng hướng cửa sổ. Một gian bếp khác nhưng cũng là bếp thì vẫn là lệch, kể cả khi nhân vật và trang phục đã đúng. Lệch vô lý thì needs_review và nêu đúng điểm lệch trong issues.`,
       });
       parts.push(await inline(previous.contactSheetUrl));
     }

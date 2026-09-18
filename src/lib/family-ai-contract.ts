@@ -139,7 +139,11 @@ export function shotResponseSchema(
   const shotCount = storyShotCount(story);
   const shot = object({
     action: string,
-    setting: string,
+    setting: {
+      type: "string",
+      description:
+        "Nơi diễn ra panel. Vẫn cùng một nơi với panel trước thì CHÉP LẠI NGUYÊN VĂN chuỗi setting của panel trước, không viết gọn và không diễn đạt lại; chỉ viết chuỗi mới khi thật sự đổi địa điểm.",
+    },
     camera: string,
     durationSeconds: { type: "number", minimum: 0.5, maximum: 30 },
     pauseAfterSeconds: {
@@ -513,6 +517,36 @@ export function footwearClause(openingState: string): string {
   return text.slice(0, 200);
 }
 
+/**
+ * Những mẩu chữ mà khung hình buộc phải đọc đúng: chữ đặt trong ngoặc kép của
+ * mô tả ảnh, hoặc chữ ghi trên đạo cụ.
+ *
+ * Tập 19/09 xin một tờ giấy “CẤM MỞ” ở cảnh 1 và xin lại đúng tờ đó ở cảnh 3.
+ * Cảnh 1 có yêu cầu kind=text nên người kiểm ảnh phải đọc lại, và nó đúng.
+ * Cảnh 3 không có yêu cầu nào, nên không ai đọc — tấm biển in ra “CẬM MỔ”, sai
+ * cả hai dấu, và lọt tới bản dựng cuối. Mô hình dựng ảnh đánh rơi dấu tiếng
+ * Việt thường xuyên; chữ sai chính tả trên màn hình là lỗi khán giả thấy ngay,
+ * nên hễ kịch bản đòi một mẩu chữ cụ thể thì tự gắn yêu cầu đọc lại nó.
+ */
+export function legibleTextRequests(
+  imagePrompt: string,
+  props: unknown,
+): string[] {
+  const found: string[] = [];
+  const add = (value: unknown) => {
+    const text = String(value ?? "").trim();
+    // Một hai chữ in trên biển/nhãn. Chuỗi dài là câu mô tả, không phải chữ cần đọc.
+    if (!text || text.length > 40 || !/\p{L}/u.test(text)) return;
+    if (!found.some((item) => item.toLocaleLowerCase("vi") === text.toLocaleLowerCase("vi")))
+      found.push(text);
+  };
+  for (const match of String(imagePrompt || "").matchAll(/['"\u2018\u2019\u201c\u201d]([^'"\u2018\u2019\u201c\u201d]{1,40})['"\u2018\u2019\u201c\u201d]/gu))
+    add(match[1]);
+  if (Array.isArray(props))
+    for (const prop of props) add((prop as { marks?: unknown } | null)?.marks);
+  return found.slice(0, 3);
+}
+
 export function framingCanShowFeet(camera: string): boolean {
   const text = camera.toLocaleLowerCase("vi");
   if (!text.trim()) return true;
@@ -672,7 +706,26 @@ export function compileStoryboards(
                   },
                 ]
               : shotRequirements;
-            for (const requirement of withFootwear)
+            const legibleText = legibleTextRequests(
+              String(shot.imagePrompt || ""),
+              shot.props,
+            ).filter(
+              (text) => !withFootwear.some((requirement) => requirement.description.includes(text)),
+            );
+            const withText: VisualRequirement[] = legibleText.length
+              ? [
+                  ...withFootwear,
+                  {
+                    id: "legible_text",
+                    kind: "text",
+                    description: `Chữ trên đạo cụ phải đọc đúng từng ký tự và đúng dấu tiếng Việt: ${legibleText.map((text) => `“${text}”`).join(", ")}. Sai dấu hoặc sai chữ là không đạt.`,
+                    visibleWhen: "opening",
+                    importance: "critical",
+                    legibility: "readable",
+                  },
+                ]
+              : withFootwear;
+            for (const requirement of withText)
               requirements.push({ ...requirement, id: `${prefix}_${requirement.id}` });
             const shotImages = Array.isArray(shot.referenceImages)
               ? (shot.referenceImages as DirectorReferenceImage[])
@@ -693,7 +746,12 @@ export function compileStoryboards(
                 id: `${prefix}_${image.id}`,
                 requirementIds: [
                   ...image.requirementIds,
-                  ...(needsFootwear && imageIndex === 0 ? ["footwear"] : []),
+                  ...(imageIndex === 0
+                    ? [
+                        ...(needsFootwear ? ["footwear"] : []),
+                        ...(legibleText.length ? ["legible_text"] : []),
+                      ]
+                    : []),
                 ].map((id) => `${prefix}_${id}`),
               });
           }

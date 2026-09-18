@@ -10,6 +10,7 @@ import {
   unpackStory,
   framingCanShowFeet,
   footwearClause,
+  legibleTextRequests,
 } from "./family-ai-contract";
 import type { Story } from "./family-catalogue";
 
@@ -364,5 +365,38 @@ describe("footwearClause", () => {
 
   it("giữ nguyên khi cả đoạn chỉ có một câu", () => {
     expect(footwearClause("Cả nhà đi chân trần trên cát")).toBe("Cả nhà đi chân trần trên cát");
+  });
+});
+
+describe("legibleTextRequests", () => {
+  it("bắt được mẩu chữ mà mô tả ảnh đòi in trên đạo cụ", () => {
+    expect(
+      legibleTextRequests(
+        "Medium shot of Đậu Đỏ near a fridge with a 'CẤM MỞ' sign taped to the door.",
+        undefined,
+      ),
+    ).toEqual(["CẤM MỞ"]);
+  });
+
+  it("gộp chữ ghi trên đạo cụ và bỏ bản trùng", () => {
+    expect(
+      legibleTextRequests('Tấm biển "CẤM MỞ" dán trên cửa tủ.', [
+        { marks: "CẤM MỞ" },
+        { marks: "20.000đ" },
+      ]),
+    ).toEqual(["CẤM MỞ", "20.000đ"]);
+  });
+
+  it("bỏ qua câu mô tả dài nằm trong ngoặc kép", () => {
+    expect(
+      legibleTextRequests(
+        'Khung mở "một gian bếp gia đình ấm cúng với ánh nắng buổi sáng tràn qua cửa sổ" nhìn từ xa.',
+        undefined,
+      ),
+    ).toEqual([]);
+  });
+
+  it("không đòi đọc gì khi mô tả không có chữ nào trong ngoặc", () => {
+    expect(legibleTextRequests("Bánh Bao đứng trước tủ lạnh.", [])).toEqual([]);
   });
 });
