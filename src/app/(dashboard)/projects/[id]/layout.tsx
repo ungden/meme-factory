@@ -1,54 +1,25 @@
-import { ReactNode } from "react";
-import { notFound } from "next/navigation";
-import { createServerSupabase } from "@/lib/supabase/server";
+"use client";
 
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
+import { useParams } from "next/navigation";
+import type { ReactNode } from "react";
+import Sidebar from "@/components/layout/sidebar";
 
-export const dynamic = "force-dynamic";
-
-function hasSupabaseConfig(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  return Boolean(url && key && url.startsWith("https://") && !url.includes("placeholder"));
-}
-
-export default async function ProjectScopedLayout({
-  children,
-  params,
-}: {
-  children: ReactNode;
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-
-  // The client store already ships with realistic mock projects. Keep the
-  // project shell reachable in local preview when provider credentials are not
-  // configured; production always takes the authenticated/RLS path below.
-  if (!hasSupabaseConfig()) {
-    return <>{children}</>;
-  }
-
-  const supabase = await createServerSupabase();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    notFound();
-  }
-
-  const query = supabase.from("projects").select("id").limit(1);
-  const { data: project } = isUuid(id)
-    ? await query.eq("id", id).maybeSingle()
-    : await query.eq("slug", id).maybeSingle();
-
-  // RLS decides visibility (owner or shared member). If not visible -> 404.
-  if (!project) {
-    notFound();
-  }
-
-  return <>{children}</>;
+/**
+ * Khung chung cho mọi trang bên trong một dự án.
+ *
+ * Trước đây từng trang tự import Sidebar, nên trang nào quên thì người dùng rơi
+ * vào ngõ cụt — `/short-films`, lối vào chính của tính năng làm phim, là đúng
+ * một trang như vậy. Sidebar là `fixed` nên chỉ cần dựng một lần ở đây, và
+ * phần chừa chỗ cho nó (`lg:pl-56`) cũng về một chỗ thay vì lặp lại trong từng
+ * trang — mỗi lần lặp lại là một chỗ có thể quên.
+ */
+export default function ProjectLayout({ children }: { children: ReactNode }) {
+  const params = useParams<{ id: string }>();
+  const projectRef = typeof params?.id === "string" ? params.id : "";
+  return (
+    <>
+      <Sidebar projectId={projectRef} />
+      <div className="min-h-screen lg:pl-56">{children}</div>
+    </>
+  );
 }

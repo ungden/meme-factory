@@ -13,7 +13,6 @@ import {
   Volume2,
   Wand2,
 } from "lucide-react";
-import Sidebar from "@/components/layout/sidebar";
 import { useCharacters, useMemes, useProject } from "@/lib/use-store";
 import {
   SEEDANCE_VARIANTS,
@@ -590,8 +589,7 @@ export default function VideoStudioPage() {
 
   return (
     <div className="flex">
-      <Sidebar projectId={projectRef} projectName={project?.name} />
-      <main className="ml-0 min-h-screen flex-1 p-4 pt-16 lg:ml-56 md:p-8 lg:p-10">
+      <main className="min-h-screen flex-1 p-4 pt-16 md:p-8 lg:p-10">
         <div className="mx-auto max-w-7xl">
           <header className="mb-6">
             <h1 className="text-2xl font-semibold tracking-tight th-text-primary">

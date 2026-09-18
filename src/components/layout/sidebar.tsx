@@ -39,6 +39,8 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
   const { theme, toggleTheme } = useTheme();
   const { points, isLoading: walletLoading } = useWallet();
   const [projectPoints, setProjectPoints] = useState<number | null>(null);
+  // App shell dựng Sidebar từ layout nên không có sẵn tên dự án; lấy kèm số dư.
+  const [fetchedName, setFetchedName] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -85,11 +87,13 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         return;
       }
       try {
-        const data = await fetchJsonCached<{ points?: number }>(
+        const data = await fetchJsonCached<{ points?: number; project_name?: string }>(
           `/api/projects/${projectId}/wallet`,
           15_000,
         );
-        if (active) setProjectPoints(Number(data.points || 0));
+        if (!active) return;
+        setProjectPoints(Number(data.points || 0));
+        if (data.project_name) setFetchedName(String(data.project_name));
       } catch {
         // ignore
       }
@@ -281,7 +285,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
                 Dự án
               </p>
               <p className="text-sm font-medium th-text-primary truncate mt-0.5">
-                {projectName || "..."}
+                {projectName || fetchedName || "..."}
               </p>
             </div>
             <div

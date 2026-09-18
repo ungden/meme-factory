@@ -16,7 +16,6 @@ import {
   UploadCloud,
   X,
 } from "lucide-react";
-import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
 import Card, { CardContent } from "@/components/ui/card";
 import Input from "@/components/ui/input";
@@ -232,8 +231,7 @@ export default function MascotsPage() {
 
   return (
     <div className="flex">
-      <Sidebar projectId={projectRef} projectName={project?.name} />
-      <main className="ml-0 lg:ml-56 flex-1 p-4 pt-16 md:p-8">
+      <main className="flex-1 p-4 pt-16 md:p-8">
         <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold th-text-primary">Mascot</h1>

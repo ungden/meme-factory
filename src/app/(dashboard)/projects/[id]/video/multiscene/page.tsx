@@ -25,7 +25,6 @@ import {
   ArrowDown,
   Sparkles,
 } from "lucide-react";
-import Sidebar from "@/components/layout/sidebar";
 import { useCharacters, useProject } from "@/lib/use-store";
 import {
   GEMINI_TTS_MODELS,
@@ -1102,8 +1101,7 @@ export default function ShortFilmPage() {
   if (!ready)
     return (
       <div className="flex">
-        <Sidebar projectId={ref} projectName={project?.name} />
-        <main className="min-h-dvh min-w-0 flex-1 px-4 pb-24 pt-20 lg:ml-56 lg:p-6">
+        <main className="min-h-dvh min-w-0 flex-1 px-4 pb-24 pt-20 lg:p-6">
           <div className="mx-auto max-w-[1440px] animate-pulse space-y-4">
             <div className="h-8 w-56 rounded-lg th-bg-card" />
             <div className="h-4 w-full max-w-xl rounded th-bg-card" />
@@ -1119,8 +1117,7 @@ export default function ShortFilmPage() {
     );
   return (
     <div className="flex">
-      <Sidebar projectId={ref} projectName={project?.name} />
-      <main className="min-h-dvh min-w-0 flex-1 px-4 pb-24 pt-20 lg:ml-56 lg:p-6">
+      <main className="min-h-dvh min-w-0 flex-1 px-4 pb-24 pt-20 lg:p-6">
         <div className="mx-auto max-w-[1440px]">
           <header className="mb-5">
             <h1 className="text-2xl font-semibold th-text-primary">

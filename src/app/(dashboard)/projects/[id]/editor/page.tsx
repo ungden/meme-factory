@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import Sidebar from "@/components/layout/sidebar";
 import MemeEditor from "@/components/editor/meme-editor";
 import { createDocForRawImage, validateMemeDoc } from "@/lib/meme-doc/schema";
 import { useMemes, useProject } from "@/lib/use-store";
@@ -46,8 +45,7 @@ export default function MemeEditorPage() {
 
   return (
     <div className="flex">
-      <Sidebar projectId={projectRef} projectName={project?.name} />
-      <main className="ml-0 lg:ml-56 flex-1 p-4 pt-16 md:p-8">
+      <main className="flex-1 p-4 pt-16 md:p-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold th-text-primary">Ghép chữ</h1>
           <p className="th-text-tertiary mt-1">

@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
 import { Archive, Check, ChevronLeft, Crop, Dna, Grid2x2, Images, RefreshCw, ShieldCheck, Sparkles, Type, Upload } from "lucide-react";
-import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
@@ -134,8 +133,7 @@ export default function MascotDetailPage() {
   if (!character) {
     return (
       <div className="flex">
-        <Sidebar projectId={projectRef} projectName={project?.name} />
-        <main className="ml-0 lg:ml-56 flex-1 p-4 pt-16 md:p-8">
+        <main className="flex-1 p-4 pt-16 md:p-8">
           <p className="th-text-tertiary">Đang tải mascot…</p>
         </main>
       </div>
@@ -144,8 +142,7 @@ export default function MascotDetailPage() {
 
   return (
     <div className="flex">
-      <Sidebar projectId={projectRef} projectName={project?.name} />
-      <main className="ml-0 lg:ml-56 flex-1 p-4 pt-16 md:p-8">
+      <main className="flex-1 p-4 pt-16 md:p-8">
         <Link href={`/projects/${projectRef}/mascots`} className="mb-4 inline-flex items-center gap-1 text-sm th-text-tertiary hover:th-text-primary">
           <ChevronLeft size={15} /> Tất cả mascot
         </Link>

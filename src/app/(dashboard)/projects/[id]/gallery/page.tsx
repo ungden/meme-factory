@@ -3,7 +3,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useProject, useMemes } from "@/lib/use-store";
-import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
 import Card from "@/components/ui/card";
 import Modal from "@/components/ui/modal";
@@ -351,8 +350,7 @@ export default function GalleryPage() {
 
   return (
     <div className="flex">
-      <Sidebar projectId={projectId} projectName={project?.name} />
-      <main className="ml-0 lg:ml-56 flex-1 p-4 pt-16 md:p-8">
+      <main className="flex-1 p-4 pt-16 md:p-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>

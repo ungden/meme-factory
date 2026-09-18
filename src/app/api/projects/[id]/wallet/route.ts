@@ -50,6 +50,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   return NextResponse.json({
     project_id: project.id,
+    // Sidebar cần tên dự án và số điểm cùng lúc; trả chung để khỏi thêm một
+    // lượt gọi mạng trên mọi trang trong dự án.
+    project_name: project.name,
     points: wallet?.points ?? 0,
     transactions: transactions ?? [],
   });

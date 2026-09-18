@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useParams } from "next/navigation";
 import { Check, Trash2, Upload } from "lucide-react";
-import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import Input from "@/components/ui/input";
@@ -99,8 +98,7 @@ export default function BrandSettingsPage() {
 
   return (
     <div className="flex">
-      <Sidebar projectId={projectRef} projectName={project?.name} />
-      <main className="ml-0 lg:ml-56 min-w-0 flex-1 p-4 pt-16 md:p-8">
+      <main className="min-w-0 flex-1 p-4 pt-16 md:p-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold th-text-primary">Thương hiệu</h1>
           <p className="th-text-tertiary mt-1">

@@ -10,7 +10,6 @@ import {
   isAcceptableReferenceFile,
   type ContentVariation,
 } from "./_lib/visual-prompt";
-import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import Input from "@/components/ui/input";
@@ -970,8 +969,7 @@ export default function GeneratePage() {
   if (loading) {
     return (
       <div className="flex">
-        <Sidebar projectId={projectId} />
-        <main className="ml-0 lg:ml-56 flex-1 p-4 pt-16 md:p-8">
+        <main className="flex-1 p-4 pt-16 md:p-8">
         <div
           className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3"
           style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
@@ -993,8 +991,7 @@ export default function GeneratePage() {
 
   return (
     <div className="flex">
-      <Sidebar projectId={projectId} projectName={project?.name} />
-      <main className="ml-0 lg:ml-56 flex-1 p-4 pt-16 md:p-8">
+      <main className="flex-1 p-4 pt-16 md:p-8">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight th-text-primary">Tạo ảnh</h1>

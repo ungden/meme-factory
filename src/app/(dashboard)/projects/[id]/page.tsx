@@ -13,7 +13,6 @@ import {
   Users,
 } from "lucide-react";
 import { useProject } from "@/lib/use-store";
-import Sidebar from "@/components/layout/sidebar";
 import { humanizeError } from "@/lib/error-messages";
 
 export default function ProjectOverviewPage() {
@@ -90,8 +89,7 @@ export default function ProjectOverviewPage() {
   if (loading) {
     return (
       <div className="flex">
-        <Sidebar projectId={projectId} />
-        <main className="ml-0 min-h-screen flex-1 p-4 pt-16 lg:ml-56 md:p-8">
+        <main className="min-h-screen flex-1 p-4 pt-16 md:p-8">
           <div className="mx-auto max-w-7xl animate-pulse space-y-6">
             <div className="h-9 w-72 rounded-lg th-bg-tertiary" />
             <div className="h-72 rounded-3xl th-bg-card" />
@@ -135,8 +133,7 @@ export default function ProjectOverviewPage() {
 
   return (
     <div className="flex">
-      <Sidebar projectId={projectId} projectName={project.name} />
-      <main className="ml-0 min-h-screen flex-1 p-4 pt-16 lg:ml-56 md:p-8 lg:p-10">
+      <main className="min-h-screen flex-1 p-4 pt-16 md:p-8 lg:p-10">
         <div className="mx-auto max-w-7xl">
           <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>

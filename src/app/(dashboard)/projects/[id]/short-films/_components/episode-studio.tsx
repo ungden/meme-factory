@@ -245,7 +245,9 @@ export default function EpisodeStudio() {
     api(`${base}/production-runs/${run!.id}`, { action: "resume", ...body }, "PATCH");
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6">
+    // pt-16 chừa chỗ cho nút mở menu trên điện thoại; tránh sidebar
+    // cố định của app shell.
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-6 pt-16 sm:px-6 lg:ml-0 lg:pt-6">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold th-text-primary">Tạo phim</h1>
         <p className="text-sm th-text-secondary">Từ ý tưởng tới phim hoàn chỉnh. AI làm từng bước và chỉ hỏi bạn khi cần.</p>
