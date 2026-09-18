@@ -12,9 +12,9 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * Chờ Next nội bộ tới lúc thực sự phục vụ được.
  *
  * Trước đây chỉ cần "có phản hồi HTTP" là đủ, nghĩa là một trang 500 cũng tính
- * là sẵn sàng và worker chạy tiếp vào chỗ hỏng. Giờ đọc đúng /api/health: bắt
- * buộc mục `database` xanh, vì đó là thứ worker cần để làm được việc. Thiếu cấu
- * hình không liên quan đến worker thì chỉ ghi log, không chặn khởi động.
+ * là sẵn sàng và worker chạy tiếp vào chỗ hỏng. Giờ đọc đúng /api/health và chờ
+ * mục `database` xanh, vì đó là thứ worker cần để làm được việc. Thiếu cấu hình
+ * không liên quan đến worker thì chỉ ghi log, không chặn khởi động.
  */
 async function waitForLocalApp() {
   const deadline = Date.now() + 90_000;
@@ -44,7 +44,13 @@ async function waitForLocalApp() {
     }
     await sleep(500);
   }
-  throw new Error(`Next nội bộ không sẵn sàng sau 90 giây (${lastReason}).`);
+  // Không ném: một container không khởi động được sẽ bị Railway restart mãi, và
+  // vòng lặp đó im lặng hơn nhiều so với một worker chạy mà báo lỗi. Worker có
+  // client Supabase riêng nên vẫn làm được việc khi app nội bộ chưa khoẻ; nhịp
+  // thở không xuất hiện sẽ kích hoạt cảnh báo trong 5 phút.
+  console.error(
+    `Next nội bộ chưa khoẻ sau 90 giây (${lastReason}). Worker vẫn khởi động ở trạng thái giảm chất lượng.`,
+  );
 }
 
 try {
