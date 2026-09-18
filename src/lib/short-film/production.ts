@@ -52,6 +52,14 @@ import { ensureProjectPoints } from "../project-points";
 import { errorCode, kindLabel, stageLabel } from "../error-messages";
 
 /** Mã báo hết ngân sách/điểm; mọi mã khác là lỗi thật và phải nổi lên. */
+/**
+ * Số lần bước viết tự gọi lại trước khi hỏi người.
+ *
+ * Hai là đủ cho lỗi hay gặp nhất (model trả về JSON không hợp lệ hoặc trích dẫn
+ * lệch), và đủ ít để một kịch bản sai thật sự không nướng quota Gemini.
+ */
+const AUTO_SCRIPT_RETRIES = 2;
+
 const BUDGET_CODES = new Set([
   "PRODUCTION_BUDGET_EXCEEDED",
   "INSUFFICIENT_POINTS",
@@ -327,8 +335,8 @@ const directorInput = {
     savedState.benchmarkVersion ? savedState : emptyFamilyScriptState(),
   );
 
-  // Failed stages are only retried when the operator resumes the run; cap the
-  // automatic retry budget so a wedged stage asks a human instead of looping.
+  // Hết ngân sách thì mới hỏi người: một bước kẹt thật sự không được biến thành
+  // vòng lặp gọi model vô tận.
   if (row && row.status === "failed" && (row.attempts ?? 0) >= 6) {
     await patchRun(admin, run, {
       status: "needs_review",
@@ -418,9 +426,16 @@ const directorInput = {
           message: saveError.message,
         });
     } finally {
+      // Phần lớn lỗi ở bước viết là một câu trả lời hỏng của model, không phải
+      // một kịch bản sai: gọi lại là xong. Trước đây lần hỏng đầu tiên đã đỗ
+      // lượt chạy và đòi người vào bấm tiếp — đó là lý do có những lượt nằm im
+      // nhiều ngày vì một lỗi tự nó sẽ hết. Ngân sách 6 lần vẫn giữ nguyên cho
+      // lúc người dùng bấm tiếp; ở đây chỉ dùng hai lần đầu.
+      const retrying = attempts <= AUTO_SCRIPT_RETRIES;
       await patchRun(admin, run, {
-        status: "needs_review",
+        status: retrying ? "running" : "needs_review",
         phase: "script",
+        ...(retrying ? { delay_seconds: Math.min(60, 20 * attempts) } : {}),
         error: message.slice(0, 1000),
         snapshot: { scriptStage: stage, scriptStageError: message },
       });
