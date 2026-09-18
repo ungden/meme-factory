@@ -250,18 +250,15 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           <div className="flex h-7 w-7 items-center justify-center rounded-lg th-bg-accent-light th-text-accent">
             <Coins size={14} />
           </div>
-          <span className="text-sm font-medium th-text-secondary">
-            {projectId ? "Điểm dự án" : "Điểm"}
-          </span>
+          <span className="text-sm font-medium th-text-secondary">Điểm</span>
         </div>
+        {/* Một số dư duy nhất. Ví dự án và ví cá nhân vẫn là hai sổ phía sau,
+            nhưng hệ thống tự chuyển khi tạo nội dung, nên hiện hai con số chỉ
+            khiến người dùng tưởng mình hết điểm trong khi tài khoản còn tiền. */}
         <span className="text-sm font-bold th-text-primary">
-          {projectId
-            ? projectPoints === null
-              ? "..."
-              : projectPoints.toLocaleString("vi-VN")
-            : walletLoading
-              ? "..."
-              : points.toLocaleString("vi-VN")}
+          {walletLoading || (projectId && projectPoints === null)
+            ? "..."
+            : (points + (projectId ? (projectPoints ?? 0) : 0)).toLocaleString("vi-VN")}
         </span>
       </Link>
 
