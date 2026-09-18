@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/admin";
+import { authorizeInternal } from "@/lib/internal-auth";
 import { advanceProductionRun } from "@/lib/short-film/production";
 
 export const maxDuration = 180;
 export async function POST(request: NextRequest) {
-  const token = process.env.VIDEO_WORKER_TOKEN;
-  if (!token || request.headers.get("authorization") !== `Bearer ${token}`)
+  if (!authorizeInternal(request))
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const admin = getSupabaseAdmin();
   const body = await request.json().catch(() => ({}));

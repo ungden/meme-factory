@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Next đọc các biến này lúc build. Giá trị giả đủ để build tĩnh; không kết nối thật.
+  NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+
+jobs:
+  verify:
+    name: Lint · Types · Test · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # npm 10 vấp lỗi `edgesOut` với cây phụ thuộc của repo này.
+      - run: npm install -g npm@11
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm test
+      # dubbing.integration.mjs dựng clip thật bằng ffmpeg.
+      - name: Cài ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Kiểm thử node (ffmpeg, ghép tiếng, nhịp thoại)
+        run: npm run test:node
+      - run: npm run build
+
+  database:
+    name: Migrations · SQL tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Chỉ chạy khi repo có secret; PR từ fork không có secret nên bỏ qua.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm install -g npm@11
+      - run: npm ci
+      - name: Kiểm tra sổ migration
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          CI: "true"
+        run: npm run check:migrations
+      - name: Kiểm thử SQL
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          CI: "true"
+        run: npm run test:sql

@@ -22,8 +22,15 @@ export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // Skip auth check if Supabase is not configured yet
+  // Thiếu cấu hình Supabase thì không thể biết ai đang gọi. Ở môi trường phát
+  // triển, cho qua để còn dựng giao diện; ở production, cho qua nghĩa là mở
+  // toang mọi trang sau đăng nhập, nên trả 503 và dừng hẳn.
   if (!isValidUrl(supabaseUrl) || !supabaseKey) {
+    if (process.env.NODE_ENV === "production")
+      return new NextResponse(
+        JSON.stringify({ error: "Hệ thống chưa cấu hình xong. Vui lòng thử lại sau." }),
+        { status: 503, headers: { "content-type": "application/json", "cache-control": "no-store" } },
+      );
     return NextResponse.next({ request });
   }
 

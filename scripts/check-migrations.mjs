@@ -98,6 +98,14 @@ export function compareMigrations({ repo, ledger, malformed = [] }) {
 async function main() {
   const url = process.env.SUPABASE_DB_URL;
   if (!url) {
+    // Trên máy lập trình viên thiếu URL là chuyện thường. Trong CI thì không:
+    // im lặng bỏ qua ở đó nghĩa là cổng kiểm tra xanh mà chẳng kiểm gì.
+    if (process.env.CI) {
+      console.error(
+        "SUPABASE_DB_URL chưa được đặt trong CI. Thêm secret rồi chạy lại.",
+      );
+      return 1;
+    }
     console.log(
       "Bỏ qua đối chiếu migration: chưa đặt SUPABASE_DB_URL.\n" +
         "Đặt biến này trỏ tới database cần kiểm rồi chạy lại `npm run check:migrations`.",

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/admin";
 import { verifyWaveSpeedWebhook } from "@/lib/wavespeed";
+import { reportError } from "@/lib/observability";
 export async function POST(request: NextRequest) {
   const raw = await request.text();
   try {
@@ -31,7 +32,14 @@ export async function POST(request: NextRequest) {
       .in("status", ["queued", "running"]);
     if (legacy) throw legacy;
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (error) {
+    // Webhook hỏng trong im lặng là cách nhanh nhất để mất một video đã trả
+    // tiền mà không ai biết: provider thấy 500, thử lại vài lần rồi thôi.
+    await reportError(error, {
+      scope: "webhook.wavespeed",
+      tags: { webhookId: request.headers.get("webhook-id") },
+      extra: { bodyPreview: raw.slice(0, 500) },
+    });
     return NextResponse.json(
       { error: "Không xử lý được webhook" },
       { status: 500 },

@@ -7,19 +7,44 @@ const child = spawn("node", ["node_modules/next/dist/bin/next", "start", "-p", S
 });
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Chờ Next nội bộ tới lúc thực sự phục vụ được.
+ *
+ * Trước đây chỉ cần "có phản hồi HTTP" là đủ, nghĩa là một trang 500 cũng tính
+ * là sẵn sàng và worker chạy tiếp vào chỗ hỏng. Giờ đọc đúng /api/health: bắt
+ * buộc mục `database` xanh, vì đó là thứ worker cần để làm được việc. Thiếu cấu
+ * hình không liên quan đến worker thì chỉ ghi log, không chặn khởi động.
+ */
 async function waitForLocalApp() {
   const deadline = Date.now() + 90_000;
+  let lastReason = "chưa nhận được phản hồi";
   while (Date.now() < deadline) {
     if (child.exitCode !== null) throw new Error("Next nội bộ đã dừng trước khi worker khởi động.");
     try {
-      const response = await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(1000) });
-      // Any HTTP response proves the local Next listener is available.  Health
-      // may be protected or absent in older deployments.
-      if (response.status > 0) return;
-    } catch {}
+      const response = await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(2000) });
+      const body = await response.json().catch(() => null);
+      const checks = Array.isArray(body?.checks) ? body.checks : [];
+      const database = checks.find((check) => check.name === "database");
+      if (database?.ok) {
+        const failing = checks.filter((check) => !check.ok);
+        if (failing.length)
+          console.warn(
+            `Health còn mục chưa xanh, worker vẫn khởi động: ${failing
+              .map((check) => `${check.name} (${check.detail || "không rõ"})`)
+              .join(", ")}`,
+          );
+        return;
+      }
+      lastReason = database
+        ? `database: ${database.detail || "không truy vấn được"}`
+        : `health trả ${response.status}`;
+    } catch (error) {
+      lastReason = error instanceof Error ? error.message : String(error);
+    }
     await sleep(500);
   }
-  throw new Error("Next nội bộ không sẵn sàng sau 90 giây.");
+  throw new Error(`Next nội bộ không sẵn sàng sau 90 giây (${lastReason}).`);
 }
 
 try {

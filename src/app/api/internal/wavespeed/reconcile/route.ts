@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/admin";
+import { authorizeInternal } from "@/lib/internal-auth";
 import { getWaveSpeedPrediction } from "@/lib/wavespeed";
 
 export const maxDuration = 60;
@@ -110,13 +111,12 @@ async function reconcileJob(job: {
 }
 
 export async function POST(request: NextRequest) {
-  const token = process.env.VIDEO_WORKER_TOKEN;
-  if (!token)
+  if (!process.env.VIDEO_WORKER_TOKEN)
     return NextResponse.json(
       { error: "Worker credential is not configured." },
       { status: 503 },
     );
-  if (request.headers.get("authorization") !== `Bearer ${token}`)
+  if (!authorizeInternal(request))
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const admin = getSupabaseAdmin();
   const { data: jobs, error } = await admin

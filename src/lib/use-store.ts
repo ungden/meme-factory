@@ -30,7 +30,15 @@ function isSupabaseReady(): boolean {
   return !!url && url.startsWith("https://") && !url.includes("placeholder");
 }
 
-export const IS_MOCK_MODE = !isSupabaseReady();
+/**
+ * Chế độ dữ liệu giả cho lúc chưa cắm Supabase.
+ *
+ * Chỉ bật ngoài production. Trên production, thiếu cấu hình mà rơi vào dữ liệu
+ * giả là kịch bản tệ nhất: người dùng thấy một tài khoản có sẵn dự án mẫu,
+ * thao tác bình thường, và không có gì được lưu.
+ */
+export const IS_MOCK_MODE =
+  !isSupabaseReady() && process.env.NODE_ENV !== "production";
 
 const projectIdCache = new Map<string, { value: string | null; expiresAt: number; pending?: Promise<string | null> }>();
 

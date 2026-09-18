@@ -7,6 +7,7 @@ import {
   uploadMedia,
   VIDEO_MAX_BYTES,
 } from "./short-film/storage.mjs";
+import { reportError } from "./observability.mjs";
 /* Durable Railway worker: polls provider jobs and renders completed multi-scene plans. */
 import { createClient } from "@supabase/supabase-js";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -592,25 +593,86 @@ async function watermarkTick() {
   });
   if (!response.ok) throw new Error(`Watermark worker ${response.status}`);
 }
-async function loop(work, delay) {
+/** Trần thời gian chờ khi một vòng lặp liên tục hỏng. */
+const MAX_BACKOFF_MS = 60000;
+
+/**
+ * Chạy `work` mãi mãi, giãn dần khi hỏng liên tiếp.
+ *
+ * Không có backoff, một provider sập hay một khoá sai biến vòng lặp thành máy
+ * bắn log: mỗi `delay` một lỗi, hàng nghìn dòng mỗi giờ, và cái thật chìm nghỉm
+ * trong đó. Giãn gấp đôi tới trần rồi về lại `delay` ngay khi có một nhịp chạy
+ * được.
+ */
+async function loop(work, delay, name = "tick") {
+  let failures = 0;
   while (true) {
+    let wait = delay;
     try {
       await work();
+      failures = 0;
     } catch (error) {
-      console.error(
-        "Worker tick",
-        error instanceof Error ? error.message : error,
-      );
+      failures += 1;
+      wait = Math.min(delay * 2 ** (failures - 1), MAX_BACKOFF_MS);
+      await reportError(error, {
+        scope: `worker.${name}`,
+        tags: { failures },
+        extra: { waitMs: wait },
+      });
     }
-    await sleep(delay);
+    await sleep(wait);
   }
+}
+
+/**
+ * Báo "worker còn sống" để /api/health và cảnh báo biết khi Railway chết.
+ *
+ * Ghi thẳng bằng service role khi có, vì đó là đường ít mắt xích nhất; chỉ khi
+ * chạy ở chế độ proxy mới đi qua HTTP.
+ */
+async function heartbeatTick() {
+  const seenAt = new Date().toISOString();
+  if (supabase) {
+    const { data } = await supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "worker_heartbeat")
+      .maybeSingle();
+    const value = { ...(data?.value || {}), wavespeed: seenAt };
+    const { error } = await supabase
+      .from("system_settings")
+      .upsert(
+        { key: "worker_heartbeat", value, updated_at: seenAt },
+        { onConflict: "key" },
+      );
+    if (error) throw new Error(error.message);
+    return;
+  }
+  if (!appUrl || !workerToken) return;
+  const response = await fetch(
+    `${appUrl.replace(/\/$/, "")}/api/internal/worker-heartbeat`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${workerToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ worker: "wavespeed" }),
+      signal: AbortSignal.timeout(10000),
+    },
+  );
+  if (!response.ok) throw new Error(`Heartbeat ${response.status}`);
 }
 const film = directMode ? makeFilmWorker(supabase) : null;
 await Promise.all([
-  loop(directMode ? directTick : proxyTick, 10000),
-  loop(productionTick, 5000),
-  loop(watermarkTick, 5000),
+  loop(directMode ? directTick : proxyTick, 10000, directMode ? "direct" : "proxy"),
+  loop(productionTick, 5000, "production"),
+  loop(watermarkTick, 5000, "watermark"),
+  loop(heartbeatTick, 30000, "heartbeat"),
   ...(film
-    ? [loop(() => film.tick(false), 3000), loop(() => film.tick(true), 3000)]
+    ? [
+        loop(() => film.tick(false), 3000, "film"),
+        loop(() => film.tick(true), 3000, "film-priority"),
+      ]
     : []),
 ]);

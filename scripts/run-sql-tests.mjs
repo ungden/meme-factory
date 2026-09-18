@@ -14,6 +14,11 @@ import process from "node:process";
 import pg from "pg";
 
 const url = process.env.SUPABASE_DB_URL;
+if (!url && process.env.CI) {
+  // Xem chú thích trong check-migrations.mjs: CI không được phép bỏ qua.
+  console.error("SUPABASE_DB_URL chưa được đặt trong CI. Thêm secret rồi chạy lại.");
+  process.exit(1);
+}
 if (!url) {
   console.log(
     "Bỏ qua kiểm thử SQL: chưa đặt SUPABASE_DB_URL.\n" +

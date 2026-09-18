@@ -2,6 +2,9 @@
   "name": "aida",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.20"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -11,7 +14,8 @@
     "test:coverage": "vitest run --coverage",
     "test:sql": "node scripts/run-sql-tests.mjs",
     "video-worker": "node scripts/wavespeed-worker.mjs",
-    "check:migrations": "node scripts/check-migrations.mjs"
+    "check:migrations": "node scripts/check-migrations.mjs",
+    "test:node": "node --test scripts/tests/dubbing.integration.mjs scripts/tests/short-film-edit-range.mjs scripts/tests/short-film-media.mjs scripts/tests/speech-pace.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.44.0",
