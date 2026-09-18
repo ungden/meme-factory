@@ -1,4 +1,5 @@
 import { watermarkFilters } from "./watermark.mjs";
+import { characterReferenceSources } from "./character-references.mjs";
 import {
   validateDubCue,
   dubArguments,
@@ -239,13 +240,7 @@ export function makeFilmWorker(db) {
       const parts = [{ text: t.input.prompt }];
       let referenceIndex = 0;
       for (const c of t.input.cast || []) {
-        const characterSources = (
-          Array.isArray(c.referenceImages) && c.referenceImages.length
-            ? c.referenceImages
-            : [c.imageUrl]
-        )
-          .filter(Boolean)
-          .slice(0, 2);
+        const characterSources = characterReferenceSources(c);
         for (const characterSource of characterSources) {
           referenceIndex += 1;
           const file = path.join(dir, `ref-${referenceIndex}`);
