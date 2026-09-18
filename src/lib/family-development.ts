@@ -376,6 +376,16 @@ export function validateSelection(
 export function validateEditorialReview(
   value: unknown,
   story: Story,
+  /**
+   * Ý tưởng gốc của người dùng.
+   *
+   * Khi lỗi được nêu chính là "bản diễn thiếu một cảnh người dùng yêu cầu" thì
+   * theo định nghĩa không có câu nào trong bản diễn để trích — thứ duy nhất
+   * trích được là chính câu trong ý tưởng. Trước đây những nhận xét đúng như vậy
+   * bị loại vì "trích sai", và lần thử kế tiếp học cách nói bản diễn trung thành
+   * để qua được kiểm tra.
+   */
+  userIntent?: string,
 ): EditorialReview {
   const r = value as EditorialReview;
   // Mỗi lý do hỏng được đặt tên riêng. Một mã lỗi chung cho năm nguyên nhân
@@ -404,6 +414,7 @@ export function validateEditorialReview(
       `${d.text} (${d.action})`,
     ]),
   ];
+  const issueSources = userIntent ? [...storySources, userIntent] : storySources;
   r.issues.forEach((i, index) => {
     const at = `issues[${index}]`;
     if (!i) throw new Error(`FAMILY_EDITORIAL_REVIEW_INVALID: ${at} rỗng`);
@@ -414,7 +425,7 @@ export function validateEditorialReview(
       throw new Error(`FAMILY_EDITORIAL_REVIEW_INVALID: ${at} thiếu ${missing.join(", ")}`);
     // Cùng mức khoan dung với intentCheck.evidence: reviewer hay viết
     // `Câu 3: "…"` thay vì dán trần câu thoại, và đó vẫn là trích đúng.
-    if (!groundedEvidence(i.quote, storySources))
+    if (!groundedEvidence(i.quote, issueSources))
       throw new Error(
         `FAMILY_EDITORIAL_REVIEW_INVALID: ${at}.quote không có trong bản diễn — ${i.quote.slice(0, 80)}`,
       );

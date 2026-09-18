@@ -523,3 +523,21 @@ it("chỉ ra đúng câu trích không có trong bản diễn", () => {
     ),
   ).toThrow(/issues\[0\]\.quote không có trong bản diễn/);
 });
+
+it("cho phép nêu lỗi bằng chính câu trong ý tưởng khi cảnh đó bị thiếu", () => {
+  const intent =
+    "Bánh Bao dán giấy cấm mở tủ. Đậu Đỏ tìm mọi cách lấy miếng bánh flan bên trong.";
+  const issue = {
+    location: "intentCheck",
+    quote: "Đậu Đỏ tìm mọi cách lấy miếng bánh flan bên trong",
+    reason: "Bản diễn không có phân đoạn này; Đậu Đỏ chỉ đứng canh.",
+  };
+  // Không có ý tưởng thì đây vẫn là trích sai — câu đó không nằm trong bản diễn.
+  expect(() => validateEditorialReview({ ...review, issues: [issue] }, story)).toThrow(
+    /không có trong bản diễn/,
+  );
+  // Có ý tưởng thì nhận xét đúng này phải đi qua được, vì một cảnh bị THIẾU thì
+  // không có câu nào trong bản diễn để trích.
+  const r = validateEditorialReview({ ...review, issues: [issue] }, story, intent);
+  expect(r.issues[0].quote).toBe(issue.quote);
+});
