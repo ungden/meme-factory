@@ -234,6 +234,14 @@ export type FilmCast = {
   personality: string;
   imageUrl: string;
   referenceImages: string[];
+  /**
+   * Vai trò của từng ảnh chuẩn (`identity_face`, `identity_body`, `look`…).
+   *
+   * Cần để biết bộ ảnh có ảnh cận mặt hay không: thiếu nó thì khuôn mặt đổi
+   * giữa các cảnh, và trước đây không chỗ nào phát hiện được điều đó vì cast
+   * chỉ mang danh sách URL.
+   */
+  referenceRoles?: string[];
   assetVersionId?: string | null;
   assetVersion?: number | null;
   /** One-off guest generated for this single plan; never in the character library. */

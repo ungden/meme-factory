@@ -370,6 +370,9 @@ export async function freezeCast(
             referenceImages: orderedReferences
               .map((reference: { image_url: string }) => reference.image_url)
               .filter(Boolean),
+            referenceRoles: orderedReferences
+              .map((reference: { role?: string | null }) => String(reference.role || ""))
+              .filter(Boolean),
             assetVersionId: v!.id,
             assetVersion: v!.version,
           }

@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { FilmPlan } from "@/lib/short-film/contracts";
 import ConfirmModal from "@/components/ui/confirm-modal";
+import { castIdentityGaps } from "@/lib/short-film/cast-quality";
 import { suggestHashtags } from "@/lib/post-text";
 import { api } from "../../video/multiscene/_lib/draft";
 import {
@@ -220,11 +222,19 @@ export default function EpisodeStudio() {
   const advancedHref = `/projects/${ref}/video/multiscene${plan ? `?plan=${plan.id}` : ""}`;
 
   const names = new Map<string, string>();
+  const castByCharacter = new Map<
+    string,
+    NonNullable<typeof plan>["video_plan_scenes"][number]["cast_snapshot"][number]
+  >();
   for (const scene of plan?.video_plan_scenes || [])
     for (const member of scene.cast_snapshot) {
       names.set(member.characterId, member.name);
       if (member.guestKey) names.set(member.guestKey, member.name);
+      if (!castByCharacter.has(member.characterId)) castByCharacter.set(member.characterId, member);
     }
+  // Thiếu ảnh cận mặt thì khuôn mặt đổi giữa các cảnh — người dùng phải biết
+  // trước khi tiêu điểm, chứ không phải sau khi xem phim xong.
+  const castGaps = castIdentityGaps([...castByCharacter.values()]);
   const lines =
     plan?.story?.dialogue?.map((line) => ({
       speaker: names.get(line.characterId) || "Nhân vật",
@@ -257,6 +267,17 @@ export default function EpisodeStudio() {
         <h1 className="text-2xl font-semibold th-text-primary">Tạo phim</h1>
         <p className="text-sm th-text-secondary">Từ ý tưởng tới phim hoàn chỉnh. AI làm từng bước và chỉ hỏi bạn khi cần.</p>
       </header>
+
+      {castGaps.length > 0 && (
+        <div className="rounded-lg border th-border-warning th-bg-warning-light px-3 py-2 text-sm th-text-warning">
+          {castGaps.map((gap) => (
+            <p key={gap.characterId}>{gap.message}</p>
+          ))}
+          <Link href={`/projects/${ref}/mascots`} className="mt-1 inline-block font-semibold underline">
+            Mở trang Nhân vật
+          </Link>
+        </div>
+      )}
 
       {error && (
         <p role="alert" className="rounded-lg border th-border-danger th-bg-danger-light px-3 py-2 text-sm th-text-danger">
