@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import SharePost from "@/components/content/share-post";
+import PromptModal from "@/components/ui/prompt-modal";
 import { suggestHashtags } from "@/lib/post-text";
 import { useParams, useRouter } from "next/navigation";
 import { useProject, useMemes } from "@/lib/use-store";
@@ -50,6 +51,7 @@ export default function GalleryPage() {
   const { memes, loading, hasMore, loadingMore, loadMore, remove, reload } = useMemes(projectId);
   const [selectedMeme, setSelectedMeme] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [newCollectionOpen, setNewCollectionOpen] = useState(false);
 
   // Bulk selection state
   const [selectionMode, setSelectionMode] = useState(false);
@@ -443,19 +445,10 @@ export default function GalleryPage() {
               <button
                 type="button"
                 aria-label="Bộ sưu tập mới"
-                onClick={async () => {
-                  const name = window.prompt("Tên bộ sưu tập mới");
-                  if (!name?.trim()) return;
-                  try {
-                    await createCollection(name.trim());
-                    toast.success("Đã tạo bộ sưu tập");
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Không tạo được bộ sưu tập");
-                  }
-                }}
-                className="th-text-tertiary hover:th-text-primary"
+                onClick={() => setNewCollectionOpen(true)}
+                className="flex h-11 w-11 items-center justify-center rounded-lg th-text-tertiary th-bg-hover hover:th-text-primary lg:h-8 lg:w-8"
               >
-                <FolderPlus size={14} />
+                <FolderPlus size={16} />
               </button>
             </div>
             <CollectionRow
@@ -878,6 +871,24 @@ export default function GalleryPage() {
         </Modal>
 
         {/* Delete Confirmation */}
+        <PromptModal
+          isOpen={newCollectionOpen}
+          onClose={() => setNewCollectionOpen(false)}
+          onSubmit={async (name) => {
+            setNewCollectionOpen(false);
+            try {
+              await createCollection(name);
+              toast.success("Đã tạo bộ sưu tập");
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "Không tạo được bộ sưu tập");
+            }
+          }}
+          title="Bộ sưu tập mới"
+          label="Tên bộ sưu tập"
+          placeholder="VD: Bài đăng tháng 10"
+          confirmText="Tạo"
+        />
+
         <ConfirmModal
           isOpen={!!deleteTarget}
           onClose={() => setDeleteTarget(null)}
@@ -918,7 +929,7 @@ function CollectionRow({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors ${
+      className={`flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors lg:min-h-8 ${
         active ? "th-bg-accent-light th-text-accent" : "th-text-secondary th-bg-hover"
       }`}
     >

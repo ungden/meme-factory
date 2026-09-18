@@ -1030,6 +1030,7 @@ export default function GeneratePage() {
               <CardContent className="space-y-4">
                 <Textarea
                   id="idea"
+                  aria-label="Ý tưởng"
                   placeholder='VD: "Khi team dev nói deploy xong rồi nhưng bug vẫn còn nguyên", "Thị trường chứng khoán hôm nay đỏ lửa, anh em ôm nhau khóc"...'
                   value={idea}
                   onChange={(e) => setIdea(e.target.value)}
@@ -1040,7 +1041,7 @@ export default function GeneratePage() {
                     đây không có đường nào dẫn tới nó từ trong sản phẩm. */}
                 <Link
                   href={`/projects/${projectId}/ai-meme`}
-                  className="inline-flex items-center gap-1.5 text-sm th-text-accent hover:opacity-80"
+                  className="inline-flex min-h-11 items-center gap-1.5 text-sm th-text-accent hover:opacity-80 lg:min-h-0"
                 >
                   <Sparkles size={14} /> Bí ý tưởng? Lấy 6 câu gợi ý miễn phí
                 </Link>
@@ -1063,6 +1064,7 @@ export default function GeneratePage() {
                   >
                     <input
                       ref={refInputRef}
+                      aria-label="Chọn ảnh tham khảo"
                       type="file"
                       accept="image/*"
                       multiple
@@ -1193,7 +1195,7 @@ export default function GeneratePage() {
                       )}
 
                       <div>
-                        <p className="text-xs th-text-tertiary mb-1.5">Nhân vật dùng 1 lần (không lưu thư viện):</p>
+                        <label htmlFor="one-off-character" className="mb-1.5 block text-xs th-text-tertiary">Nhân vật dùng 1 lần (không lưu thư viện):</label>
                         <div className="flex gap-2">
                           <Input
                             id="one-off-character"
@@ -1236,7 +1238,7 @@ export default function GeneratePage() {
                         key={key}
                         type="button"
                         onClick={() => setFormat(key)}
-                        className={`px-2 py-2 rounded-lg text-xs border ${
+                        className={`flex min-h-11 items-center justify-center rounded-lg border px-2 py-2 text-xs lg:min-h-9 ${
                           format === key ? "th-border-accent th-bg-accent-light th-text-accent" : "th-bg-tertiary th-border th-text-secondary"
                         }`}
                       >
@@ -1488,6 +1490,7 @@ export default function GeneratePage() {
                         >
                           <input
                             ref={watermarkLogoInputRef}
+                            aria-label="Chọn ảnh logo"
                             type="file"
                             accept="image/*"
                             className="hidden"

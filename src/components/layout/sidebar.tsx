@@ -284,7 +284,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           <>
             <Link
               href="/projects"
-              className="flex items-center gap-2 px-3 py-2 text-sm th-text-muted transition-colors th-bg-hover rounded-xl"
+              className="flex min-h-11 items-center gap-2 px-3 py-2 text-sm th-text-muted transition-colors th-bg-hover rounded-xl lg:min-h-10"
             >
               <ChevronLeft size={16} />
               Tất cả dự án
@@ -359,7 +359,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
               type="button"
               aria-expanded={managementOpen}
               onClick={() => setManagementOpen((open) => !open)}
-              className="mt-3 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.16em] th-text-muted th-bg-hover"
+              className="mt-3 flex min-h-11 w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.16em] th-text-muted th-bg-hover lg:min-h-9"
             >
               Quản lý{" "}
               <ChevronDown
@@ -410,7 +410,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         {isAdmin && (
           <Link
             href="/admin"
-            className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all th-text-danger th-bg-hover"
+            className="w-full flex min-h-11 items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all th-text-danger th-bg-hover lg:min-h-10"
           >
             <Shield size={18} />
             Quản trị
@@ -418,14 +418,14 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         )}
         <Link
           href="/settings"
-          className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm th-text-secondary transition-all th-bg-hover"
+          className="w-full flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm th-text-secondary transition-all th-bg-hover lg:min-h-10"
         >
           <Settings size={18} />
           Cài đặt
         </Link>
         <Link
           href="/help"
-          className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm th-text-secondary transition-all th-bg-hover"
+          className="w-full flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm th-text-secondary transition-all th-bg-hover lg:min-h-10"
         >
           <HelpCircle size={18} />
           Hỗ trợ
@@ -435,7 +435,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           aria-label={
             theme === "light" ? "Chuyển giao diện tối" : "Chuyển giao diện sáng"
           }
-          className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm th-text-secondary transition-all cursor-pointer th-bg-hover"
+          className="w-full flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm th-text-secondary transition-all cursor-pointer th-bg-hover lg:min-h-10"
         >
           {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
           {theme === "light" ? "Giao diện tối" : "Giao diện sáng"}
@@ -445,7 +445,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           onClick={handleSignOut}
           aria-label="Đăng xuất"
           disabled={signingOut}
-          className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all cursor-pointer th-text-danger th-bg-hover"
+          className="w-full flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all cursor-pointer th-text-danger th-bg-hover lg:min-h-10"
         >
           <LogOut size={18} />
           {signingOut ? "Đang đăng xuất..." : "Đăng xuất"}
@@ -493,7 +493,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         <button
           onClick={() => setMobileOpen(false)}
           aria-label="Đóng menu"
-          className="absolute top-4 right-4 p-1.5 rounded-lg th-bg-hover th-text-muted"
+          className="absolute top-3 right-3 flex h-11 w-11 items-center justify-center rounded-lg th-bg-hover th-text-muted"
         >
           <X size={18} />
         </button>
@@ -541,7 +541,7 @@ function NavItem({
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all ${
+      className={`flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all lg:min-h-10 ${
         active
           ? "font-medium th-bg-accent-light th-text-accent"
           : "th-text-secondary th-bg-hover"

@@ -663,7 +663,7 @@ export default function VideoStudioPage() {
                 </div>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <label className="block text-sm font-semibold th-text-primary">
+                <label htmlFor="video-idea" className="block text-sm font-semibold th-text-primary">
                   Bạn muốn làm nội dung gì?
                 </label>
                 <button
@@ -676,6 +676,7 @@ export default function VideoStudioPage() {
                 </button>
               </div>
               <textarea
+                id="video-idea"
                 value={prompt}
                 onChange={(event) => {
                   markEdited();
@@ -683,7 +684,7 @@ export default function VideoStudioPage() {
                 }}
                 className="mt-2 min-h-36 w-full rounded-lg border p-3 text-sm outline-none th-bg-input th-text-primary th-ring-accent focus:ring-2"
                 style={{ borderColor: "var(--border-primary)" }}
-                placeholder="Ví dụ: Bánh Bao cố giấu chiếc bánh cuối cùng, Đậu Đỏ phát hiện ra và cả hai kết thúc bằng một câu đùa…"
+                placeholder="Ví dụ: nhân vật chính giấu miếng bánh cuối cùng, bị phát hiện, cả hai cùng cười…"
               />
               <label className="mt-3 block text-xs font-semibold th-text-secondary">
                 Caption bài đăng{" "}
@@ -860,7 +861,7 @@ export default function VideoStudioPage() {
                   type="checkbox"
                   className="h-4 w-4 th-accent-control"
                 />
-                <Volume2 size={16} /> Lồng tiếng Gemini
+                <Volume2 size={16} /> Có lồng tiếng
               </label>
               {audio && (
                 <div className="mt-3 space-y-2">

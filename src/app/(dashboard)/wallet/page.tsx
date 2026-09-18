@@ -300,6 +300,7 @@ export default function WalletPage() {
                     <input
                       type="text"
                       inputMode="numeric"
+                      aria-label="Số tiền muốn nạp"
                       placeholder="Số tiền khác..."
                       value={customAmount}
                       onChange={(e) => setCustomAmount(formatAmount(e.target.value))}

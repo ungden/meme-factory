@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import ConfirmModal from "@/components/ui/confirm-modal";
+import PromptModal from "@/components/ui/prompt-modal";
 import { FilmStoryboardEditor } from "@/components/film-storyboard-editor";
 import { FilmSegmentEditor } from "@/components/film-segment-editor";
 import { storyboardDialogue } from "@/lib/film-storyboard";
@@ -102,6 +103,7 @@ export default function ShortFilmPage() {
   // Hộp xác nhận theo chủ đề thay cho window.confirm, vốn hiện tên miền như
   // một cảnh báo bảo mật và không dịch được nút.
   const [removePlanOpen, setRemovePlanOpen] = useState(false);
+  const [regenerateTarget, setRegenerateTarget] = useState<FilmTask | null>(null);
   const [planQuery, setPlanQuery] = useState("");
   const [planFilter, setPlanFilter] = useState<"all" | EpisodePickerStatus>("all");
   const [nextPlansOffset, setNextPlansOffset] = useState<number | null>(null);
@@ -961,11 +963,7 @@ export default function ShortFilmPage() {
     );
     await run(result.quote as Quote);
   }
-  async function regenerate(t: FilmTask) {
-    const reason = window.prompt(
-      "Kết quả sai ở đâu? AI sẽ tạo lại công đoạn này ở lượt chạy tiếp theo.",
-    );
-    if (!reason?.trim()) return;
+  async function regenerate(t: FilmTask, reason: string) {
     await api(`${base}/film-tasks/${t.id}`, {
       action: "regenerate",
       reason,
@@ -2500,7 +2498,7 @@ export default function ShortFilmPage() {
                                 </button>
                                 <button
                                   disabled={!!busy}
-                                  onClick={() => act("Tạo lại ảnh", () => regenerate(task))}
+                                  onClick={() => setRegenerateTarget(task)}
                                   className="min-h-10 rounded-lg border th-border px-3 th-text-secondary"
                                 >
                                   Tạo lại
@@ -2637,7 +2635,7 @@ export default function ShortFilmPage() {
                           !t.auto_accepted_at && (
                           <button
                             disabled={!!busy}
-                            onClick={() => act("Tạo lại", () => regenerate(t))}
+                            onClick={() => setRegenerateTarget(t)}
                             className="min-h-11 rounded-lg border th-border px-3 text-sm th-text-secondary"
                           >
                             Tạo lại
@@ -2675,6 +2673,22 @@ export default function ShortFilmPage() {
           </div>
         </div>
       </main>
+
+      <PromptModal
+        isOpen={Boolean(regenerateTarget)}
+        onClose={() => setRegenerateTarget(null)}
+        onSubmit={(reason) => {
+          const target = regenerateTarget;
+          setRegenerateTarget(null);
+          if (target) void act("Tạo lại", () => regenerate(target, reason));
+        }}
+        title="Tạo lại công đoạn này"
+        message="AI sẽ làm lại ở lượt chạy tiếp theo."
+        label="Kết quả sai ở đâu?"
+        placeholder="VD: nhân vật đi giày, lẽ ra phải chân trần"
+        confirmText="Đánh dấu tạo lại"
+        multiline
+      />
 
       <ConfirmModal
         isOpen={removePlanOpen}
