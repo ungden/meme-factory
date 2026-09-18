@@ -125,8 +125,10 @@ describe("family catalogue", () => {
   });
   it("keeps motivated adult reasoning intact rather than censoring vocabulary", () => {
     const story = structuredClone(plans[0].story);
+    // Câu giữ nguyên lối lập luận của người lớn nhưng vừa nhịp short-form;
+    // bản cũ dài gần 9 giây và đã vi phạm trần độ dài một lượt thoại.
     story.dialogue[0].text =
-      "Chị làm chủ thì chị chia đi. Chia xong em mới chọn phe. Mà sao chị được hai cái, em có một cái?";
+      "Chị làm chủ thì chị chia đi. Sao chị được hai cái, em một cái?";
     expect(
       validateStory(
         story,
@@ -223,4 +225,29 @@ it("keeps legacy plans readable but requires an inversion and explicit stop in n
       ids,
     ),
   ).toThrow("STORY_ENDING_INVALID");
+});
+
+it("từ chối lượt thoại dài hơn nhịp short-form trước khi tốn tiền tạo giọng", () => {
+  const story = structuredClone(plans[0].story);
+  story.dialogue[0].text =
+    "Từ giờ đến tối, ai mở cái tủ này là con sâu mập! Em đứng canh chừng, không cho Bố mẹ đụng vào bánh flan của chị em mình nhé.";
+  expect(() =>
+    validateStory(
+      story,
+      profile,
+      cast.map((c) => c.characterId),
+    ),
+  ).toThrow(/STORY_LINE_TOO_LONG: lượt 1/);
+});
+
+it("vẫn nhận lượt thoại dài vừa phải của nhịp đối đáp bình thường", () => {
+  const story = structuredClone(plans[0].story);
+  story.dialogue[0].text = "Chị bảo ai mở tủ là 'con sâu' mà. Chị là con sâu to nhất nhà luôn.";
+  expect(
+    validateStory(
+      story,
+      profile,
+      cast.map((c) => c.characterId),
+    ).dialogue[0].text,
+  ).toContain("con sâu to nhất");
 });

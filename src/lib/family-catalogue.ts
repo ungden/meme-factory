@@ -4,6 +4,20 @@ import {
   PERFORMANCE_LANES,
   type PerformanceLane,
 } from "./performance-direction";
+import { spokenSeconds } from "./film-storyboard";
+
+/**
+ * Trần thời lượng ước tính cho một lượt thoại, tính bằng giây.
+ *
+ * Một cảnh trên Seedance 2.0 Fast dài tối đa 15 giây, và bộ đọc thoại luôn nói
+ * chậm hơn ước tính với câu dài: tập ngày 18/09 có một lượt ước tính 11,6 giây
+ * nhưng đọc ra 26 giây, vượt cả mức tăng tốc an toàn 1,25× — lượt chạy phải
+ * dừng lại hỏi người SAU KHI đã trả tiền tạo giọng. Chặn ngay lúc viết thì rẻ
+ * hơn nhiều, và phim cũng gọn hơn.
+ *
+ * 8 giây là mức rộng rãi: những lượt thoại tốt trong các tập đã phát đều dưới 7.
+ */
+const MAX_LINE_SECONDS = 8;
 /** Editorial references describe mechanisms only; no source dialogue or media is copied. */
 export const FAMILY_SERIES = [
   "Liên minh bí mật",
@@ -344,6 +358,17 @@ export function validateStory(
     s.dialogue.length - silentLines.length < 2
   )
     throw new Error("STORY_DIALOGUE_INVALID");
+  const longLine = s.dialogue.findIndex(
+    (d) => typeof d.text === "string" && spokenSeconds(d.text) > MAX_LINE_SECONDS,
+  );
+  if (longLine >= 0)
+    throw new Error(
+      `STORY_LINE_TOO_LONG: lượt ${longLine + 1} dài khoảng ${spokenSeconds(
+        s.dialogue[longLine].text,
+      )} giây, vượt trần ${MAX_LINE_SECONDS} giây của nhịp short-form. Tách thành hai lượt hoặc cắt bớt: “${s.dialogue[
+        longLine
+      ].text.slice(0, 60)}…”`,
+    );
   if (s.dialogue.length + (reactionIndex >= 0 ? 1 : 0) > 12)
     throw new Error(
       "STORY_SHOT_LIMIT: tối đa 12 shot kể cả reaction; giữ đối đáp, bỏ reaction nếu không cần",
