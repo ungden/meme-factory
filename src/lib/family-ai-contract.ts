@@ -492,6 +492,27 @@ export function compileStoryShots(
  * để thấy chân; khung không ghi rõ thì vẫn gắn, vì lỗi đi giày giữa các cảnh
  * chân trần từng lọt qua đúng ở những khung như vậy.
  */
+/**
+ * Rút đúng mệnh đề nói về giày dép trong trạng thái mở cảnh.
+ *
+ * Bản cũ nhét NGUYÊN trạng thái mở cảnh vào mô tả yêu cầu giày dép. Trạng thái
+ * đó thường kể cả ai đứng ở đâu ("Bánh Bao đứng trước tủ lạnh. Đậu Đỏ đứng bên
+ * cạnh. Cả hai đi chân trần."), nên người kiểm tra ảnh đọc yêu cầu "giày dép"
+ * rồi đi tìm luôn cả Đậu Đỏ — trong một khung medium chỉ quay Bánh Bao. Cảnh 3
+ * của tập ngày 18/09 bị từ chối hai lần đúng vì lý do này, mỗi lần tốn một vòng
+ * tạo lại.
+ */
+export function footwearClause(openingState: string): string {
+  const pattern = /chân trần|đi đất|giày|dép|guốc|tất|vớ/iu;
+  const sentences = openingState
+    .split(/(?<=[.!?;])\s+/u)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const matching = sentences.filter((sentence) => pattern.test(sentence));
+  const text = matching.length ? matching.join(" ") : openingState;
+  return text.slice(0, 200);
+}
+
 export function framingCanShowFeet(camera: string): boolean {
   const text = camera.toLocaleLowerCase("vi");
   if (!text.trim()) return true;
@@ -644,7 +665,7 @@ export function compileStoryboards(
                   {
                     id: "footwear",
                     kind: "spatial",
-                    description: `Giày dép đúng trạng thái đã ghi: ${opening.slice(0, 240)}`,
+                    description: `Giày dép đúng trạng thái đã ghi: ${footwearClause(opening)}`,
                     visibleWhen: "opening",
                     importance: "critical",
                     legibility: "recognizable",

@@ -9,6 +9,7 @@ import {
   storyShotCount,
   unpackStory,
   framingCanShowFeet,
+  footwearClause,
 } from "./family-ai-contract";
 import type { Story } from "./family-catalogue";
 
@@ -343,5 +344,25 @@ describe("framingCanShowFeet", () => {
   it("giữ yêu cầu ở khung rộng và khi khung không ghi rõ", () => {
     for (const camera of ["Wide shot cả căn bếp", "Toàn cảnh phòng khách", "Khung vừa", ""])
       expect(framingCanShowFeet(camera)).toBe(true);
+  });
+});
+
+describe("footwearClause", () => {
+  it("chỉ giữ câu nói về giày dép, bỏ phần tả ai đứng đâu", () => {
+    expect(
+      footwearClause(
+        "Bánh Bao đứng trước tủ lạnh, vẻ mặt nghiêm túc. Đậu Đỏ đứng bên cạnh, vẻ mặt thắc mắc. Cả hai đều đi chân trần.",
+      ),
+    ).toBe("Cả hai đều đi chân trần.");
+  });
+
+  it("gộp nhiều câu khi trạng thái nhắc giày dép ở nhiều chỗ", () => {
+    expect(footwearClause("Bố xỏ dép lê. Trời mưa. Đậu Đỏ chân trần chạy theo.")).toBe(
+      "Bố xỏ dép lê. Đậu Đỏ chân trần chạy theo.",
+    );
+  });
+
+  it("giữ nguyên khi cả đoạn chỉ có một câu", () => {
+    expect(footwearClause("Cả nhà đi chân trần trên cát")).toBe("Cả nhà đi chân trần trên cát");
   });
 });
