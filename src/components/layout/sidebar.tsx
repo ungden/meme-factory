@@ -20,7 +20,8 @@ import {
   Clapperboard,
   ChevronDown,
   HelpCircle,
-  Settings,} from "lucide-react";
+  Settings,
+  LayoutTemplate,} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 import { useTheme } from "@/components/theme-provider";
@@ -44,7 +45,9 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  const [managementOpen, setManagementOpen] = useState(false);
+  // Mở sẵn: đóng mặc định giấu mất Thương hiệu và Thành viên sau một cú bấm mà
+  // không có gì gợi ý là chúng ở đó.
+  const [managementOpen, setManagementOpen] = useState(true);
 
   // Check admin role
   useEffect(() => {
@@ -188,13 +191,19 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           href: `/projects/${projectId}/gallery`,
           label: "Nội dung đã lưu",
           icon: Image,
-          aliases: [`/projects/${projectId}/templates`],
         },
         {
           href: `/projects/${projectId}/mascots`,
           label: "Nhân vật",
           icon: Users,
           aliases: [`/projects/${projectId}/characters`],
+        },
+        {
+          // Trang mẫu tồn tại từ lâu nhưng không có mục nào dẫn tới, nên trong
+          // thực tế nó không tồn tại với người dùng.
+          href: `/projects/${projectId}/templates`,
+          label: "Mẫu có sẵn",
+          icon: LayoutTemplate,
         },
       ]
     : [];

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import ConfirmModal from "@/components/ui/confirm-modal";
 import { FilmStoryboardEditor } from "@/components/film-storyboard-editor";
 import { FilmSegmentEditor } from "@/components/film-segment-editor";
 import { storyboardDialogue } from "@/lib/film-storyboard";
@@ -98,6 +99,9 @@ export default function ShortFilmPage() {
   const [productionRuns, setProductionRuns] = useState<ProductionRun[]>([]);
   const [openingPlanId, setOpeningPlanId] = useState<string | null>(null);
   const [planPickerOpen, setPlanPickerOpen] = useState(false);
+  // Hộp xác nhận theo chủ đề thay cho window.confirm, vốn hiện tên miền như
+  // một cảnh báo bảo mật và không dịch được nút.
+  const [removePlanOpen, setRemovePlanOpen] = useState(false);
   const [planQuery, setPlanQuery] = useState("");
   const [planFilter, setPlanFilter] = useState<"all" | EpisodePickerStatus>("all");
   const [nextPlansOffset, setNextPlansOffset] = useState<number | null>(null);
@@ -542,14 +546,6 @@ export default function ShortFilmPage() {
   async function removeCurrentPlan() {
     if (!plan) return;
     const hasHistory = episodeHasHistory(plan);
-    if (
-      !window.confirm(
-        hasHistory
-          ? `Ẩn “${plan.title}” khỏi danh sách kịch bản? Video và lịch sử sản xuất vẫn được giữ.`
-          : `Xóa kịch bản “${plan.title}”? Thao tác này không thể hoàn tác.`,
-      )
-    )
-      return;
     await act(hasHistory ? "Ẩn kịch bản" : "Xóa kịch bản", async () => {
       await api(
         `${base}/video-plans/${plan.id}`,
@@ -1280,7 +1276,7 @@ export default function ShortFilmPage() {
                 type="button"
                 className="min-h-11 rounded-lg border border-red-200 px-3 text-sm text-red-600 disabled:opacity-60"
                 disabled={!!busy || !ready}
-                onClick={() => void removeCurrentPlan()}
+                onClick={() => setRemovePlanOpen(true)}
               >
                 {episodeHasHistory(plan) ? "Ẩn kịch bản" : "Xóa kịch bản"}
               </button>
@@ -2677,6 +2673,23 @@ export default function ShortFilmPage() {
           </div>
         </div>
       </main>
+
+      <ConfirmModal
+        isOpen={removePlanOpen}
+        onClose={() => setRemovePlanOpen(false)}
+        onConfirm={() => {
+          setRemovePlanOpen(false);
+          void removeCurrentPlan();
+        }}
+        title={plan && episodeHasHistory(plan) ? "Ẩn kịch bản này?" : "Xoá kịch bản này?"}
+        message={
+          plan && episodeHasHistory(plan)
+            ? `“${plan.title}” sẽ không còn trong danh sách. Video và lịch sử sản xuất vẫn được giữ.`
+            : `“${plan?.title ?? ""}” sẽ bị xoá. Thao tác này không thể hoàn tác.`
+        }
+        confirmText={plan && episodeHasHistory(plan) ? "Ẩn kịch bản" : "Xoá kịch bản"}
+        variant="danger"
+      />
     </div>
   );
 }

@@ -15,6 +15,7 @@ import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import Input from "@/components/ui/input";
 import Textarea from "@/components/ui/textarea";
 import Modal from "@/components/ui/modal";
+import Link from "next/link";
 import OutOfPointsModal from "@/components/wallet/out-of-points-modal";
 import { useToast } from "@/components/ui/toast";
 import { Zap, Sparkles, Download, Save, RotateCcw, ChevronRight, Wand2, ImageIcon, Loader2, Upload, X, Tags, Plus, Clapperboard } from "lucide-react";
@@ -1035,6 +1036,14 @@ export default function GeneratePage() {
                   rows={5}
                   className="text-base"
                 />
+                {/* Trang gợi ý câu thoại là AI văn bản nên miễn phí, nhưng trước
+                    đây không có đường nào dẫn tới nó từ trong sản phẩm. */}
+                <Link
+                  href={`/projects/${projectId}/ai-meme`}
+                  className="inline-flex items-center gap-1.5 text-sm th-text-accent hover:opacity-80"
+                >
+                  <Sparkles size={14} /> Bí ý tưởng? Lấy 6 câu gợi ý miễn phí
+                </Link>
                 {/* Reference image upload */}
                 <div>
                   <p className="text-xs font-medium th-text-secondary mb-2 flex items-center gap-1.5">
@@ -1342,7 +1351,7 @@ export default function GeneratePage() {
                           Tạo ảnh bằng AI ({POINT_COSTS.meme} pts)
                         </Button>
                         <p className="text-xs th-text-muted">
-                          Ví dự án còn <strong>{projectPoints}</strong> points
+                          Ví dự án còn <strong>{projectPoints}</strong> điểm
                         </p>
                       </div>
                     )}

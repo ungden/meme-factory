@@ -107,7 +107,7 @@ export default function WalletPage() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Không thể mua points");
+        throw new Error(data.error || "Không thể mua điểm");
       }
 
       toast.success(`Đã mua gói ${data.packageName} — +${data.purchased} points!`);
@@ -115,7 +115,7 @@ export default function WalletPage() {
       setBuyingPackage(null);
       setPurchaseKey(null);
     } catch (e: unknown) {
-      toast.error((e as Error).message || "Lỗi mua points");
+      toast.error((e as Error).message || "Lỗi mua điểm");
     } finally {
       setIsBuying(false);
     }
@@ -135,7 +135,7 @@ export default function WalletPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold th-text-primary">Ví tiền</h1>
-            <p className="th-text-tertiary mt-1">Quản lý số dư, points và nạp tiền</p>
+            <p className="th-text-tertiary mt-1">Quản lý số dư, điểm và nạp tiền</p>
           </div>
           <Button
             variant="ghost"
@@ -350,7 +350,7 @@ export default function WalletPage() {
                       <Clock size={28} className="th-text-muted" />
                     </div>
                     <p className="th-text-muted text-sm">Chưa có giao dịch nào</p>
-                    <p className="th-text-muted text-xs mt-1">Nạp tiền và mua points để bắt đầu sử dụng</p>
+                    <p className="th-text-muted text-xs mt-1">Nạp tiền và mua điểm để bắt đầu sử dụng</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -436,7 +436,11 @@ function TransactionRow({ transaction }: { transaction: Transaction }) {
   };
 
   // Check if this is a point transaction (amount = 0, description mentions points)
-  const isPointTx = transaction.amount === 0 && transaction.description.includes("points");
+  // Mô tả giao dịch cũ viết "points", mô tả mới viết "điểm"; nhận cả hai để
+  // lịch sử không bị hiển thị sai sau khi đổi cách gọi.
+  const isPointTx =
+    transaction.amount === 0 &&
+    (transaction.description.includes("points") || transaction.description.includes("điểm"));
 
   return (
     <div

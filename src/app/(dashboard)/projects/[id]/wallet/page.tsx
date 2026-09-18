@@ -10,6 +10,7 @@ import Card, { CardContent } from "@/components/ui/card";
 import Button from "@/components/ui/button";
 import { invalidateClientCache } from "@/lib/client-fetch";
 import { transactionLabel } from "@/lib/point-pricing";
+import { useToast } from "@/components/ui/toast";
 
 interface ProjectWalletTransaction {
   id: string;
@@ -24,6 +25,7 @@ export default function ProjectWalletPage() {
   const projectId = params.id as string;
   const { project, loading: projectLoading } = useProject(projectId);
   const { points: personalPoints, refreshBalance } = useWallet();
+  const toast = useToast();
 
   const [projectPoints, setProjectPoints] = useState(0);
   const [projectTx, setProjectTx] = useState<ProjectWalletTransaction[]>([]);
@@ -59,7 +61,7 @@ export default function ProjectWalletPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data?.error || "Không thể nạp points vào ví dự án");
+        toast.error(data?.error || "Không thể nạp điểm vào ví dự án");
       } else {
         trackEvent("project_points_deposit", {
           project_id: project?.id || projectId,
@@ -92,7 +94,7 @@ export default function ProjectWalletPage() {
       <main className="flex-1 p-4 pt-16 md:p-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold th-text-primary">Ví dự án</h1>
-          <p className="th-text-tertiary mt-1">Nạp points từ ví cá nhân để team dùng chung</p>
+          <p className="th-text-tertiary mt-1">Nạp điểm từ ví cá nhân để cả nhóm dùng chung</p>
         </div>
 
         <Card className="mb-6">

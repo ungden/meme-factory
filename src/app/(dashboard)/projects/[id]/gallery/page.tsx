@@ -394,7 +394,7 @@ export default function GalleryPage() {
               hint={`${watermarkedCount} / ${memes.length} ảnh`}
             />
             <StatCard
-              label="Mascot dùng nhiều nhất"
+              label="Nhân vật dùng nhiều nhất"
               value={topMascot?.name ?? "—"}
               hint={topMascot ? `${topMascot.count} meme` : "chưa có dữ liệu"}
             />

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { FilmPlan } from "@/lib/short-film/contracts";
+import ConfirmModal from "@/components/ui/confirm-modal";
 import { api } from "../../video/multiscene/_lib/draft";
 import {
   QUALITY_OPTIONS,
@@ -49,6 +50,9 @@ export default function EpisodeStudio() {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // window.confirm phá nhịp của một màn hình đã có ngôn ngữ riêng, và trên
+  // điện thoại nó hiện tên miền như một cảnh báo bảo mật.
+  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
 
   const [idea, setIdea] = useState("");
   const [quality, setQuality] = useState<QualityId>("saving");
@@ -307,10 +311,7 @@ export default function EpisodeStudio() {
                   busy={busy}
                   onPause={() => act(async () => void (await api(`${base}/production-runs/${run.id}`, { action: "pause" }, "PATCH")))}
                   onResume={() => act(async () => void (await resume()))}
-                  onCancel={() => {
-                    if (window.confirm("Hủy tập này? Phần đã làm vẫn được giữ trong trình chỉnh chi tiết."))
-                      void act(async () => void (await api(`${base}/production-runs/${run.id}`, { action: "cancel" }, "PATCH")));
-                  }}
+                  onCancel={() => setCancelTarget(run.id)}
                 />
               )}
 
@@ -380,6 +381,21 @@ export default function EpisodeStudio() {
           )}
         </main>
       </div>
+      <ConfirmModal
+        isOpen={Boolean(cancelTarget)}
+        onClose={() => setCancelTarget(null)}
+        onConfirm={() => {
+          const runId = cancelTarget;
+          setCancelTarget(null);
+          if (runId)
+            void act(async () => void (await api(`${base}/production-runs/${runId}`, { action: "cancel" }, "PATCH")));
+        }}
+        title="Huỷ tập này?"
+        message="Phần đã làm vẫn được giữ trong trình chỉnh chi tiết."
+        confirmText="Huỷ tập"
+        variant="danger"
+      />
+
     </div>
   );
 }

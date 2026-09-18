@@ -3,6 +3,8 @@
 import { useState, useCallback } from "react";
 import AdminSidebar from "@/components/admin/admin-sidebar";
 import { createClient } from "@/lib/supabase/client";
+import ConfirmModal from "@/components/ui/confirm-modal";
+import { useToast } from "@/components/ui/toast";
 import { Search, ChevronLeft, ChevronRight, Users, Image as ImageIcon, Trash2 } from "lucide-react";
 import { useDeferredTask } from "@/lib/use-deferred-task";
 
@@ -19,6 +21,8 @@ interface ProjectRow {
 
 export default function AdminProjectsPage() {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<ProjectRow | null>(null);
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -53,9 +57,6 @@ export default function AdminProjectsPage() {
   };
 
   const handleDeleteProject = async (project: ProjectRow) => {
-    const ok = window.confirm(`Xoá dự án "${project.name}" của ${project.user_email}? Hành động này không thể hoàn tác.`);
-    if (!ok) return;
-
     try {
       const supabase = createClient();
       const { data: session } = await supabase.auth.getSession();
@@ -68,13 +69,13 @@ export default function AdminProjectsPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data?.error || "Xoá dự án thất bại");
+        toast.error(data?.error || "Xoá dự án thất bại");
         return;
       }
 
       fetchProjects();
     } catch {
-      alert("Xoá dự án thất bại");
+      toast.error("Xoá dự án thất bại");
     }
   };
 
@@ -144,7 +145,7 @@ export default function AdminProjectsPage() {
                       <td className="py-3 px-4 th-text-muted text-xs">{new Date(p.created_at).toLocaleDateString("vi-VN")}</td>
                       <td className="py-3 px-4 text-right">
                         <button
-                          onClick={() => handleDeleteProject(p)}
+                          onClick={() => setDeleteTarget(p)}
                           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs"
                           style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444" }}
                         >
@@ -168,6 +169,20 @@ export default function AdminProjectsPage() {
           )}
         </div>
       </main>
+
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          const target = deleteTarget;
+          setDeleteTarget(null);
+          if (target) void handleDeleteProject(target);
+        }}
+        title="Xoá dự án này?"
+        message={`“${deleteTarget?.name ?? ""}” của ${deleteTarget?.user_email ?? ""} sẽ bị xoá cùng toàn bộ nội dung bên trong. Không thể hoàn tác.`}
+        confirmText="Xoá dự án"
+        variant="danger"
+      />
     </div>
   );
 }
