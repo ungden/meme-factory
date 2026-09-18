@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Chính sách bảo mật (Privacy Policy) | AIDA",
+  title: "Chính sách bảo mật (Privacy Policy)",
   description: "Chính sách bảo mật thông tin và dữ liệu người dùng của AIDA Media Studio.",
 };
 

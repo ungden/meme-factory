@@ -105,6 +105,7 @@ export default function Home() {
 
           <div className="flex items-center gap-1 sm:gap-3">
             <a href="#how" className="media-nav-link hidden rounded-full px-4 py-2.5 text-sm font-medium lg:inline-flex">Cách hoạt động</a>
+            <Link href="/pricing" className="media-nav-link hidden rounded-full px-4 py-2.5 text-sm font-medium md:inline-flex">Bảng giá</Link>
             <button
               type="button"
               onClick={toggleTheme}
@@ -261,6 +262,8 @@ export default function Home() {
           <div className="flex items-center gap-2 font-bold"><Sparkle size={16} weight="fill" className="th-text-accent" /> AIDA Media Studio</div>
           <p className="media-copy">Một nhân vật. Mọi nội dung.</p>
           <nav className="flex items-center gap-4">
+            <Link href="/pricing" className="media-copy underline-offset-4 hover:underline">Bảng giá</Link>
+            <Link href="/help" className="media-copy underline-offset-4 hover:underline">Hỗ trợ</Link>
             <Link href="/terms" className="media-copy underline-offset-4 hover:underline">Điều khoản sử dụng</Link>
             <Link href="/privacy" className="media-copy underline-offset-4 hover:underline">Chính sách bảo mật</Link>
           </nav>

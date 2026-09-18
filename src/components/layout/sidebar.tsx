@@ -19,7 +19,8 @@ import {
   Palette,
   Clapperboard,
   ChevronDown,
-} from "lucide-react";
+  HelpCircle,
+  Settings,} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 import { useTheme } from "@/components/theme-provider";
@@ -405,6 +406,20 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
             Quản trị
           </Link>
         )}
+        <Link
+          href="/settings"
+          className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm th-text-secondary transition-all th-bg-hover"
+        >
+          <Settings size={18} />
+          Cài đặt
+        </Link>
+        <Link
+          href="/help"
+          className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm th-text-secondary transition-all th-bg-hover"
+        >
+          <HelpCircle size={18} />
+          Hỗ trợ
+        </Link>
         <button
           onClick={toggleTheme}
           aria-label={

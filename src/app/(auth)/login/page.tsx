@@ -20,6 +20,11 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
+  // "reset" là màn quên mật khẩu: chỉ hỏi email, không hỏi mật khẩu.
+  const [mode, setMode] = useState<"auth" | "reset">("auth");
+  const [accepted, setAccepted] = useState(false);
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [resending, setResending] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,13 +59,22 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     setMessage(null);
+    setNeedsConfirmation(false);
 
     const supabase = createClient();
+    const authBase = typeof window !== "undefined" ? window.location.origin : "";
 
     try {
-      if (isSignUp) {
+      if (mode === "reset") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${authBase}/api/auth/callback?next=${encodeURIComponent("/auth/reset")}`,
+        });
+        if (error) throw error;
+        // Không tiết lộ email có tồn tại hay không: cùng một câu trả lời cho mọi
+        // địa chỉ, nếu không trang này thành công cụ dò tài khoản.
+        setMessage("Nếu email này có tài khoản, chúng tôi vừa gửi link đặt lại mật khẩu.");
+      } else if (isSignUp) {
         // For email signup, redirectTo goes through API callback route (server-side code exchange)
-        const authBase = typeof window !== "undefined" ? window.location.origin : "";
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -87,6 +101,7 @@ export default function LoginPage() {
         setError("Email hoặc mật khẩu không đúng");
       } else if (msg.includes("Email not confirmed")) {
         setError("Vui lòng xác nhận email trước khi đăng nhập");
+        setNeedsConfirmation(true);
       } else if (msg.includes("already registered")) {
         setError("Email này đã được đăng ký");
       } else {
@@ -96,6 +111,27 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  async function handleResendConfirmation() {
+    if (!email) return;
+    setResending(true);
+    setError(null);
+    try {
+      const authBase = typeof window !== "undefined" ? window.location.origin : "";
+      const { error } = await createClient().auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: `${authBase}/api/auth/callback?next=${encodeURIComponent(redirectPath)}` },
+      });
+      if (error) throw error;
+      setMessage("Đã gửi lại email xác nhận. Kiểm tra cả hộp thư rác nhé.");
+      setNeedsConfirmation(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Chưa gửi lại được email xác nhận");
+    } finally {
+      setResending(false);
+    }
+  }
 
   const handleGoogleLogin = () => {
     if (!configured) {
@@ -172,7 +208,7 @@ export default function LoginPage() {
               />
             </div>
 
-            <div className="relative">
+            <div className={`relative ${mode === "reset" ? "hidden" : ""}`}>
               <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 th-text-tertiary pointer-events-none mt-3" />
               <Input
                 id="password"
@@ -182,14 +218,47 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="pl-10"
-                required
+                required={mode !== "reset"}
                 minLength={6}
               />
             </div>
 
+            {mode === "auth" && isSignUp && (
+              <label className="flex items-start gap-2 text-sm th-text-tertiary">
+                <input
+                  type="checkbox"
+                  checked={accepted}
+                  onChange={(event) => setAccepted(event.target.checked)}
+                  required
+                  className="mt-0.5 h-4 w-4"
+                />
+                <span>
+                  Tôi đồng ý với{" "}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="th-text-accent underline">
+                    Điều khoản sử dụng
+                  </a>{" "}
+                  và{" "}
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="th-text-accent underline">
+                    Chính sách bảo mật
+                  </a>
+                  .
+                </span>
+              </label>
+            )}
+
             {error && (
               <div className="p-3 border rounded-xl text-sm th-border-danger th-bg-danger-light th-text-danger">
                 {error}
+                {needsConfirmation && (
+                  <button
+                    type="button"
+                    onClick={handleResendConfirmation}
+                    disabled={resending}
+                    className="mt-2 block font-semibold underline"
+                  >
+                    {resending ? "Đang gửi lại…" : "Gửi lại email xác nhận"}
+                  </button>
+                )}
               </div>
             )}
 
@@ -199,9 +268,27 @@ export default function LoginPage() {
               </div>
             )}
 
-            <Button type="submit" className="w-full" size="lg" loading={loading} disabled={googleLoading}>
-              {isSignUp ? "Tạo tài khoản" : "Đăng nhập"}
+            <Button
+              type="submit"
+              className="w-full"
+              size="lg"
+              loading={loading}
+              disabled={googleLoading || (mode === "auth" && isSignUp && !accepted)}
+            >
+              {mode === "reset" ? "Gửi link đặt lại mật khẩu" : isSignUp ? "Tạo tài khoản" : "Đăng nhập"}
             </Button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMode(mode === "reset" ? "auth" : "reset");
+                setError(null);
+                setMessage(null);
+              }}
+              className="block w-full text-center text-sm th-text-tertiary hover:opacity-80"
+            >
+              {mode === "reset" ? "Quay lại đăng nhập" : "Quên mật khẩu?"}
+            </button>
           </form>
 
           <div className="my-5 flex items-center gap-3">

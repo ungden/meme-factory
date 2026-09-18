@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Điều khoản sử dụng (Terms of Service) | AIDA",
+  title: "Điều khoản sử dụng (Terms of Service)",
   description: "Điều khoản sử dụng dịch vụ AIDA Media Studio.",
 };
 
