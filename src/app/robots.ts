@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/site-url";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://aida.vn";
 
 /**
  * robots.txt sinh theo tên miền thật.

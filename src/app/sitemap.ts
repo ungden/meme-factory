@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/site-url";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://aida.vn";
 
 /** Chỉ những trang công khai; phần sau đăng nhập không thuộc về sitemap. */
 const PUBLIC_PATHS: { path: string; priority: number; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"] }[] = [

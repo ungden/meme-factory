@@ -6,6 +6,7 @@ import { ToastProvider } from "@/components/ui/toast";
 import GARouteTracker from "@/components/analytics/ga-route-tracker";
 import AnalyticsConsent from "@/components/analytics/analytics-consent";
 import "./globals.css";
+import { SITE_URL } from "@/lib/site-url";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -27,7 +28,6 @@ export const viewport: Viewport = {
   ],
 };
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://aida.vn";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
