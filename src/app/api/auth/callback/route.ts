@@ -1,6 +1,9 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { getSupabaseAdmin } from "@/lib/admin";
+import { FREE_TRIAL_POINTS } from "@/lib/point-pricing";
+import { reportError } from "@/lib/observability";
 
 /** Ensure redirect target is a relative path to prevent open-redirect attacks */
 function sanitizeRedirect(next: string): string {
@@ -8,6 +11,31 @@ function sanitizeRedirect(next: string): string {
     return next;
   }
   return "/projects";
+}
+
+
+/**
+ * Tặng điểm dùng thử ngay khi email được xác nhận.
+ *
+ * RPC `claim_free_trial` đã tồn tại từ lâu nhưng không client nào gọi, nên mọi
+ * tài khoản mới bắt đầu với 0 điểm sau một nút ghi "Bắt đầu miễn phí". Đây là
+ * chỗ đúng để gọi: chạy đúng một lần cho mỗi lần xác nhận email, phía server,
+ * và RPC tự chặn lần thứ hai bằng cờ `free_trial_claimed`.
+ *
+ * Không được phép làm hỏng đăng nhập: tặng điểm hỏng thì người dùng vẫn vào
+ * được, và lỗi đi vào Sentry.
+ */
+async function grantFreeTrial(user: { id: string; email_confirmed_at?: string | null } | null) {
+  if (!user?.id || !user.email_confirmed_at) return;
+  try {
+    const { error } = await getSupabaseAdmin().rpc("claim_free_trial", {
+      _user_id: user.id,
+      _free_points: FREE_TRIAL_POINTS,
+    });
+    if (error) throw new Error(error.message);
+  } catch (error) {
+    await reportError(error, { scope: "auth.free-trial", tags: { userId: user.id } });
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -60,9 +88,10 @@ export async function GET(request: NextRequest) {
       },
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data: session, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
+      await grantFreeTrial(session?.user ?? null);
       const redirectUrl = `${origin}${next}`;
       const response = NextResponse.redirect(redirectUrl);
 

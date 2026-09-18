@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/admin";
+import { FREE_TRIAL_POINTS } from "@/lib/point-pricing";
+import { reportError } from "@/lib/observability";
 
 export async function GET(req: Request) {
   try {
@@ -15,11 +17,32 @@ export async function GET(req: Request) {
     }
 
     // Get wallet (maybeSingle to handle missing wallet gracefully)
-    const { data: wallet } = await supabaseAdmin
+    let { data: wallet } = await supabaseAdmin
       .from("wallets")
-      .select("balance, points")
+      .select("balance, points, free_trial_claimed")
       .eq("user_id", user.id)
       .maybeSingle();
+
+    // Tặng điểm dùng thử cho ai chưa nhận. Luồng đăng ký mới đã tặng ngay khi
+    // xác nhận email; đây là lưới vét cho những tài khoản tạo trước đó — và cho
+    // trường hợp callback xác nhận bị lỗi. RPC tự chặn lần thứ hai.
+    if (!wallet?.free_trial_claimed && user.email_confirmed_at) {
+      try {
+        const { error } = await supabaseAdmin.rpc("claim_free_trial", {
+          _user_id: user.id,
+          _free_points: FREE_TRIAL_POINTS,
+        });
+        if (error) throw new Error(error.message);
+        const { data: refreshed } = await supabaseAdmin
+          .from("wallets")
+          .select("balance, points, free_trial_claimed")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        wallet = refreshed ?? wallet;
+      } catch (error) {
+        await reportError(error, { scope: "wallet.free-trial", tags: { userId: user.id } });
+      }
+    }
 
     // Get recent transactions
     const { data: transactions } = await supabaseAdmin

@@ -124,7 +124,11 @@ export default function ProjectsPage() {
               <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-500"><Clapperboard size={28} /></span>
               <h2 className="text-xl font-semibold th-text-primary">Tạo fanpage đầu tiên của bạn</h2>
               <p className="mt-2 max-w-md th-text-tertiary">Bắt đầu bằng mục tiêu, nhân vật và giọng điệu. AIDA sẽ giúp bạn phát triển cả hệ nội dung sau đó.</p>
-              <Button onClick={() => setShowCreate(true)} className="mt-6"><Plus size={17} /> Tạo dự án đầu tiên</Button>
+              {/* Người chưa có dự án nào đi qua luồng 3 bước: đặt tên, chọn nhân
+                  vật AI gợi ý, rồi tạo ảnh đầu tiên bằng điểm tặng. Modal trống
+                  ở đây từng bắt họ tự nghĩ ra "giọng nói & phong cách hình ảnh"
+                  trước khi thấy sản phẩm làm được gì. */}
+              <Button onClick={() => router.push("/onboarding")} className="mt-6"><Plus size={17} /> Tạo dự án đầu tiên</Button>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">

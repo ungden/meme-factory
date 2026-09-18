@@ -182,7 +182,7 @@ export default function Home() {
                   </label>
                   <label className="media-select flex min-w-[190px] cursor-pointer items-center gap-2 rounded-[15px] px-3 py-2">
                     <span className="media-select-icon">Aa</span>
-                    <span className="min-w-0 flex-1"><small>Giọng nói</small><strong>Thân thiện, dí dỏm</strong></span>
+                    <span className="min-w-0 flex-1"><small>Giọng nói</small><strong>{voice}</strong></span>
                     <select aria-label="Chọn giọng nói" value={voice} onChange={(event) => setVoice(event.target.value)}><option>Thân thiện, dí dỏm</option><option>Sang, tối giản</option><option>Năng động Gen Z</option><option>Chuyên gia đáng tin</option></select>
                     <CaretDown size={14} />
                   </label>

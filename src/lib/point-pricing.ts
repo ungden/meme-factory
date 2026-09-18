@@ -58,8 +58,15 @@ export const POINT_LABELS: Record<PointAction, string> = {
   meme: "Tạo ảnh meme AI",
 };
 
-// Free trial — đủ tạo ít nhất một ảnh 1K theo bảng giá hiện tại.
-export const FREE_TRIAL_POINTS = POINT_COSTS.meme;
+/**
+ * Điểm tặng khi xác nhận email — bằng đúng gói "Dùng thử" (20 điểm ≈ 10.000₫).
+ *
+ * Trước đây là giá đúng một tấm ảnh: người mới tạo một ảnh, hết điểm, và phải
+ * chuyển khoản trước khi kịp hiểu sản phẩm làm được gì. 20 điểm đủ 3–5 ảnh —
+ * đủ để thử một nhân vật và vài kiểu ảnh — nhưng không đủ một tập phim, nên
+ * chi phí cho mỗi lượt đăng ký vẫn nằm trong tầm kiểm soát.
+ */
+export const FREE_TRIAL_POINTS = 20;
 
 // Gói nạp points
 export interface PointPackage {
