@@ -727,7 +727,7 @@ export function compileStoryboards(
                   {
                     id: "legible_text",
                     kind: "text",
-                    description: `Chữ trên đạo cụ phải đọc đúng từng ký tự và đúng dấu tiếng Việt: ${legibleText.map((text) => `“${text}”`).join(", ")}. Sai dấu hoặc sai chữ là không đạt.`,
+                    description: `Chữ trên đạo cụ phải đọc đúng từng ký tự và đúng dấu tiếng Việt: ${legibleText.map((text) => `“${text}”`).join(", ")}. Đúng nghĩa là KHỚP HOÀN TOÀN: sai dấu, sai chữ, thừa chữ, lặp lại một từ hay thêm dòng chữ nào khác đều là không đạt.`,
                     visibleWhen: "opening",
                     importance: "critical",
                     legibility: "readable",
