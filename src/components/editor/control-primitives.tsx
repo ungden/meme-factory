@@ -40,7 +40,7 @@ export function Slider({
       step={step}
       value={value}
       onChange={(event) => onChange(Number(event.target.value))}
-      className="w-full accent-blue-600 cursor-pointer"
+      className="w-full th-accent-control cursor-pointer"
     />
   );
 }
@@ -96,7 +96,7 @@ export function Toggle({
         aria-checked={checked}
         aria-label={label}
         onClick={() => onChange(!checked)}
-        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? "bg-blue-600" : "th-bg-tertiary"}`}
+        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? "th-bg-accent" : "th-bg-tertiary"}`}
       >
         <span
           className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${checked ? "translate-x-4" : "translate-x-0.5"}`}
@@ -128,7 +128,7 @@ export function SegmentedControl<T extends string>({
           onClick={() => onChange(option.value)}
           className={`flex items-center justify-center rounded-lg border px-2 py-1.5 text-xs transition-colors ${
             value === option.value
-              ? "border-blue-600 text-blue-600 bg-blue-600/10"
+              ? "th-border-accent th-text-accent th-bg-accent-light"
               : "th-border-secondary th-text-tertiary th-bg-hover"
           }`}
         >

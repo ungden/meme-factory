@@ -231,13 +231,13 @@ export default function BrandSettingsPage() {
                         type="button"
                         onClick={() => setDefaultFormat(format)}
                         className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm ${
-                          active ? "border-blue-600 bg-blue-600/10" : "th-border-secondary"
+                          active ? "th-border-accent th-bg-accent-light" : "th-border-secondary"
                         }`}
                       >
                         <span className="th-text-primary">{FORMAT_LABELS[format]}</span>
                         <span className="flex items-center gap-2 text-xs th-text-tertiary">
                           {dimensions.width}×{dimensions.height}
-                          {active && <Check size={14} className="text-blue-600" />}
+                          {active && <Check size={14} className="th-text-accent" />}
                         </span>
                       </button>
                     );

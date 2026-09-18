@@ -104,13 +104,13 @@ export default function ProjectsPage() {
 
           <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-500">
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] th-text-accent">
                 <Sparkles size={14} /> AIDA Media Studio
               </div>
               <h1 className="text-3xl font-bold tracking-[-0.025em] th-text-primary">Không gian nội dung của bạn</h1>
               <p className="mt-2 max-w-2xl th-text-tertiary">Mỗi dự án lưu nhân vật, tài nguyên và giọng thương hiệu — để làm nội dung nhất quán cho mọi kênh.</p>
             </div>
-            <Button onClick={() => setShowCreate(true)} size="lg" className="shrink-0 !bg-blue-600 !shadow-blue-600/20 hover:!bg-blue-500">
+            <Button onClick={() => setShowCreate(true)} size="lg" className="shrink-0 th-bg-accent th-shadow-accent hover:th-bg-accent">
               <Plus size={18} /> Tạo dự án
             </Button>
           </div>
@@ -121,7 +121,7 @@ export default function ProjectsPage() {
             </div>
           ) : projects.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-3xl border py-24 text-center" style={{ borderColor: "var(--border-primary)", background: "var(--bg-card)" }}>
-              <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-500"><Clapperboard size={28} /></span>
+              <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl th-bg-accent-light th-text-accent"><Clapperboard size={28} /></span>
               <h2 className="text-xl font-semibold th-text-primary">Tạo fanpage đầu tiên của bạn</h2>
               <p className="mt-2 max-w-md th-text-tertiary">Bắt đầu bằng mục tiêu, nhân vật và giọng điệu. AIDA sẽ giúp bạn phát triển cả hệ nội dung sau đó.</p>
               {/* Người chưa có dự án nào đi qua luồng 3 bước: đặt tên, chọn nhân

@@ -8,7 +8,9 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className = "", variant = "primary", size = "md", loading, children, disabled, ...props }, ref) => {
-    const base = "inline-flex min-h-10 items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer";
+    // focus-visible, không phải focus: vòng sáng chỉ nên xuất hiện khi người
+    // dùng đi bằng bàn phím, chứ không sau mỗi cú bấm chuột.
+    const base = "inline-flex min-h-10 items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer";
 
     const variants = {
       primary: "text-white th-ring-accent th-shadow-sm hover:opacity-90",

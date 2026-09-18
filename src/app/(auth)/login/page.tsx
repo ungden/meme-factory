@@ -153,7 +153,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-lg shadow-blue-600/20">
+          <div className="inline-flex items-center justify-center w-16 h-16 th-bg-accent rounded-2xl mb-4 shadow-lg th-shadow-accent">
             <Sparkles size={28} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold th-text-primary">AIDA</h1>
@@ -165,7 +165,7 @@ export default function LoginPage() {
           <div className="mb-6">
             <button
               onClick={() => router.push("/projects")}
-              className="w-full p-4 bg-blue-600 rounded-2xl text-white font-semibold text-base hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-3"
+              className="w-full p-4 th-bg-accent rounded-2xl text-white font-semibold text-base th-bg-accent-hover transition-all shadow-lg th-shadow-accent flex items-center justify-center gap-3"
             >
               <Zap size={20} />
               Vào chế độ Developer (Bỏ qua đăng nhập)

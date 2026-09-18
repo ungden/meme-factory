@@ -68,12 +68,22 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       {/* Toast container */}
-      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
+      {/* Trình đọc màn hình không thấy được toast nếu vùng chứa không tự báo.
+          Người dùng bàn phím và người dùng trình đọc màn hình từng mất hoàn toàn
+          các thông báo "đã lưu"/"lỗi" ở đây. */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="false"
+        className="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none"
+      >
         {toasts.map((t) => {
           const s = styles[t.type];
           return (
             <div
               key={t.id}
+              // Lỗi cần được đọc ngay, còn lại đọc khi trình đọc rảnh.
+              role={t.type === "error" ? "alert" : undefined}
               className="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg animate-slide-in min-w-[300px] max-w-[420px]"
               style={{
                 background: s.bg,

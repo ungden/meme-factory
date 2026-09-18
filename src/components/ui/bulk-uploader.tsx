@@ -132,7 +132,7 @@ export function BulkUploader({
         className={`
           relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer
           transition-all duration-200
-          ${isDragging ? "border-blue-500 bg-blue-500/5 scale-[1.01]" : "th-border hover:border-blue-400 hover:bg-blue-500/3"}
+          ${isDragging ? "th-border-accent th-bg-accent-subtle scale-[1.01]" : "th-border th-border-accent-hover th-bg-accent-subtle-hover"}
         `}
       >
         <input
@@ -175,7 +175,7 @@ export function BulkUploader({
               <button
                 onClick={uploadAll}
                 disabled={isUploading || pendingCount === 0}
-                className="px-4 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                className="px-4 py-1.5 text-xs font-semibold th-bg-accent text-white rounded-lg th-bg-accent-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
               >
                 {isUploading ? (
                   <>
@@ -194,7 +194,7 @@ export function BulkUploader({
           {items.length > 0 && (
             <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-tertiary)" }}>
               <div
-                className="h-full rounded-full transition-all duration-300 bg-blue-500"
+                className="h-full rounded-full transition-all duration-300 th-bg-accent-light0"
                 style={{ width: `${items.length > 0 ? (doneCount / items.length) * 100 : 0}%` }}
               />
             </div>

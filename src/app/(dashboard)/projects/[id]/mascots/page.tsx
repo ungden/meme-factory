@@ -635,7 +635,7 @@ function FacetRow({
       aria-pressed={active}
       onClick={onClick}
       className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-xs transition-colors ${
-        active ? "bg-blue-600/10 text-blue-600" : "th-text-secondary th-bg-hover"
+        active ? "th-bg-accent-light th-text-accent" : "th-text-secondary th-bg-hover"
       }`}
     >
       <span className="truncate">{label}</span>

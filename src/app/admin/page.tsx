@@ -220,7 +220,7 @@ export default function AdminDashboard() {
                       <div key={row.action ?? "unknown"} className="flex items-center gap-3 border-b px-4 py-2.5 last:border-b-0" style={{ borderColor: "var(--border-primary)" }}>
                         <span className="w-32 shrink-0 text-sm th-text-primary">{ACTION_LABELS[row.action ?? "unknown"] ?? row.action}</span>
                         <div className="h-1.5 flex-1 overflow-hidden rounded-full th-bg-tertiary">
-                          <div className="h-full rounded-full bg-blue-600" style={{ width: `${share}%` }} />
+                          <div className="h-full rounded-full th-bg-accent" style={{ width: `${share}%` }} />
                         </div>
                         <span className="w-40 shrink-0 text-right text-xs th-text-tertiary">
                           {row.points.toLocaleString("vi-VN")} điểm · {row.calls} lần · {share.toFixed(0)}%

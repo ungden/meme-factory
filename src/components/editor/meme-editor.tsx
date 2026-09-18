@@ -385,7 +385,7 @@ export default function MemeEditor({
                     onClick={() => setActiveLayerId(layer.id)}
                     className={`rounded-lg border px-2 py-1 text-xs ${
                       activeLayer?.id === layer.id
-                        ? "border-blue-600 text-blue-600 bg-blue-600/10"
+                        ? "th-border-accent th-text-accent th-bg-accent-light"
                         : "th-border-secondary th-text-tertiary"
                     }`}
                   >
@@ -447,7 +447,7 @@ export default function MemeEditor({
                   onClick={() => changeFormat(format)}
                   className={`rounded-lg border px-2 py-1.5 text-xs ${
                     doc.canvas.format === format
-                      ? "border-blue-600 text-blue-600 bg-blue-600/10"
+                      ? "th-border-accent th-text-accent th-bg-accent-light"
                       : "th-border-secondary th-text-tertiary"
                   }`}
                 >

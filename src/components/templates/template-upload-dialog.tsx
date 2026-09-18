@@ -260,13 +260,13 @@ export default function TemplateUploadDialog({
                     type="button"
                     onClick={() => setActiveId(item.id)}
                     className={`relative block w-full overflow-hidden rounded-lg border-2 ${
-                      active?.id === item.id ? "border-blue-600" : "th-border-secondary"
+                      active?.id === item.id ? "th-border-accent" : "th-border-secondary"
                     }`}
                   >
                     <div className="relative aspect-square th-bg-tertiary">
                       <Image src={item.previewUrl} alt={item.title} fill className="object-cover" unoptimized />
                       {item.saved && (
-                        <span className="absolute right-1 top-1 rounded-full bg-blue-600 p-0.5 text-white">
+                        <span className="absolute right-1 top-1 rounded-full th-bg-accent p-0.5 text-white">
                           <Check size={10} />
                         </span>
                       )}
@@ -351,7 +351,7 @@ export default function TemplateUploadDialog({
                         }}
                         className={`rounded-lg border px-1.5 py-1 text-[11px] ${
                           active.aspectRatio === format
-                            ? "border-blue-600 text-blue-600 bg-blue-600/10"
+                            ? "th-border-accent th-text-accent th-bg-accent-light"
                             : "th-border-secondary th-text-tertiary"
                         }`}
                       >

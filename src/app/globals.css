@@ -109,196 +109,6 @@ body {
   transition: background-color 0.2s, color 0.2s;
 }
 
-/* ============================================
-   Homepage visual system
-   ============================================ */
-
-.home-shell {
-  --home-bg: #f7f8fa;
-  --home-bg-alt: #f1f3f6;
-  --home-surface: #ffffff;
-  --home-surface-soft: #f9fafb;
-  --home-line: #e2e6eb;
-  --home-line-strong: #d5dae1;
-  --home-text: #17191f;
-  --home-text-secondary: #525b68;
-  --home-text-muted: #747e8d;
-  --home-blue-soft: #e6f4f1;
-  --home-shadow: 0 28px 70px rgba(16, 24, 40, 0.13), 0 3px 12px rgba(16, 24, 40, 0.06);
-  background: var(--home-bg);
-  color: var(--home-text);
-}
-
-.dark .home-shell {
-  --home-bg: #0e1014;
-  --home-bg-alt: #12151a;
-  --home-surface: #15181e;
-  --home-surface-soft: #191d24;
-  --home-line: #272c34;
-  --home-line-strong: #343b46;
-  --home-text: #f3f5f7;
-  --home-text-secondary: #b7bec8;
-  --home-text-muted: #8f98a7;
-  --home-blue-soft: rgba(45, 212, 191, 0.13);
-  --home-shadow: 0 28px 80px rgba(0, 0, 0, 0.42), 0 3px 12px rgba(0, 0, 0, 0.3);
-}
-
-.home-nav {
-  border-color: var(--home-line);
-  background: color-mix(in srgb, var(--home-bg) 88%, transparent);
-  color: var(--home-text);
-  backdrop-filter: blur(18px);
-}
-
-.home-brand-label,
-.home-secondary-button,
-.home-trust,
-.home-card,
-.home-section-alt,
-.home-media-frame,
-.home-cta,
-.home-footer {
-  border-color: var(--home-line);
-}
-
-.home-brand-label,
-.home-caption,
-.home-eyebrow {
-  color: var(--home-text-muted);
-}
-
-.home-nav-link,
-.home-icon-button,
-.home-feature {
-  color: var(--home-text-secondary);
-}
-
-.home-nav-link:hover,
-.home-icon-button:hover {
-  background: var(--home-surface-soft);
-  color: var(--home-text);
-}
-
-.home-hero {
-  border-color: var(--home-line);
-  background:
-    radial-gradient(circle at 78% 10%, rgba(15, 118, 110, 0.11), transparent 34%),
-    radial-gradient(circle at 16% 42%, rgba(45, 212, 191, 0.07), transparent 32%),
-    var(--home-bg);
-}
-
-.dark .home-hero {
-  background:
-    radial-gradient(circle at 78% 10%, rgba(45, 212, 191, 0.12), transparent 35%),
-    radial-gradient(circle at 16% 42%, rgba(15, 118, 110, 0.09), transparent 32%),
-    var(--home-bg);
-}
-
-.home-gradient-text {
-  background: linear-gradient(100deg, #0f766e 4%, #0d9488 56%, #14b8a6 100%);
-  background-clip: text;
-  color: transparent;
-}
-
-.dark .home-gradient-text {
-  background-image: linear-gradient(100deg, #5eead4 4%, #2dd4bf 56%, #14b8a6 100%);
-}
-
-.home-body-copy {
-  color: var(--home-text-secondary);
-}
-
-.home-secondary-button {
-  background: var(--home-surface);
-  color: var(--home-text-secondary);
-}
-
-.home-secondary-button:hover {
-  border-color: var(--home-line-strong);
-  color: var(--home-text);
-  transform: translateY(-2px);
-}
-
-.home-trust {
-  color: var(--home-text-muted);
-}
-
-.home-preview {
-  border-color: var(--home-line-strong);
-  background: var(--home-surface);
-  box-shadow: var(--home-shadow);
-}
-
-.dark .home-preview {
-  background: #12151a;
-}
-
-.home-preview-chrome {
-  color: var(--home-text-muted);
-}
-
-.home-preview-chrome > div:last-child,
-.home-preview-border {
-  border-color: var(--home-line-strong);
-}
-
-.home-identity-card {
-  border-color: var(--home-line-strong);
-  background: color-mix(in srgb, var(--home-surface) 92%, transparent);
-  color: var(--home-text);
-  backdrop-filter: blur(16px);
-}
-
-.home-section-label {
-  color: #0f766e;
-}
-
-.dark .home-section-label {
-  color: #5eead4;
-}
-
-.home-card {
-  background: var(--home-surface);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.02);
-}
-
-.home-card:hover {
-  border-color: color-mix(in srgb, #3b82f6 42%, var(--home-line));
-  box-shadow: 0 16px 40px rgba(16, 24, 40, 0.08);
-}
-
-.dark .home-card:hover {
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
-}
-
-.home-mode-icon {
-  background: var(--home-blue-soft);
-  color: #3b82f6;
-}
-
-.home-section-alt {
-  background: var(--home-bg-alt);
-}
-
-.home-media-frame {
-  background: var(--home-surface);
-  box-shadow: 0 18px 44px rgba(16, 24, 40, 0.08);
-}
-
-.dark .home-media-frame {
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.25);
-}
-
-.home-cta {
-  background:
-    radial-gradient(circle at 75% 0%, rgba(59, 130, 246, 0.12), transparent 40%),
-    var(--home-surface);
-}
-
-.home-footer {
-  color: var(--home-text);
-}
-
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
@@ -332,8 +142,20 @@ body {
 @utility th-bg-overlay { background-color: var(--bg-overlay); }
 
 @utility th-text-accent { color: var(--accent); }
+@utility th-bg-accent { background-color: var(--accent); }
 @utility th-bg-accent-light { background-color: var(--accent-light); }
 @utility th-border-accent { border-color: var(--accent-border); }
+
+/* Các mức đậm nhạt của màu nhấn. Trước đây mỗi màn tự viết `bg-blue-500/40`
+   rồi một lớp !important ở cuối file kéo tất cả về màu teal — nghĩa là màu thật
+   không đọc được từ chỗ dùng, và bất kỳ ai thêm `bg-blue-*` mới cũng vô tình
+   thừa hưởng cái lớp đó. */
+@utility th-bg-accent-subtle { background-color: color-mix(in srgb, var(--accent) 6%, transparent); }
+@utility th-bg-accent-soft { background-color: color-mix(in srgb, var(--accent) 20%, transparent); }
+@utility th-bg-accent-medium { background-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+@utility th-shadow-accent { box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 20%, transparent); }
+/* accent-color cho checkbox/radio gốc của trình duyệt. */
+@utility th-accent-control { accent-color: var(--accent); }
 
 @utility th-text-danger { color: var(--danger); }
 @utility th-bg-danger { background-color: var(--danger); }
@@ -356,15 +178,9 @@ body {
 /* hover variant - needs regular CSS */
 .th-bg-hover:hover { background-color: var(--bg-hover); }
 .th-border-accent-hover:hover { border-color: var(--accent-border); }
-
-/* Legacy dashboard utilities still used by older tools. Keep their visual meaning
-   on the shared teal scale while those screens are progressively simplified. */
-.bg-blue-600, .bg-blue-500 { background-color: var(--accent) !important; }
-.hover\:bg-blue-500:hover, .hover\:bg-blue-600:hover { background-color: color-mix(in srgb, var(--accent) 88%, #000) !important; }
-.bg-blue-50, .bg-blue-600\/10 { background-color: var(--accent-light) !important; }
-.text-blue-500, .text-blue-600, .text-blue-700 { color: var(--accent) !important; }
-.border-blue-500, .border-blue-600 { border-color: var(--accent) !important; }
-.ring-blue-500\/30 { --tw-ring-color: color-mix(in srgb, var(--accent) 30%, transparent) !important; }
+.th-bg-accent-hover:hover { background-color: color-mix(in srgb, var(--accent) 88%, #000); }
+.th-bg-accent-soft-hover:hover { background-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.th-bg-accent-subtle-hover:hover { background-color: color-mix(in srgb, var(--accent) 8%, transparent); }
 
 /* ============================================
    Animations

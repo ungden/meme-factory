@@ -717,7 +717,7 @@ export default function VideoStudioPage() {
                           markEdited();
                           setImage(item.url);
                         }}
-                        className={`relative aspect-square overflow-hidden rounded-xl border ${image === item.url ? "border-blue-500 ring-2 ring-blue-500/30" : ""}`}
+                        className={`relative aspect-square overflow-hidden rounded-xl border ${image === item.url ? "th-border-accent ring-2 th-ring-accent" : ""}`}
                         style={{ borderColor: "var(--border-primary)" }}
                       >
                         <Image
@@ -771,7 +771,7 @@ export default function VideoStudioPage() {
                                 : [...references, url],
                             );
                           }}
-                          className={`flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-xs ${active ? "border-blue-500 bg-blue-50 text-blue-700" : "th-text-secondary"}`}
+                          className={`flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-xs ${active ? "th-border-accent th-bg-accent-light th-text-accent" : "th-text-secondary"}`}
                         >
                           <span className="relative h-7 w-7 overflow-hidden rounded-full">
                             <Image
@@ -804,7 +804,7 @@ export default function VideoStudioPage() {
                           markEdited();
                           setDuration(value);
                         }}
-                        className={`rounded-lg border px-3 py-2 text-xs font-semibold ${duration === value ? "border-blue-500 bg-blue-50 text-blue-700" : "th-text-secondary"}`}
+                        className={`rounded-lg border px-3 py-2 text-xs font-semibold ${duration === value ? "th-border-accent th-bg-accent-light th-text-accent" : "th-text-secondary"}`}
                       >
                         {value}s
                       </button>
@@ -823,7 +823,7 @@ export default function VideoStudioPage() {
                           markEdited();
                           setResolution(value);
                         }}
-                        className={`rounded-lg border px-3 py-2 text-xs font-semibold ${resolution === value ? "border-blue-500 bg-blue-50 text-blue-700" : "th-text-secondary"}`}
+                        className={`rounded-lg border px-3 py-2 text-xs font-semibold ${resolution === value ? "th-border-accent th-bg-accent-light th-text-accent" : "th-text-secondary"}`}
                       >
                         {value}
                       </button>
@@ -842,7 +842,7 @@ export default function VideoStudioPage() {
                           markEdited();
                           setAspect(value);
                         }}
-                        className={`rounded-lg border px-3 py-2 text-xs font-semibold ${aspect === value ? "border-blue-500 bg-blue-50 text-blue-700" : "th-text-secondary"}`}
+                        className={`rounded-lg border px-3 py-2 text-xs font-semibold ${aspect === value ? "th-border-accent th-bg-accent-light th-text-accent" : "th-text-secondary"}`}
                       >
                         {value}
                       </button>
@@ -858,7 +858,7 @@ export default function VideoStudioPage() {
                     setAudio(event.target.checked);
                   }}
                   type="checkbox"
-                  className="h-4 w-4 accent-blue-600"
+                  className="h-4 w-4 th-accent-control"
                 />
                 <Volume2 size={16} /> Lồng tiếng Gemini
               </label>
@@ -950,7 +950,7 @@ export default function VideoStudioPage() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[.14em] text-blue-500">
+                  <p className="text-xs font-semibold uppercase tracking-[.14em] th-text-accent">
                     Kết quả
                   </p>
                   <h2 className="mt-1 text-lg font-semibold th-text-primary">
@@ -975,7 +975,7 @@ export default function VideoStudioPage() {
                     background: "var(--bg-tertiary)",
                   }}
                 >
-                  <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white">
+                  <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl th-bg-accent text-white">
                     <Play size={20} />
                   </span>
                   <strong className="th-text-primary">

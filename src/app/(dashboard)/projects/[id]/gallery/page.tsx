@@ -372,7 +372,7 @@ export default function GalleryPage() {
               {videoOutputs.map((output) => (
                 <Card key={output.id} className="overflow-hidden p-0">
                   {["completed", "approved", "rejected"].includes(output.status) ? <video controls preload="none" poster={output.poster_url ? `/api/content-outputs/${output.id}/media?artifact=poster` : undefined} className="w-full bg-black object-contain" style={{ aspectRatio: ["16:9", "9:16", "1:1", "4:5"].includes(output.format) ? output.format.replace(":", "/") : "16/9" }} src={`/api/content-outputs/${output.id}/media`} /> : <div className="flex aspect-[9/16] items-center justify-center p-5 text-center text-sm th-text-tertiary">{output.status === "failed" ? "Video chưa tạo được. Hãy tạo đầu ra mới để xem giá và thử lại." : "Video đang được xử lý. Bạn có thể rời trang và quay lại sau."}</div>}
-                  <div className="p-3"><p className="line-clamp-2 text-sm th-text-secondary">{output.caption || output.script || "Video AI"}</p><p className="mt-1 text-xs th-text-muted">{output.duration_seconds ? `${output.duration_seconds} giây` : ""} · {["completed", "approved", "rejected"].includes(output.status) ? (output.status === "approved" ? "Đã duyệt" : output.status === "rejected" ? "Cần chỉnh sửa" : "Sẵn sàng tải MP4") : VIDEO_STATUS_LABELS[output.status] || "Đang xử lý"}</p>{["completed", "approved", "rejected"].includes(output.status) && <div className="mt-2 flex flex-wrap gap-2"><a className="inline-flex text-xs font-semibold text-blue-600" href={`/api/content-outputs/${output.id}/media?download=1`}>Tải MP4</a>{output.status === "completed" && <><button onClick={() => reviewOutput(output.id, "approved")} className="text-xs font-semibold text-emerald-600">Duyệt</button><button onClick={() => reviewOutput(output.id, "rejected")} className="text-xs font-semibold text-amber-600">Cần chỉnh</button></>}</div>}</div>
+                  <div className="p-3"><p className="line-clamp-2 text-sm th-text-secondary">{output.caption || output.script || "Video AI"}</p><p className="mt-1 text-xs th-text-muted">{output.duration_seconds ? `${output.duration_seconds} giây` : ""} · {["completed", "approved", "rejected"].includes(output.status) ? (output.status === "approved" ? "Đã duyệt" : output.status === "rejected" ? "Cần chỉnh sửa" : "Sẵn sàng tải MP4") : VIDEO_STATUS_LABELS[output.status] || "Đang xử lý"}</p>{["completed", "approved", "rejected"].includes(output.status) && <div className="mt-2 flex flex-wrap gap-2"><a className="inline-flex text-xs font-semibold th-text-accent" href={`/api/content-outputs/${output.id}/media?download=1`}>Tải MP4</a>{output.status === "completed" && <><button onClick={() => reviewOutput(output.id, "approved")} className="text-xs font-semibold text-emerald-600">Duyệt</button><button onClick={() => reviewOutput(output.id, "rejected")} className="text-xs font-semibold text-amber-600">Cần chỉnh</button></>}</div>}</div>
                 </Card>
               ))}
             </div>
@@ -535,7 +535,7 @@ export default function GalleryPage() {
         {isZipping && (
           <div className="mb-4 w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-tertiary)" }}>
             <div
-              className="h-full rounded-full transition-all duration-300 bg-blue-500"
+              className="h-full rounded-full transition-all duration-300 th-bg-accent-light0"
               style={{
                 width: `${zipProgress.total > 0 ? (zipProgress.done / zipProgress.total) * 100 : 0}%`,
               }}
@@ -589,7 +589,7 @@ export default function GalleryPage() {
                     }
                   }}
                   className={`group overflow-hidden relative ${
-                    selectionMode && isSelected ? "ring-2 ring-blue-500" : ""
+                    selectionMode && isSelected ? "ring-2 th-ring-accent" : ""
                   }`}
                 >
                   {/* Selection checkbox */}
@@ -651,7 +651,7 @@ export default function GalleryPage() {
                             e.stopPropagation();
                             goRegenerate(meme.id);
                           }}
-                          className="p-2 bg-blue-500/40 rounded-xl hover:bg-blue-500/60 transition-colors"
+                          className="p-2 th-bg-accent-medium rounded-xl th-bg-accent-soft-hover transition-colors"
                           title="Tạo biến thể"
                         >
                           <Sparkles size={18} className="text-white" />
@@ -662,7 +662,7 @@ export default function GalleryPage() {
                             e.stopPropagation();
                             goEditText(meme.id);
                           }}
-                          className="p-2 bg-blue-500/40 rounded-xl hover:bg-blue-500/60 transition-colors"
+                          className="p-2 th-bg-accent-medium rounded-xl th-bg-accent-soft-hover transition-colors"
                           title="Sửa chữ (0 điểm)"
                         >
                           <Type size={18} className="text-white" />
@@ -673,7 +673,7 @@ export default function GalleryPage() {
                             e.stopPropagation();
                             goReuseIdea(meme.id);
                           }}
-                          className="p-2 bg-blue-500/40 rounded-xl hover:bg-blue-500/60 transition-colors"
+                          className="p-2 th-bg-accent-medium rounded-xl th-bg-accent-soft-hover transition-colors"
                           title="Dùng lại ý tưởng"
                         >
                           <Wand2 size={18} className="text-white" />
@@ -927,7 +927,7 @@ function CollectionRow({
       aria-pressed={active}
       onClick={onClick}
       className={`flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors ${
-        active ? "bg-blue-600/10 text-blue-600" : "th-text-secondary th-bg-hover"
+        active ? "th-bg-accent-light th-text-accent" : "th-text-secondary th-bg-hover"
       }`}
     >
       <span className="truncate">{label}</span>

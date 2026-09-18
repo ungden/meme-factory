@@ -6,23 +6,23 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import {
   ArrowRight,
-  CaretDown,
-  FilmSlate,
-  ImagesSquare,
+  ChevronDown,
+  Clapperboard,
+  CircleUser,
+  Images,
   Moon,
-  Sparkle,
+  Sparkles,
   Sun,
-  UserCircle,
-  VideoCamera,
-} from "@phosphor-icons/react";
+  Video,
+} from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { createClient } from "@/lib/supabase/client";
 
 const formats = [
-  { icon: UserCircle, label: "Nhân vật 3D", note: "Duyệt ảnh chuẩn trước khi dùng" },
-  { icon: ImagesSquare, label: "Tạo ảnh", note: "Ý tưởng, nhân vật và tỷ lệ" },
-  { icon: VideoCamera, label: "Tạo video", note: "Một clip nhanh từ mô tả hoặc ảnh" },
-  { icon: FilmSlate, label: "Tạo phim ngắn", note: "AI viết, dựng cảnh, lồng tiếng và ghép phim" },
+  { icon: CircleUser, label: "Nhân vật 3D", note: "Duyệt ảnh chuẩn trước khi dùng" },
+  { icon: Images, label: "Tạo ảnh", note: "Ý tưởng, nhân vật và tỷ lệ" },
+  { icon: Video, label: "Tạo video", note: "Một clip nhanh từ mô tả hoặc ảnh" },
+  { icon: Clapperboard, label: "Tạo phim ngắn", note: "AI viết, dựng cảnh, lồng tiếng và ghép phim" },
 ];
 
 const steps = [
@@ -95,9 +95,9 @@ export default function Home() {
     <div className="media-home min-h-screen overflow-x-hidden">
       <nav className="media-nav sticky top-0 z-50">
         <div className="mx-auto flex h-[78px] max-w-[1420px] items-center justify-between px-5 sm:px-8 lg:px-12">
-          <Link href="/" className="group flex items-center gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-blue-600">
+          <Link href="/" className="group flex items-center gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:th-ring-accent">
             <span className="media-logo flex h-10 w-10 items-center justify-center rounded-[13px] text-white">
-              <Sparkle size={21} weight="fill" />
+              <Sparkles size={21} fill="currentColor" />
             </span>
             <span className="text-[23px] font-extrabold tracking-[-0.025em]">AIDA</span>
             <span className="media-studio-label hidden text-[11px] font-semibold uppercase tracking-[0.21em] sm:inline">Media Studio</span>
@@ -118,7 +118,7 @@ export default function Home() {
             <Link href={appHref} className="media-primary-button ml-1 inline-flex h-11 items-center gap-2 rounded-[11px] px-4 text-sm font-semibold text-white sm:px-5">
               <span className="hidden sm:inline">{authReady && user ? "Mở Studio" : authReady ? "Bắt đầu miễn phí" : "Đang mở…"}</span>
               <span className="sm:hidden">{authReady && user ? "Dự án" : "Bắt đầu"}</span>
-              <ArrowRight size={17} weight="bold" />
+              <ArrowRight size={17} strokeWidth={2.5} />
             </Link>
           </div>
         </div>
@@ -142,10 +142,10 @@ export default function Home() {
                 </p>
                 <div className="mt-8 flex flex-wrap items-center gap-4">
                   <button type="button" onClick={focusComposer} className="media-primary-button inline-flex h-[54px] items-center gap-3 rounded-xl px-6 text-[16px] font-semibold text-white">
-                    Tạo content ngay <ArrowRight size={20} weight="bold" />
+                    Tạo content ngay <ArrowRight size={20} strokeWidth={2.5} />
                   </button>
                   <a href="#formats" className="media-text-link inline-flex items-center gap-2 px-2 py-3 text-sm font-semibold">
-                    Xem cách hoạt động <ArrowRight size={16} weight="bold" />
+                    Xem cách hoạt động <ArrowRight size={16} strokeWidth={2.5} />
                   </a>
                 </div>
               </div>
@@ -179,23 +179,23 @@ export default function Home() {
                     <Image src="/media-studio/foxy-master.png" alt="Foxy" width={38} height={38} className="h-9 w-9 rounded-full object-cover" />
                     <span className="min-w-0 flex-1"><small>Nhân vật</small><strong>{character}</strong></span>
                     <select aria-label="Chọn nhân vật" value={character} onChange={(event) => setCharacter(event.target.value)}><option>Foxy</option><option>Thêm nhân vật mới</option></select>
-                    <CaretDown size={14} />
+                    <ChevronDown size={14} />
                   </label>
                   <label className="media-select flex min-w-[190px] cursor-pointer items-center gap-2 rounded-[15px] px-3 py-2">
                     <span className="media-select-icon">Aa</span>
                     <span className="min-w-0 flex-1"><small>Giọng nói</small><strong>{voice}</strong></span>
                     <select aria-label="Chọn giọng nói" value={voice} onChange={(event) => setVoice(event.target.value)}><option>Thân thiện, dí dỏm</option><option>Sang, tối giản</option><option>Năng động Gen Z</option><option>Chuyên gia đáng tin</option></select>
-                    <CaretDown size={14} />
+                    <ChevronDown size={14} />
                   </label>
                   <label className="media-select flex min-w-[178px] cursor-pointer items-center gap-2 rounded-[15px] px-3 py-2">
                     <span className="media-select-icon">AI</span>
                     <span className="min-w-0 flex-1"><small>Công cụ</small><strong>{output}</strong></span>
                     <select aria-label="Chọn công cụ" value={output} onChange={(event) => setOutput(event.target.value)}><option>Tạo ảnh</option><option>Tạo video</option><option>Tạo phim ngắn</option></select>
-                    <CaretDown size={14} />
+                    <ChevronDown size={14} />
                   </label>
                 </div>
                 <button type="submit" className="media-submit flex h-14 w-full items-center justify-center rounded-2xl text-white xl:w-14" aria-label="Tạo nội dung">
-                  <ArrowRight size={22} weight="bold" />
+                  <ArrowRight size={22} strokeWidth={2.5} />
                 </button>
               </div>
             </form>
@@ -213,7 +213,7 @@ export default function Home() {
           <div className="mt-10 grid grid-cols-2 gap-px overflow-hidden rounded-[22px] border lg:mt-12 lg:grid-cols-4 lg:rounded-[25px]">
             {formats.map((format) => (
               <article key={format.label} className="media-format-item min-h-[150px] p-4 sm:p-5 lg:min-h-[180px] lg:p-6">
-                <format.icon size={27} weight="duotone" className="th-text-accent" />
+                <format.icon size={27} className="th-text-accent" />
                 <h3 className="mt-7 text-[16px] font-bold tracking-[-0.01em] sm:text-[17px] lg:mt-10 lg:text-[18px]">{format.label}</h3>
                 <p className="media-copy mt-1 text-sm">{format.note}</p>
               </article>
@@ -228,7 +228,7 @@ export default function Home() {
                 <span className="media-kicker">Từ nhân vật đến nội dung đã duyệt</span>
                 <h2 className="mt-4 max-w-[680px] text-[36px] font-bold leading-[1.08] tracking-[-0.03em] sm:text-[50px]">Làm nội dung như có cả đội ngũ media bên cạnh.</h2>
               </div>
-              <Link href={appHref} className="media-text-link inline-flex items-center gap-2 py-3 text-sm font-semibold">Khám phá Studio <ArrowRight size={17} weight="bold" /></Link>
+              <Link href={appHref} className="media-text-link inline-flex items-center gap-2 py-3 text-sm font-semibold">Khám phá Studio <ArrowRight size={17} strokeWidth={2.5} /></Link>
             </div>
             <div className="mt-10 grid gap-7 md:mt-12 md:grid-cols-3 md:gap-12">
               {steps.map(([number, title, description]) => (
@@ -248,7 +248,7 @@ export default function Home() {
               <span className="media-hand-note text-[24px] text-[#f05a32] sm:text-[26px]">nội dung đều hơn, thương hiệu có chất hơn</span>
               <h2 className="mt-3 max-w-[720px] text-[38px] font-extrabold leading-[1.05] tracking-[-0.035em] sm:text-[54px]">Một nhân vật. Từ tấm ảnh tới bộ phim ngắn.</h2>
               <p className="mx-auto mt-4 max-w-[590px] text-[15px] leading-6 text-black/65 lg:mx-0">Bắt đầu bằng một ý tưởng hoặc tạo nhân vật đầu tiên cho project của bạn.</p>
-              <button type="button" onClick={focusComposer} className="media-primary-button mt-7 inline-flex h-[52px] items-center gap-3 rounded-xl px-6 text-[15px] font-semibold text-white">Bắt đầu tạo <ArrowRight size={19} weight="bold" /></button>
+              <button type="button" onClick={focusComposer} className="media-primary-button mt-7 inline-flex h-[52px] items-center gap-3 rounded-xl px-6 text-[15px] font-semibold text-white">Bắt đầu tạo <ArrowRight size={19} strokeWidth={2.5} /></button>
             </div>
             <div className="relative mx-auto mt-6 h-[170px] w-[170px] rotate-[2deg] overflow-hidden rounded-[24px] border-[7px] border-white/75 bg-white/70 shadow-[0_18px_50px_rgba(86,56,3,.18)] sm:h-[210px] sm:w-[210px] lg:mt-0 lg:h-[280px] lg:w-[280px] lg:rounded-[30px]">
               <Image src="/media-studio/foxy-master.png" alt="Nhân vật Foxy của AIDA" fill sizes="280px" className="object-cover" />
@@ -259,7 +259,7 @@ export default function Home() {
 
       <footer className="media-footer border-t">
         <div className="mx-auto flex max-w-[1320px] flex-col gap-4 px-5 py-7 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">
-          <div className="flex items-center gap-2 font-bold"><Sparkle size={16} weight="fill" className="th-text-accent" /> AIDA Media Studio</div>
+          <div className="flex items-center gap-2 font-bold"><Sparkles size={16} fill="currentColor" className="th-text-accent" /> AIDA Media Studio</div>
           <p className="media-copy">Một nhân vật. Mọi nội dung.</p>
           <nav className="flex items-center gap-4">
             <Link href="/pricing" className="media-copy underline-offset-4 hover:underline">Bảng giá</Link>

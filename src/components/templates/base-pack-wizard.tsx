@@ -266,7 +266,7 @@ export default function BasePackWizard({
                   }}
                   className={`rounded-xl border p-2.5 text-left ${
                     artDirection === direction.id
-                      ? "border-blue-600 bg-blue-600/10"
+                      ? "th-border-accent th-bg-accent-light"
                       : "th-border-secondary th-bg-hover"
                   }`}
                 >
@@ -287,7 +287,7 @@ export default function BasePackWizard({
                   onClick={() => setAspectRatio(format)}
                   className={`rounded-lg border px-3 py-1.5 text-xs ${
                     aspectRatio === format
-                      ? "border-blue-600 text-blue-600 bg-blue-600/10"
+                      ? "th-border-accent th-text-accent th-bg-accent-light"
                       : "th-border-secondary th-text-tertiary"
                   }`}
                 >
@@ -307,7 +307,7 @@ export default function BasePackWizard({
                   type="checkbox"
                   checked={selectedIds.has(recipe.id)}
                   onChange={() => toggle(recipe.id)}
-                  className="accent-blue-600"
+                  className="th-accent-control"
                 />
                 <span className="flex-1 text-sm th-text-primary">{recipe.label}</span>
                 <span className="text-xs th-text-tertiary">{LAYOUT_PRESET_LABELS[recipe.layoutGroup]}</span>
@@ -390,7 +390,7 @@ export default function BasePackWizard({
             </p>
             <div className="mx-auto h-1.5 w-full max-w-sm overflow-hidden rounded-full th-bg-tertiary">
               <div
-                className="h-full rounded-full bg-blue-600 transition-all"
+                className="h-full rounded-full th-bg-accent transition-all"
                 style={{ width: `${Math.round((progress / Math.max(1, selectedRecipes.length)) * 100)}%` }}
               />
             </div>

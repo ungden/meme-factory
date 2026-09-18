@@ -28,7 +28,7 @@ export default function AuthError({
           <button
             onClick={reset}
             className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white rounded-xl transition-all"
-            style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}
+            style={{ background: "linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 65%, #000))" }}
           >
             <RotateCcw size={16} /> Thử lại
           </button>

@@ -144,7 +144,7 @@ export default function ZoneCanvas({
             key={zone}
             onPointerDown={(event) => onPointerDown(event, zone, "move")}
             className={`absolute cursor-move border-2 ${
-              active === zone ? "border-blue-500 bg-blue-500/20" : "border-sky-400/80 bg-sky-400/10"
+              active === zone ? "th-border-accent th-bg-accent-soft" : "border-sky-400/80 bg-sky-400/10"
             }`}
             style={{
               left: `${rect.x * 100}%`,
@@ -158,7 +158,7 @@ export default function ZoneCanvas({
             </span>
             <span
               onPointerDown={(event) => onPointerDown(event, zone, "resize")}
-              className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 cursor-se-resize rounded-full border-2 border-white bg-blue-600"
+              className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 cursor-se-resize rounded-full border-2 border-white th-bg-accent"
             />
           </div>
         );
@@ -189,7 +189,7 @@ export function ZoneToggles({
               onChange(next);
             }}
             className={`rounded-full border px-3 py-1 text-xs ${
-              present ? "border-blue-600 text-blue-600 bg-blue-600/10" : "th-border-secondary th-text-tertiary"
+              present ? "th-border-accent th-text-accent th-bg-accent-light" : "th-border-secondary th-text-tertiary"
             }`}
           >
             {present ? "− " : "+ "}

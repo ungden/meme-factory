@@ -57,7 +57,7 @@ export default function BaseImagePicker({
             type="button"
             onClick={() => setCharacterId("all")}
             className={`rounded-full border px-3 py-1 text-xs ${
-              characterId === "all" ? "border-blue-600 text-blue-600 bg-blue-600/10" : "th-border-secondary th-text-tertiary"
+              characterId === "all" ? "th-border-accent th-text-accent th-bg-accent-light" : "th-border-secondary th-text-tertiary"
             }`}
           >
             Tất cả
@@ -69,7 +69,7 @@ export default function BaseImagePicker({
               onClick={() => setCharacterId(character.id)}
               className={`rounded-full border px-3 py-1 text-xs ${
                 characterId === character.id
-                  ? "border-blue-600 text-blue-600 bg-blue-600/10"
+                  ? "th-border-accent th-text-accent th-bg-accent-light"
                   : "th-border-secondary th-text-tertiary"
               }`}
             >
@@ -89,7 +89,7 @@ export default function BaseImagePicker({
               title={label}
               onClick={() => onSelect(image)}
               className={`group overflow-hidden rounded-xl border-2 transition-colors ${
-                selectedId === image.id ? "border-blue-600" : "th-border-secondary hover:border-blue-400"
+                selectedId === image.id ? "th-border-accent" : "th-border-secondary th-border-accent-hover"
               }`}
             >
               <div className="relative aspect-square th-bg-tertiary">

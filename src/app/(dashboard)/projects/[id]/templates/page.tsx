@@ -85,7 +85,7 @@ export default function MemeTemplatesPage() {
               onClick={() => setStatusFilter(status)}
               className={`rounded-full border px-3 py-1 text-xs ${
                 statusFilter === status
-                  ? "border-blue-600 text-blue-600 bg-blue-600/10"
+                  ? "th-border-accent th-text-accent th-bg-accent-light"
                   : "th-border-secondary th-text-tertiary"
               }`}
             >

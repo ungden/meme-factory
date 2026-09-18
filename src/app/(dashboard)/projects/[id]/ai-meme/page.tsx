@@ -194,7 +194,7 @@ export default function AiMemePage() {
                   onClick={() => setTone(option)}
                   className={`rounded-full border px-3 py-1 text-xs ${
                     tone === option
-                      ? "border-blue-600 text-blue-600 bg-blue-600/10"
+                      ? "th-border-accent th-text-accent th-bg-accent-light"
                       : "th-border-secondary th-text-tertiary"
                   }`}
                 >

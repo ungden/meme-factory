@@ -60,7 +60,7 @@ export default function ResetPasswordPage() {
     <div className="flex min-h-screen items-center justify-center p-4" style={{ background: "var(--bg-primary)" }}>
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 shadow-lg shadow-blue-600/20">
+          <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl th-bg-accent shadow-lg th-shadow-accent">
             <Sparkles size={28} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold th-text-primary">Đặt mật khẩu mới</h1>

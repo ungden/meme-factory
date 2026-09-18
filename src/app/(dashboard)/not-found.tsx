@@ -14,7 +14,7 @@ export default function DashboardNotFound() {
         </p>
         <Link
           href="/projects"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20"
+          className="inline-flex items-center gap-2 px-6 py-3 th-bg-accent text-white font-semibold rounded-xl th-bg-accent-hover transition-all shadow-lg th-shadow-accent"
         >
           Về trang dự án
         </Link>

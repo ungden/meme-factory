@@ -47,11 +47,11 @@ export default function WatermarkGrid({
             aria-pressed={active}
             onClick={() => onChange(position)}
             className={`flex h-8 w-10 items-center justify-center rounded-lg border transition-colors ${
-              active ? "border-blue-600 bg-blue-600/10" : "th-border-secondary th-bg-hover"
+              active ? "th-border-accent th-bg-accent-light" : "th-border-secondary th-bg-hover"
             }`}
           >
             <span
-              className={`h-1.5 w-1.5 rounded-full ${active ? "bg-blue-600" : "th-bg-tertiary"}`}
+              className={`h-1.5 w-1.5 rounded-full ${active ? "th-bg-accent" : "th-bg-tertiary"}`}
               style={active ? undefined : { background: "var(--text-muted)" }}
             />
           </button>
