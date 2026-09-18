@@ -2,7 +2,13 @@ export const MAX_SHORT_FORM_TEMPO = 1.25;
 export const PACE_TOLERANCE = 1.12;
 // Câu rất ngắn ("Bố sao vậy?", mục tiêu ~1,2 giây) nói tự nhiên vẫn dài hơn
 // hai mươi phần trăm; tính thêm một khoảng dư tuyệt đối để không chặn nhầm.
-export const SHORT_LINE_SLACK_SECONDS = 0.6;
+//
+// 0,9 giây chứ không phải 0,6: một lượt chạy thật đã bị đỗ vì câu "Khi nào chị
+// cho phép." dài 2,637 giây so với trần 2,570 — lệch 67 mili-giây. Nhịp lấy hơi
+// và điểm cắt đầu câu của bộ đọc chiếm một khoảng gần như cố định, nên với câu
+// ngắn nó chiếm tỷ lệ rất lớn; chặn ở mức đó là chặn nhầm. Câu dài vẫn do nhánh
+// tỷ lệ 1,2× quyết định, nên trần cho thoại dài không hề nới ra.
+export const SHORT_LINE_SLACK_SECONDS = 0.9;
 
 /**
  * Decide whether a generated voice line needs a bounded, pitch-preserving
