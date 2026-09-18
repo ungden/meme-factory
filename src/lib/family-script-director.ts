@@ -807,6 +807,7 @@ ${
   header
     ? `ĐÃ CHỐT Ở PHẦN 1, GIỮ NGUYÊN: visualDirection=${JSON.stringify(header.visualDirection)}
 PHẦN TRƯỚC KẾT Ở: ${JSON.stringify(lastShot?.closingState || "")}
+BỐI CẢNH ĐANG Ở: ${JSON.stringify((lastShot as { setting?: string } | undefined)?.setting || "")} — còn ở đó thì chép lại NGUYÊN VĂN chuỗi này vào setting, không viết gọn và không diễn đạt lại; chỉ viết chuỗi mới khi câu chuyện thật sự chuyển sang nơi khác.
 ĐẠO CỤ ĐÃ CÓ (dùng lại đúng id, tên, màu, kích thước, dấu hiệu, số lượng): ${JSON.stringify([...new Map(priorShots.flatMap((shot) => ((shot as { props?: { id: string }[] }).props || []).map((prop) => [prop.id, prop] as const))).values()])}
 Chỉ trả shots là mảng đúng ${group.length} panel theo thứ tự trên.`
     : `Chỉ trả title, summary, visualDirection (cho toàn phim) và shots là mảng đúng ${group.length} panel theo thứ tự trên.`
