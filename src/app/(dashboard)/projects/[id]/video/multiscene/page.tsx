@@ -1909,7 +1909,7 @@ export default function ShortFilmPage() {
                           >
                             <option value="">Chọn giọng để nghe thử</option>
                             {GEMINI_TTS_MODELS.map((model) => (
-                              <optgroup key={model.id} label={model.label}>
+                              <optgroup key={model.id} label={model.customerLabel}>
                                 {Object.entries(GEMINI_VOICE_PRESETS).map(
                                   ([id, voice]) => (
                                     <option
@@ -1948,7 +1948,7 @@ export default function ShortFilmPage() {
                     <button
                       className="mt-4 min-h-11 rounded-lg border th-border px-3 text-sm th-text-accent"
                       onClick={() =>
-                        act("Gom storyboard", async () => {
+                        act("Gom thành phân đoạn", async () => {
                           const story = draft.story!;
                           const spoken = draft.scenes.filter((s) => s.dialogue);
                           if (
@@ -1961,7 +1961,7 @@ export default function ShortFilmPage() {
                             )
                           )
                             throw new Error(
-                              "Thoại đã thay đổi so với bản chữ. Hãy dùng AI viết phim để soạn storyboard mới từ ý tưởng hiện tại.",
+                              "Thoại đã thay đổi so với bản chữ. Hãy dùng AI viết phim để soạn phân đoạn mới từ ý tưởng hiện tại.",
                             );
                           const board = compileStoryboards(
                             {
@@ -2034,7 +2034,7 @@ export default function ShortFilmPage() {
                   <div className="mt-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <strong className="text-sm th-text-primary">
-                        {scene.storyboard ? "Storyboard · Đoạn" : "Cảnh"}{" "}
+                        {scene.storyboard ? "Phân đoạn" : "Cảnh"}{" "}
                         {selected + 1}
                       </strong>
                       <div className="flex">
@@ -2225,14 +2225,14 @@ export default function ShortFilmPage() {
                     )}
                     <details>
                       <summary className="cursor-pointer text-sm th-text-secondary">
-                        Prompt ảnh và chuyển động
+                        Mô tả ảnh và chuyển động
                       </summary>
                       {(["imagePrompt", "motionPrompt"] as const).map((f) => (
                         <textarea
                           aria-label={
                             f === "imagePrompt"
-                              ? "Prompt ảnh"
-                              : "Prompt chuyển động"
+                              ? "Mô tả ảnh"
+                              : "Mô tả chuyển động"
                           }
                           key={f}
                           className={`${control} mt-2`}

@@ -12,7 +12,7 @@ import {
   RefreshCw,
   Volume2,
   Wand2,
-} from "lucide-react";
+  Download,} from "lucide-react";
 import { useCharacters, useMemes, useProject } from "@/lib/use-store";
 import {
   SEEDANCE_VARIANTS,
@@ -656,8 +656,8 @@ export default function VideoStudioPage() {
                             : "var(--border-primary)",
                       }}
                     >
-                      <strong className="block text-sm">{item.label}</strong>
-                      <span>{item.description}</span>
+                      <strong className="block text-sm">{item.customerLabel}</strong>
+                      <span>{item.customerNote}</span>
                     </button>
                   ))}
                 </div>
@@ -937,7 +937,7 @@ export default function VideoStudioPage() {
                       ? "Chưa đồng bộ; vẫn giữ bản trên thiết bị này"
                       : quote
                         ? "Giá đã khoá trong 5 phút"
-                        : `${duration} giây · ${resolution} · ${SEEDANCE_VARIANTS.find((item) => item.id === model)?.label} · lồng tiếng Gemini`}
+                        : `${duration} giây · ${resolution} · ${SEEDANCE_VARIANTS.find((item) => item.id === model)?.customerLabel} · có lồng tiếng`}
                 </p>
               </div>
             </section>
@@ -987,9 +987,20 @@ export default function VideoStudioPage() {
                   </p>
                 </div>
               )}
+              {/* Đích cuối của người dùng là một file để đăng lên fanpage. Trang
+                  này từng hiện video mà không có cách nào tải nó về. */}
+              {output?.media_url && (
+                <a
+                  href={`/api/content-outputs/${output.id}/media?download=1`}
+                  download
+                  className="mt-5 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white th-bg-accent"
+                >
+                  <Download size={16} /> Tải video về máy
+                </a>
+              )}
               <Link
                 href={`/projects/${projectRef}/gallery`}
-                className="mt-5 flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold th-text-primary"
+                className="mt-3 flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold th-text-primary"
               >
                 <ImagePlus size={16} /> Xem nội dung đã lưu
               </Link>

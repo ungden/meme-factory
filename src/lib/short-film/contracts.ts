@@ -26,18 +26,28 @@ export const FILM_MODELS = {
   transcribe: "wavespeed-ai/openai-whisper-with-video",
 } as const;
 
+/**
+ * Các bộ máy đọc thoại.
+ *
+ * `label` là tên model cho log và màn quản trị; `customerLabel` là thứ người
+ * dùng đọc khi chọn giọng — họ chọn giữa "mới nhất" và "tiết kiệm", không phải
+ * giữa hai mã model.
+ */
 export const GEMINI_TTS_MODELS = [
   {
     id: "gemini-3.1-flash-tts-preview",
     label: "Gemini 3.1 Flash TTS · mới nhất",
+    customerLabel: "Giọng mới nhất",
   },
   {
     id: "gemini-2.5-pro-preview-tts",
     label: "Gemini 2.5 Pro TTS · ưu tiên chất lượng",
+    customerLabel: "Giọng chất lượng cao",
   },
   {
     id: "gemini-2.5-flash-preview-tts",
     label: "Gemini 2.5 Flash TTS · nhanh, tiết kiệm",
+    customerLabel: "Giọng tiết kiệm",
   },
 ] as const;
 export type GeminiTtsModel = (typeof GEMINI_TTS_MODELS)[number]["id"];

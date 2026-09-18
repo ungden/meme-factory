@@ -7,10 +7,18 @@ export const SEEDANCE_20_FAST_IMAGE_MODEL =
 export const SEEDANCE_20_FAST_TEXT_MODEL =
   "bytedance/seedance-2.0-fast/text-to-video" as const;
 
+/**
+ * Hai mức chất lượng video.
+ *
+ * `label` là tên model, dành cho log và màn quản trị. Người dùng cuối đọc
+ * `customerLabel`: họ không mua "Seedance 2.5", họ chọn giữa rẻ hơn và đẹp hơn.
+ */
 export const SEEDANCE_VARIANTS = [
   {
     id: "seedance-2.5",
     label: "Seedance 2.5",
+    customerLabel: "Chất lượng cao",
+    customerNote: "Chuyển động mượt hơn, cảnh dài tới 30 giây. Giá gần gấp đôi.",
     description: "Chất lượng cao",
     imageModel: SEEDANCE_25_IMAGE_MODEL,
     textModel: SEEDANCE_25_TEXT_MODEL,
@@ -19,6 +27,8 @@ export const SEEDANCE_VARIANTS = [
   {
     id: "seedance-2.0-fast",
     label: "Seedance 2.0 Fast",
+    customerLabel: "Tiết kiệm",
+    customerNote: "Đẹp, nhanh, đủ cho bài đăng hằng ngày. Mỗi cảnh tối đa 15 giây.",
     description: "Tiết kiệm",
     imageModel: SEEDANCE_20_FAST_IMAGE_MODEL,
     textModel: SEEDANCE_20_FAST_TEXT_MODEL,

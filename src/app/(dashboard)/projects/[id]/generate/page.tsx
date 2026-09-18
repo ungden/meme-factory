@@ -624,7 +624,7 @@ export default function GeneratePage() {
         headline: typeof result.headline === "string" ? result.headline : "", subtext: typeof result.subtext === "string" ? result.subtext : undefined, caption: typeof result.caption === "string" ? result.caption : undefined, image_prompt: typeof result.imagePrompt === "string" ? result.imagePrompt : undefined, tone: "natural", text_position: textPosition, visual_direction: { scene: typeof result.visualDirection === "string" ? result.visualDirection : "" },
       };
       setVariations([variation]); setSelectedVariation(0); setHasPickedVariation(true); setTaggedCharacterIds(new Set(characterIds)); setStep(3);
-      toast.success("AI đã soạn ảnh, caption và prompt. Duyệt rồi mới tạo ảnh.");
+      toast.success("AI đã soạn ảnh, chú thích và mô tả hình. Duyệt rồi mới tạo ảnh.");
     } catch (reason) { toast.error(reason instanceof Error ? reason.message : "AI chưa soạn được ảnh."); } finally { setGenerating(false); }
   };
 
@@ -1716,8 +1716,8 @@ export default function GeneratePage() {
               {[15, 30].map((seconds) => <button key={seconds} type="button" onClick={() => { setVideoDuration(seconds as 15 | 30); setVideoQuote(null); }} className={`rounded-xl border px-3 py-2 text-sm ${videoDuration === seconds ? "th-border-accent th-bg-accent-light th-text-accent" : "th-border"}`}>{seconds} giây</button>)}
               {["720p", "1080p"].map((resolution) => <button key={resolution} type="button" onClick={() => { setVideoResolution(resolution as "720p" | "1080p"); setVideoQuote(null); }} className={`rounded-xl border px-3 py-2 text-sm ${videoResolution === resolution ? "th-border-accent th-bg-accent-light th-text-accent" : "th-border"}`}>{resolution}</button>)}
             </div>
-            <label className="flex items-center justify-between rounded-xl th-bg-tertiary px-3 py-2 text-sm th-text-secondary"><span>Có âm thanh native</span><input type="checkbox" checked={videoAudio} onChange={(event) => { setVideoAudio(event.target.checked); setVideoQuote(null); }} /></label>
-            {videoQuote ? <div className="rounded-xl th-bg-accent-light p-3 text-sm th-text-accent">Báo giá đã chốt: <strong>{videoQuote.customerPoints} điểm</strong>{videoQuote.providerCostUsd ? ` · $${videoQuote.providerCostUsd.toFixed(3)} provider` : ""}</div> : <Button className="w-full" disabled={!videoScript.trim()} onClick={() => getVideoQuote().catch((error) => toast.error(error instanceof Error ? error.message : "Không lấy được báo giá."))} loading={videoLoading}>Xem giá video</Button>}
+            <label className="flex items-center justify-between rounded-xl th-bg-tertiary px-3 py-2 text-sm th-text-secondary"><span>Có tiếng trong video</span><input type="checkbox" checked={videoAudio} onChange={(event) => { setVideoAudio(event.target.checked); setVideoQuote(null); }} /></label>
+            {videoQuote ? <div className="rounded-xl th-bg-accent-light p-3 text-sm th-text-accent">Báo giá đã chốt: <strong>{videoQuote.customerPoints} điểm</strong></div> : <Button className="w-full" disabled={!videoScript.trim()} onClick={() => getVideoQuote().catch((error) => toast.error(error instanceof Error ? error.message : "Không lấy được báo giá."))} loading={videoLoading}>Xem giá video</Button>}
             {videoQuote && <Button className="w-full" onClick={submitVideo} loading={videoLoading}>Tạo video với giá này</Button>}
           </div>
         </Modal>
