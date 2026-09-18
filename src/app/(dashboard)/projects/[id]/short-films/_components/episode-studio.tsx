@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { FilmPlan } from "@/lib/short-film/contracts";
 import ConfirmModal from "@/components/ui/confirm-modal";
+import { suggestHashtags } from "@/lib/post-text";
 import { api } from "../../video/multiscene/_lib/draft";
 import {
   QUALITY_OPTIONS,
@@ -361,6 +362,8 @@ export default function EpisodeStudio() {
                   onApprove={() =>
                     act(async () => void (await api(`${base}/film-tasks/${film.id}`, { action: "approve", workspaceVersion: workspace })))
                   }
+                  caption={[plan?.title, plan?.brief || run?.intent].filter(Boolean).join("\n\n")}
+                  hashtags={suggestHashtags(plan?.title)}
                 />
               )}
 

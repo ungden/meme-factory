@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import Button from "@/components/ui/button";
+import SharePost from "@/components/content/share-post";
 import {
   EPISODE_STATUS_LABEL,
   QUALITY_OPTIONS,
@@ -517,10 +518,15 @@ export function FilmPanel({
   film,
   approving,
   onApprove,
+  caption = "",
+  hashtags = [],
 }: {
   film: StudioTask;
   approving: boolean;
   onApprove: () => void;
+  /** Lời giới thiệu tập phim, dùng làm nội dung bài đăng. */
+  caption?: string;
+  hashtags?: string[];
 }) {
   const approved = Boolean(film.approved_at);
   return (
@@ -548,6 +554,9 @@ export function FilmPanel({
           </a>
         )}
       </div>
+      {/* Tải phim về rồi vẫn còn phải tự nghĩ caption; đưa luôn khối chữ dán
+          được vào bài đăng. */}
+      <SharePost caption={caption} hashtags={hashtags} label="Sao chép bài đăng" />
     </section>
   );
 }

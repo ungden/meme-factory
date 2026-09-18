@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import SharePost from "@/components/content/share-post";
+import { suggestHashtags } from "@/lib/post-text";
 import { useParams, useRouter } from "next/navigation";
 import { useProject, useMemes } from "@/lib/use-store";
 import Button from "@/components/ui/button";
@@ -14,7 +16,6 @@ import {
   Trash2,
   Image as ImageIcon,
   Calendar,
-  Copy,
   CheckSquare,
   Square,
   X,
@@ -44,6 +45,8 @@ export default function GalleryPage() {
   const toast = useToast();
 
   const { project } = useProject(projectId);
+  // Hashtag gợi ý theo tên fanpage — người dùng vẫn sửa được sau khi dán.
+  const postHashtags = suggestHashtags(project?.name);
   const { memes, loading, hasMore, loadingMore, loadMore, remove, reload } = useMemes(projectId);
   const [selectedMeme, setSelectedMeme] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -229,17 +232,6 @@ export default function GalleryPage() {
     }
   };
 
-  const handleCopyCaption = (text: string) => {
-    navigator.clipboard
-      .writeText(text)
-      .then(() => {
-        toast.success("Đã sao chép caption");
-      })
-      .catch(() => {
-        toast.error("Không thể sao chép");
-      });
-  };
-
   const goRegenerate = (memeId: string) => {
     setSelectedMeme(null);
     setDeleteTarget(null);
@@ -372,7 +364,7 @@ export default function GalleryPage() {
               {videoOutputs.map((output) => (
                 <Card key={output.id} className="overflow-hidden p-0">
                   {["completed", "approved", "rejected"].includes(output.status) ? <video controls preload="none" poster={output.poster_url ? `/api/content-outputs/${output.id}/media?artifact=poster` : undefined} className="w-full bg-black object-contain" style={{ aspectRatio: ["16:9", "9:16", "1:1", "4:5"].includes(output.format) ? output.format.replace(":", "/") : "16/9" }} src={`/api/content-outputs/${output.id}/media`} /> : <div className="flex aspect-[9/16] items-center justify-center p-5 text-center text-sm th-text-tertiary">{output.status === "failed" ? "Video chưa tạo được. Hãy tạo đầu ra mới để xem giá và thử lại." : "Video đang được xử lý. Bạn có thể rời trang và quay lại sau."}</div>}
-                  <div className="p-3"><p className="line-clamp-2 text-sm th-text-secondary">{output.caption || output.script || "Video AI"}</p><p className="mt-1 text-xs th-text-muted">{output.duration_seconds ? `${output.duration_seconds} giây` : ""} · {["completed", "approved", "rejected"].includes(output.status) ? (output.status === "approved" ? "Đã duyệt" : output.status === "rejected" ? "Cần chỉnh sửa" : "Sẵn sàng tải MP4") : VIDEO_STATUS_LABELS[output.status] || "Đang xử lý"}</p>{["completed", "approved", "rejected"].includes(output.status) && <div className="mt-2 flex flex-wrap gap-2"><a className="inline-flex text-xs font-semibold th-text-accent" href={`/api/content-outputs/${output.id}/media?download=1`}>Tải MP4</a>{output.status === "completed" && <><button onClick={() => reviewOutput(output.id, "approved")} className="text-xs font-semibold text-emerald-600">Duyệt</button><button onClick={() => reviewOutput(output.id, "rejected")} className="text-xs font-semibold text-amber-600">Cần chỉnh</button></>}</div>}</div>
+                  <div className="p-3"><p className="line-clamp-2 text-sm th-text-secondary">{output.caption || output.script || "Video AI"}</p><p className="mt-1 text-xs th-text-muted">{output.duration_seconds ? `${output.duration_seconds} giây` : ""} · {["completed", "approved", "rejected"].includes(output.status) ? (output.status === "approved" ? "Đã duyệt" : output.status === "rejected" ? "Cần chỉnh sửa" : "Sẵn sàng tải MP4") : VIDEO_STATUS_LABELS[output.status] || "Đang xử lý"}</p>{["completed", "approved", "rejected"].includes(output.status) && <div className="mt-2 flex flex-wrap items-center gap-3"><a className="inline-flex text-xs font-semibold th-text-accent" href={`/api/content-outputs/${output.id}/media?download=1`}>Tải MP4</a><SharePost caption={output.caption || output.script || ""} hashtags={postHashtags} />{output.status === "completed" && <><button onClick={() => reviewOutput(output.id, "approved")} className="text-xs font-semibold text-emerald-600">Duyệt</button><button onClick={() => reviewOutput(output.id, "rejected")} className="text-xs font-semibold text-amber-600">Cần chỉnh</button></>}</div>}</div>
                 </Card>
               ))}
             </div>
@@ -770,16 +762,16 @@ export default function GalleryPage() {
                     )}
                     {content?.caption && (
                       <div>
-                        <p className="text-xs th-text-muted uppercase tracking-wider">Caption</p>
+                        <p className="text-xs th-text-muted uppercase tracking-wider">Nội dung bài đăng</p>
                         <p className="text-sm th-text-secondary mt-1">{content.caption}</p>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="mt-1"
-                          onClick={() => handleCopyCaption(content.caption || "")}
-                        >
-                          <Copy size={12} /> Sao chép
-                        </Button>
+                        {/* Sao chép cả caption lẫn hashtag, đúng khối chữ dán
+                            thẳng được vào Facebook. */}
+                        <SharePost
+                          className="mt-2"
+                          caption={content.caption || ""}
+                          hashtags={postHashtags}
+                          label="Sao chép bài đăng"
+                        />
                       </div>
                     )}
                     <div className="flex items-center gap-2 text-xs th-text-tertiary">
