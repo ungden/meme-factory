@@ -15,7 +15,8 @@
     "test:sql": "node scripts/run-sql-tests.mjs",
     "video-worker": "node scripts/wavespeed-worker.mjs",
     "check:migrations": "node scripts/check-migrations.mjs",
-    "test:node": "node --test scripts/tests/dubbing.integration.mjs scripts/tests/short-film-edit-range.mjs scripts/tests/short-film-media.mjs scripts/tests/speech-pace.mjs"
+    "test:node": "node --test scripts/tests/dubbing.integration.mjs scripts/tests/short-film-edit-range.mjs scripts/tests/short-film-media.mjs scripts/tests/speech-pace.mjs scripts/tests/smoke.mjs",
+    "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.44.0",

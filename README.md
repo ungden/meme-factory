@@ -97,9 +97,15 @@ này im lặng, chỉ thấy khi đọc log runtime.
 Kiểm tra nhanh sau khi deploy:
 
 ```bash
-curl -s https://aida.vn/api/health | jq
+npm run smoke
 railway logs | tail -20
 ```
+
+`npm run smoke` mở toàn bộ bề mặt công khai (trang chủ, giá, hỗ trợ, đăng nhập,
+điều khoản, robots, sitemap, health) và kiểm cả những route nội bộ **phải** trả
+401. Nó kiểm nội dung chứ không chỉ mã trạng thái — một trang trả 200 với nội
+dung sai vẫn bị bắt. Thêm địa chỉ khác để kiểm môi trường khác:
+`node scripts/smoke.mjs http://localhost:3000`.
 
 ## Vận hành
 

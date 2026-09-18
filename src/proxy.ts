@@ -7,6 +7,8 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|json|woff|woff2|ttf|otf)$).*)",
+    // `.txt` và `.xml` nằm trong danh sách này vì robots.txt và sitemap.xml từng
+    // bị proxy đẩy về /login: công cụ tìm kiếm nhận 307 thay vì nội dung.
+    "/((?!_next/static|_next/image|favicon.ico|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|json|txt|xml|woff|woff2|ttf|otf)$).*)",
   ],
 };
