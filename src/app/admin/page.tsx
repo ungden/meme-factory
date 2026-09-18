@@ -99,11 +99,17 @@ function formatDate(iso: string) {
   });
 }
 
+type Operations = {
+  worker: { ok: boolean; detail?: string };
+  alerts: { key: string; level: "error" | "warning"; message: string }[];
+};
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
+  const [operations, setOperations] = useState<Operations | null>(null);
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
@@ -112,14 +118,16 @@ export default function AdminDashboard() {
       const supabase = createClient();
       const { data: session } = await supabase.auth.getSession();
       const token = session.session?.access_token;
-      const [statsRes, overviewRes] = await Promise.all([
+      const [statsRes, overviewRes, operationsRes] = await Promise.all([
         fetch("/api/admin/stats", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/admin/overview", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/admin/operations", { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       if (!statsRes.ok) throw new Error((await statsRes.json()).error);
       setStats(await statsRes.json());
       // The overview is extra detail; a failure here must not blank the dashboard.
       if (overviewRes.ok) setOverview(await overviewRes.json());
+      if (operationsRes.ok) setOperations(await operationsRes.json());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Lỗi tải dữ liệu");
     } finally {
@@ -173,6 +181,44 @@ export default function AdminDashboard() {
           <div className="p-4 rounded-xl mb-6" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
             {error}
           </div>
+        )}
+
+        {operations && (
+          <section className="mb-8">
+            <h2 className="mb-3 text-sm font-semibold th-text-primary">Vận hành</h2>
+            <div
+              className="rounded-2xl border p-4"
+              style={{ borderColor: "var(--border-primary)", background: "var(--bg-card)" }}
+            >
+              <p className="flex items-center gap-2 text-sm th-text-secondary">
+                <span
+                  aria-hidden
+                  className="inline-block h-2.5 w-2.5 rounded-full"
+                  style={{ background: operations.worker.ok ? "var(--success)" : "var(--danger)" }}
+                />
+                Worker {operations.worker.ok ? "đang chạy" : "không phản hồi"}
+                {operations.worker.detail ? ` — ${operations.worker.detail}` : ""}
+              </p>
+              {operations.alerts.length === 0 ? (
+                <p className="mt-3 text-sm th-text-tertiary">Không có cảnh báo nào.</p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {operations.alerts.map((alert) => (
+                    <li
+                      key={alert.key}
+                      className="rounded-xl px-3 py-2 text-sm"
+                      style={{
+                        background: alert.level === "error" ? "var(--danger-light)" : "var(--warning-light)",
+                        color: alert.level === "error" ? "var(--danger)" : "var(--warning)",
+                      }}
+                    >
+                      {alert.message}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
         )}
 
         {overview && (
