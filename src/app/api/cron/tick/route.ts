@@ -24,7 +24,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Thiếu VIDEO_WORKER_TOKEN." }, { status: 503 });
 
   const origin = new URL(request.url).origin;
-  const endpoints = ["/api/internal/short-film-production/advance", "/api/internal/wavespeed/reconcile"];
+  const endpoints = [
+    "/api/internal/short-film-production/advance",
+    "/api/internal/wavespeed/reconcile",
+    "/api/internal/refund-sweeper",
+  ];
   const results = await Promise.all(
     endpoints.map(async (path) => {
       try {

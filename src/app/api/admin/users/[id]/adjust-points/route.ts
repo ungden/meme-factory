@@ -15,40 +15,31 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: "Vui lòng nhập lý do" }, { status: 400 });
     }
 
-    // Get current wallet
-    const { data: wallet } = await supabaseAdmin
-      .from("wallets")
-      .select("points")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (!wallet) {
-      return NextResponse.json({ error: "Không tìm thấy ví của người dùng" }, { status: 404 });
-    }
-
-    const newPoints = Number(wallet.points) + amount;
-    if (newPoints < 0) {
-      return NextResponse.json({ error: `Không thể trừ ${Math.abs(amount)} points. Số dư hiện tại: ${wallet.points} points` }, { status: 400 });
-    }
-
-    // Update wallet
-    const { error: updateError } = await supabaseAdmin
-      .from("wallets")
-      .update({ points: newPoints })
-      .eq("user_id", userId);
-
-    if (updateError) {
+    // Một RPC làm cả ba việc trong một giao dịch: khoá ví, đổi số dư, ghi sổ.
+    // Đọc rồi ghi từ đây khiến hai admin bấm cùng lúc mất một lần chỉnh.
+    const { data: result, error } = await supabaseAdmin.rpc("admin_adjust_points", {
+      _user_id: userId,
+      _amount: Math.trunc(amount),
+      _reason: reason,
+      _admin_email: admin.email ?? null,
+    });
+    if (error) {
       return NextResponse.json({ error: "Cập nhật ví thất bại" }, { status: 500 });
     }
-
-    // Record transaction
-    await supabaseAdmin.from("transactions").insert({
-      user_id: userId,
-      amount: amount,
-      type: amount > 0 ? "topup" : "payment",
-      status: "completed",
-      description: `[Admin] ${reason} (bởi ${admin.email})`,
-    });
+    if (!result?.success) {
+      const messages: Record<string, string> = {
+        WALLET_NOT_FOUND: "Không tìm thấy ví của người dùng",
+        INSUFFICIENT_POINTS: `Không thể trừ ${Math.abs(amount)} points. Số dư hiện tại: ${result?.points ?? 0} points`,
+        AMOUNT_REQUIRED: "Số points phải khác 0",
+        REASON_REQUIRED: "Vui lòng nhập lý do",
+      };
+      const code = String(result?.error || "");
+      return NextResponse.json(
+        { error: messages[code] || "Cập nhật ví thất bại" },
+        { status: code === "WALLET_NOT_FOUND" ? 404 : 400 },
+      );
+    }
+    const newPoints = Number(result.points);
 
     return NextResponse.json({
       success: true,
