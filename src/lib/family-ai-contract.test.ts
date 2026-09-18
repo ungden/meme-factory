@@ -399,4 +399,13 @@ describe("legibleTextRequests", () => {
   it("không đòi đọc gì khi mô tả không có chữ nào trong ngoặc", () => {
     expect(legibleTextRequests("Bánh Bao đứng trước tủ lạnh.", [])).toEqual([]);
   });
+
+  it("bỏ qua tên nhân vật trong ngoặc kép", () => {
+    expect(
+      legibleTextRequests(
+        'Medium shot của “Bánh Bao” và “Đậu Đỏ” đứng cạnh tủ lạnh, không có vật gì mang chữ.',
+        [],
+      ),
+    ).toEqual([]);
+  });
 });

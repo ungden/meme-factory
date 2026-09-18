@@ -540,7 +540,16 @@ export function legibleTextRequests(
     if (!found.some((item) => item.toLocaleLowerCase("vi") === text.toLocaleLowerCase("vi")))
       found.push(text);
   };
-  for (const match of String(imagePrompt || "").matchAll(/['"\u2018\u2019\u201c\u201d]([^'"\u2018\u2019\u201c\u201d]{1,40})['"\u2018\u2019\u201c\u201d]/gu))
+  // Chỉ nhận chữ nằm cạnh một từ chỉ vật mang chữ. Đạo diễn cũng đặt tên nhân
+  // vật trong ngoặc kép; đòi đọc “Bánh Bao” trên màn hình là bắt lỗi oan và mỗi
+  // lần bắt oan là một vòng tạo lại tốn tiền.
+  const carrier =
+    "sign|text|label|note|banner|poster|sticker|card|board|reads?|written|says|biển|bảng|chữ|dòng chữ|nhãn|tờ giấy|mảnh giấy|ghi";
+  const quoted = "['\"\u2018\u2019\u201c\u201d]([^'\"\u2018\u2019\u201c\u201d]{1,40})['\"\u2018\u2019\u201c\u201d]";
+  const prompt = String(imagePrompt || "");
+  for (const match of prompt.matchAll(new RegExp(`(?:${carrier})\\W{0,20}?${quoted}`, "giu")))
+    add(match[1]);
+  for (const match of prompt.matchAll(new RegExp(`${quoted}\\W{0,20}?(?:${carrier})`, "giu")))
     add(match[1]);
   if (Array.isArray(props))
     for (const prop of props) add((prop as { marks?: unknown } | null)?.marks);
