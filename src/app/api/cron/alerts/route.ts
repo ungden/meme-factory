@@ -78,15 +78,18 @@ export async function GET(request: NextRequest) {
 
     const sentAt = byKey.alert_state || {};
     const due = dueAlerts(alerts, sentAt, now);
-    if (due.length) {
-      await notify(due);
-      const value = { ...sentAt };
-      for (const alert of due) value[alert.key] = new Date(now).toISOString();
-      // Giữ lại đúng những khoá còn ý nghĩa để state không phình mãi.
+    // Một sự cố đã hết thì quên luôn lần gửi trước: nếu không, sự cố kế tiếp
+    // cùng loại xảy ra trong vòng một giờ sẽ bị nín, và im lặng lúc đó nhìn
+    // giống hệt "mọi thứ vẫn ổn".
+    const value = Object.fromEntries(
+      Object.entries(sentAt).filter(([key]) => alerts.some((alert) => alert.key === key)),
+    );
+    for (const alert of due) value[alert.key] = new Date(now).toISOString();
+    if (due.length) await notify(due);
+    if (due.length || Object.keys(value).length !== Object.keys(sentAt).length)
       await admin
         .from("system_settings")
         .upsert({ key: "alert_state", value, updated_at: new Date(now).toISOString() }, { onConflict: "key" });
-    }
 
     return NextResponse.json({ ok: true, alerts: alerts.map((a) => a.key), notified: due.map((a) => a.key) });
   } catch (error) {

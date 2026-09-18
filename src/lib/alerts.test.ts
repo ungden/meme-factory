@@ -62,3 +62,9 @@ describe("dueAlerts", () => {
     expect(dueAlerts(alerts, { "worker-silent": "2026-09-18T08:30:00.000Z" }, now)).toHaveLength(1);
   });
 });
+
+describe("dueAlerts khi sự cố đã hết", () => {
+  it("không gửi gì khi không còn cảnh báo nào", () => {
+    expect(dueAlerts([], { "worker-silent": "2026-09-18T09:59:00.000Z" }, now)).toEqual([]);
+  });
+});
