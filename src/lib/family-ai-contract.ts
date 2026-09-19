@@ -517,45 +517,6 @@ export function footwearClause(openingState: string): string {
   return text.slice(0, 200);
 }
 
-/**
- * Những mẩu chữ mà khung hình buộc phải đọc đúng: chữ đặt trong ngoặc kép của
- * mô tả ảnh, hoặc chữ ghi trên đạo cụ.
- *
- * Tập 19/09 xin một tờ giấy “CẤM MỞ” ở cảnh 1 và xin lại đúng tờ đó ở cảnh 3.
- * Cảnh 1 có yêu cầu kind=text nên người kiểm ảnh phải đọc lại, và nó đúng.
- * Cảnh 3 không có yêu cầu nào, nên không ai đọc — tấm biển in ra “CẬM MỔ”, sai
- * cả hai dấu, và lọt tới bản dựng cuối. Mô hình dựng ảnh đánh rơi dấu tiếng
- * Việt thường xuyên; chữ sai chính tả trên màn hình là lỗi khán giả thấy ngay,
- * nên hễ kịch bản đòi một mẩu chữ cụ thể thì tự gắn yêu cầu đọc lại nó.
- */
-export function legibleTextRequests(
-  imagePrompt: string,
-  props: unknown,
-): string[] {
-  const found: string[] = [];
-  const add = (value: unknown) => {
-    const text = String(value ?? "").trim();
-    // Một hai chữ in trên biển/nhãn. Chuỗi dài là câu mô tả, không phải chữ cần đọc.
-    if (!text || text.length > 40 || !/\p{L}/u.test(text)) return;
-    if (!found.some((item) => item.toLocaleLowerCase("vi") === text.toLocaleLowerCase("vi")))
-      found.push(text);
-  };
-  // Chỉ nhận chữ nằm cạnh một từ chỉ vật mang chữ. Đạo diễn cũng đặt tên nhân
-  // vật trong ngoặc kép; đòi đọc “Bánh Bao” trên màn hình là bắt lỗi oan và mỗi
-  // lần bắt oan là một vòng tạo lại tốn tiền.
-  const carrier =
-    "sign|text|label|note|banner|poster|sticker|card|board|reads?|written|says|biển|bảng|chữ|dòng chữ|nhãn|tờ giấy|mảnh giấy|ghi";
-  const quoted = "['\"\u2018\u2019\u201c\u201d]([^'\"\u2018\u2019\u201c\u201d]{1,40})['\"\u2018\u2019\u201c\u201d]";
-  const prompt = String(imagePrompt || "");
-  for (const match of prompt.matchAll(new RegExp(`(?:${carrier})\\W{0,20}?${quoted}`, "giu")))
-    add(match[1]);
-  for (const match of prompt.matchAll(new RegExp(`${quoted}\\W{0,20}?(?:${carrier})`, "giu")))
-    add(match[1]);
-  if (Array.isArray(props))
-    for (const prop of props) add((prop as { marks?: unknown } | null)?.marks);
-  return found.slice(0, 3);
-}
-
 export function framingCanShowFeet(camera: string): boolean {
   const text = camera.toLocaleLowerCase("vi");
   if (!text.trim()) return true;
@@ -715,26 +676,7 @@ export function compileStoryboards(
                   },
                 ]
               : shotRequirements;
-            const legibleText = legibleTextRequests(
-              String(shot.imagePrompt || ""),
-              shot.props,
-            ).filter(
-              (text) => !withFootwear.some((requirement) => requirement.description.includes(text)),
-            );
-            const withText: VisualRequirement[] = legibleText.length
-              ? [
-                  ...withFootwear,
-                  {
-                    id: "legible_text",
-                    kind: "text",
-                    description: `Chữ trên đạo cụ phải đọc đúng từng ký tự và đúng dấu tiếng Việt: ${legibleText.map((text) => `“${text}”`).join(", ")}. Đúng nghĩa là KHỚP HOÀN TOÀN: sai dấu, sai chữ, thừa chữ, lặp lại một từ hay thêm dòng chữ nào khác đều là không đạt.`,
-                    visibleWhen: "opening",
-                    importance: "critical",
-                    legibility: "readable",
-                  },
-                ]
-              : withFootwear;
-            for (const requirement of withText)
+            for (const requirement of withFootwear)
               requirements.push({ ...requirement, id: `${prefix}_${requirement.id}` });
             const shotImages = Array.isArray(shot.referenceImages)
               ? (shot.referenceImages as DirectorReferenceImage[])
@@ -755,12 +697,7 @@ export function compileStoryboards(
                 id: `${prefix}_${image.id}`,
                 requirementIds: [
                   ...image.requirementIds,
-                  ...(imageIndex === 0
-                    ? [
-                        ...(needsFootwear ? ["footwear"] : []),
-                        ...(legibleText.length ? ["legible_text"] : []),
-                      ]
-                    : []),
+                  ...(needsFootwear && imageIndex === 0 ? ["footwear"] : []),
                 ].map((id) => `${prefix}_${id}`),
               });
           }
