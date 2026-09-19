@@ -409,7 +409,7 @@ it("normalizes provider durations without altering the editorial timing or exact
     plans[0].story.dialogue[0].characterId,
   );
 });
-it("sizes provider clips from complete dialogue instead of a fixed multiple", async () => {
+it("sizes provider clips from complete dialogue and directed action time", async () => {
   queue(
     plans[0].story,
     reviewFor(),
@@ -420,7 +420,13 @@ it("sizes provider clips from complete dialogue instead of a fixed multiple", as
   );
   const r = await generateCreativeAssist(input);
   if (r.kind !== "video_plan") throw Error("Wrong kind");
-  expect(r.scenes).toHaveLength(4);
+  expect(r.scenes.length).toBeGreaterThan(1);
+  expect(r.scenes.length).toBeLessThan(plans[0].story.dialogue.length);
+  expect(
+    r.scenes.flatMap((scene) => scene.storyboard?.beats || []).every(
+      (beat) => beat.endSeconds - beat.startSeconds >= 9,
+    ),
+  ).toBe(true);
   expect(r.scenes.some((s) => s.durationSeconds !== 15)).toBe(true);
   expect(r.scenes.every((s) => s.durationSeconds >= 4 && s.durationSeconds <= 30)).toBe(true);
 });
@@ -509,7 +515,7 @@ it("keeps the general idea assist single-call and preserves identities", async (
   ];
   await generateCreativeAssist({ ...input, kind: "idea_suggestions" });
   expect(calls.prompts).toHaveLength(1);
-  expect(calls.prompts[0]).toContain("family-dialogue-15");
+  expect(calls.prompts[0]).toContain("family-dialogue-16");
 });
 it("compiles listener reactions without inventing extra dialogue", () => {
   const story = {

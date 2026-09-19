@@ -7,6 +7,7 @@ import {
   SEEDANCE_20_FAST_TEXT_MODEL,
   SEEDANCE_25_TEXT_MODEL,
 } from "@/lib/video-models";
+import { stripStoryGenreMarker } from "@/lib/story-genre";
 
 export type StudioRun = {
   id: string;
@@ -347,7 +348,7 @@ export function episodeSummaries(plans: PlanLike[], runs: StudioRun[]): EpisodeS
 }
 
 export function shortTitle(intent: string | null | undefined, max = 48) {
-  const text = String(intent || "").replace(/\s+/g, " ").trim();
+  const text = stripStoryGenreMarker(intent).replace(/\s+/g, " ").trim();
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 }
 

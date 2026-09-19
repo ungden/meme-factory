@@ -10,6 +10,7 @@ import {
   unpackStory,
   framingCanShowFeet,
   footwearClause,
+  storyResponseSchema,
 } from "./family-ai-contract";
 import type { Story } from "./family-catalogue";
 
@@ -77,6 +78,30 @@ describe("storyShotCount", () => {
     });
     expect(storyHasReaction(withReaction)).toBe(true);
     expect(storyShotCount(withReaction)).toBe(3);
+  });
+});
+
+describe("genre-specific story schema", () => {
+  const profile = { series: ["Luật của tụi con"] } as never;
+
+  it("does not impose comedy game fields on an emotional story", () => {
+    const schema = storyResponseSchema(profile, CAST.map((item) => item.id), "emotion") as {
+      properties: Record<string, { properties?: Record<string, unknown> }>;
+    };
+    expect(schema.properties.game).toBeUndefined();
+    expect(schema.properties.comicPremise).toBeUndefined();
+    expect(schema.properties.emotionalArc).toBeDefined();
+    expect(schema.properties.dialogue.properties).toBeUndefined();
+    expect(JSON.stringify(schema.properties.dialogue)).not.toContain("beatFunction");
+  });
+
+  it("keeps game and beat functions in the comedy contract", () => {
+    const schema = storyResponseSchema(profile, CAST.map((item) => item.id), "comedy") as {
+      properties: Record<string, unknown>;
+    };
+    expect(schema.properties.game).toBeDefined();
+    expect(JSON.stringify(schema.properties.dialogue)).toContain("beatFunction");
+    expect(schema.properties.emotionalArc).toBeUndefined();
   });
 });
 

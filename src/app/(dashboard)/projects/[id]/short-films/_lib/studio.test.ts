@@ -116,6 +116,7 @@ describe("episode list", () => {
     ]);
     expect(film?.id).toBe("approved");
     expect(shortTitle("  một   ý tưởng  ")).toBe("một ý tưởng");
+    expect(shortTitle("[AIDA_GENRE=emotion]\nCát bay vào mắt")).toBe("Cát bay vào mắt");
   });
 });
 

@@ -1,5 +1,7 @@
 import type { FamilyDevelopmentTrace } from "./family-development";
 import { FAMILY_WRITING_POLICY_VERSION } from "./family-writing-policy";
+import type { StoryGenre } from "./story-genre";
+export type { StoryGenre } from "./story-genre";
 import {
   PERFORMANCE_LANES,
   type PerformanceLane,
@@ -149,7 +151,6 @@ export type ChannelProfile = {
   genres?: StoryGenre[];
   relationships?: string[];
 };
-export type StoryGenre = "comedy" | "emotion";
 export type RecentStory = Pick<
   Story,
   | "performanceLane"
@@ -605,6 +606,37 @@ export function validateGeneratedFamilyStory(
     throw new Error("STORY_COMIC_PREMISE_REQUIRED");
   if (story.genre === "emotion" && !story.emotionalArc)
     throw new Error("STORY_EMOTIONAL_ARC_REQUIRED");
+  if (story.genre === "emotion" && story.emotionalArc) {
+    const normalized = story.dialogue.map((line) =>
+      `${line.text} ${line.action}`
+        .toLocaleLowerCase("vi")
+        .replace(/[\p{P}\p{S}\s]+/gu, " ")
+        .trim(),
+    );
+    let afterLine = -1;
+    const lineOf = (quote: string) => {
+      const needle = quote
+        .toLocaleLowerCase("vi")
+        .replace(/[\p{P}\p{S}\s]+/gu, " ")
+        .trim();
+      const found = normalized.findIndex(
+        (line, index) => index > afterLine && line.includes(needle),
+      );
+      afterLine = found;
+      return found;
+    };
+    const evidenceLines = [
+      lineOf(story.emotionalArc.seed),
+      lineOf(story.emotionalArc.recognition),
+      lineOf(story.emotionalArc.changedAction),
+    ];
+    if (
+      evidenceLines.some((line) => line < 0)
+    )
+      throw new Error(
+        "STORY_EMOTIONAL_CAUSE_UNGROUNDED: seed, recognition và changedAction phải trích nguyên văn ba lượt có thật theo đúng thứ tự.",
+      );
+  }
   if (!story.endingPlan) throw new Error("STORY_ENDING_REQUIRED");
   if (story.genre === "emotion" && !String(story.performanceLane || "").startsWith("cinematic"))
     throw new Error("STORY_EMOTIONAL_LANE_REQUIRED");
@@ -616,5 +648,58 @@ export function validateGeneratedFamilyStory(
     performanceLane: story.performanceLane || "deadpan_reversal",
   };
 }
-export const STORY_SCHEMA =
-  '{"storyVersion":2,"genre":"comedy|emotion", "performanceLane":"deadpan_reversal|adult_format_parody|literal_logic|physical_escalation|cinematic_cool", "comicPremise":{"normalExpectation":"","invertedReality":"","visibleContrast":""}, "emotionalArc":{"seed":"chi tiết được gieo","recognition":"nhân vật nhận ra điều gì","changedAction":"hành động thay đổi sau khi nhận ra"}, "series":"", "situation":"", "mechanism":"", "outcome":"", "guests":[{"key":"guest-1","name":"","description":"ngoại hình rõ để dựng ảnh","personality":""}], "wants":[{"characterId":"uuid hoặc guest-1/guest-2","want":""}], "beats":{"hook":"","turns":[],"payoff":"","reaction":""}, "endingPlan":{"mode":"hard_cut|silent_reaction|resolved","stopAfterLine":1,"anchorQuote":"nguyên văn từ lượt cuối","reason":"vì sao dừng đúng ở đây"}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid hoặc guest-1/guest-2","text":"lời nói; để rỗng nếu là nhịp không lời","action":""}]}';
+export function storyContractForGenre(genre: StoryGenre) {
+  const common = {
+    storyVersion: 2,
+    genre,
+    performanceLane:
+      genre === "emotion"
+        ? "cinematic_emotion"
+        : "deadpan_reversal|adult_format_parody|literal_logic|physical_escalation",
+    series: "",
+    situation: "",
+    mechanism: "",
+    outcome: "",
+    guests: [{ key: "guest-1", name: "", description: "", personality: "" }],
+    wants: [{ characterId: "uuid hoặc guest-1", want: "" }],
+    beats: { hook: "", turns: [], payoff: "", reaction: "" },
+    endingPlan: {
+      mode: "hard_cut|silent_reaction|resolved",
+      stopAfterLine: 1,
+      anchorQuote: "nguyên văn từ lượt cuối",
+      reason: "",
+    },
+    setup: "",
+    payoff: "",
+    caption: "",
+  };
+  return JSON.stringify(
+    genre === "emotion"
+      ? {
+          ...common,
+          emotionalArc: {
+            seed: "trích nguyên văn lượt gieo chi tiết",
+            recognition: "trích nguyên văn lượt nhận ra",
+            changedAction: "trích nguyên văn lượt hành động thay đổi",
+          },
+          dialogue: [{ characterId: "uuid", text: "có thể rỗng", action: "" }],
+        }
+      : {
+          ...common,
+          comicPremise: {
+            normalExpectation: "",
+            invertedReality: "",
+            visibleContrast: "",
+          },
+          game: { baseReality: "", unusualThing: "", ifThen: "" },
+          dialogue: [
+            {
+              characterId: "uuid",
+              text: "",
+              action: "",
+              beatFunction: "base_reality|unusual_thing|frame|heighten|explore|button",
+            },
+          ],
+        },
+  );
+}

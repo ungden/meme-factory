@@ -230,16 +230,20 @@ it("keeps legacy plans readable but requires an inversion and explicit stop in n
 
 it("gives an emotional draft its own causal contract instead of comedy game rules", () => {
   const ids = cast.map((c) => c.characterId);
+  const story = structuredClone(plans[0].story);
+  story.dialogue[0].action = "Bố giữ chiếc dép nhỏ đã sờn ở quai.";
+  story.dialogue[1].action = "Đậu Đỏ thấy Bố lặng đi khi nhìn chiếc dép.";
+  story.dialogue[2].action = "Đậu Đỏ đặt dép cạnh Bố rồi nắm tay Bố.";
   const emotional = validateGeneratedFamilyStory(
     {
-      ...plans[0].story,
+      ...story,
       storyVersion: 2 as const,
       genre: "emotion" as const,
-      performanceLane: "cinematic_cool" as const,
+      performanceLane: "cinematic_emotion" as const,
       emotionalArc: {
         seed: "Bố giữ chiếc dép nhỏ đã sờn ở quai.",
         recognition: "Đậu Đỏ thấy Bố lặng đi khi nhìn chiếc dép.",
-        changedAction: "Đậu Đỏ tự cầm dép đặt cạnh Bố rồi nắm tay Bố.",
+        changedAction: "Đậu Đỏ đặt dép cạnh Bố rồi nắm tay Bố.",
       },
       endingPlan: {
         mode: "silent_reaction" as const,
@@ -253,6 +257,33 @@ it("gives an emotional draft its own causal contract instead of comedy game rule
   );
   expect(emotional.genre).toBe("emotion");
   expect(emotional.emotionalArc?.recognition).toContain("Đậu Đỏ");
+});
+
+it("rejects an emotional arc that merely describes a cause absent from the script", () => {
+  const ids = cast.map((c) => c.characterId);
+  expect(() =>
+    validateGeneratedFamilyStory(
+      {
+        ...plans[0].story,
+        storyVersion: 2 as const,
+        genre: "emotion" as const,
+        performanceLane: "cinematic_emotion" as const,
+        emotionalArc: {
+          seed: "Bố giữ chiếc dép nhỏ đã sờn ở quai.",
+          recognition: "Đậu Đỏ hiểu vì sao Bố im lặng.",
+          changedAction: "Đậu Đỏ nắm tay Bố.",
+        },
+        endingPlan: {
+          mode: "silent_reaction" as const,
+          stopAfterLine: plans[0].story.dialogue.length,
+          anchorQuote: plans[0].story.dialogue.at(-1)!.text,
+          reason: "Hành động cuối cho thấy quan hệ đã thay đổi nên phim dừng lại.",
+        },
+      },
+      profile,
+      ids,
+    ),
+  ).toThrow("STORY_EMOTIONAL_CAUSE_UNGROUNDED");
 });
 
 it("lets an unchanged historic paid story pass structural safety without retroactive editorial rules", () => {

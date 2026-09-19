@@ -90,14 +90,25 @@ describe("content-sized Seedance storyboard production", () => {
     const result = compileStoryboards(panels, silentStory, characters);
     const beats = result.scenes.flatMap((scene) => scene.storyboard.beats);
     expect(beats[2]).toMatchObject({ speakerCharacterId: null, dialogue: "" });
-    expect(beats[2].endSeconds - beats[2].startSeconds).toBeCloseTo(3.15, 2);
+    expect(beats[2].endSeconds - beats[2].startSeconds).toBeCloseTo(5, 2);
     expect(beats.filter((beat) => beat.dialogue).map((beat) => beat.dialogue)).toEqual(
       silentStory.dialogue.filter((line) => line.text).map((line) => line.text),
     );
     expect(storyboardGroups([{ text: "" }, { text: "Một câu ngắn." }], false).flat()).toEqual([0, 1]);
     const cinematic = compileStoryboards(panels, { ...silentStory, performanceLane: "cinematic_emotion" }, characters);
     const slow = cinematic.scenes.flatMap((scene) => scene.storyboard.beats)[2];
-    expect(slow.endSeconds - slow.startSeconds).toBeCloseTo(4.65, 2);
+    expect(slow.endSeconds - slow.startSeconds).toBeCloseTo(5, 2);
+  });
+
+  it("keeps the director's visible-action budget when speech is shorter", () => {
+    const source = structuredClone(panels);
+    Object.assign(source.shots.shot1, {
+      durationSeconds: 6.5,
+      action: "Bố dừng lại, nhìn chiếc dép cũ, nhận ra rồi cúi xuống nắm tay con",
+    });
+    const result = compileStoryboards(source, story, characters);
+    const first = result.scenes.flatMap((scene) => scene.storyboard.beats)[0];
+    expect(first.endSeconds - first.startSeconds).toBeCloseTo(6.5, 2);
   });
 
   it("adds a critical footwear requirement when a panel states footwear", () => {

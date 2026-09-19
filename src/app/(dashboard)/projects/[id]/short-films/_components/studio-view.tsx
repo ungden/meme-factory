@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import type { StoryGenre } from "@/lib/story-genre";
 import {
   AlertTriangle,
   Check,
@@ -94,6 +95,9 @@ export function EpisodeList({
 export function IdeaPanel({
   idea,
   onIdea,
+  genre,
+  onGenre,
+  allowedGenres,
   quality,
   onQuality,
   limit,
@@ -107,6 +111,9 @@ export function IdeaPanel({
 }: {
   idea: string;
   onIdea: (value: string) => void;
+  genre: StoryGenre;
+  onGenre: (value: StoryGenre) => void;
+  allowedGenres: StoryGenre[];
   quality: QualityId;
   onQuality: (value: QualityId) => void;
   limit: number;
@@ -156,6 +163,27 @@ export function IdeaPanel({
           ))}
         </div>
       </div>
+
+      <fieldset className="flex flex-col gap-2">
+        <legend className="text-sm font-medium th-text-primary">Cách kể tập này</legend>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {([
+            ["comedy", "Hài tự nhiên", "Đối đáp và phản ứng đời thường, dừng đúng điểm buồn cười."],
+            ["emotion", "Cảm động", "Chi tiết được gieo, nhân vật nhận ra rồi thay đổi hành động."],
+          ] as const).filter(([value]) => allowedGenres.includes(value)).map(([value, label, description]) => (
+            <label
+              key={value}
+              className={`cursor-pointer rounded-lg border p-3 ${genre === value ? "th-border-accent th-bg-accent-light" : "th-border th-bg-card"}`}
+            >
+              <span className="flex items-center gap-2 text-sm font-medium th-text-primary">
+                <input type="radio" name="story-genre" checked={genre === value} onChange={() => onGenre(value)} />
+                {label}
+              </span>
+              <span className="mt-1 block text-xs th-text-secondary">{description}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-2 text-sm font-medium th-text-primary">Chất lượng</legend>

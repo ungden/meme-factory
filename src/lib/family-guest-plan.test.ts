@@ -165,14 +165,14 @@ describe("per-video guest characters", () => {
     expect(prompt).toContain(guest.name);
   });
 
-  it("allows guest keys in the story response schema enum", () => {
+  it("keeps character ids as strings because Gemini rejects UUID enums", () => {
     const schema = storyResponseSchema(
       familyProfile([]),
       ["core-1", guest.key],
     );
-    expect(
-      JSON.stringify(schema).includes(guest.key),
-    ).toBe(true);
+    const characterId = (schema as unknown as { properties: { dialogue: { items: { properties: { characterId: unknown } } } } })
+      .properties.dialogue.items.properties.characterId;
+    expect(characterId).toEqual({ type: "string" });
   });
 
   it("compiles shots with the guest name in the speaker constraint", () => {

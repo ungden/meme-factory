@@ -83,7 +83,7 @@ describe("automatic short-film evidence checks", () => {
     expect(withoutLipIssues({ status: "needs_review", issues: ["Miệng Bố không khớp lời thoại"], evidence: {} }).status).toBe("passed");
   });
 
-  it("requires every final artifact and actual audio/video evidence", () => {
+  it("requires every final artifact, then sends the whole film for story review", () => {
     expect(
       checkTechnicalTask(
         task("render", {
@@ -94,8 +94,11 @@ describe("automatic short-film evidence checks", () => {
           video: true,
           audio: true,
         }),
-      ).status,
-    ).toBe("passed");
+      ),
+    ).toMatchObject({
+      status: "needs_review",
+      evidence: { technicalArtifactsPassed: true },
+    });
     expect(
       checkTechnicalTask(
         task("render", {

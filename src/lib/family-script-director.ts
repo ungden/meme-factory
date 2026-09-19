@@ -18,10 +18,11 @@ import {
   validateGeneratedFamilyStory,
   normalizeStoryGuests,
   assertDeclaredGuests,
-  STORY_SCHEMA,
+  storyContractForGenre,
   type ChannelProfile,
   type Story,
 } from "./family-catalogue";
+import { storyGenreFromIntent, stripStoryGenreMarker } from "./story-genre";
 import {
   FAMILY_EDITORIAL_BENCHMARK,
   FAMILY_BENCHMARK_VERSION,
@@ -323,7 +324,8 @@ export function buildFamilyEditorialPrompt(
     ],
   };
   const intent =
-    input.intent || "Chọn một chuyện mới từ gia đình và 20 tập gần nhất.";
+    stripStoryGenreMarker(input.intent) ||
+    "Chọn một chuyện mới từ gia đình và 20 tập gần nhất.";
   const performance = {
     setup: story.setup,
     dialogue: story.dialogue,
@@ -386,9 +388,10 @@ export class FamilyScriptDirector {
         })),
       ],
     };
-    this.userDirected = Boolean(input.intent?.trim());
+    this.userDirected = Boolean(stripStoryGenreMarker(input.intent).trim());
     this.intent =
-      input.intent || "Chọn một chuyện mới từ gia đình và 20 tập gần nhất.";
+      stripStoryGenreMarker(input.intent) ||
+      "Chọn một chuyện mới từ gia đình và 20 tập gần nhất.";
     // Let the writer explore with a short positive brief. The rejection benchmark
     // belongs to selection/review; feeding failed scripts to every stage anchors imitation.
     this.writerContext = `${contextText(this.context, this.allowed, false)}
@@ -559,10 +562,7 @@ Mở ngay ở việc đang diễn ra. Chọn chi tiết dễ hình dung, khẩu 
   /** The brief chooses the contract before drafting; a cinematic result cannot
    * accidentally inherit comedy's game/button requirements. */
   private draftGenre() {
-    const brief = `${this.intent} ${this.profile.tone} ${this.profile.positioning}`.toLocaleLowerCase("vi");
-    return /(cảm động|ký ức|rưng rưng|xúc động|nhớ|thương|chia tay|hồi tưởng)/.test(brief)
-      ? "emotion" as const
-      : "comedy" as const;
+    return storyGenreFromIntent(this.input.intent, this.profile.genres);
   }
 
   /** Runs exactly one pipeline stage within its own deadline. */
@@ -570,9 +570,11 @@ Mở ngay ở việc đang diễn ra. Chọn chi tiết dễ hình dung, khẩu 
     if (this.state.completedStages.includes(stage)) return;
     this.providerFallbacks = 0;
     if (stage === "premises") {
+      const genre = this.draftGenre();
       this.state.candidates = await this.checked(
         `${this.writerContext}
 Ý TƯỞNG NGƯỜI DÙNG: ${this.intent}
+THỂ LOẠI ĐÃ CHỌN: ${genre === "emotion" ? "cảm động có nguyên nhân; mỗi phương án phải gieo một chi tiết, có khoảnh khắc nhận ra và hành động thay đổi sau đó" : "hài tự nhiên; mỗi phương án phải có đối đáp hoặc phản ứng làm tình thế đổi"}. Chỉ đề xuất phương án thuộc nhánh này.
 Đề xuất ĐÚNG BA tình huống A/B/C trước khi viết kịch bản. Nếu đã có đề tài/format, cả ba giữ đề tài ấy nhưng phát triển bằng hành vi và quan hệ KHÁC NHAU; nếu để trống, chọn ba hướng khác nhau.
 Mỗi phương án gồm situation, familiarPattern (thường thức/format được nhận ra), observedBehavior (hành vi cụ thể đời thường), progression (2–4 việc/câu đáp làm tình huống tiếp diễn), stopPoint (đúng khoảnh khắc nên cắt, không bắt giải quyết hậu quả), risk (vì sao có thể nhạt), sampleExchange (2–4 lượt thoại cùng hành động, đúng cast).
 Viết mẫu đối đáp thật để so sánh, không chỉ nhãn hài. Trước hết tìm thói quen nhỏ của con người (cách nhờ, hỏi vặn, giữ thể diện, chen nhu cầu), rồi đặt vào tình huống; đừng bắt đầu bằng danh sách thuật ngữ để đổi tên đồ chơi. Mẫu trao đổi phải cho thấy nét riêng của hai người đang nói. Mỗi progression phát triển cái vừa xảy ra/được kể, không chỉ chuyển sang tiện ích/chủ đề kế tiếp. Quan sát ý muốn, thói quen và cách nhân vật phản ứng trước người kia. Các phương án khác nhau về cách chuyện diễn ra, không chỉ thay đồ vật. Không chọn sẵn phương án thắng. Mỗi trường mô tả ngắn gọn, sampleExchange mỗi câu tối đa 25 từ.`,
@@ -593,6 +595,7 @@ Viết mẫu đối đáp thật để so sánh, không chỉ nhãn hài. Trư�
         `${this.writerContext}
 ${FAMILY_EDITORIAL_BENCHMARK}
 Ý TƯỞNG PHẢI GIỮ: ${this.intent}
+THỂ LOẠI ĐÃ CHỌN: ${this.draftGenre() === "emotion" ? "cảm động; chọn phương án có chuỗi nguyên nhân cảm xúc nhìn thấy được" : "hài; chọn phương án có quan sát, đối đáp và điểm dừng đáng xem"}.
 Đây là ba phương án của một người viết khác: ${JSON.stringify(this.state.candidates)}
 So sánh thực sự observedBehavior/progression/sampleExchange của cả ba. Tập hài cần lý do để xem tiếp ngoài hình bé + vai người lớn. Tập cảm động cần một emotionalCause nhìn thấy được trước câu kết: ai làm gì, thấy gì hoặc nhớ gì khiến quan hệ thay đổi? Phần nào chỉ lặp, kể lại, đổi tên đồ vật hoặc câu kết thêm cho có?
 Đánh giá từng A/B/C bằng develop hoặc reject, strongestDetail trích NGUYÊN VĂN một đoạn trong hành vi/diễn biến/kết/thoại của đúng phương án, weakness và reason cụ thể. Không tự chấm đạt vì đúng cơ chế. Loại phương án chỉ liệt kê ba ví dụ của tiền đề (gối=nhập khẩu, bánh=kho năng lượng, trùm chăn=bảo mật); nếu đổi thứ tự các câu mà không mất gì thì cần xem xét kỹ khả năng chỉ là danh mục. Câu dẫn bình thường vẫn được; đánh giá toàn cuộc tương tác và chi tiết về con người, không đếm thuật ngữ/punchline. selectedId chọn phương án develop mạnh nhất và reason phải giải thích vì sao hơn các phương án khác. Nếu cả ba nhạt thì selectedId=null; không bắt chọn phương án ít dở nhất. Không đề xuất thay đề tài người dùng.`,
@@ -613,8 +616,21 @@ So sánh thực sự observedBehavior/progression/sampleExchange của cả ba. 
       if (!selected) throw new Error("FAMILY_PREMISES_NEED_REVIEW");
       const genre = this.draftGenre();
       const genreContract = genre === "emotion"
-        ? `THỂ LOẠI: cảm động. genre phải là emotion và performanceLane phải cinematic_cool. Dùng chuỗi quan hệ cụ thể → chi tiết được gieo → khoảnh khắc nhận ra → hành động thay đổi → dư âm. emotionalArc ghi đúng ba mắt xích đó. Nhịp không lời là bình thường. Không dùng game, unusual_thing, heighten, button, đảo vai hay câu chốt hài.`
+        ? `THỂ LOẠI: cảm động. genre phải là emotion và performanceLane phải cinematic_emotion. Dùng chuỗi quan hệ cụ thể → chi tiết được gieo → khoảnh khắc nhận ra → hành động thay đổi → dư âm. emotionalArc phải trích NGUYÊN VĂN action/text của ba lượt khác nhau theo đúng thứ tự đó. Nhịp không lời là bình thường. Không trả game, beatFunction, unusual_thing, heighten, button, đảo vai hay câu chốt hài.`
         : `THỂ LOẠI: hài. genre phải là comedy. Dùng mong muốn cụ thể → trở ngại → cách xoay xở → phản ứng làm tình thế đổi → điểm dừng. comicPremise ghi thường thức, điều đảo và tương phản nhìn thấy được.`;
+      const genreWritingRules =
+        genre === "emotion"
+          ? `NHỊP CẢM XÚC:
+• Viết số lượt đúng với diễn biến, tối thiểu 3 và tối đa 24; không kéo thành 14–20 lượt và không chẻ một khoảnh khắc chỉ để đạt mật độ.
+• Mỗi lượt phải làm một việc nhìn thấy được: gieo chi tiết, làm nhân vật chú ý, khiến họ nhận ra, hoặc cho thấy hành động đã đổi sau khi nhận ra.
+• seed, recognition và changedAction là ba trích dẫn nguyên văn từ text/action của ba lượt khác nhau theo đúng thứ tự. Nếu không trích được thì nguyên nhân cảm xúc chưa tồn tại trong phim.
+• Thoại được dài ngắn tự nhiên theo người nói. Giữ tiết chế; để hình ảnh và hành động mang cảm xúc, không dùng độc thoại đạo lý hay câu chốt thông minh.`
+          : `NHỊP HÀI:
+• 14–20 lượt cho một tập ${this.input.targetDurationSeconds || 35} giây; tối thiểu 8, tối đa 24. Mỗi lượt thường 3–8 từ, trung vị không quá 8 từ.
+• Ý dài thì tách thành nhiều lượt đối đáp. Vai người lớn nằm ở phong thái và đạo cụ; nhiều nhất một từ công sở trong một câu.
+CẤU TRÚC game of the scene — mỗi lượt khai đúng một beatFunction:
+• base_reality 2–4 lượt; unusual_thing đúng 1; frame ít nhất 1; heighten ít nhất 3; explore ít nhất 2; button đúng 1 và là lượt có lời cuối.
+• Xen kẽ heighten và explore. game.ifThen là một luật không ai nói ra; mọi lượt sau phát triển chính luật đó. Cắt ngay sau button, không nối câu đùa thứ hai.`;
       this.state.story = await this.checked(
         `${this.writerContext}
 Ý TƯỞNG PHẢI GIỮ: ${this.intent}
@@ -625,24 +641,11 @@ Viết bản đầy đủ bằng tiếng Việt, khai thác hành vi/quan hệ c
 Chọn performanceLane đúng một trong: ${PERFORMANCE_LANES.join(", ")}. Mô tả lane bằng hành động trong thoại/action; không tự khen bản thân là hài.
 MỌI CẢNH NGƯỜI DÙNG NÊU RÕ trong ý tưởng (ví dụ: cõng con đi dọc biển, một đoạn hồi tưởng, nhìn kỷ vật) phải thành lượt riêng theo đúng thứ tự, không gộp vào action của lượt khác và không lược đi cho gọn. Cảnh không cần lời dùng NHỊP KHÔNG LỜI: text là chuỗi rỗng, characterId là người hành động chính, action tả cụ thể việc nhìn thấy (tối thiểu 6 từ; hồi tưởng ghi rõ "hồi tưởng" và ai làm gì). Tối đa 3 nhịp không lời, vẫn cần ít nhất 2 lượt có lời; lượt cuối nên có lời hoặc là reaction. Câu nói mà ý tưởng nêu ra (ví dụ con hỏi "Bố sao vậy", Bố bảo "cát bay vào mắt", con hứa sau này cõng lại Bố) phải được CHÍNH người đó NÓI trong text, không chỉ tả trong action, và giữ đúng người nói như ý tưởng.
 Thời lượng ${this.input.targetDurationSeconds || 35} giây chỉ là mục tiêu gần đúng. Hoàn tất trọn diễn biến và kết thúc người dùng yêu cầu trước; nếu câu chuyện tự nhiên cần dài hơn thì viết thêm lượt đến đúng điểm kết, nếu xong sớm thì dừng, tuyệt đối không cắt mất kết hoặc kéo lời để chạm mốc. Có thể không có reaction nếu đã đủ điểm dừng. Viết tình huống đang diễn ra, lời kể chỉ khi format cần và cách kể tự có sức hút.
-NHỊP THOẠI — phần quan trọng nhất, và là chỗ bản nháp hay sai nhất:
-• 14–20 lượt cho một tập ${this.input.targetDurationSeconds || 35} giây, tức khoảng một lượt mỗi 1,5–2 giây. Tối thiểu 8, tối đa 24 kể cả reaction. Bốn video cùng thể loại chạy tốt đều có 16–26 lượt.
-• Mỗi lượt 3–8 TỪ. Trung vị cả tập không quá 8 từ. Trẻ 4–5 tuổi nói trung bình 4–5 từ một câu. "Ơ sao thế?", "Chuẩn luôn!", "Được!", "Nợ á?" là đúng cỡ. Câu 14 từ trở lên bị từ chối vì là giọng người lớn.
-• Ý dài thì TÁCH THÀNH NHIỀU LƯỢT ĐỐI ĐÁP, tuyệt đối không nén vào một câu dài. Đừng rút gọn nội dung — hãy chẻ nó ra cho hai đứa nói qua lại.
-CẤU TRÚC (game of the scene). Mỗi lượt khai đúng một beatFunction:
-• base_reality (2–4 lượt): nếp sinh hoạt bình thường, chưa có gì lạ.
-• unusual_thing (ĐÚNG 1 lượt): điều đầu tiên lệch khỏi nếp đó. Cả tập chỉ một điều lạ.
-• frame (ít nhất 1): người kia hực lên vì thấy lạ — "Hả?", "Thu gì cơ?", "Thật á?". 1–4 từ.
-• heighten (ít nhất 3): đẩy luật chơi xa hơn MỌI thứ đã có. Trả lời "còn gì đúng theo luật này nữa?".
-• explore (từ 2 lượt): giải thích VÌ SAO điều lạ đó hợp lý, theo lô-gíc của chính nhân vật. Đây là chỗ hài nhất.
-• button (ĐÚNG MỘT lượt, là lượt CÓ LỜI cuối cùng): câu chốt to nhất, cắt ngay. Không có lời nào sau nó. Nếu kết bằng một nhịp không lời (đứng hình, máy ảnh tách) thì nhịp đó là explore hoặc frame, không phải button thứ hai.
-Xen kẽ heighten rồi explore, đừng leo thang ba lần liền. Câu càng về cuối càng ngắn; từ gây cười đặt cuối câu, không viết gì sau nó.
-game.ifThen là luật chơi, một câu KHÔNG AI NÓI RA: "NẾU <điều lạ>, THÌ <cái gì cũng theo luật đó>." game.baseReality tả nếp thường, game.unusualThing tả điều lạ. Một tập một luật; thấy luật thứ hai thì bỏ, đẩy sâu luật thứ nhất.
-Vai người lớn nằm ở phong thái và đạo cụ, KHÔNG ở từ vựng: nhiều nhất một từ công sở trong một câu và để nó làm cú chốt. Câu dựng bằng tiếng công sở ("thất thoát tài sản", "khấu hao", "biến động") sẽ bị từ chối.
+${genreWritingRules}
 Nhân vật: chỉ dùng cast đã chọn. Khách mời đã có trong danh sách nhân vật thì dùng đúng ID của họ, không khai lại thành guest-1/guest-2. Nếu câu chuyện thật sự cần một người ngoài gia đình (trên máy bay, hàng xóm đến gõ cửa, người kiểm định…), được thêm TỐI ĐA MỘT nhân vật khách mời một tập trong mục guests: key guest-1, name ngắn, description tả rõ ngoại hình/trang phục đủ để dựng ảnh nhận diện, personality. Dùng đúng key guest-1 cho thoại và wants của người đó. Không khai khách mời nếu không cần thiết; không tự sáng chế nhân vật khác.
 endingPlan.mode chọn hard_cut, silent_reaction hoặc resolved. stopAfterLine bắt buộc bằng đúng số lượt thoại; anchorQuote trích nguyên văn từ thoại/action lượt cuối; reason nói vì sao phép đảo/quan hệ hạ đúng ở đó. payoff và beats.payoff là mô tả điểm dừng để tương thích dữ liệu, KHÔNG phải yêu cầu punchline. Nếu dùng silent_reaction thì beats.reaction mô tả phản ứng không thoại; hai mode còn lại để reaction rỗng. Trước khi trả, thử xóa lần lượt các câu cuối: cắt mọi câu không làm mất điểm rơi. Không thêm câu mở vấn đề mới sau khi chuyện đã hạ, không nối câu đùa thứ hai để “finish”. Trước khi trả, đọc từng câu từ góc nhìn người đang nói: hai chị em nói với nhau dùng chị/em, “chị em mình/tụi mình”; nói với bố mẹ dùng “tụi con”; không để một bé tự gọi cả hai là “hai đứa”.
-comicPremise: với tập hài ghi thường thức/format gốc, điều bị đảo/lệch và tín hiệu nhìn/nghe thấy; với tập cảm động ghi khoảnh khắc bình thường, emotionalCause và chi tiết nhìn thấy được dẫn tới cảm xúc. Phần thoại/action phải tự thể hiện, không dựa vào lời tác giả tự khen. Không thêm người ngoài cast, không ép parody thành việc chăm bố mẹ hoặc tập cảm động thành joke.
-Trả JSON theo hợp đồng ${genre}: ${STORY_SCHEMA}`,
+Phần thoại/action phải tự thể hiện diễn biến, không dựa vào lời tác giả tự khen. Không thêm người ngoài cast, không ép parody thành việc chăm bố mẹ hoặc tập cảm động thành joke.
+Trả JSON theo hợp đồng ${genre}: ${storyContractForGenre(genre)}`,
         (v) => this.validateStoryValue(v),
         deadlineMs,
         storyResponseSchema(this.profile, this.allowed, genre),
@@ -695,7 +698,7 @@ Trả JSON theo hợp đồng ${genre}: ${STORY_SCHEMA}`,
 Ý TƯỞNG PHẢI GIỮ: ${this.intent}
 BẢN CHỮ: ${JSON.stringify(this.state.story)}
 NHẬN XÉT BẮT BUỘC SỬA: ${JSON.stringify(review)}
-Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống. Nếu intentCheck=needs_revision, khôi phục đầy đủ chi tiết/điểm kết người dùng đã yêu cầu và cho nó diễn ra trong thoại hoặc hành động; không thay bằng một kết gần giống xảy ra sớm hơn. Nếu endingCheck=forced_tail, cắt từ sau lastNecessaryLine rồi cập nhật endingPlan; không thay đuôi thừa bằng một câu chốt mới. Nếu unfinished, phát triển đúng việc đang diễn trước khi chọn điểm cắt. Nếu speechCheck=needs_revision, sửa đúng ngôi nói/khẩu ngữ ở câu được trích và rà cùng lỗi trong các câu khác; không đổi diễn biến chỉ để chữa đại từ. Nếu genre=emotion, chỉ sửa seed/recognition/changedAction bị đứt và không thêm game hay punchline. Nếu genre=comedy, sửa tiền đề hoặc đối đáp bị yếu trước khi sửa câu chốt. Giữ nguyên đề tài, cast khách mời, và format. Trả toàn bộ JSON: ${STORY_SCHEMA}`,
+Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống. Nếu intentCheck=needs_revision, khôi phục đầy đủ chi tiết/điểm kết người dùng đã yêu cầu và cho nó diễn ra trong thoại hoặc hành động; không thay bằng một kết gần giống xảy ra sớm hơn. Nếu endingCheck=forced_tail, cắt từ sau lastNecessaryLine rồi cập nhật endingPlan; không thay đuôi thừa bằng một câu chốt mới. Nếu unfinished, phát triển đúng việc đang diễn trước khi chọn điểm cắt. Nếu speechCheck=needs_revision, sửa đúng ngôi nói/khẩu ngữ ở câu được trích và rà cùng lỗi trong các câu khác; không đổi diễn biến chỉ để chữa đại từ. Nếu genre=emotion, chỉ sửa seed/recognition/changedAction bị đứt, trích nguyên văn ba lượt theo đúng thứ tự và không thêm game hay punchline. Nếu genre=comedy, sửa tiền đề hoặc đối đáp bị yếu trước khi sửa câu chốt. Giữ nguyên đề tài, cast khách mời, và format. Trả toàn bộ JSON: ${storyContractForGenre(story.genre || this.draftGenre())}`,
           (v) => this.validateStoryValue(v),
           deadlineMs,
           storyResponseSchema(this.profile, this.allowed, this.state.story?.genre || this.draftGenre()),
@@ -787,8 +790,8 @@ Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống
 CÂU CHUYỆN ĐÃ SOẠN: ${JSON.stringify(story)}
 RÀNG BUỘC XUYÊN PHIM: openingState của mỗi panel ghi rõ giày dép của TỪNG nhân vật trong khung (chân trần hay đi giày/dép gì), giữ nhất quán giữa các panel cùng bối cảnh; ảnh chuẩn nhân vật có giày không có nghĩa trong cảnh phải đi giày. Mọi yêu cầu trong ý tưởng về trạng thái nhìn thấy được kéo dài qua nhiều cảnh (chân trần, cầm dép, trang phục, vết bẩn, đồ vật đang cầm, đang cõng/bế) phải được ghi rõ vào openingState/closingState và props của TỪNG panel liên quan, kể cả khi ảnh chuẩn nhân vật mặc/đi khác; không để model ảnh tự lấy lại giày dép hay trang phục mặc định.
 ${FILM_INTERACTION_POLICY}
-LỚP ĐẠO DIỄN BIỂU CẢM: lane=${story.performanceLane || "deadpan_reversal"}. Mỗi panel phải trả performanceDirection với comicObjective, statusBefore/statusAfter, hook, tối thiểu hai beat hành động vật lý, reactionTarget cụ thể và revealOrCut. Hai beat có thể là hai pha của CÙNG hành động hoặc hành động chính và phản ứng đồng thời của người nghe; không bắt mỗi câu có hai trò, hai góc máy hoặc một cú lật. Dùng hành vi nhìn thấy được; không dùng riêng các nhãn “tự nhiên”, “nghiêm túc”, “ngây thơ”, “đáng yêu”, “gật đầu”, “nhìn ngơ”.
-DỰNG STORYBOARD: chia thành ${groups.length} clip nguồn. Server tự chọn duration nguyên 4–${maxVideoDuration} giây cho từng request Seedance từ lượng thoại và hành động; phim cuối tiếp tục cắt ở đúng contentEndSeconds. Các nhịp thoại/panel được nhóm sẵn (chỉ số từ 1): ${JSON.stringify(groups.map((g) => g.map((i) => i + 1)))}. Mỗi panel là một nhịp bên trong đoạn, KHÔNG phải một job video riêng. GIỮ NGUYÊN câu thoại, thứ tự và người nói. Không thêm lời. durationSeconds ở panel chỉ là nhịp diễn dự kiến; server xếp timeline đủ cho lời và hành động, không kéo giãn theo mốc cố định.
+LỚP ĐẠO DIỄN BIỂU CẢM: lane=${story.performanceLane || "deadpan_reversal"}. Mỗi panel phải trả performanceDirection với comicObjective (ở tập cảm động, trường tương thích này ghi mục tiêu cảm xúc của nhân vật), statusBefore/statusAfter, hook, tối thiểu hai beat hành động vật lý, reactionTarget cụ thể và revealOrCut. Hai beat có thể là hai pha của CÙNG hành động hoặc hành động chính và phản ứng đồng thời của người nghe; không bắt mỗi câu có hai trò, hai góc máy hoặc một cú lật. Dùng hành vi nhìn thấy được; không dùng riêng các nhãn “tự nhiên”, “nghiêm túc”, “ngây thơ”, “đáng yêu”, “gật đầu”, “nhìn ngơ”.
+DỰNG STORYBOARD: chia thành ${groups.length} clip nguồn. Server chọn duration nguyên 4–${maxVideoDuration} giây cho từng request Seedance từ cả lời nói VÀ durationSeconds do đạo diễn cấp; phim cuối cắt ở đúng contentEndSeconds. Các nhịp thoại/panel được nhóm sẵn (chỉ số từ 1): ${JSON.stringify(groups.map((g) => g.map((i) => i + 1)))}. Mỗi panel là một nhịp bên trong đoạn, KHÔNG phải một job video riêng. GIỮ NGUYÊN câu thoại, thứ tự và người nói. Không thêm lời. durationSeconds phải đủ cho toàn bộ hành động nhìn thấy được từ openingState tới closingState; đừng chỉ đo thời gian phát âm câu thoại và đừng thêm đệm vô nghĩa.
 Trong cùng đoạn: cùng bối cảnh, ánh sáng, vị trí nhân vật, hướng nhìn và trục máy. Có thể pan theo người nói hoặc cắt đối đáp theo storyboard; không đổi cảnh ngẫu nhiên. Hành động bắt đầu ngay, người nghe phản ứng trong khi người kia nói, không đứng đợi tới lượt. Viết motionPrompt cho từng nhịp bằng hành động cụ thể, KHÔNG thêm mốc giây riêng; server gắn mốc liên tục theo lượng thoại và hành động. Chỉ một người nói tại mỗi thời điểm, đến nhịp sau mới đổi người. Không slow motion, kéo dài âm tiết, khoảng chờ mở đầu hoặc lặp động tác để đủ thời lượng.
 Trước khi mô tả ảnh, hãy hiểu logic thị giác riêng của tập và trả visualDirection ở cấp toàn phim: storyMechanism, audienceMustSee, và characterKnowledge cho từng người gồm họ biết gì và chi tiết nào chưa được lộ trước thời điểm nào. Xác định điều gì gây lệch/hài, khán giả phải thấy gì và ở thời điểm nào, đạo cụ/hành động nào quyết định câu chuyện. Không bê checklist tiền, cặp hay micro sang tập khác. Mỗi panel phải có visualRequirements và referenceImages. visualRequirements chỉ liệt kê bằng chứng thật sự cần nhìn thấy (với lane adult_format_parody, đạo cụ nhận diện format của chính tập này là critical); dùng kind=count/text và legibility=countable/readable khi số lượng hoặc chữ/số là dữ kiện của câu chuyện. Mỗi critical requirement phải được ít nhất một reference image bao phủ. referenceImages là các ảnh riêng độ phân giải đầy đủ đưa cùng nhau vào reference_images của Seedance; role=scene cho bố cục/trạng thái, character cho nhận diện, prop cho vật thể quyết định, environment cho bối cảnh. Không tạo first/last-frame contract và không dùng grid/storyboard sheet làm input video. Chỉ đặt requiresOwnSource=true khi góc nhìn, trạng thái hoặc nhịp diễn khác đến mức không nên nằm chung một clip liên tục.
 Panel đầu mỗi đoạn là một khung sạch có đủ người sẽ xuất hiện trong đoạn đó; đủ ảnh chuẩn từng người, đúng tỷ lệ, trang phục và vị trí. Mỗi panel phải có openingState, closingState và props. Mỗi đạo cụ có id ổn định xuyên các panel, tên, màu, kích thước, dấu hiệu, số lượng, người cầm và vị trí; cùng vật không được tự đổi màu/kích thước hay nhân bản. Chữ/số thật trên đạo cụ được yêu cầu bởi câu chuyện phải được giữ; chỉ cấm phụ đề, nhãn giao diện, mũi tên và chữ trang trí do model tự thêm. closingState của panel trước phải khớp openingState của panel sau, kể cả người đã rời khung. Trang phục, giày dép và trạng thái đạo cụ giữ nguyên qua các panel, chỉ đổi khi có hành động nhìn thấy được làm đổi. Các panel sau mô tả diễn tiến hành động/camera. Kết đoạn có tư thế, đạo cụ và hướng nhìn khớp đầu đoạn tiếp; giữ trục đối thoại để nối bằng hard cut. Không cố thêm reaction sau điểm dừng đã chọn. Với parody giữ tín hiệu nhận diện format.

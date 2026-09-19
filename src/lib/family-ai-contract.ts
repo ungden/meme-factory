@@ -32,6 +32,11 @@ export function storyHasReaction(story: Story) {
 }
 
 const string = { type: "string" };
+const evidenceString = {
+  type: "string",
+  description:
+    "Trích nguyên văn một đoạn trong text hoặc action của đúng lượt; không diễn giải lại.",
+};
 const object = (properties: Record<string, unknown>) => ({
   type: "object",
   properties,
@@ -65,9 +70,9 @@ export function storyResponseSchema(
     ...(genre === "emotion"
       ? {
           emotionalArc: object({
-            seed: string,
-            recognition: string,
-            changedAction: string,
+            seed: evidenceString,
+            recognition: evidenceString,
+            changedAction: evidenceString,
           }),
         }
       : {
@@ -95,11 +100,15 @@ export function storyResponseSchema(
         personality: string,
       }),
     },
-    game: object({
-      baseReality: string,
-      unusualThing: string,
-      ifThen: string,
-    }),
+    ...(genre === "emotion"
+      ? {}
+      : {
+          game: object({
+            baseReality: string,
+            unusualThing: string,
+            ifThen: string,
+          }),
+        }),
     endingPlan: object({
       mode: {
         type: "string",
@@ -129,7 +138,9 @@ export function storyResponseSchema(
         characterId,
         text: string,
         action: string,
-        beatFunction: { type: "string", enum: BEAT_FUNCTIONS },
+        ...(genre === "emotion"
+          ? {}
+          : { beatFunction: { type: "string", enum: BEAT_FUNCTIONS } }),
       }),
     },
   });
@@ -580,6 +591,19 @@ export function compileStoryboards(
   );
   const raw = (normalized as { shots: Record<string, Record<string, unknown>> })
     .shots;
+  const directedSeconds = (index: number) => {
+    const shot = raw[`shot${index + 1}`] || {};
+    const line = story.dialogue[index];
+    const pause = Number(shot.pauseAfterSeconds ?? 0.15);
+    const contentFloor = line
+      ? beatSeconds(line.text, story.performanceLane) + pause
+      : 1.2;
+    const planned = Number(shot.durationSeconds);
+    // durationSeconds is the director's budget for the complete visible
+    // action. It may exceed speech time when a look, hand-off or memory must
+    // finish on screen; speech alone must never shrink that action away.
+    return Math.max(contentFloor, Number.isFinite(planned) ? planned : 0);
+  };
   // The director may split a shot when its camera/state is too different for a
   // continuous source clip. Visual evidence itself is carried by references.
   const referenceLimit = maxProviderSeconds <= 15 ? 9 : 30;
@@ -596,9 +620,14 @@ export function compileStoryboards(
       const candidateCastCount = new Set(
         candidate.flatMap((shotIndex) => planned.scenes[shotIndex].characterIds),
       ).size;
+      const candidateDuration = candidate.reduce(
+        (total, shotIndex) => total + directedSeconds(shotIndex),
+        0,
+      );
       const mustSplit =
         shot.requiresOwnSource === true ||
-        candidateImageCount + candidateCastCount > referenceLimit;
+        candidateImageCount + candidateCastCount > referenceLimit ||
+        candidateDuration > maxProviderSeconds - 0.5;
       if (!current || mustSplit) split.push([index]);
       else current.push(index);
     }
@@ -607,15 +636,7 @@ export function compileStoryboards(
   const scenes = groups.map((group) => {
     const shots = group.map((i) => planned.scenes[i]);
     const characterIds = [...new Set(shots.flatMap((s) => s.characterIds))];
-    const weights = group.map((i) => {
-      const shot = raw[`shot${i + 1}`];
-      if (!story.dialogue[i]) return 1.2;
-      // Speech is the timing source of truth. Give each turn only enough room
-      // for its real delivery plus a short reaction/action beat; the provider
-      // may contain tail padding, but the finished film must not inherit it.
-      // Nhịp không lời không có thoại để đo; beatSeconds cho nó thời lượng hình cố định.
-      return beatSeconds(story.dialogue[i].text, story.performanceLane) + Number(shot.pauseAfterSeconds ?? 0.15);
-    });
+    const weights = group.map(directedSeconds);
     const sum = weights.reduce((n, w) => n + w, 0);
     if (sum > maxProviderSeconds - 0.5)
       throw new Error(

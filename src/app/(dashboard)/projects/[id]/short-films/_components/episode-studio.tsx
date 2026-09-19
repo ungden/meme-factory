@@ -5,6 +5,12 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { FilmPlan } from "@/lib/short-film/contracts";
 import type { ChannelProfile } from "@/lib/family-catalogue";
+import {
+  markedStoryIntent,
+  storyGenreFromIntent,
+  stripStoryGenreMarker,
+  type StoryGenre,
+} from "@/lib/story-genre";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { castIdentityGaps } from "@/lib/short-film/cast-quality";
 import { suggestHashtags } from "@/lib/post-text";
@@ -60,6 +66,7 @@ export default function EpisodeStudio() {
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
 
   const [idea, setIdea] = useState("");
+  const [genre, setGenre] = useState<StoryGenre>("comedy");
   const [quality, setQuality] = useState<QualityId>("saving");
   const [limit, setLimit] = useState<number>(QUALITY_OPTIONS[0].defaultLimit);
   const [suggestions, setSuggestions] = useState<{ title: string; idea: string }[]>([]);
@@ -139,6 +146,11 @@ export default function EpisodeStudio() {
   }, [refreshList]);
 
   useEffect(() => {
+    if (channelProfile?.genres?.length && !channelProfile.genres.includes(genre))
+      setGenre(channelProfile.genres[0]);
+  }, [channelProfile, genre]);
+
+  useEffect(() => {
     if (episode && selectedKey && episode.key !== selectedKey) select(episode.key);
   }, [episode, selectedKey, select]);
 
@@ -207,12 +219,14 @@ export default function EpisodeStudio() {
     }
   }
 
-  async function startRun(intent: string, maxFilm: number, videoModel: string) {
+  async function startRun(intent: string, maxFilm: number, videoModel: string, storyGenre = genre) {
     if (!channelProfile) throw new Error("Hãy hoàn tất hồ sơ kênh trước khi viết kịch bản.");
+    if (channelProfile.genres?.length && !channelProfile.genres.includes(storyGenre))
+      throw new Error("Thể loại này chưa được bật trong hồ sơ kênh.");
     const current = runs.find((run) => runIsActive(run));
     const response = await api(`${base}/production-runs`, {
       planId: null,
-      intent,
+      intent: markedStoryIntent(intent, storyGenre),
       guests: [],
       maxPointsPerFilm: maxFilm,
       maxPointsPerDay: Math.max(maxFilm, current?.max_points_per_day || 0, maxFilm * 3),
@@ -361,6 +375,9 @@ export default function EpisodeStudio() {
             <IdeaPanel
               idea={idea}
               onIdea={setIdea}
+              genre={genre}
+              onGenre={setGenre}
+              allowedGenres={channelProfile?.genres || ["comedy", "emotion"]}
               quality={quality}
               onQuality={setQuality}
               limit={limit}
@@ -428,7 +445,13 @@ export default function EpisodeStudio() {
                   onRewriteScript={() =>
                     act(async () => {
                       await api(`${base}/production-runs/${run.id}`, { action: "cancel" }, "PATCH");
-                      await startRun(run.intent || plan?.brief || "", run.max_points_per_film, plan?.video_model || qualityOption("saving").model);
+                      const originalIntent = run.intent || plan?.brief || "";
+                      await startRun(
+                        stripStoryGenreMarker(originalIntent),
+                        run.max_points_per_film,
+                        plan?.video_model || qualityOption("saving").model,
+                        storyGenreFromIntent(originalIntent, channelProfile?.genres),
+                      );
                     })
                   }
                   onRetry={() => act(async () => void (await resume()))}
@@ -440,7 +463,10 @@ export default function EpisodeStudio() {
                   film={film}
                   approving={busy}
                   onApprove={() =>
-                    act(async () => void (await api(`${base}/film-tasks/${film.id}`, { action: "approve", workspaceVersion: workspace })))
+                    act(async () => {
+                      await api(`${base}/film-tasks/${film.id}`, { action: "approve", workspaceVersion: workspace });
+                      if (run?.status === "needs_review") await resume();
+                    })
                   }
                   caption={[plan?.title, plan?.brief || run?.intent].filter(Boolean).join("\n\n")}
                   hashtags={suggestHashtags(plan?.title)}

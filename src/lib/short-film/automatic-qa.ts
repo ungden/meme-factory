@@ -484,9 +484,16 @@ export function checkTechnicalTask(task: FilmTask): Check {
       r.video === true &&
       r.audio === true
       ? {
-          status: "passed",
-          issues: [],
-          evidence: { duration: r.duration, video: true, audio: true },
+          status: "needs_review",
+          issues: [
+            "File thành phẩm đủ kỹ thuật. Cần xem và nghe toàn bộ phim để xác nhận diễn biến, nguyên nhân cảm xúc hoặc điểm rơi không bị mất khi ghép cảnh.",
+          ],
+          evidence: {
+            duration: r.duration,
+            video: true,
+            audio: true,
+            technicalArtifactsPassed: true,
+          },
         }
       : {
           status: "failed",

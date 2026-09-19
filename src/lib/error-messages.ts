@@ -213,6 +213,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
     "Bản cảm động thiếu chi tiết được gieo, khoảnh khắc nhận ra hoặc hành động thay đổi. Hãy cho AI sửa đúng nhịp bị thiếu.",
   STORY_EMOTIONAL_ARC_REQUIRED:
     "Bản cảm động cần chỉ ra nhân vật nhận ra điều gì và hành động thay đổi sau đó.",
+  STORY_EMOTIONAL_CAUSE_UNGROUNDED:
+    "Ba nhịp gieo chi tiết, nhận ra và thay đổi hành động chưa xuất hiện rõ theo đúng thứ tự trong kịch bản. Hãy sửa đúng các nhịp này rồi thử lại.",
   STORY_EMOTIONAL_LANE_REQUIRED:
     "Bản cảm động phải dùng nhịp diễn cinematic thay vì cấu trúc câu chốt hài.",
   STORY_COMEDY_LANE_REQUIRED:
