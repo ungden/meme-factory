@@ -239,10 +239,25 @@ export function validateStoryboard(
 
 /**
  * Minimum number of provider clips, balanced contiguous groups, never split a
- * sentence. Keep at most two spoken turns in one provider clip so a complete
- * exchange becomes enough visual material instead of being rushed into one
- * static shot. A final silent reaction may share that last clip.
+ * sentence. A final silent reaction may share that last clip.
  */
+/**
+ * Số lượt thoại tối đa gói vào MỘT clip của nhà cung cấp.
+ *
+ * Bản cũ chặn ở 2, với lý do "một lượt đối đáp trọn vẹn cần đủ chất liệu hình".
+ * Con số đó không bảo vệ gì cả: nhà cung cấp tính tiền THEO GIÂY (đo được:
+ * 6s→83 điểm, 8s→111, 9s→125, 11s→152), nên cắt nhỏ không rẻ hơn. Nó chỉ ép
+ * mỗi lượt phải gánh 6–7 giây, và đó là lý do thoại bị viết dài lê thê. Một
+ * clip 8 giây của tập 19/09 chở đúng MỘT câu.
+ *
+ * 3 chứ không phải 2, và cũng không phải 6: tài liệu Seedance và một phép đo
+ * công khai trên 2.0 đều cho cùng một trần — khoảng BỐN thay đổi trạng thái
+ * trong 15 giây. Một prompt 15 giây dựng bốn sự kiện chỉ ra sự kiện thứ nhất và
+ * thứ tư; hai cái giữa bị bỏ hẳn chứ không phải diễn trễ. Một lượt thoại kèm
+ * phản ứng của người nghe là một thay đổi trạng thái, nên 3 lượt cho một clip
+ * 12–15 giây là mép an toàn.
+ */
+export const MAX_SPOKEN_TURNS_PER_CLIP = 3;
 /**
  * Nhịp không lời (text rỗng): cõng con dọc biển, hồi tưởng, nhìn một kỷ vật.
  * Không có thoại để đo nên dùng một khoảng hình cố định đủ để khán giả đọc được
@@ -294,7 +309,7 @@ export function storyboardGroups(
       for (let to = from; to <= weights.length - remaining; to++) {
         const includesReaction = reaction && to === weights.length - 1;
         const spokenTurns = to - from + 1 - (includesReaction ? 1 : 0);
-        if (spokenTurns > 2) break;
+        if (spokenTurns > MAX_SPOKEN_TURNS_PER_CLIP) break;
         sum += weights[to];
         if (sum > maxSeconds - 0.5) break;
         const next = search(to + 1, remaining - 1);

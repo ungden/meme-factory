@@ -4,6 +4,7 @@ import { buildFamilyPilot, familyPersonalities } from "./family-pilot";
 import { creativeAssistModel, generateCreativeAssist } from "./creative-assist";
 import { compileStoryShots, unpackStory } from "./family-ai-contract";
 import { shotChunkGroups } from "./family-script-director";
+import type { BeatFunction } from "./family-catalogue";
 const calls = vi.hoisted(() => ({
   prompts: [] as string[],
   responses: [] as unknown[],
@@ -49,24 +50,18 @@ const { profile, plans } = buildFamilyPilot(
     setup: "Túi cơm của bố đang để trước cửa",
     payoff: "Lo xong đồ vẫn phải giục bố chuẩn bị",
     turns: [
-      [
-        "Bánh Bao",
-        "Đậu Đỏ, em lấy túi cơm cho bố chưa?",
-        "Kiểm túi nhỏ trước cửa",
-      ],
-      ["Đậu Đỏ", "Rồi. Em còn cho thìa vào nữa.", "Chỉ chiếc thìa trong túi"],
-      ["Bánh Bao", "Bình nước đâu?", "Nhìn ngăn trống"],
-      ["Đậu Đỏ", "Bố bảo mang nặng lắm.", "Nhấc bình lên cho chị nhìn"],
-      [
-        "Bánh Bao",
-        "Không mang rồi trưa lại gọi hai chị em mình.",
-        "Đưa bình vào túi bố",
-      ],
-      [
-        "Đậu Đỏ",
-        "Chị giữ túi đi. Em xem bố đã đi giày chưa.",
-        "Bước tới cửa phòng",
-      ],
+      ["Bánh Bao", "Túi cơm của bố đâu?", "Kiểm túi nhỏ trước cửa", "base_reality"],
+      ["Đậu Đỏ", "Em để trước cửa rồi.", "Chỉ xuống sàn", "base_reality"],
+      ["Bánh Bao", "Bố chưa được đi làm.", "Đứng chắn trước cửa", "unusual_thing"],
+      ["Đậu Đỏ", "Sao thế chị?", "Ngẩng lên nhìn chị", "frame"],
+      ["Bánh Bao", "Chưa đi giày.", "Chỉ đôi giày còn nguyên", "heighten"],
+      ["Đậu Đỏ", "Bố hay quên lắm.", "Gật gù ra vẻ hiểu chuyện", "explore"],
+      ["Bánh Bao", "Chưa uống nước nữa.", "Nhấc bình nước lên", "heighten"],
+      ["Đậu Đỏ", "Trưa lại gọi tụi con.", "Thở dài đút tay vào túi", "explore"],
+      ["Bánh Bao", "Chưa chào mẹ.", "Khoanh tay", "heighten"],
+      ["Đậu Đỏ", "Chào chưa bố?", "Nhìn về phía bố", "frame"],
+      ["Bánh Bao", "Thấy chưa. Y như em.", "Liếc sang Đậu Đỏ", "explore"],
+      ["Đậu Đỏ", "Em ba tuổi mà.", "Nhún vai, bố đứng chôn chân", "button"],
     ],
     reaction: "Hai bé nhìn đôi giày của bố còn nguyên trước cửa",
   })),
@@ -354,10 +349,10 @@ it("removes a forced spoken tail instead of inventing another ending", async () 
   if (result.kind !== "video_plan") throw Error("Wrong kind");
   expect(result.story?.development?.drafts).toHaveLength(2);
   expect(result.story?.development?.drafts[0].endingPlan?.stopAfterLine).toBe(
-    7,
+    13,
   );
   expect(result.story?.development?.drafts[0].review?.passed).toBe(false);
-  expect(result.story?.development?.drafts[1].dialogue).toHaveLength(6);
+  expect(result.story?.development?.drafts[1].dialogue).toHaveLength(12);
   expect(
     result.scenes.map((scene) => scene.dialogue).filter(Boolean),
   ).not.toContain("Nhưng chị chỉ biết tên trường thôi.");
@@ -425,7 +420,7 @@ it("sizes provider clips from complete dialogue instead of a fixed multiple", as
   );
   const r = await generateCreativeAssist(input);
   if (r.kind !== "video_plan") throw Error("Wrong kind");
-  expect(r.scenes).toHaveLength(3);
+  expect(r.scenes).toHaveLength(4);
   expect(r.scenes.some((s) => s.durationSeconds !== 15)).toBe(true);
   expect(r.scenes.every((s) => s.durationSeconds >= 4 && s.durationSeconds <= 30)).toBe(true);
 });
@@ -451,13 +446,24 @@ it("limits malformed response repair per call and never drops invalid shots", as
 it("preserves a sibling-only staged parody without inventing a parent or final reaction", async () => {
   const story = {
     ...plans[0].story,
-    dialogue: plans[0].story.dialogue.slice(0, 3).map((d, i) => ({
+    dialogue: plans[0].story.dialogue.slice(0, 10).map((d, i) => ({
       ...d,
       text: [
-        "Mời anh giới thiệu lối vào của căn nhà này.",
-        "Cửa chính đây. Anh cúi đầu thấp một chút nữa nhé.",
-        "Thấp nữa à? Tôi đang ngồi xổm rồi đấy.",
+        "Mời anh vào nhà.",
+        "Nhà đẹp đấy.",
+        "Cửa chính đây ạ.",
+        "Cửa nào cơ?",
+        "Anh cúi thấp chút nữa.",
+        "Tôi ngồi xổm rồi mà.",
+        "Thấp nữa. Sắp tới rồi.",
+        "Nhà anh hơi kén khách.",
+        "Phòng ngủ phải bò.",
+        "Thôi tôi ở ngoài.",
       ][i],
+      beatFunction: [
+        "base_reality", "base_reality", "unusual_thing", "frame", "heighten",
+        "explore", "heighten", "explore", "heighten", "button",
+      ][i] as BeatFunction,
     })),
     beats: [
       { purpose: "hook" as const, description: "Micro trước nhà gối" },
@@ -465,13 +471,13 @@ it("preserves a sibling-only staged parody without inventing a parent or final r
     ],
     endingPlan: {
       mode: "hard_cut" as const,
-      stopAfterLine: 3,
-      anchorQuote: "Tôi đang ngồi xổm rồi đấy.",
+      stopAfterLine: 10,
+      anchorQuote: "Thôi tôi ở ngoài.",
       reason:
         "Câu cuối hạ độ vô lý của căn nhà gối ngay trong format tour nhà.",
     },
   };
-  const scenes = plans[0].scenes.slice(0, 3).map((s) => ({
+  const scenes = plans[0].scenes.slice(0, 10).map((s) => ({
     ...s,
     listenerCharacterIds: [story.dialogue[1].characterId],
   }));
@@ -481,7 +487,7 @@ it("preserves a sibling-only staged parody without inventing a parent or final r
     selectedCharacterIds: [cast[0].characterId, cast[1].characterId],
   });
   if (r.kind !== "video_plan") throw Error("Wrong kind");
-  expect(r.scenes).toHaveLength(2);
+  expect(r.scenes).toHaveLength(4);
   expect(
     r.scenes.flatMap((s) => s.storyboard?.beats || []).map((b) => b.dialogue),
   ).toEqual(story.dialogue.map((d) => d.text));
@@ -503,7 +509,7 @@ it("keeps the general idea assist single-call and preserves identities", async (
   ];
   await generateCreativeAssist({ ...input, kind: "idea_suggestions" });
   expect(calls.prompts).toHaveLength(1);
-  expect(calls.prompts[0]).toContain("family-dialogue-14");
+  expect(calls.prompts[0]).toContain("family-dialogue-15");
 });
 it("compiles listener reactions without inventing extra dialogue", () => {
   const story = {

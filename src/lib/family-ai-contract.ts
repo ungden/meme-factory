@@ -5,6 +5,7 @@ import {
   storyboardDialogue,
   type StoryboardBeat,
 } from "./film-storyboard";
+import { BEAT_FUNCTIONS } from "./family-catalogue";
 import type { ChannelProfile, Story } from "./family-catalogue";
 import {
   PERFORMANCE_LANES,
@@ -37,11 +38,22 @@ const object = (properties: Record<string, unknown>) => ({
   required: Object.keys(properties),
   additionalProperties: false,
 });
+/**
+ * Ai được nói trong tập này.
+ *
+ * KHÔNG dùng enum ở đây, dù danh sách là hữu hạn. UUID trong enum làm
+ * gemini-3.1-pro-preview trả 400 INVALID_ARGUMENT cho cả schema — đo được bằng
+ * cách đổi đúng trường này thành chuỗi thường thì request đi qua, giữ nguyên
+ * thì hỏng, với mọi tổ hợp trường khác. Hậu quả im lặng và lâu dài: bước viết
+ * nháp luôn bị pro từ chối rồi tụt xuống model nhẹ, nên "model mạnh cho khâu
+ * nặng" thực tế chưa bao giờ chạy.
+ *
+ * Danh sách ID hợp lệ vẫn nằm trong prompt, và validateStory vẫn chặn ID lạ —
+ * nên bỏ enum không nới lỏng gì.
+ */
 export function storyResponseSchema(profile: ChannelProfile, ids: string[]) {
-  const characterId = {
-    type: "string",
-    enum: [...ids, "guest-1", "guest-2"],
-  };
+  void ids;
+  const characterId = { type: "string" };
   return object({
     performanceLane: { type: "string", enum: PERFORMANCE_LANES },
     comicPremise: object({
@@ -67,12 +79,17 @@ export function storyResponseSchema(profile: ChannelProfile, ids: string[]) {
         personality: string,
       }),
     },
+    game: object({
+      baseReality: string,
+      unusualThing: string,
+      ifThen: string,
+    }),
     endingPlan: object({
       mode: {
         type: "string",
         enum: ["hard_cut", "silent_reaction", "resolved"],
       },
-      stopAfterLine: { type: "integer", minimum: 1, maximum: 12 },
+      stopAfterLine: { type: "integer", minimum: 1, maximum: 24 },
       anchorQuote: string,
       reason: string,
     }),
@@ -91,8 +108,13 @@ export function storyResponseSchema(profile: ChannelProfile, ids: string[]) {
     dialogue: {
       type: "array",
       minItems: 3,
-      maxItems: 12,
-      items: object({ characterId, text: string, action: string }),
+      maxItems: 24,
+      items: object({
+        characterId,
+        text: string,
+        action: string,
+        beatFunction: { type: "string", enum: BEAT_FUNCTIONS },
+      }),
     },
   });
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   storyboardGroups,
+  MAX_SPOKEN_TURNS_PER_CLIP,
   storyboardDialogue,
   validateStoryboard,
 } from "./film-storyboard";
@@ -51,7 +52,7 @@ describe("content-sized Seedance storyboard production", () => {
     Object.assign(source.shots.shot2, { pauseAfterSeconds: 0.1, motionPrompt: "Em bắt quai túi, chị buông tay sau tiếp xúc." });
     const first = compileStoryboards(source, story, characters).scenes[0];
     expect(first.storyboard.timingPolicy).toBe("audio_driven_v1");
-    expect(first.storyboard.beats.map((beat) => beat.pauseAfterSeconds)).toEqual([0.4, 0.1]);
+    expect(first.storyboard.beats.map((beat) => beat.pauseAfterSeconds)).toEqual([0.4, 0.1, 0.15]);
     expect(first.motionPrompt).toContain(source.shots.shot1.motionPrompt);
     expect(first.motionPrompt).toContain(source.shots.shot2.motionPrompt);
     expect(first.motionPrompt).not.toContain("Thực hiện lần lượt các nhịp storyboard");
@@ -109,12 +110,16 @@ describe("content-sized Seedance storyboard production", () => {
     expect(plan.requirements.some((item) => item.id === "shot2_footwear")).toBe(false);
   });
 
-  it("never packs more than two spoken turns into one provider clip", () => {
+  it("không nhồi quá ba lượt thoại vào một clip", () => {
+    // Ba chứ không phải hai: trần đo được của Seedance là khoảng bốn thay đổi
+    // trạng thái trong 15 giây, và một lượt thoại kèm phản ứng là một thay đổi.
     expect(storyboardGroups(story.dialogue, false)).toEqual([
-      [0, 1],
-      [2, 3],
-      [4, 5],
+      [0, 1, 2],
+      [3, 4, 5],
     ]);
+    const many = Array.from({ length: 8 }, () => ({ text: "Cho em xem nào." }));
+    for (const group of storyboardGroups(many, false))
+      expect(group.length).toBeLessThanOrEqual(MAX_SPOKEN_TURNS_PER_CLIP);
   });
   it("keeps readable story evidence as a dedicated provider reference", () => {
     const source = structuredClone(panels);
@@ -151,16 +156,16 @@ describe("content-sized Seedance storyboard production", () => {
       ],
     });
     const result = compileStoryboards(source, story, characters);
-    expect(result.scenes.length).toBe(3);
+    expect(result.scenes.length).toBe(2);
     const detailScene = result.scenes[0];
-    expect(detailScene.storyboard.beats).toHaveLength(2);
+    expect(detailScene.storyboard.beats).toHaveLength(3);
     expect(detailScene.storyboard.referencePlan!.referenceImages[1]).toMatchObject({
       role: "prop",
       purpose: "Cận phần tiền Đậu Đỏ nhận",
     });
     expect(
       detailScene.storyboard.referencePlan!.requirements.map((item) => item.kind),
-    ).toEqual(["cast", "count", "text"]);
+    ).toEqual(["cast", "count", "text", "cast"]);
   });
   it("splits the same complete story into shorter source clips for Seedance 2.0 Fast", () => {
     const longStory = {
@@ -337,10 +342,20 @@ describe("content-sized Seedance storyboard production", () => {
     expect(prompt).toContain(
       `clip nguồn ${s.storyboard.durationSeconds} giây 16:9`,
     );
-    expect(prompt).toContain("Chỉ Bánh Bao diễn lời thoại");
-    expect(prompt).toContain("Chỉ Đậu Đỏ diễn lời thoại");
+    // Cú pháp thoại chính thức của ByteDance: ngoặc nhọn kèm nhãn ngôn ngữ.
+    expect(prompt).toContain("Chỉ Bánh Bao nói tiếng Việt {");
+    expect(prompt).toContain("Chỉ Đậu Đỏ nói tiếng Việt {");
     expect(prompt).toContain("@image1 = scene");
     expect(prompt).not.toContain("một shot liên tục");
+    // BytePlus khuyến nghị prompt dưới ~600 từ và Replicate khai trần 4000 ký
+    // tự cho Seedance 2.0; prompt của tập 19/09 dài tới 6.984. Giữ ngân sách
+    // này để mỗi nhịp thoại thêm vào không đẩy phần dặn dò cuối prompt ra ngoài.
+    expect(prompt.length).toBeLessThan(4000);
+    // Đạo cụ chỉ được tả MỘT lần cho cả clip, không lặp ở từng nhịp.
+    expect(prompt.split("PROPS (giữ nguyên suốt clip)").length - 1).toBeLessThanOrEqual(1);
+    // Không còn JSON thô trong prompt gửi cho mô hình dựng video.
+    expect(prompt).not.toContain('{"');
+    expect(prompt).not.toMatch(/\d\.\d\d–\d\.\d\ds/);
     expect(() => compileFilmMotion(scene, "fixed", "16:9")).toThrow(
       "không dùng đồng bộ môi một người",
     );

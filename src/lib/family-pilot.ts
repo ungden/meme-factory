@@ -1,4 +1,4 @@
-import { familyProfile, validateStory, type Story } from "./family-catalogue";
+import { familyProfile, validateStory, type BeatFunction, type Story } from "./family-catalogue";
 import type { FilmCast } from "./short-film/contracts";
 export const familyPersonalities: Record<string, string> = {
   "Bánh Bao":
@@ -78,6 +78,7 @@ export function buildFamilyPilot(cast: FilmCast[], pilot: PilotEpisode[]) {
           characterId: role(t[0]).characterId,
           text: t[1],
           action: t[2],
+          ...(t[3] ? { beatFunction: t[3] as BeatFunction } : {}),
         })),
       },
       profile,

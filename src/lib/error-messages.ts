@@ -187,6 +187,14 @@ export const ERROR_MESSAGES: Record<string, string> = {
     "Lượng lời thoại nằm ngoài khoảng hợp lý cho một tập ngắn. Hãy cho AI viết lại cho vừa.",
   STORY_SHOT_LIMIT:
     "Tập này vượt số cảnh tối đa. Hãy cho AI rút bớt lượt thoại hoặc bỏ cảnh phản ứng.",
+  STORY_LINES_TOO_ADULT:
+    "Lời thoại đang dài như câu người lớn. Hãy cho AI tách thành nhiều lượt đối đáp ngắn.",
+  STORY_TOO_FEW_TURNS:
+    "Tập còn quá ít lượt đối đáp cho một phim ngắn. Hãy cho AI viết thêm lượt.",
+  STORY_GAME_INVALID:
+    "Mạch gây cười chưa đủ: thiếu điều bất ngờ, thiếu lần đẩy tới hoặc thiếu câu chốt cuối. Hãy cho AI viết lại.",
+  STORY_LINE_ADULT_REGISTER:
+    "Có lượt thoại nói bằng giọng công sở chứ không phải giọng trẻ con. Hãy cho AI viết lại câu đó.",
   STORY_SHOTS_MISSING: "Thiếu mô tả cảnh cho một số lượt thoại.",
   STORY_SHOT: "Một cảnh trong storyboard chưa hợp lệ. Hãy cho AI dựng lại.",
   STORY_ENDING_INVALID:

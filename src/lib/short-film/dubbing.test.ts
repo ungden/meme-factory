@@ -103,9 +103,12 @@ describe("per-turn dubbing", () => {
     expect(planned).toEqual(original);
     const input = filmVideoInputs(directed.scene, "dubbed", "16:9", "720p", { urls: ["frame"], bindings: ["@image1 = scene: khung cảnh."] }, 0, undefined, directed.measuredSpeechSeconds);
     expect(input.duration).toBe(5);
-    expect(input.prompt).toContain("2.15–4.30s");
-    expect(input.prompt).toContain("Lượt thoại kết thúc ở 4.15s");
-    expect(input.prompt).toContain("REAL-TIME MOTION");
+    // Seedance 2.0 không đọc mốc giây, chỉ đọc số hiệu shot; ghi mốc lẻ tới
+    // phần trăm giây là nhận vơ độ chính xác mà model không có.
+    expect(input.prompt).toContain("Shot 2 |");
+    expect(input.prompt).not.toMatch(/\d+\.\d\d–\d+\.\d\ds/);
+    expect(input.prompt).toContain("Nói xong trước khi hết nhịp");
+    expect(input.prompt).toContain("CHUYỂN ĐỘNG");
     expect(input.generate_audio).toBe(false);
     expect(input.reference_images).toEqual(["frame"]);
     expect(input.aspect_ratio).toBe("16:9");

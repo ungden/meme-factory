@@ -1,5 +1,5 @@
 /** Shared family premise for comedy and earned cinematic emotion. */
-export const FAMILY_WRITING_POLICY_VERSION = "family-dialogue-14";
+export const FAMILY_WRITING_POLICY_VERSION = "family-dialogue-15";
 
 export const FAMILY_WRITING_POLICY = `LUẬT NỀN BIÊN KỊCH ${FAMILY_WRITING_POLICY_VERSION}: HÀI GIA ĐÌNH VÀ CẢM XÚC CÓ NGUYÊN NHÂN
 Khán giả người lớn nhận ra một tình huống hoặc FORMAT quen thuộc, rồi thấy nó được diễn bởi những người/đồ vật lệch hẳn kỳ vọng. Bánh Bao & Đậu Đỏ vẫn là hai đứa CON NÍT về hình dáng và giọng, nhưng có thể gánh vai người lớn hoặc diễn những vai người lớn rất nghiêm túc. Sự tương phản phải nhìn/nghe thấy được; không cần thêm câu chơi chữ để giải thích nó.
@@ -29,7 +29,20 @@ TÍNH CÁCH, DIỄN VÀ ĐỐI ĐÁP:
 - Xưng hô theo đúng người đang nói và người đang nghe. Trong sinh hoạt, hai chị em nói với nhau dùng chị/em, “chị em mình/tụi mình”; nói với bố mẹ dùng “tụi con”. Bố/Mẹ nói với con dùng bố/mẹ và con/các con. Không để trẻ tự gọi hai chị em là “hai đứa” như người lớn đứng ngoài đang kể. Trong parody có thể xưng tôi/anh/chị nếu vai diễn rõ; không đổi giới tính hoặc quan hệ thật.
 - Tên và cách gọi người cha luôn là “Bố/bố” trong tên nhân vật, thoại, hành động, mô tả cảnh, prompt và caption; không dùng “Ba/ba” để gọi người cha. “Ba” vẫn được dùng khi thật sự là số đếm, như “ba cảnh”, “đếm đến ba” hoặc “ba ngón tay”.
 - Câu hỏi, xác nhận, dặn đồ, nhắc lần nữa và khoảng nhìn giúp tình huống sống. Không bắt mỗi câu là punchline, một lần đổi chiến thuật hay giao kèo. Nhượng bộ vì muốn được yên hoặc thương nhau là đủ lý do.
-- Mỗi lượt thoại tối đa khoảng 20 từ (dưới 8 giây khi đọc). Câu dài hơn phải tách thành hai lượt để giữ nhịp đối đáp.
+- ĐỘ DÀI CÂU: đích là 3–8 từ mỗi lượt, trung vị cả tập không quá 8. Trẻ 4–5 tuổi nói trung bình 4–5 từ một câu; "Ơ sao thế?", "Chuẩn luôn!", "Được!", "Giờ chị lấy cớ gì?" là đúng cỡ. Câu 14 từ trở lên là giọng người lớn, kể cả khi nội dung trẻ con. Trần tuyệt đối vẫn 8 giây, nhưng đừng viết tới trần: ý dài thì TÁCH THÀNH NHIỀU LƯỢT ĐỐI ĐÁP, không nén vào một câu.
+- MẬT ĐỘ: một tập 30 giây cần 14–20 lượt thoại, tức khoảng một lượt mỗi 1,5–2 giây. Ít hơn 8 lượt là kịch bản chưa viết xong chứ không phải kịch bản gọn.
+- CẤU TRÚC MỘT TẬP (game of the scene). Mỗi lượt thoại mang đúng một vai trò, ghi ở beatFunction:
+  · base_reality (2–4 lượt): nếp sinh hoạt bình thường, chưa có gì lạ, câu bình thường nhất tập.
+  · unusual_thing (đúng 1 lượt): điều đầu tiên lệch khỏi nếp đó. Cả tập chỉ một điều lạ.
+  · frame (ít nhất 1 lượt): người kia phản ứng lại điều lạ — kêu lên, hỏi lại, nhại lại. 1–4 từ: "Hả?", "Chị nói gì cơ?", "Thật á?".
+  · heighten (ít nhất 3 lượt): đẩy luật chơi xa hơn MỌI thứ đã có. Trả lời "còn gì đúng theo luật này nữa?".
+  · explore (2 lượt trở lên): giải thích VÌ SAO điều lạ đó hợp lý, theo lô-gíc của chính nhân vật. Đây là chỗ hài nhất và là chỗ hệ cũ không có.
+  Xen kẽ heighten rồi explore, đừng leo thang ba lần liền.
+  · button (lượt cuối): câu chốt to nhất, cắt ngay sau đó. Không có lượt nào đi sau nó.
+- LUẬT CHƠI viết vào game.ifThen, một câu, KHÔNG AI NÓI RA: "NẾU <điều lạ>, THÌ <cái gì cũng theo luật đó>." Mọi lượt heighten phải trả lời đúng câu này. Một tập một luật; tìm ra luật thứ hai thì bỏ, đẩy sâu luật thứ nhất.
+- Câu càng về cuối càng ngắn. Lượt leo thang cuối và button nên là 2–5 từ.
+- Từ gây cười đặt CUỐI câu. Không viết gì sau nó — chữ đi sau sẽ giẫm lên tiếng cười.
+- Người lớn có thể chỉ là giọng ngoài khung (mẹ gọi vọng vào, bố nói với từ phòng bên). Không cần cho họ vào hình mới tạo được sức ép.
 - Viết để nói ở nhịp hội thoại short-form lanh và rõ, khoảng 2.6 âm tiết/từ tách bằng khoảng trắng mỗi giây. Tránh dấu ba chấm; chỉ dùng tối đa một lần khi một nhịp ngập ngừng ngắn thực sự tạo nghĩa. Không viết câu cần kéo giọng, đếm chậm hoặc lấy hơi kiểu kể chuyện để tạo cảm xúc. Nhịp cảm xúc đến từ lực giọng, hành động và phản ứng chồng nhau, không từ khoảng im dài.
 - Lời nói ngược/khoe quá có thể là cố giữ oai. Phân biệt lời nhân vật với sự thật của truyện; đừng sửa mọi lời chống chế thành nhận lỗi. Sửa lỗi tác giả khi sự kiện/hành động đổi vô cớ mà khán giả không hiểu.
 - Sự quan tâm thật có thể là điểm rơi, không tự gán động cơ ích kỷ. Giữ lời cảm ơn/nụ cười/ánh nhìn đúng nhịp; không gắn thêm giáo huấn.

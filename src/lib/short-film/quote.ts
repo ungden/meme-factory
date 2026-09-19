@@ -8,6 +8,7 @@ import type { Story } from "../family-catalogue";
 import {
   FILM_MODELS,
   assertFixedVoiceShot,
+  castReferencePicks,
   currentSceneTask,
   sceneReferenceImageTasks,
   referencePackReady,
@@ -440,15 +441,14 @@ async function quoteVideo({
       });
     }
     for (const character of s.cast_snapshot) {
-      for (const source of character.referenceImages.length
-        ? character.referenceImages
-        : [character.imageUrl]) {
-        if (!source || references.some((reference) => reference.url === source)) continue;
+      for (const pick of castReferencePicks(character)) {
+        const source = pick.source;
+        if (references.some((reference) => reference.url === source)) continue;
         references.push({
           url: isProjectMediaPath(a.project.id, source)
             ? await signed(a, source)
             : source,
-          binding: `character: ảnh nhận diện đã duyệt của ${character.name}; chỉ khóa mặt, tóc, vóc dáng và trang phục`,
+          binding: pick.binding,
           source: isProjectMediaPath(a.project.id, source)
             ? { path: source }
             : { url: source },

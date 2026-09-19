@@ -395,12 +395,79 @@ export function sceneHasWordlessBeat(
   );
 }
 
+/**
+ * Một câu mô tả trạng thái, lấy ra từ blob mà đạo diễn trả về.
+ *
+ * Bản cũ nhét nguyên `JSON.stringify` vào prompt, nên mô hình dựng video nhận
+ * được `{\"note\":\"Bánh Bao (chân trần) đứng chắn trước tủ lạnh...\"}` — dấu
+ * ngoặc và ký tự thoát chiếm chỗ mà không chở thêm nghĩa. Với trần prompt
+ * ~4000 ký tự của Seedance, chỗ đó là chỗ để dành cho thêm một nhịp thoại.
+ */
+function stateSentence(value: unknown): string {
+  if (!value) return "";
+  if (typeof value === "string") return value.trim();
+  const record = value as Record<string, unknown>;
+  return Object.values(record)
+    .map((part) => String(part ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
+/** Đạo cụ viết thành một mệnh đề người đọc được, thay cho JSON. */
+function propPhrase(prop: Record<string, unknown>, nameOf: (id: string) => string | undefined): string {
+  const holder = nameOf(String(prop.holderCharacterId || ""));
+  const bits = [
+    String(prop.count || 1) !== "1" ? `${prop.count} ` : "",
+    String(prop.label || prop.id || "").trim(),
+    String(prop.color || "").trim(),
+    String(prop.size || "").trim(),
+  ]
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const marks = String(prop.marks || "").trim();
+  const where = holder ? `${holder} cầm` : String(prop.position || "").trim();
+  return [bits, marks && marks !== "không có" ? `ghi ${marks}` : "", where]
+    .filter(Boolean)
+    .join(", ");
+}
+
+/**
+ * Mốc thời gian chỉ được ghi khi model thật sự đọc được nó.
+ *
+ * Seedance 2.0 KHÔNG phản hồi timestamp — tài liệu BytePlus nói rõ nó chỉ phản
+ * hồi số hiệu shot, và cảnh báo rằng ép mốc giây có thể cho "kết quả sinh bất
+ * thường". Bản cũ ghi `0.00–2.40s`, tức là nhận vơ độ chính xác tới một phần
+ * trăm giây cho một model không đọc con số đó. Từ 2.5 mới có điều khiển theo
+ * giây, và chỉ ở mức giây nguyên.
+ */
+export function beatHeading(
+  index: number,
+  startSeconds: number,
+  endSeconds: number,
+  videoModel: string,
+): string {
+  if (/seedance-2\.5/.test(videoModel))
+    return `Shot ${index + 1} | ${Math.round(startSeconds)}-${Math.round(endSeconds)} giây`;
+  return `Shot ${index + 1}`;
+}
+
+/**
+ * Seedance nuốt `--xx` trong prompt như tham số dòng lệnh và không báo lỗi.
+ * Gạch ngang đôi trong tiếng Việt (dấu gạch nối kéo dài, hoặc số "5--6") vì thế
+ * có thể bị ăn mất cùng vài chữ đứng sau.
+ */
+export function sanitizeProviderPrompt(prompt: string): string {
+  return prompt.replace(/--+/gu, "—");
+}
+
 export function compileFilmMotion(
   scene: FilmScene,
   mode: "native" | "fixed" | "dubbed",
   format: string,
   measuredSpeechSeconds?: ReadonlyMap<number, number>,
   referenceBindings: string[] = [],
+  videoModel: string = FILM_MODELS.video,
 ) {
   if (scene.storyboard) {
     if (mode === "fixed")
@@ -416,18 +483,51 @@ export function compileFilmMotion(
     const name = (id: string | null) =>
       scene.cast_snapshot.find((c) => c.characterId === id)?.name;
     const performance = board.performanceDirection || scene.performance_direction;
+    // Đạo cụ gom về MỘT khối ở đầu: cùng cây bút được tả lại nguyên văn ở mọi
+    // nhịp là nguồn phình prompt lớn nhất (một khối props JSON ~900 ký tự).
+    const propsById = new Map<string, Record<string, unknown>>();
+    for (const beat of board.beats)
+      for (const prop of (beat.props || []) as Record<string, unknown>[])
+        if (!propsById.has(String(prop.id))) propsById.set(String(prop.id), prop);
+    const propsLine = propsById.size
+      ? `PROPS (giữ nguyên suốt clip): ${[...propsById.values()]
+          .map((prop) => propPhrase(prop, (id) => scene.cast_snapshot.find((c) => c.characterId === id)?.name))
+          .join("; ")}.`
+      : "";
     return [
       `STORYBOARD: clip nguồn ${board.durationSeconds} giây ${format}; câu chuyện hữu ích kết thúc ở ${Number(board.contentEndSeconds ?? board.durationSeconds).toFixed(2)} giây và phần nguồn còn lại sẽ bị cắt. Diễn nhiều nhịp đối đáp/hành động liên tục theo thứ tự sau. Bối cảnh ${scene.setting}.`,
       `REFERENCE PACK: ${referenceBindings.join(" ")} Dùng đúng vai trò đã gắn cho từng @image; không trộn mặt, trang phục, đạo cụ hoặc bối cảnh giữa các ảnh. Storyboard tổng chỉ để duyệt và không nằm trong input provider.`,
-      `CAST: ${scene.cast_snapshot.map((c) => `${c.name}: ${c.description}`).join("; ")}. Không trộn người hoặc đổi giọng giữa các lượt.`,
+      // Mô tả cắt ngắn: nhận diện đã do ảnh chuẩn khoá, và tài liệu Seedance nói
+      // ảnh tham chiếu thắng chữ khi hai bên nói khác nhau về ngoại hình.
+      `CAST: ${scene.cast_snapshot.map((c) => `${c.name}: ${String(c.description || "").split(/[,.]/u).slice(0, 2).join(",").trim()}`).join("; ")}. Không trộn người giữa các lượt.`,
       REALTIME_MOTION_DIRECTION,
       ...(performance ? [`ACTING INTENT: ${performance.comicObjective}. HOOK 0–1s: ${performance.hook}. END CUE: ${performance.revealOrCut}. Các hành vi cụ thể nằm trong timeline dưới đây; không diễn lại thành chuỗi thứ hai.`] : []),
-      "CAMERA/EDIT: mỗi nhịp dùng đúng một phương án camera đã mô tả. Máy tĩnh được phép; không thêm chuyển động máy để thay chuyển động diễn viên. Chỉ cắt ở điểm được chỉ đạo, giữ trục nhìn và vị trí đạo cụ qua cut.",
-      ...board.beats.map(
-        (b, i) =>
-          `SHOT/BEAT ${i + 1}${b.segmentId ? ` [${b.segmentId}]` : ""} | ${b.startSeconds.toFixed(2)}–${b.endSeconds.toFixed(2)}s | MOTION: ${b.motion} | CAMERA: ${b.camera} | ${b.openingState ? `OPENING STATE: ${JSON.stringify(b.openingState)}. ` : ""}${b.props?.length ? `PROPS: ${JSON.stringify(b.props)}. ` : ""}${b.closingState ? `CLOSING STATE: ${JSON.stringify(b.closingState)}. ` : ""}${b.performance ? `REACTION: ${b.performance.expressionChange}; ${b.performance.reactionTarget}. ` : ""}${b.dialogue ? `Chỉ ${name(b.speakerCharacterId)} diễn lời thoại “${b.dialogue}” ${mode === "native" ? "với audio tiếng Việt" : "trong video im tiếng để lồng tiếng sau, không phát âm thanh"}. ${measuredSpeechSeconds?.has(i) ? `Lượt thoại kết thúc ở ${(b.startSeconds + measuredSpeechSeconds.get(i)!).toFixed(2)}s; phần còn lại là phản ứng đã chỉ đạo, không kéo môi chậm cho đầy nhịp. ` : ""}Các nhân vật còn lại nghe và phản ứng trong câu này, không cử động môi như đang nói.` : "Không có lời nói; diễn hành động/phản ứng đã mô tả."}`,
-      ),
-      `PACING: bắt đầu ngay giây 0, nói nhanh tự nhiên nhưng rõ, không kéo dài âm tiết, không slow motion, không lặp câu hoặc lặp động tác. Hoàn tất toàn bộ diễn biến ở ${Number(board.contentEndSeconds ?? board.durationSeconds).toFixed(2)} giây; sau đó chỉ giữ tư thế kết, tuyệt đối không thêm hành động hoặc lời mới. Mốc thời gian định hướng nhịp diễn; nói trọn câu trước đổi lượt, không chồng lời. Người nghe phản ứng ngay trong lượt nói. Pan/cắt theo storyboard, giữ hướng nhìn và trục đối thoại; không chuyển cảnh trang trí hoặc đổi bối cảnh.`,
+      "CAMERA: mỗi shot đúng một phương án máy đã ghi; máy tĩnh được phép. Cắt thẳng giữa các shot, giữ trục nhìn, bên trái/phải và vị trí đạo cụ qua cut. Không dissolve, không chuyển cảnh trang trí, không đổi bối cảnh.",
+      ...(propsLine ? [propsLine] : []),
+      ...board.beats.map((b, i) => {
+        const opening = stateSentence(b.openingState);
+        const closing = stateSentence(b.closingState);
+        const sentence = (text: string) => {
+          const trimmed = String(text || "").trim();
+          return !trimmed || /[.!?;]$/u.test(trimmed) ? trimmed : `${trimmed}.`;
+        };
+        return [
+          `${beatHeading(i, b.startSeconds, b.endSeconds, videoModel)}: CAMERA ${sentence(b.camera)} ${sentence(b.motion)}`,
+          opening ? `Mở nhịp: ${sentence(opening)}` : "",
+          closing ? `Kết nhịp: ${sentence(closing)}` : "",
+          b.performance ? `Phản ứng: ${b.performance.expressionChange}; ${sentence(b.performance.reactionTarget)}` : "",
+          b.dialogue
+            ? `Chỉ ${name(b.speakerCharacterId)} nói tiếng Việt {${b.dialogue}}${mode === "native" ? "" : ", video im tiếng, lồng tiếng sau"}. Người còn lại nghe, miệng đóng.${
+                measuredSpeechSeconds?.has(i)
+                  ? ` Nói xong trước khi hết nhịp${/seedance-2\.5/.test(videoModel) ? ` (khoảng giây ${Math.round(b.startSeconds + measuredSpeechSeconds.get(i)!)})` : ""}; phần còn lại là phản ứng, không kéo môi cho đầy nhịp.`
+                  : ""
+              }`
+            : "Không ai nói; diễn hành động đã mô tả.",
+        ]
+          .filter(Boolean)
+          .join(" ");
+      }),
+      `NHỊP: diễn hết toàn bộ các shot trên, đúng thứ tự, không bỏ shot nào. Nói trọn câu rồi mới đổi lượt, không chồng lời. Xong diễn biến ở giây ${Math.round(Number(board.contentEndSeconds ?? board.durationSeconds))} thì giữ tư thế kết, không thêm hành động hay lời mới.`,
       mode === "native"
         ? "AUDIO: giọng đúng người đang nói, rõ ở tiền cảnh; nhạc không lời vui vẻ, tinh nghịch nhẹ, âm lượng thấp. Không thêm lời thoại, phụ đề, nhãn thời gian hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ tham chiếu."
         : sceneUsesAmbientAudio(scene, mode) || sceneHasWordlessBeat(scene, mode)
@@ -469,6 +569,61 @@ export function compileFilmMotion(
     .join("\n");
 }
 
+/**
+ * Ảnh chuẩn nào của một nhân vật được gửi kèm cho mô hình dựng video, và nói
+ * cho nó biết từng ảnh dùng để khoá cái gì.
+ *
+ * Bản cũ gửi TOÀN BỘ ảnh chuẩn, và gắn cho mọi ảnh đúng một câu mô tả
+ * ("chỉ khóa mặt, tóc, vóc dáng và trang phục"). Lượt chạy 19/09 vì thế gửi ba
+ * ảnh Bánh Bao giống hệt nhau về mặt mô tả: mô hình không biết ảnh nào là cận
+ * mặt, ảnh nào là toàn thân, nên tín hiệu nhận diện bị loãng thay vì được
+ * cộng dồn. Khâu dựng ẢNH đã chọn theo vai trò từ trước; khâu dựng VIDEO thì
+ * chưa.
+ */
+const REFERENCE_ROLE_BINDING: Record<string, string> = {
+  identity_face: "khoá KHUÔN MẶT: đường nét, tỷ lệ mắt/mũi/miệng, nước da, tuổi",
+  identity_body: "khoá VÓC DÁNG và TỶ LỆ NGƯỜI, cùng trang phục đang mặc",
+  look: "khoá TẠO HÌNH tổng thể: kiểu tóc, màu áo, phụ kiện",
+};
+const REFERENCE_ROLE_ORDER = ["identity_face", "identity_body", "look"];
+/** Ba ảnh vừa đủ cho mặt + dáng + tạo hình mà không chiếm hết hạn mức ảnh. */
+export const MAX_CAST_REFERENCES = 3;
+
+export function castReferencePicks(
+  character: Pick<FilmCast, "name" | "imageUrl" | "referenceImages" | "referenceRoles">,
+): Array<{ source: string; binding: string }> {
+  const images = (character.referenceImages || []).filter(Boolean);
+  if (!images.length)
+    return character.imageUrl
+      ? [{ source: character.imageUrl, binding: `character: ảnh nhận diện đã duyệt của ${character.name}; giữ đúng mặt, tóc, vóc dáng và trang phục` }]
+      : [];
+  const roles = character.referenceRoles || [];
+  const describe = (index: number) => {
+    const role = roles[index];
+    const detail = (role && REFERENCE_ROLE_BINDING[role]) || "giữ đúng mặt, tóc, vóc dáng và trang phục";
+    return `character: ${character.name} — ${detail}`;
+  };
+  // Bộ ảnh không ghi vai trò (kịch bản cũ) thì giữ đúng thứ tự cũ.
+  if (roles.length !== images.length)
+    return images.slice(0, MAX_CAST_REFERENCES).map((source, index) => ({
+      source,
+      binding: describe(index),
+    }));
+  const picked: Array<{ source: string; binding: string }> = [];
+  const used = new Set<number>();
+  for (const role of REFERENCE_ROLE_ORDER) {
+    const index = images.findIndex((_, i) => roles[i] === role && !used.has(i));
+    if (index >= 0) {
+      used.add(index);
+      picked.push({ source: images[index], binding: describe(index) });
+    }
+    if (picked.length === MAX_CAST_REFERENCES) return picked;
+  }
+  for (let i = 0; i < images.length && picked.length < MAX_CAST_REFERENCES; i += 1)
+    if (!used.has(i)) picked.push({ source: images[i], binding: describe(i) });
+  return picked;
+}
+
 export type FilmReferencePacket = {
   urls: string[];
   bindings: string[];
@@ -495,12 +650,15 @@ export function filmVideoInputs(
   if (!references.urls.length || references.urls.length !== references.bindings.length)
     throw new Error("Bộ ảnh tham chiếu video không hợp lệ.");
   return {
-    prompt: compileFilmMotion(
-      scene,
-      mode,
-      format,
-      measuredSpeechSeconds,
-      references.bindings,
+    prompt: sanitizeProviderPrompt(
+      compileFilmMotion(
+        scene,
+        mode,
+        format,
+        measuredSpeechSeconds,
+        references.bindings,
+        videoModel,
+      ),
     ),
     reference_images: references.urls,
     aspect_ratio: format,

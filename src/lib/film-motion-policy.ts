@@ -12,4 +12,14 @@ export const FILM_INTERACTION_POLICY = `ĐẠO DIỄN CHUYỂN ĐỘNG:
 - motionPrompt: 1–2 câu chỉ đạo dễ thực hiện, chỉ rõ hành động chính + phản ứng người nghe diễn đồng thời + camera/điểm nối. Tránh lặp lại toàn bộ mô tả ngoại hình, liệt kê nhiều góc máy hoặc các tính từ chung chung.
 - pauseAfterSeconds là nghỉ có lý do sau câu, mặc định 0.15; có thể 0–2 giây cho một hành động/reaction rõ. Không dùng durationSeconds để kéo dài một ánh nhìn hoặc nụ cười. Nhịp thoại cuối được tính lại từ audio thật trước khi gửi video.`;
 
-export const REALTIME_MOTION_DIRECTION = "REAL-TIME MOTION: bắt đầu hành động trong 0–0.2 giây, tốc độ sinh hoạt thật, dứt khoát có đà và điểm dừng. Tay/thân người làm việc trong khi nói; người nghe phản ứng đồng thời ngay với người hoặc đạo cụ đang tác động. Câu dài có 2–3 thay đổi hành vi có nguyên nhân thay vì kéo một cử chỉ. Chuyển động mắt dẫn hướng tay; tiếp xúc rồi mới trao vật, trọng lượng và vải theo đà. Không pose/nhìn/nụ cười đứng yên quá 0.4 giây nếu không được chỉ đạo, không đứng chờ lần lượt, không slow motion hoặc speed ramp tự phát.";
+/**
+ * Khối chỉ đạo chuyển động gửi kèm MỌI clip.
+ *
+ * Nén từ 590 xuống ~240 ký tự. Prompt gửi Seedance đang vượt xa mức BytePlus
+ * khuyến nghị (~600 từ), mà khối này thì giống hệt nhau ở mọi clip của mọi
+ * tập — nó chiếm chỗ của nhịp thoại thứ ba, thứ tư. Tài liệu cũng cảnh báo
+ * prompt càng dài thì mô hình càng phân tán chú ý, nên cắt gọn còn là cách
+ * làm cho những câu quan trọng được nghe rõ hơn.
+ */
+export const REALTIME_MOTION_DIRECTION =
+  "CHUYỂN ĐỘNG: tốc độ sinh hoạt thật. Hành động bắt đầu trong 0,2 giây đầu, tay làm việc ngay trong lúc nói, người nghe phản ứng cùng lúc chứ không đợi đến lượt. Không giữ pose/nụ cười quá 0,4 giây, không slow motion, không lặp động tác để cho đủ thời lượng.";

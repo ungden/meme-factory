@@ -38,7 +38,7 @@ describe("family catalogue", () => {
     expect(plans.filter((p) => p.group === "family")).toHaveLength(1);
     expect(new Set(plans.map((p) => fingerprint(p.story))).size).toBe(12);
     for (const p of plans) {
-      expect(p.scenes.filter((s) => s.dialogue)).toHaveLength(6);
+      expect(p.scenes.filter((s) => s.dialogue)).toHaveLength(14);
       expect(
         p.scenes.every(
           (s) =>
@@ -114,7 +114,6 @@ describe("family catalogue", () => {
           description: "Cả hai quên mất trò ban đầu",
         },
       ],
-      dialogue: plans[0].story.dialogue.slice(0, 4),
     };
     expect(
       validateStory(
@@ -138,11 +137,12 @@ describe("family catalogue", () => {
       ).dialogue[0].text,
     ).toBe(story.dialogue[0].text);
   });
-  it("rejects a thirteenth reaction shot before purchasing or planning media", () => {
+  it("rejects a twenty-fifth reaction shot before purchasing or planning media", () => {
     const story = {
       ...plans[0].story,
-      dialogue: Array.from({ length: 12 }, (_, i) => ({
-        ...plans[0].story.dialogue[i % 6],
+      dialogue: Array.from({ length: 24 }, (_, i) => ({
+        characterId: plans[0].story.dialogue[i % 14].characterId,
+        action: plans[0].story.dialogue[i % 14].action,
         text: "Cho em xem nào.",
       })),
     };
@@ -162,7 +162,7 @@ describe("family catalogue", () => {
         profile,
         cast.map((c) => c.characterId),
       ).dialogue,
-    ).toHaveLength(12);
+    ).toHaveLength(24);
   });
 });
 

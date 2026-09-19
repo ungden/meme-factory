@@ -20,6 +20,57 @@ import { spokenSeconds } from "./film-storyboard";
 const MAX_LINE_SECONDS = 8;
 
 /**
+ * Vai trò của một lượt thoại trong cấu trúc "game of the scene".
+ *
+ * Kịch bản cũ chỉ có hook/turn/payoff, nên bản nháp viết 4–6 câu dài rồi hết
+ * chuyện. Bốn video tham chiếu cùng thể loại có 16–26 lượt trong 24–44 giây, và
+ * phần chênh nằm gần hết ở hai loại lượt mà hệ cũ KHÔNG CÓ CHỖ để viết: câu
+ * phản ứng lại điều lạ (frame) và câu giải thích vì sao điều lạ đó hợp lý
+ * (explore). Có ô cho chúng thì bản nháp mới viết ra chúng.
+ */
+export const BEAT_FUNCTIONS = [
+  "base_reality",
+  "unusual_thing",
+  "frame",
+  "heighten",
+  "explore",
+  "button",
+] as const;
+export type BeatFunction = (typeof BEAT_FUNCTIONS)[number];
+
+/**
+ * Trung vị số từ mỗi lượt thoại.
+ *
+ * Trẻ 4–5 tuổi nói trung bình 4,5–5 từ một câu (chuẩn MLU trong ngôn ngữ trị
+ * liệu), và bốn video tham chiếu có trung vị 4–8 từ. Hai tập AIDA gần nhất có
+ * trung vị 14 và 15 — đó là câu của người lớn, và đó là lý do thoại nghe gượng.
+ *
+ * Chặn bằng TRUNG VỊ chứ không bằng trần mỗi câu: một câu dài làm cú chốt vẫn
+ * được, cả kịch bản toàn câu dài thì không. Trần cũ 20 từ vốn là trần, nhưng
+ * bản nháp đọc nó thành đích.
+ */
+export const MAX_MEDIAN_LINE_WORDS = 8;
+/** Số lượt thoại tối thiểu cho một tập hài; tập cinematic được thưa hơn. */
+export const MIN_COMEDY_TURNS = 8;
+/** Số lần leo thang tối thiểu: dưới ba lần, khán giả chưa kịp thấy có luật chơi. */
+export const MIN_HEIGHTENS = 3;
+
+const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
+
+/** Trung vị số từ của các lượt CÓ LỜI; nhịp không lời không tính. */
+export function medianLineWords(lines: { text: string }[]): number {
+  const counts = lines
+    .map((line) => wordCount(String(line.text || "")))
+    .filter((n) => n > 0)
+    .sort((a, b) => a - b);
+  if (!counts.length) return 0;
+  const middle = Math.floor(counts.length / 2);
+  return counts.length % 2
+    ? counts[middle]
+    : (counts[middle - 1] + counts[middle]) / 2;
+}
+
+/**
  * Từ vựng công sở/hành chính mà trẻ mẫu giáo không bao giờ nói.
  *
  * Không cấm hẳn: một từ người lớn duy nhất giữa một câu trẻ con CHÍNH LÀ cú
@@ -147,7 +198,13 @@ export type Story = {
   payoff: string;
   setup: string;
   caption: string;
-  dialogue: Array<{ characterId: string; text: string; action: string }>;
+  game?: { baseReality: string; unusualThing: string; ifThen: string };
+  dialogue: Array<{
+    characterId: string;
+    text: string;
+    action: string;
+    beatFunction?: BeatFunction;
+  }>;
 };
 export function compactStory(story: Story): RecentStory {
   return {
@@ -375,7 +432,7 @@ export function validateStory(
   if (
     !Array.isArray(s.dialogue) ||
     s.dialogue.length < 3 ||
-    s.dialogue.length > 12 ||
+    s.dialogue.length > 24 ||
     s.dialogue.some(
       (d) =>
         !allowed.includes(d.characterId) ||
@@ -411,9 +468,57 @@ export function validateStory(
         jargonLine
       ].text.slice(0, 60)}…”`,
     );
-  if (s.dialogue.length + (reactionIndex >= 0 ? 1 : 0) > 12)
+  // Tập hài phải dày lời và ngắn câu; tập cinematic cố ý thưa nên miễn.
+  const cinematic = String(s.performanceLane || "").startsWith("cinematic");
+  if (!cinematic) {
+    const median = medianLineWords(s.dialogue);
+    if (median > MAX_MEDIAN_LINE_WORDS)
+      throw new Error(
+        `STORY_LINES_TOO_ADULT: trung vị ${median} từ mỗi lượt, quá dài cho trẻ mẫu giáo (chuẩn 4–5 từ, trần ${MAX_MEDIAN_LINE_WORDS}). Tách câu dài thành nhiều lượt đối đáp ngắn thay vì rút gọn ý.`,
+      );
+    const spoken = s.dialogue.filter((d) => d.text?.trim()).length;
+    if (spoken < MIN_COMEDY_TURNS)
+      throw new Error(
+        `STORY_TOO_FEW_TURNS: mới ${spoken} lượt có lời, cần ít nhất ${MIN_COMEDY_TURNS}. Thêm lượt phản ứng (frame) và lượt giải thích lô-gíc (explore) giữa các lần leo thang; đừng kéo dài câu đã có.`,
+      );
+    const functions = s.dialogue.map((d) => d.beatFunction);
+    if (functions.every(Boolean)) {
+      const count = (name: BeatFunction) =>
+        functions.filter((f) => f === name).length;
+      if (count("unusual_thing") !== 1)
+        throw new Error(
+          `STORY_GAME_INVALID: phải có đúng một lượt unusual_thing (đang có ${count("unusual_thing")}). Một tập chỉ chơi một luật.`,
+        );
+      if (count("heighten") < MIN_HEIGHTENS)
+        throw new Error(
+          `STORY_GAME_INVALID: mới ${count("heighten")} lần leo thang, cần ít nhất ${MIN_HEIGHTENS}; dưới ba lần khán giả chưa nhận ra có luật chơi.`,
+        );
+      // Button là câu chốt, nên nó là lượt CÓ LỜI cuối cùng. Một nhịp không lời
+      // sau đó (đứng hình, máy ảnh tách) vẫn là phản ứng của chính cú chốt ấy,
+      // không phải cú chốt thứ hai — bản nháp đầu tiên gắn button cho cả hai.
+      if (count("button") !== 1)
+        throw new Error(
+          `STORY_GAME_INVALID: phải có đúng một button (đang có ${count("button")}). Nhịp không lời kết thúc để beatFunction là explore hoặc frame, không phải button thứ hai.`,
+        );
+      const lastSpoken = s.dialogue.reduce(
+        (found, line, index) => (line.text?.trim() ? index : found),
+        -1,
+      );
+      if (functions[lastSpoken] !== "button")
+        throw new Error(
+          "STORY_GAME_INVALID: lượt có lời cuối cùng phải là button — câu chốt, cắt ngay sau đó, không có lời nào đi sau nó.",
+        );
+      const unusualAt = functions.indexOf("unusual_thing");
+      const earlyHeighten = functions.findIndex((f) => f === "heighten");
+      if (earlyHeighten >= 0 && earlyHeighten < unusualAt)
+        throw new Error(
+          "STORY_GAME_INVALID: có lượt leo thang trước khi điều lạ được nói ra; chưa có luật thì chưa đẩy được.",
+        );
+    }
+  }
+  if (s.dialogue.length + (reactionIndex >= 0 ? 1 : 0) > 24)
     throw new Error(
-      "STORY_SHOT_LIMIT: tối đa 12 shot kể cả reaction; giữ đối đáp, bỏ reaction nếu không cần",
+      "STORY_SHOT_LIMIT: tối đa 24 shot kể cả reaction; giữ đối đáp, bỏ reaction nếu không cần",
     );
   if (s.endingPlan !== undefined) {
     const ending = s.endingPlan;
