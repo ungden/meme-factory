@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateShotDirection, type ShotDirectionIngredient } from "@/lib/gemini";
 import { getRequestUser } from "@/lib/supabase/request-auth";
+import { getSupabaseAdmin } from "@/lib/admin";
+import { checkRateLimit, RATE_LIMITS, rateLimitMessage } from "@/lib/rate-limit";
 
 type PromptAssistRequest = {
   projectId?: string;
@@ -25,6 +27,16 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
     }
+    const [minute, day] = await Promise.all([
+      checkRateLimit(getSupabaseAdmin(), RATE_LIMITS.promptAssistMinute, user.id),
+      checkRateLimit(getSupabaseAdmin(), RATE_LIMITS.promptAssistDay, user.id),
+    ]);
+    const limited = !minute.allowed ? minute : !day.allowed ? day : null;
+    if (limited)
+      return NextResponse.json(
+        { error: rateLimitMessage(limited), code: "RATE_LIMITED" },
+        { status: 429, headers: { "retry-after": String(Math.ceil(limited.resetIn)) } },
+      );
 
     const { data: project } = await supabase
       .from("projects")

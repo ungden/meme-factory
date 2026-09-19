@@ -6,7 +6,7 @@ import {
   type StoryboardBeat,
 } from "./film-storyboard";
 import { BEAT_FUNCTIONS } from "./family-catalogue";
-import type { ChannelProfile, Story } from "./family-catalogue";
+import type { ChannelProfile, Story, StoryGenre } from "./family-catalogue";
 import {
   PERFORMANCE_LANES,
   mergePerformanceDirections,
@@ -51,16 +51,32 @@ const object = (properties: Record<string, unknown>) => ({
  * Danh sách ID hợp lệ vẫn nằm trong prompt, và validateStory vẫn chặn ID lạ —
  * nên bỏ enum không nới lỏng gì.
  */
-export function storyResponseSchema(profile: ChannelProfile, ids: string[]) {
+export function storyResponseSchema(
+  profile: ChannelProfile,
+  ids: string[],
+  genre?: StoryGenre,
+) {
   void ids;
   const characterId = { type: "string" };
   return object({
+    storyVersion: { type: "integer", enum: [2] },
+    genre: genre ? { type: "string", enum: [genre] } : { type: "string", enum: ["comedy", "emotion"] },
     performanceLane: { type: "string", enum: PERFORMANCE_LANES },
-    comicPremise: object({
-      normalExpectation: string,
-      invertedReality: string,
-      visibleContrast: string,
-    }),
+    ...(genre === "emotion"
+      ? {
+          emotionalArc: object({
+            seed: string,
+            recognition: string,
+            changedAction: string,
+          }),
+        }
+      : {
+          comicPremise: object({
+            normalExpectation: string,
+            invertedReality: string,
+            visibleContrast: string,
+          }),
+        }),
     series: { type: "string", enum: profile.series },
     situation: string,
     mechanism: string,

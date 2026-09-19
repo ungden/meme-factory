@@ -73,6 +73,15 @@ export function sceneHashInput(scene: Record<string, unknown>) {
 
 export const hash = (v: unknown) =>
   crypto.createHash("sha256").update(JSON.stringify(v)).digest("hex");
+/** Object key order from an old browser payload is not a content edit. */
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    const row = value as Record<string, unknown>;
+    return `{${Object.keys(row).sort().map((key) => `${JSON.stringify(key)}:${stableJson(row[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
 function stableSegmentId(sceneId: string, sequenceIndex: number) {
   const value = hash(`${sceneId}:segment:${sequenceIndex}`).slice(0, 32).split("");
   value[12] = "5";
@@ -657,6 +666,12 @@ export async function savePlan(
   });
   let story = body.story === undefined ? old?.story : body.story;
   if (canonicalFamily) story = normalizeFamilyFatherTerms(story);
+  // Historic paid stories may no longer meet a newer editorial policy.  They
+  // remain safe to open/save until the text actually changes; a changed story
+  // goes through the current editorial contract.
+  const legacyStoryUnchanged = Boolean(
+    old?.story && story && stableJson(story) === stableJson(old.story),
+  );
   if (story != null) {
     if (JSON.stringify(story).length > 25000)
       throw new FilmError("Câu chuyện quá dài.");
@@ -673,7 +688,9 @@ export async function savePlan(
         ...ids.filter((id) => !guestUuids.has(id)),
         ...guestByKey.keys(),
       ];
-      story = validateStory(story, profile, storyAllowed);
+      story = validateStory(story, profile, storyAllowed, [], {
+        editorial: !legacyStoryUnchanged,
+      });
     } catch (e) {
       throw new FilmError(
         e instanceof Error ? e.message : "Câu chuyện không hợp lệ.",

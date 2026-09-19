@@ -144,7 +144,12 @@ export type ChannelProfile = {
    * trong lời thoại do AI sinh ra.
    */
   terminologyRules?: "family-father";
+  /** Chỉ các kênh chủ đích viết từ góc nhìn trẻ nhỏ mới áp luật giọng trẻ. */
+  speechRegister?: "child" | "natural";
+  genres?: StoryGenre[];
+  relationships?: string[];
 };
+export type StoryGenre = "comedy" | "emotion";
 export type RecentStory = Pick<
   Story,
   | "performanceLane"
@@ -163,6 +168,9 @@ export type StoryGuest = {
   personality?: string;
 };
 export type Story = {
+  /** V2 keeps the genre explicit instead of inferring it from a joke-shaped schema. */
+  storyVersion?: 2;
+  genre?: StoryGenre;
   performanceLane?: PerformanceLane;
   intendedShotSeconds?: number[];
   writingPolicyVersion?: string;
@@ -177,6 +185,12 @@ export type Story = {
     normalExpectation: string;
     invertedReality: string;
     visibleContrast: string;
+  };
+  /** Causal spine for an emotional story. It is not a joke in another name. */
+  emotionalArc?: {
+    seed: string;
+    recognition: string;
+    changedAction: string;
   };
   editorialEvidence?: Record<string, string>;
   endingPlan?: {
@@ -353,6 +367,7 @@ export function familyProfile(roles: ChannelProfile["roles"]): ChannelProfile {
       "Không viết câu chỉ nhằm khoe chơi chữ; một từ người lớn phục vụ ý đồ nhân vật thì được, nhưng đừng dựng cả câu bằng tiếng công sở — vai người lớn nằm ở phong thái và đạo cụ, không ở từ vựng",
       "Phân biệt lỗi sự kiện/nhân quả của tác giả với lời nói ngược, khoe quá hoặc diễn ngầu có chủ ý của nhân vật",
     ],
+    speechRegister: "child",
   };
 }
 export function fingerprint(
@@ -373,8 +388,15 @@ export function validateStory(
   profile: ChannelProfile,
   allowed: string[],
   recent: Pick<Story, "situation" | "mechanism" | "outcome">[] = [],
+  { editorial = true }: { editorial?: boolean } = {},
 ): Story {
   const s = value as Story;
+  const genre: StoryGenre =
+    s?.genre || (String(s?.performanceLane || "").startsWith("cinematic") ? "emotion" : "comedy");
+  if (s?.genre !== undefined && s.genre !== "comedy" && s.genre !== "emotion")
+    throw new Error("STORY_GENRE_INVALID");
+  if (s?.storyVersion !== undefined && s.storyVersion !== 2)
+    throw new Error("STORY_VERSION_INVALID");
   if (s?.performanceLane !== undefined && !PERFORMANCE_LANES.includes(s.performanceLane))
     throw new Error("STORY_PERFORMANCE_LANE_INVALID");
   if (
@@ -390,6 +412,12 @@ export function validateStory(
       ))
   )
     throw new Error("STORY_COMIC_PREMISE_INVALID");
+  if (
+    s?.emotionalArc !== undefined &&
+    (!s.emotionalArc || ![s.emotionalArc.seed, s.emotionalArc.recognition, s.emotionalArc.changedAction]
+      .every((part) => typeof part === "string" && part.trim().length >= 6 && part.length <= 1000))
+  )
+    throw new Error("STORY_EMOTIONAL_ARC_INVALID");
   if (
     !s ||
     !profile.series.includes(s.series) ||
@@ -455,9 +483,9 @@ export function validateStory(
         longLine
       ].text.slice(0, 60)}…”`,
     );
-  const jargonLine = s.dialogue.findIndex(
+  const jargonLine = editorial && profile.speechRegister === "child" ? s.dialogue.findIndex(
     (d) => typeof d.text === "string" && adultRegisterTerms(d.text).length >= 2,
-  );
+  ) : -1;
   if (jargonLine >= 0)
     throw new Error(
       `STORY_LINE_ADULT_REGISTER: lượt ${jargonLine + 1} nói bằng giọng công sở chứ không phải giọng trẻ con — ${adultRegisterTerms(
@@ -469,8 +497,8 @@ export function validateStory(
       ].text.slice(0, 60)}…”`,
     );
   // Tập hài phải dày lời và ngắn câu; tập cinematic cố ý thưa nên miễn.
-  const cinematic = String(s.performanceLane || "").startsWith("cinematic");
-  if (!cinematic) {
+  const cinematic = genre === "emotion";
+  if (editorial && !cinematic) {
     const median = medianLineWords(s.dialogue);
     if (median > MAX_MEDIAN_LINE_WORDS)
       throw new Error(
@@ -556,7 +584,7 @@ export function validateStory(
     throw new Error("STORY_DIALOGUE_LINE_TOO_LONG");
   if (recent.some((r) => fingerprint(r) === fingerprint(s)))
     throw new Error("STORY_REPEATED_COMBINATION");
-  return { ...s, profileVersion: profile.version };
+  return { ...s, genre, profileVersion: profile.version };
 }
 
 export type FamilyEditorialIssue = {
@@ -573,10 +601,20 @@ export function validateGeneratedFamilyStory(
   recent: RecentStory[] = [],
 ): Story {
   const story = validateStory(value, profile, allowed, recent);
-  if (!story.comicPremise) throw new Error("STORY_COMIC_PREMISE_REQUIRED");
+  if (story.genre === "comedy" && !story.comicPremise)
+    throw new Error("STORY_COMIC_PREMISE_REQUIRED");
+  if (story.genre === "emotion" && !story.emotionalArc)
+    throw new Error("STORY_EMOTIONAL_ARC_REQUIRED");
   if (!story.endingPlan) throw new Error("STORY_ENDING_REQUIRED");
-  // Keep old fixtures/drafts readable while new planner responses declare a lane.
-  return { ...story, performanceLane: story.performanceLane || "deadpan_reversal" };
+  if (story.genre === "emotion" && !String(story.performanceLane || "").startsWith("cinematic"))
+    throw new Error("STORY_EMOTIONAL_LANE_REQUIRED");
+  if (story.genre === "comedy" && String(story.performanceLane || "").startsWith("cinematic"))
+    throw new Error("STORY_COMEDY_LANE_REQUIRED");
+  return {
+    ...story,
+    storyVersion: 2,
+    performanceLane: story.performanceLane || "deadpan_reversal",
+  };
 }
 export const STORY_SCHEMA =
-  '{"performanceLane":"deadpan_reversal|adult_format_parody|literal_logic|physical_escalation|cinematic_cool", "comicPremise":{"normalExpectation":"","invertedReality":"","visibleContrast":""}, "series":"", "situation":"", "mechanism":"", "outcome":"", "guests":[{"key":"guest-1","name":"","description":"ngoại hình rõ để dựng ảnh","personality":""}], "wants":[{"characterId":"uuid hoặc guest-1/guest-2","want":""}], "beats":{"hook":"","turns":[],"payoff":"","reaction":""}, "endingPlan":{"mode":"hard_cut|silent_reaction|resolved","stopAfterLine":1,"anchorQuote":"nguyên văn từ lượt cuối","reason":"vì sao dừng đúng ở đây"}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid hoặc guest-1/guest-2","text":"lời nói; để rỗng nếu là nhịp không lời","action":""}]}';
+  '{"storyVersion":2,"genre":"comedy|emotion", "performanceLane":"deadpan_reversal|adult_format_parody|literal_logic|physical_escalation|cinematic_cool", "comicPremise":{"normalExpectation":"","invertedReality":"","visibleContrast":""}, "emotionalArc":{"seed":"chi tiết được gieo","recognition":"nhân vật nhận ra điều gì","changedAction":"hành động thay đổi sau khi nhận ra"}, "series":"", "situation":"", "mechanism":"", "outcome":"", "guests":[{"key":"guest-1","name":"","description":"ngoại hình rõ để dựng ảnh","personality":""}], "wants":[{"characterId":"uuid hoặc guest-1/guest-2","want":""}], "beats":{"hook":"","turns":[],"payoff":"","reaction":""}, "endingPlan":{"mode":"hard_cut|silent_reaction|resolved","stopAfterLine":1,"anchorQuote":"nguyên văn từ lượt cuối","reason":"vì sao dừng đúng ở đây"}, "setup":"", "payoff":"", "caption":"", "dialogue":[{"characterId":"uuid hoặc guest-1/guest-2","text":"lời nói; để rỗng nếu là nhịp không lời","action":""}]}';

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateMemeContent } from "@/lib/gemini";
 import { getRequestUser } from "@/lib/supabase/request-auth";
+import { getSupabaseAdmin } from "@/lib/admin";
+import { checkRateLimit, RATE_LIMITS, rateLimitMessage } from "@/lib/rate-limit";
 import type { GenerateContentRequest } from "@/types/database";
 
 export async function POST(request: NextRequest) {
@@ -10,6 +12,16 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const [minute, day] = await Promise.all([
+      checkRateLimit(getSupabaseAdmin(), RATE_LIMITS.generateContentMinute, user.id),
+      checkRateLimit(getSupabaseAdmin(), RATE_LIMITS.generateContentDay, user.id),
+    ]);
+    const limited = !minute.allowed ? minute : !day.allowed ? day : null;
+    if (limited)
+      return NextResponse.json(
+        { error: rateLimitMessage(limited), code: "RATE_LIMITED" },
+        { status: 429, headers: { "retry-after": String(Math.ceil(limited.resetIn)) } },
+      );
 
     const body = (await request.json()) as GenerateContentRequest & { noCharacters?: boolean; selected_character_ids?: string[]; content_set_id?: string };
     const { project_id, idea, tone, num_variations, referenceImages, adHocCharacters, noCharacters } = body;

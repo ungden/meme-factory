@@ -19,9 +19,9 @@ const BATCH = 25;
  * không nhận được gì. Không có cách nào sửa việc này bên trong request; phải có
  * một vòng quét bên ngoài.
  *
- * An toàn khi chạy lại: `atomic_refund_project_points` chống gọi trùng theo
- * request_id, và chỉ những lượt KHÔNG có output nào mới được hoàn — một lượt đã
- * tạo ra ảnh là một lượt đã dùng tiền thật của provider.
+ * Mỗi lượt được chốt trong một RPC có row lock: kiểm job/output/film task,
+ * hoàn sổ điểm và đánh dấu failed cùng một transaction.  Worker phim có lease
+ * trên `short_film_tasks`, nên không bao giờ đi qua đường này.
  */
 export async function POST(request: NextRequest) {
   if (!authorizeInternal(request))
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   try {
     const { data: jobs, error } = await admin
       .from("generation_jobs")
-      .select("id, project_id, created_by, estimated_points, creation_kind, lease_expires_at")
+      .select("id")
       .in("status", ["queued", "running"])
       .in("provider", ["google", "openai"])
       .gt("estimated_points", 0)
@@ -44,42 +44,18 @@ export async function POST(request: NextRequest) {
 
     let refunded = 0;
     for (const job of jobs || []) {
-      // Worker phim giữ lease trên chính bảng này; đừng đụng vào lượt đang chạy.
-      if (job.lease_expires_at && Date.parse(String(job.lease_expires_at)) > Date.now()) continue;
-
-      const { count } = await admin
-        .from("generation_outputs")
-        .select("id", { count: "exact", head: true })
-        .eq("generation_job_id", job.id);
-      if ((count ?? 0) > 0) continue;
-
-      const points = Number(job.estimated_points || 0);
-      const { error: refundError } = await admin.rpc("atomic_refund_project_points", {
-        _project_id: job.project_id,
-        _actor_user_id: job.created_by,
-        _cost: points,
-        _description: `Hoàn ${points} điểm — lượt tạo không hoàn tất`,
-        _request_id: job.id,
-        _ai_action: "refund",
-        _metadata: { reason: "sweeper_stale_job", creation_kind: job.creation_kind },
-      });
-      if (refundError) {
-        await reportError(new Error(refundError.message), {
+      const { data: result, error: settleError } = await admin.rpc(
+        "settle_stale_image_generation_job",
+        { _job_id: job.id, _stale_before: staleBefore },
+      );
+      if (settleError) {
+        await reportError(new Error(settleError.message), {
           scope: "refund.sweeper",
-          tags: { jobId: String(job.id), projectId: String(job.project_id) },
+          tags: { jobId: String(job.id) },
         });
         continue;
       }
-
-      await admin
-        .from("generation_jobs")
-        .update({
-          status: "failed",
-          error: { code: "ABANDONED", message: `Lượt tạo không hoàn tất sau ${STALE_MINUTES} phút.` },
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", job.id);
-      refunded += 1;
+      if (result?.settled) refunded += 1;
     }
 
     return NextResponse.json({ scanned: jobs?.length || 0, refunded });

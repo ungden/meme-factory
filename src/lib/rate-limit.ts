@@ -23,6 +23,10 @@ export const RATE_LIMITS = {
   suggestCharacters: { action: "suggest-characters", limit: 10, windowSeconds: 60 },
   createTopup: { action: "create-topup", limit: 10, windowSeconds: 600 },
   buyPoints: { action: "buy-points", limit: 20, windowSeconds: 600 },
+  generateContentMinute: { action: "generate-content", limit: 5, windowSeconds: 60 },
+  generateContentDay: { action: "generate-content-day", limit: 30, windowSeconds: 86_400 },
+  promptAssistMinute: { action: "prompt-assist", limit: 8, windowSeconds: 60 },
+  promptAssistDay: { action: "prompt-assist-day", limit: 60, windowSeconds: 86_400 },
 } as const satisfies Record<string, RateLimitRule>;
 
 export async function checkRateLimit(

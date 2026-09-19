@@ -228,6 +228,41 @@ it("keeps legacy plans readable but requires an inversion and explicit stop in n
   ).toThrow("STORY_ENDING_INVALID");
 });
 
+it("gives an emotional draft its own causal contract instead of comedy game rules", () => {
+  const ids = cast.map((c) => c.characterId);
+  const emotional = validateGeneratedFamilyStory(
+    {
+      ...plans[0].story,
+      storyVersion: 2 as const,
+      genre: "emotion" as const,
+      performanceLane: "cinematic_cool" as const,
+      emotionalArc: {
+        seed: "Bố giữ chiếc dép nhỏ đã sờn ở quai.",
+        recognition: "Đậu Đỏ thấy Bố lặng đi khi nhìn chiếc dép.",
+        changedAction: "Đậu Đỏ tự cầm dép đặt cạnh Bố rồi nắm tay Bố.",
+      },
+      endingPlan: {
+        mode: "silent_reaction" as const,
+        stopAfterLine: plans[0].story.dialogue.length,
+        anchorQuote: plans[0].story.dialogue.at(-1)!.text,
+        reason: "Hành động cuối cho thấy quan hệ đã thay đổi nên không cần câu đùa thêm.",
+      },
+    },
+    profile,
+    ids,
+  );
+  expect(emotional.genre).toBe("emotion");
+  expect(emotional.emotionalArc?.recognition).toContain("Đậu Đỏ");
+});
+
+it("lets an unchanged historic paid story pass structural safety without retroactive editorial rules", () => {
+  const ids = cast.map((c) => c.characterId);
+  const historic = structuredClone(plans[0].story);
+  historic.dialogue[0].text = "Mọi biến động trong tủ này phải qua tay chị. Em không được tự ý xâm phạm tài sản chung.";
+  expect(() => validateStory(historic, profile, ids)).toThrow("STORY_LINE_ADULT_REGISTER");
+  expect(() => validateStory(historic, profile, ids, [], { editorial: false })).not.toThrow();
+});
+
 it("từ chối lượt thoại dài hơn nhịp short-form trước khi tốn tiền tạo giọng", () => {
   const story = structuredClone(plans[0].story);
   story.dialogue[0].text =

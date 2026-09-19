@@ -556,6 +556,15 @@ Mở ngay ở việc đang diễn ra. Chọn chi tiết dễ hình dung, khẩu 
     );
   }
 
+  /** The brief chooses the contract before drafting; a cinematic result cannot
+   * accidentally inherit comedy's game/button requirements. */
+  private draftGenre() {
+    const brief = `${this.intent} ${this.profile.tone} ${this.profile.positioning}`.toLocaleLowerCase("vi");
+    return /(cảm động|ký ức|rưng rưng|xúc động|nhớ|thương|chia tay|hồi tưởng)/.test(brief)
+      ? "emotion" as const
+      : "comedy" as const;
+  }
+
   /** Runs exactly one pipeline stage within its own deadline. */
   async runStage(stage: FamilyScriptStageKind, deadlineMs: number) {
     if (this.state.completedStages.includes(stage)) return;
@@ -602,11 +611,16 @@ So sánh thực sự observedBehavior/progression/sampleExchange của cả ba. 
         (c) => c.id === this.state.selection?.selectedId,
       );
       if (!selected) throw new Error("FAMILY_PREMISES_NEED_REVIEW");
+      const genre = this.draftGenre();
+      const genreContract = genre === "emotion"
+        ? `THỂ LOẠI: cảm động. genre phải là emotion và performanceLane phải cinematic_cool. Dùng chuỗi quan hệ cụ thể → chi tiết được gieo → khoảnh khắc nhận ra → hành động thay đổi → dư âm. emotionalArc ghi đúng ba mắt xích đó. Nhịp không lời là bình thường. Không dùng game, unusual_thing, heighten, button, đảo vai hay câu chốt hài.`
+        : `THỂ LOẠI: hài. genre phải là comedy. Dùng mong muốn cụ thể → trở ngại → cách xoay xở → phản ứng làm tình thế đổi → điểm dừng. comicPremise ghi thường thức, điều đảo và tương phản nhìn thấy được.`;
       this.state.story = await this.checked(
         `${this.writerContext}
 Ý TƯỞNG PHẢI GIỮ: ${this.intent}
 TÌNH HUỐNG ĐÃ CHỌN: ${JSON.stringify(selected)}
 NHẬN XÉT SO SÁNH: ${JSON.stringify(this.state.selection)}
+${genreContract}
 Viết bản đầy đủ bằng tiếng Việt, khai thác hành vi/quan hệ cụ thể đã chọn. Với tập parody, action phải cho thấy nhân vật dùng đạo cụ nhận diện của chính format đó trong suốt nghi thức; không để hoạt động trẻ con không liên quan thay chỗ format. Với tập cảm động, không ép đảo vai/parody/joke; emotionalCause (như nhìn bóng lưng, thấy kỷ vật) phải nằm trong action của một lượt TRƯỚC lời nói cuối, không gộp vào chính câu kết. Phim chỉ nối bằng hard cut: chuyển cảnh hoặc vào hồi ức bằng hard cut/match cut, không dissolve/fade. Giữ các câu phản ứng có tác dụng, không bắt mỗi câu là một trò đùa. Khác biệt hai bé phải thể hiện qua cách xử lý/đối đáp, không chỉ đổi tên người nói.
 Chọn performanceLane đúng một trong: ${PERFORMANCE_LANES.join(", ")}. Mô tả lane bằng hành động trong thoại/action; không tự khen bản thân là hài.
 MỌI CẢNH NGƯỜI DÙNG NÊU RÕ trong ý tưởng (ví dụ: cõng con đi dọc biển, một đoạn hồi tưởng, nhìn kỷ vật) phải thành lượt riêng theo đúng thứ tự, không gộp vào action của lượt khác và không lược đi cho gọn. Cảnh không cần lời dùng NHỊP KHÔNG LỜI: text là chuỗi rỗng, characterId là người hành động chính, action tả cụ thể việc nhìn thấy (tối thiểu 6 từ; hồi tưởng ghi rõ "hồi tưởng" và ai làm gì). Tối đa 3 nhịp không lời, vẫn cần ít nhất 2 lượt có lời; lượt cuối nên có lời hoặc là reaction. Câu nói mà ý tưởng nêu ra (ví dụ con hỏi "Bố sao vậy", Bố bảo "cát bay vào mắt", con hứa sau này cõng lại Bố) phải được CHÍNH người đó NÓI trong text, không chỉ tả trong action, và giữ đúng người nói như ý tưởng.
@@ -628,10 +642,10 @@ Vai người lớn nằm ở phong thái và đạo cụ, KHÔNG ở từ vựng
 Nhân vật: chỉ dùng cast đã chọn. Khách mời đã có trong danh sách nhân vật thì dùng đúng ID của họ, không khai lại thành guest-1/guest-2. Nếu câu chuyện thật sự cần một người ngoài gia đình (trên máy bay, hàng xóm đến gõ cửa, người kiểm định…), được thêm TỐI ĐA MỘT nhân vật khách mời một tập trong mục guests: key guest-1, name ngắn, description tả rõ ngoại hình/trang phục đủ để dựng ảnh nhận diện, personality. Dùng đúng key guest-1 cho thoại và wants của người đó. Không khai khách mời nếu không cần thiết; không tự sáng chế nhân vật khác.
 endingPlan.mode chọn hard_cut, silent_reaction hoặc resolved. stopAfterLine bắt buộc bằng đúng số lượt thoại; anchorQuote trích nguyên văn từ thoại/action lượt cuối; reason nói vì sao phép đảo/quan hệ hạ đúng ở đó. payoff và beats.payoff là mô tả điểm dừng để tương thích dữ liệu, KHÔNG phải yêu cầu punchline. Nếu dùng silent_reaction thì beats.reaction mô tả phản ứng không thoại; hai mode còn lại để reaction rỗng. Trước khi trả, thử xóa lần lượt các câu cuối: cắt mọi câu không làm mất điểm rơi. Không thêm câu mở vấn đề mới sau khi chuyện đã hạ, không nối câu đùa thứ hai để “finish”. Trước khi trả, đọc từng câu từ góc nhìn người đang nói: hai chị em nói với nhau dùng chị/em, “chị em mình/tụi mình”; nói với bố mẹ dùng “tụi con”; không để một bé tự gọi cả hai là “hai đứa”.
 comicPremise: với tập hài ghi thường thức/format gốc, điều bị đảo/lệch và tín hiệu nhìn/nghe thấy; với tập cảm động ghi khoảnh khắc bình thường, emotionalCause và chi tiết nhìn thấy được dẫn tới cảm xúc. Phần thoại/action phải tự thể hiện, không dựa vào lời tác giả tự khen. Không thêm người ngoài cast, không ép parody thành việc chăm bố mẹ hoặc tập cảm động thành joke.
-Trả JSON: ${STORY_SCHEMA}`,
+Trả JSON theo hợp đồng ${genre}: ${STORY_SCHEMA}`,
         (v) => this.validateStoryValue(v),
         deadlineMs,
-        storyResponseSchema(this.profile, this.allowed),
+        storyResponseSchema(this.profile, this.allowed, genre),
         0.8,
         familyStageModels("draft"),
       );
@@ -681,10 +695,10 @@ Trả JSON: ${STORY_SCHEMA}`,
 Ý TƯỞNG PHẢI GIỮ: ${this.intent}
 BẢN CHỮ: ${JSON.stringify(this.state.story)}
 NHẬN XÉT BẮT BUỘC SỬA: ${JSON.stringify(review)}
-Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống. Nếu intentCheck=needs_revision, khôi phục đầy đủ chi tiết/điểm kết người dùng đã yêu cầu và cho nó diễn ra trong thoại hoặc hành động; không thay bằng một kết gần giống xảy ra sớm hơn. Nếu endingCheck=forced_tail, cắt từ sau lastNecessaryLine rồi cập nhật endingPlan; không thay đuôi thừa bằng một câu chốt mới. Nếu unfinished, phát triển đúng việc đang diễn trước khi chọn điểm cắt. Nếu speechCheck=needs_revision, sửa đúng ngôi nói/khẩu ngữ ở câu được trích và rà cùng lỗi trong các câu khác; không đổi diễn biến chỉ để chữa đại từ. Không thêm câu chốt thông minh để che tiền đề yếu, không rút tất cả thoại thành câu cụt. Giữ nguyên đề tài, cast khách mời, và format. Trả toàn bộ JSON: ${STORY_SCHEMA}`,
+Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống. Nếu intentCheck=needs_revision, khôi phục đầy đủ chi tiết/điểm kết người dùng đã yêu cầu và cho nó diễn ra trong thoại hoặc hành động; không thay bằng một kết gần giống xảy ra sớm hơn. Nếu endingCheck=forced_tail, cắt từ sau lastNecessaryLine rồi cập nhật endingPlan; không thay đuôi thừa bằng một câu chốt mới. Nếu unfinished, phát triển đúng việc đang diễn trước khi chọn điểm cắt. Nếu speechCheck=needs_revision, sửa đúng ngôi nói/khẩu ngữ ở câu được trích và rà cùng lỗi trong các câu khác; không đổi diễn biến chỉ để chữa đại từ. Nếu genre=emotion, chỉ sửa seed/recognition/changedAction bị đứt và không thêm game hay punchline. Nếu genre=comedy, sửa tiền đề hoặc đối đáp bị yếu trước khi sửa câu chốt. Giữ nguyên đề tài, cast khách mời, và format. Trả toàn bộ JSON: ${STORY_SCHEMA}`,
           (v) => this.validateStoryValue(v),
           deadlineMs,
-          storyResponseSchema(this.profile, this.allowed),
+          storyResponseSchema(this.profile, this.allowed, this.state.story?.genre || this.draftGenre()),
           undefined,
           familyStageModels("draft"),
         );

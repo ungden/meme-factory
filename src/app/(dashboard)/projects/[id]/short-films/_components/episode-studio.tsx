@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { FilmPlan } from "@/lib/short-film/contracts";
+import type { ChannelProfile } from "@/lib/family-catalogue";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { castIdentityGaps } from "@/lib/short-film/cast-quality";
 import { suggestHashtags } from "@/lib/post-text";
@@ -50,6 +51,7 @@ export default function EpisodeStudio() {
   const [plans, setPlans] = useState<FilmPlan[]>([]);
   const [runs, setRuns] = useState<StudioRun[]>([]);
   const [workspace, setWorkspace] = useState<number | null>(null);
+  const [channelProfile, setChannelProfile] = useState<ChannelProfile | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -62,6 +64,11 @@ export default function EpisodeStudio() {
   const [limit, setLimit] = useState<number>(QUALITY_OPTIONS[0].defaultLimit);
   const [suggestions, setSuggestions] = useState<{ title: string; idea: string }[]>([]);
   const [suggesting, setSuggesting] = useState(false);
+  const [profileAudience, setProfileAudience] = useState("Gia đình Việt xem video ngắn");
+  const [profileTone, setProfileTone] = useState("Hài tự nhiên và cảm động có nguyên nhân");
+  const [profilePositioning, setProfilePositioning] = useState("");
+  const [profileSpeechRegister, setProfileSpeechRegister] = useState<"child" | "natural">("natural");
+  const [profileGenres, setProfileGenres] = useState<Array<"comedy" | "emotion">>(["comedy", "emotion"]);
 
   const [plan, setPlan] = useState<PlanDetail | null>(null);
   const [planTasks, setPlanTasks] = useState<StudioTask[]>([]);
@@ -93,6 +100,7 @@ export default function EpisodeStudio() {
     ]);
     setPlans(planList.plans || []);
     setWorkspace(planList.workspaceVersion ?? null);
+    setChannelProfile(planList.channelProfile || null);
     setRuns(runList.runs || []);
     setLoaded(true);
   }, [base]);
@@ -200,6 +208,7 @@ export default function EpisodeStudio() {
   }
 
   async function startRun(intent: string, maxFilm: number, videoModel: string) {
+    if (!channelProfile) throw new Error("Hãy hoàn tất hồ sơ kênh trước khi viết kịch bản.");
     const current = runs.find((run) => runIsActive(run));
     const response = await api(`${base}/production-runs`, {
       planId: null,
@@ -212,6 +221,17 @@ export default function EpisodeStudio() {
     });
     await refreshList();
     select(response.runId);
+  }
+
+  async function saveChannelProfile() {
+    const response = await api(`${base}/channel-profile`, {
+      audience: profileAudience,
+      tone: profileTone,
+      positioning: profilePositioning,
+      speechRegister: profileSpeechRegister,
+      genres: profileGenres,
+    });
+    setChannelProfile(response.profile);
   }
 
   const run = runDetail?.run || null;
@@ -298,6 +318,45 @@ export default function EpisodeStudio() {
         <main className="flex min-w-0 flex-col gap-5">
           {!loaded ? (
             <p className="text-sm th-text-secondary">Đang tải…</p>
+          ) : !episode && !channelProfile ? (
+            <section className="flex max-w-2xl flex-col gap-5" aria-labelledby="channel-setup-title">
+              <header>
+                <h2 id="channel-setup-title" className="text-xl font-semibold th-text-primary">Thiết lập kênh trước khi viết</h2>
+                <p className="mt-1 text-sm th-text-secondary">Hồ sơ này là nguồn cho kịch bản. Bạn có thể thay đổi sau; mỗi tập sẽ giữ đúng phiên bản đã dùng.</p>
+              </header>
+              <label className="flex flex-col gap-1 text-sm th-text-primary">
+                Người xem
+                <input value={profileAudience} onChange={(event) => setProfileAudience(event.target.value)} maxLength={240} className="rounded-lg border th-border th-bg-input px-3 py-2" />
+              </label>
+              <label className="flex flex-col gap-1 text-sm th-text-primary">
+                Kênh tập trung vào điều gì?
+                <textarea value={profilePositioning} onChange={(event) => setProfilePositioning(event.target.value)} maxLength={1000} rows={3} placeholder="Ví dụ: những tình huống nhỏ giữa bố và con, có hành động rõ ràng và kết tự nhiên." className="rounded-lg border th-border th-bg-input px-3 py-2" />
+              </label>
+              <label className="flex flex-col gap-1 text-sm th-text-primary">
+                Sắc thái kể chuyện
+                <textarea value={profileTone} onChange={(event) => setProfileTone(event.target.value)} maxLength={500} rows={2} className="rounded-lg border th-border th-bg-input px-3 py-2" />
+              </label>
+              <fieldset className="flex flex-col gap-2">
+                <legend className="text-sm font-medium th-text-primary">Thể loại mở bán</legend>
+                <div className="flex gap-4 text-sm th-text-secondary">
+                  {(["comedy", "emotion"] as const).map((genre) => (
+                    <label key={genre} className="flex items-center gap-2">
+                      <input type="checkbox" checked={profileGenres.includes(genre)} onChange={() => setProfileGenres((current) => current.includes(genre) ? current.filter((item) => item !== genre) : [...current, genre])} />
+                      {genre === "comedy" ? "Hài tự nhiên" : "Cảm động có chiều sâu"}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <label className="flex flex-col gap-1 text-sm th-text-primary">
+                Cách nói mặc định
+                <select value={profileSpeechRegister} onChange={(event) => setProfileSpeechRegister(event.target.value as "child" | "natural")} className="w-fit rounded-lg border th-border th-bg-input px-3 py-2">
+                  <option value="natural">Theo nhân vật và quan hệ</option>
+                  <option value="child">Giọng trẻ nhỏ</option>
+                </select>
+              </label>
+              <p className="text-xs th-text-secondary">Thêm nhân vật, quan hệ, ảnh và giọng ở trang Nhân vật trước khi dựng. Kịch bản sẽ không bị ép giọng trẻ nếu kênh không chọn điều đó.</p>
+              <button type="button" onClick={() => act(saveChannelProfile)} disabled={busy || !profilePositioning.trim() || !profileGenres.length} className="w-fit rounded-lg th-bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Lưu và bắt đầu viết</button>
+            </section>
           ) : !episode ? (
             <IdeaPanel
               idea={idea}

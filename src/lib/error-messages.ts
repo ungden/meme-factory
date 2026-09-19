@@ -205,6 +205,18 @@ export const ERROR_MESSAGES: Record<string, string> = {
     "Tiền đề của tập chưa rõ. Hãy cho AI viết lại.",
   STORY_COMIC_PREMISE_REQUIRED:
     "Bản nháp chưa nêu tiền đề. Hãy cho AI viết lại.",
+  STORY_GENRE_INVALID:
+    "Thể loại kịch bản không hợp lệ. Hãy chọn hài hoặc cảm động rồi thử lại.",
+  STORY_VERSION_INVALID:
+    "Phiên bản hợp đồng kịch bản không được hỗ trợ. Hãy tải lại bản nháp.",
+  STORY_EMOTIONAL_ARC_INVALID:
+    "Bản cảm động thiếu chi tiết được gieo, khoảnh khắc nhận ra hoặc hành động thay đổi. Hãy cho AI sửa đúng nhịp bị thiếu.",
+  STORY_EMOTIONAL_ARC_REQUIRED:
+    "Bản cảm động cần chỉ ra nhân vật nhận ra điều gì và hành động thay đổi sau đó.",
+  STORY_EMOTIONAL_LANE_REQUIRED:
+    "Bản cảm động phải dùng nhịp diễn cinematic thay vì cấu trúc câu chốt hài.",
+  STORY_COMEDY_LANE_REQUIRED:
+    "Bản hài không thể dùng nhịp cinematic. Hãy chọn nhịp hài phù hợp.",
   STORY_PERFORMANCE_LANE_INVALID:
     "Kiểu diễn của tập không hợp lệ. Hãy cho AI viết lại.",
   STORY_REPEATED_COMBINATION:
