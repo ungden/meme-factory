@@ -29,7 +29,9 @@ describe("family catalogue", () => {
     expect(emotional.series).toContain("Gia đình và ký ức");
     expect(emotional.tone).toContain("cảm động");
     expect(FAMILY_WRITING_POLICY).toContain("CINEMATIC CẢM ĐỘNG");
+    expect(FAMILY_WRITING_POLICY).toContain("ĐỐI ĐÁP BÁM LỜI");
     expect(FAMILY_REVIEW_CRITERIA).toContain("emotionalCause");
+    expect(FAMILY_REVIEW_CRITERIA).toContain("mẩu điện tín");
   });
   it("creates twelve distinct complete drafts with the approved cast distribution", () => {
     expect(plans).toHaveLength(12);
@@ -136,6 +138,41 @@ describe("family catalogue", () => {
         cast.map((c) => c.characterId),
       ).dialogue[0].text,
     ).toBe(story.dialogue[0].text);
+  });
+  it("allows natural long-short Vietnamese turns in verbal counterplay", () => {
+    const [a, b] = plans[0].story.dialogue.map((line) => line.characterId);
+    const dialogue = [
+      { characterId: a, text: "Sao em lấy miếng bé tí thế, sợ rau đắng à?", action: "Bánh Bao nhìn vào bát em", beatFunction: "social_probe" as const },
+      { characterId: b, text: "Em đang để dành miếng to cho chị đấy chứ.", action: "Đậu Đỏ gắp lá rau lớn sang", beatFunction: "counter" as const },
+      { characterId: a, text: "Chị có bảo chị muốn ăn đâu.", action: "Bánh Bao đẩy bát trở lại", beatFunction: "social_probe" as const },
+      { characterId: b, text: "Nhưng chị vừa bảo rau này không đắng mà.", action: "Đậu Đỏ giữ chiếc bát lại", beatFunction: "reframe" as const },
+      { characterId: a, text: "Không đắng thì em ăn cũng được chứ sao.", action: "Bánh Bao chỉ sang phần của em", beatFunction: "social_probe" as const },
+      { characterId: b, text: "Thế chị ăn trước đi, em nhìn là biết ngay.", action: "Đậu Đỏ chống cằm chờ", beatFunction: "counter" as const },
+      { characterId: a, text: "Em giỏi thật, chuyện gì cũng đến tay chị.", action: "Bánh Bao cầm lá rau lên", beatFunction: "reframe" as const },
+      { characterId: b, text: "Tại chị làm chị trước em mà.", action: "Đậu Đỏ cúi xuống ăn phần mình", beatFunction: "callback" as const },
+    ];
+    const story = {
+      ...plans[0].story,
+      performanceLane: "verbal_counterplay" as const,
+      dialogue,
+    };
+    expect(
+      validateStory(story, profile, cast.map((item) => item.characterId)).dialogue,
+    ).toEqual(dialogue);
+    expect(() =>
+      validateStory(
+        {
+          ...story,
+          dialogue: dialogue.map((line, index) =>
+            index === dialogue.length - 1
+              ? { ...line, beatFunction: "counter" as const }
+              : line,
+          ),
+        },
+        profile,
+        cast.map((item) => item.characterId),
+      ),
+    ).toThrow("STORY_COUNTERPLAY_INVALID");
   });
   it("rejects a twenty-fifth reaction shot before purchasing or planning media", () => {
     const story = {

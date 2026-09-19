@@ -4,6 +4,7 @@ export const PERFORMANCE_LANES = [
   "adult_format_parody",
   "literal_logic",
   "physical_escalation",
+  "verbal_counterplay",
   "cinematic_cool",
   "cinematic_emotion",
 ] as const;
@@ -188,6 +189,7 @@ export function compilePerformanceDirection(direction: PerformanceDirection) {
     adult_format_parody: "parody format người lớn",
     literal_logic: "luật vô lý được theo đuổi nhất quán",
     physical_escalation: "leo thang hình thể an toàn",
+    verbal_counterplay: "đối đáp bám lời, giành lại thế chủ động",
     cinematic_cool: "ngầu kiểu điện ảnh rồi bẻ bằng chi tiết trẻ con",
     cinematic_emotion: "cảm xúc điện ảnh tiết chế, có nguyên nhân",
   }[d.lane];

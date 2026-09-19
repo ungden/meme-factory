@@ -4,6 +4,7 @@ import { PERFORMANCE_LANES, lintPerformanceDirection } from "./performance-direc
 describe("performance direction Vietnamese actions", () => {
   it("allows a cinematic emotional performance lane", () => {
     expect(PERFORMANCE_LANES).toContain("cinematic_emotion");
+    expect(PERFORMANCE_LANES).toContain("verbal_counterplay");
   });
 
   it("recognizes concrete verbs that end with Vietnamese diacritics", () => {

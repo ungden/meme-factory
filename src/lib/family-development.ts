@@ -1,10 +1,11 @@
 import type { Story, FamilyEditorialIssue } from "./family-catalogue";
 
-export const FAMILY_BENCHMARK_VERSION = "family-editorial-5";
+export const FAMILY_BENCHMARK_VERSION = "family-editorial-6";
 /** User rejected these assistant-written demos; they are negative anchors, not templates. */
 export const FAMILY_EDITORIAL_BENCHMARK = `MẪU ĐỐI CHIẾU ${FAMILY_BENCHMARK_VERSION}:
 REF người dùng thích — phỏng vấn xe đồ chơi: mở nhận ra phỏng vấn chủ xe sang; tiếp xúc khách sáo, giới thiệu nghề, hỏi cụ thể và nói về người em lần lượt lộ cách nhân vật nhìn mình và tận dụng việc nhỏ trong gia đình. Không chỉ gọi đồ chơi bằng tên sang. Giữ thái độ thật với vai, câu hỏi dẫn có tác dụng. Học cách phát triển, không chép chuỗi hỏi/đáp.
 REF người dùng thích — bố mẹ nhờ mua đồ: hai bé đang đi thì bị gọi lại; mẹ dặn khẩu vị, bố chen nhu cầu khác, trẻ phản ứng, bố tìm cách nài nỉ. Mỗi người làm việc riêng của mình nhưng tác động lên nhau. Chi tiết khẩu vị, chen lời và thái độ làm quan hệ sống; không cần ai giải thích đang đảo vai.
+REF người dùng thích — đối đáp viral bám lời: mở ngay bằng một câu hỏi hoặc nhận xét xã hội ai cũng từng nghe. Người đáp không đọc một câu chốt đã soạn sẵn; họ nhặt đúng tiền đề, cách gọi hoặc ý né tránh vừa nghe để trả lại, khiến quyền chủ động đổi bên. Một biến thể dùng người thứ ba nói to phần ý đồ đang bị che. Câu có thể dài, đủ hai vế và có tiểu từ Việt tự nhiên; tiếng cười đến từ liên hệ chính xác giữa hai lượt, không từ việc chẻ mọi ý thành câu 3–5 từ. Chuỗi nhiều câu hỏi cùng loại được phép khi mỗi cặp hỏi–đáp là một va chạm mới trong cùng cuộc nói chuyện và câu đáp làm lộ thêm tính cách hoặc tăng cái giá xã hội. Học nhịp và quan hệ lượt nói; không chép chủ đề người lớn hay lời gốc.
 BA DEMO NGƯỜI DÙNG ĐÃ LOẠI (không được xem là bản đạt):
 1. Bố không muốn đi làm: sếp mắng → ngại gặp sếp → nhờ con đi cùng. Chỉ kéo dài một ý bố mè nheo; hai bé thay nhau hỏi, kết chị còn gọi mẹ chỉ thêm việc. Đúng đảo vai vẫn nhạt.
 2. Review buffet tủ lạnh: bánh của mẹ, sữa của bố → vậy ăn được gì → một cái rồi nửa cái. Mất hành vi người review, trở về xin đồ ăn; trò chia bánh không phát triển parody.

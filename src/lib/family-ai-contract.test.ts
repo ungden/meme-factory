@@ -101,6 +101,8 @@ describe("genre-specific story schema", () => {
     };
     expect(schema.properties.game).toBeDefined();
     expect(JSON.stringify(schema.properties.dialogue)).toContain("beatFunction");
+    expect(JSON.stringify(schema)).toContain("verbal_counterplay");
+    expect(JSON.stringify(schema)).toContain("social_probe");
     expect(schema.properties.emotionalArc).toBeUndefined();
   });
 });

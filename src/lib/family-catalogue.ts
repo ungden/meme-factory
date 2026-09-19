@@ -22,10 +22,11 @@ import { spokenSeconds } from "./film-storyboard";
 const MAX_LINE_SECONDS = 8;
 
 /**
- * Vai trò của một lượt thoại trong cấu trúc "game of the scene".
+ * Vai trò của một lượt thoại trong cấu trúc hài. Sáu vai đầu dành cho game
+ * of the scene; năm vai sau dành cho đối đáp bám lời.
  *
- * Kịch bản cũ chỉ có hook/turn/payoff, nên bản nháp viết 4–6 câu dài rồi hết
- * chuyện. Bốn video tham chiếu cùng thể loại có 16–26 lượt trong 24–44 giây, và
+ * Kịch bản game cũ chỉ có hook/turn/payoff, nên bản nháp viết 4–6 câu dài rồi
+ * hết chuyện. Bộ tham chiếu game trước đó có 16–26 lượt trong 24–44 giây, và
  * phần chênh nằm gần hết ở hai loại lượt mà hệ cũ KHÔNG CÓ CHỖ để viết: câu
  * phản ứng lại điều lạ (frame) và câu giải thích vì sao điều lạ đó hợp lý
  * (explore). Có ô cho chúng thì bản nháp mới viết ra chúng.
@@ -37,19 +38,24 @@ export const BEAT_FUNCTIONS = [
   "heighten",
   "explore",
   "button",
+  "social_probe",
+  "counter",
+  "reframe",
+  "callback",
+  "exit",
 ] as const;
 export type BeatFunction = (typeof BEAT_FUNCTIONS)[number];
 
 /**
- * Trung vị số từ mỗi lượt thoại.
+ * Trung vị số từ mỗi lượt thoại cho nhánh game hài ngắn.
  *
  * Trẻ 4–5 tuổi nói trung bình 4,5–5 từ một câu (chuẩn MLU trong ngôn ngữ trị
- * liệu), và bốn video tham chiếu có trung vị 4–8 từ. Hai tập AIDA gần nhất có
+ * liệu), và bộ tham chiếu game trước đó có trung vị 4–8 từ. Hai tập AIDA gần nhất có
  * trung vị 14 và 15 — đó là câu của người lớn, và đó là lý do thoại nghe gượng.
  *
  * Chặn bằng TRUNG VỊ chứ không bằng trần mỗi câu: một câu dài làm cú chốt vẫn
- * được, cả kịch bản toàn câu dài thì không. Trần cũ 20 từ vốn là trần, nhưng
- * bản nháp đọc nó thành đích.
+ * được, cả kịch bản game toàn câu dài thì không. verbal_counterplay được miễn
+ * luật này vì câu đáp cần giữ trọn tiền đề và tiểu từ tiếng Việt.
  */
 export const MAX_MEDIAN_LINE_WORDS = 8;
 /** Số lượt thoại tối thiểu cho một tập hài; tập cinematic được thưa hơn. */
@@ -497,11 +503,13 @@ export function validateStory(
         jargonLine
       ].text.slice(0, 60)}…”`,
     );
-  // Tập hài phải dày lời và ngắn câu; tập cinematic cố ý thưa nên miễn.
+  // Đối đáp bám lời dùng câu Việt trọn ý, có tiểu từ và nhịp dài-ngắn như
+  // hội thoại thật. Ép median 8 từ làm câu bị bẻ vụn và cà giật.
   const cinematic = genre === "emotion";
+  const verbalCounterplay = s.performanceLane === "verbal_counterplay";
   if (editorial && !cinematic) {
     const median = medianLineWords(s.dialogue);
-    if (median > MAX_MEDIAN_LINE_WORDS)
+    if (!verbalCounterplay && median > MAX_MEDIAN_LINE_WORDS)
       throw new Error(
         `STORY_LINES_TOO_ADULT: trung vị ${median} từ mỗi lượt, quá dài cho trẻ mẫu giáo (chuẩn 4–5 từ, trần ${MAX_MEDIAN_LINE_WORDS}). Tách câu dài thành nhiều lượt đối đáp ngắn thay vì rút gọn ý.`,
       );
@@ -514,32 +522,41 @@ export function validateStory(
     if (functions.every(Boolean)) {
       const count = (name: BeatFunction) =>
         functions.filter((f) => f === name).length;
-      if (count("unusual_thing") !== 1)
+      const lastSpoken = s.dialogue.reduce(
+        (found, line, index) => (line.text?.trim() ? index : found),
+        -1,
+      );
+      if (verbalCounterplay) {
+        if (
+          !["social_probe", "base_reality"].includes(String(functions[0])) ||
+          count("counter") + count("reframe") < 3 ||
+          !["callback", "exit"].includes(String(functions[lastSpoken]))
+        )
+          throw new Error(
+            "STORY_COUNTERPLAY_INVALID: đối đáp cần mở bằng một va chạm xã hội, có ít nhất ba lượt đáp bám lời và kết bằng callback hoặc chủ động thoát cuộc nói chuyện.",
+          );
+      } else if (count("unusual_thing") !== 1)
         throw new Error(
           `STORY_GAME_INVALID: phải có đúng một lượt unusual_thing (đang có ${count("unusual_thing")}). Một tập chỉ chơi một luật.`,
         );
-      if (count("heighten") < MIN_HEIGHTENS)
+      if (!verbalCounterplay && count("heighten") < MIN_HEIGHTENS)
         throw new Error(
           `STORY_GAME_INVALID: mới ${count("heighten")} lần leo thang, cần ít nhất ${MIN_HEIGHTENS}; dưới ba lần khán giả chưa nhận ra có luật chơi.`,
         );
       // Button là câu chốt, nên nó là lượt CÓ LỜI cuối cùng. Một nhịp không lời
       // sau đó (đứng hình, máy ảnh tách) vẫn là phản ứng của chính cú chốt ấy,
       // không phải cú chốt thứ hai — bản nháp đầu tiên gắn button cho cả hai.
-      if (count("button") !== 1)
+      if (!verbalCounterplay && count("button") !== 1)
         throw new Error(
           `STORY_GAME_INVALID: phải có đúng một button (đang có ${count("button")}). Nhịp không lời kết thúc để beatFunction là explore hoặc frame, không phải button thứ hai.`,
         );
-      const lastSpoken = s.dialogue.reduce(
-        (found, line, index) => (line.text?.trim() ? index : found),
-        -1,
-      );
-      if (functions[lastSpoken] !== "button")
+      if (!verbalCounterplay && functions[lastSpoken] !== "button")
         throw new Error(
           "STORY_GAME_INVALID: lượt có lời cuối cùng phải là button — câu chốt, cắt ngay sau đó, không có lời nào đi sau nó.",
         );
       const unusualAt = functions.indexOf("unusual_thing");
       const earlyHeighten = functions.findIndex((f) => f === "heighten");
-      if (earlyHeighten >= 0 && earlyHeighten < unusualAt)
+      if (!verbalCounterplay && earlyHeighten >= 0 && earlyHeighten < unusualAt)
         throw new Error(
           "STORY_GAME_INVALID: có lượt leo thang trước khi điều lạ được nói ra; chưa có luật thì chưa đẩy được.",
         );
@@ -575,8 +592,9 @@ export function validateStory(
     (n, d) => n + d.text.trim().split(/\s+/).filter(Boolean).length,
     0,
   );
-  if (words < 15 || words > 120)
-    throw new Error(`STORY_WORDS_${words}: cần 15–120 đơn vị lời thoại`);
+  const maxWords = verbalCounterplay ? 180 : 120;
+  if (words < 15 || words > maxWords)
+    throw new Error(`STORY_WORDS_${words}: cần 15–${maxWords} đơn vị lời thoại`);
   if (
     s.dialogue.some(
       (d) => d.text.trim().split(/\s+/).filter(Boolean).length > 35,
@@ -655,7 +673,7 @@ export function storyContractForGenre(genre: StoryGenre) {
     performanceLane:
       genre === "emotion"
         ? "cinematic_emotion"
-        : "deadpan_reversal|adult_format_parody|literal_logic|physical_escalation",
+        : "deadpan_reversal|adult_format_parody|literal_logic|physical_escalation|verbal_counterplay",
     series: "",
     situation: "",
     mechanism: "",
@@ -691,13 +709,17 @@ export function storyContractForGenre(genre: StoryGenre) {
             invertedReality: "",
             visibleContrast: "",
           },
-          game: { baseReality: "", unusualThing: "", ifThen: "" },
+          game: {
+            baseReality: "nếp thường hoặc bối cảnh xã hội quen thuộc",
+            unusualThing: "điều lạ hoặc câu gây va chạm đầu tiên",
+            ifThen: "luật game hoặc nguyên tắc đáp bám lời",
+          },
           dialogue: [
             {
               characterId: "uuid",
               text: "",
               action: "",
-              beatFunction: "base_reality|unusual_thing|frame|heighten|explore|button",
+              beatFunction: "base_reality|unusual_thing|frame|heighten|explore|button|social_probe|counter|reframe|callback|exit",
             },
           ],
         },

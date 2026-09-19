@@ -193,6 +193,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
     "Tập còn quá ít lượt đối đáp cho một phim ngắn. Hãy cho AI viết thêm lượt.",
   STORY_GAME_INVALID:
     "Mạch gây cười chưa đủ: thiếu điều bất ngờ, thiếu lần đẩy tới hoặc thiếu câu chốt cuối. Hãy cho AI viết lại.",
+  STORY_COUNTERPLAY_INVALID:
+    "Mạch đối đáp chưa bám vào lời vừa nghe hoặc chưa có điểm kết. Hãy sửa các lượt đáp thay vì thêm câu chốt rời.",
   STORY_LINE_ADULT_REGISTER:
     "Có lượt thoại nói bằng giọng công sở chứ không phải giọng trẻ con. Hãy cho AI viết lại câu đó.",
   STORY_SHOTS_MISSING: "Thiếu mô tả cảnh cho một số lượt thoại.",
