@@ -18,6 +18,35 @@ import { spokenSeconds } from "./film-storyboard";
  * 8 giây là mức rộng rãi: những lượt thoại tốt trong các tập đã phát đều dưới 7.
  */
 const MAX_LINE_SECONDS = 8;
+
+/**
+ * Từ vựng công sở/hành chính mà trẻ mẫu giáo không bao giờ nói.
+ *
+ * Không cấm hẳn: một từ người lớn duy nhất giữa một câu trẻ con CHÍNH LÀ cú
+ * hài của kênh — "Để em ghi biên bản." nghe rất được. Hỏng là khi cả câu được
+ * dựng bằng thứ tiếng đó: "Khoảng cách giữa hai hộp sữa chua vừa tăng thêm năm
+ * xăng-ti-mét. Có thất thoát tài sản." Lúc ấy không còn là trẻ con bắt chước
+ * người lớn, mà là kịch bản người lớn đặt vào miệng trẻ con.
+ *
+ * Bước soát kịch bản có luật "văn hành chính" nhưng tự bỏ qua khi tập là
+ * parody — tập 19/09 được chấm "không bị văn hành chính gượng ép" và khen chữ
+ * "khấu hao" là "rất đắt giá". Parody nằm ở tình huống và đạo cụ, không nằm ở
+ * từ ngữ, nên chỗ này chặn bằng luật đếm được thay vì bằng lời dặn.
+ */
+const ADULT_REGISTER = [
+  "khấu hao", "thất thoát", "tài sản", "biến động", "xâm phạm", "kiểm kê",
+  "phê duyệt", "thẩm định", "đối soát", "quyết toán", "ngân sách", "chỉ tiêu",
+  "quy trình", "thủ tục", "hồ sơ", "công văn", "nghị quyết", "điều khoản",
+  "hợp đồng", "cam kết", "vi phạm", "chế tài", "hiệu lực", "hạn mức",
+  "định mức", "nghiệm thu", "bàn giao", "nghĩa vụ", "quyền lợi", "khiếu nại",
+  "kiến nghị", "phương án", "triển khai", "rà soát", "tổng hợp số liệu",
+];
+
+/** Những từ công sở xuất hiện trong một lượt thoại, không trùng lặp. */
+export function adultRegisterTerms(text: string): string[] {
+  const lower = String(text || "").toLocaleLowerCase("vi");
+  return ADULT_REGISTER.filter((term) => lower.includes(term));
+}
 /** Editorial references describe mechanisms only; no source dialogue or media is copied. */
 export const FAMILY_SERIES = [
   "Liên minh bí mật",
@@ -264,7 +293,7 @@ export function familyProfile(roles: ChannelProfile["roles"]): ChannelProfile {
       "Không kéo thoại cho đủ thời lượng",
       "Không ép tất cả tập về bánh",
       "Không ép mọi tập có tranh giành, bẫy hoặc người thua; sự quan tâm hay muốn giữ thể diện cũng là động cơ",
-      "Không viết câu chỉ nhằm khoe chơi chữ; ngôn ngữ người lớn được dùng khi phục vụ ý đồ của nhân vật, không cấm theo danh sách từ",
+      "Không viết câu chỉ nhằm khoe chơi chữ; một từ người lớn phục vụ ý đồ nhân vật thì được, nhưng đừng dựng cả câu bằng tiếng công sở — vai người lớn nằm ở phong thái và đạo cụ, không ở từ vựng",
       "Phân biệt lỗi sự kiện/nhân quả của tác giả với lời nói ngược, khoe quá hoặc diễn ngầu có chủ ý của nhân vật",
     ],
   };
@@ -367,6 +396,19 @@ export function validateStory(
         s.dialogue[longLine].text,
       )} giây, vượt trần ${MAX_LINE_SECONDS} giây của nhịp short-form. Tách thành hai lượt hoặc cắt bớt: “${s.dialogue[
         longLine
+      ].text.slice(0, 60)}…”`,
+    );
+  const jargonLine = s.dialogue.findIndex(
+    (d) => typeof d.text === "string" && adultRegisterTerms(d.text).length >= 2,
+  );
+  if (jargonLine >= 0)
+    throw new Error(
+      `STORY_LINE_ADULT_REGISTER: lượt ${jargonLine + 1} nói bằng giọng công sở chứ không phải giọng trẻ con — ${adultRegisterTerms(
+        s.dialogue[jargonLine].text,
+      )
+        .map((term) => `“${term}”`)
+        .join(", ")}. Giữ tình huống và đạo cụ của format người lớn, nhưng viết lại bằng từ một đứa trẻ mẫu giáo thật sự dùng; nhiều nhất một từ người lớn trong câu và để nó làm cú chốt: “${s.dialogue[
+        jargonLine
       ].text.slice(0, 60)}…”`,
     );
   if (s.dialogue.length + (reactionIndex >= 0 ? 1 : 0) > 12)

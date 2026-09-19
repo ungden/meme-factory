@@ -7,6 +7,7 @@ import {
   compactStory,
   fingerprint,
   familyProfile,
+  adultRegisterTerms,
 } from "./family-catalogue";
 import type { FilmCast } from "./short-film/contracts";
 import { FAMILY_REVIEW_CRITERIA, FAMILY_WRITING_POLICY } from "./family-writing-policy";
@@ -238,6 +239,45 @@ it("từ chối lượt thoại dài hơn nhịp short-form trước khi tốn t
       cast.map((c) => c.characterId),
     ),
   ).toThrow(/STORY_LINE_TOO_LONG: lượt 1/);
+});
+
+it("từ chối lượt thoại viết bằng giọng công sở", () => {
+  const story = structuredClone(plans[0].story);
+  // Câu thật của tập 19/09, được bước soát khen là "thuật ngữ parody rất đắt giá".
+  story.dialogue[0].text =
+    "Khoảng cách giữa hai hộp sữa chua vừa tăng thêm năm xăng-ti-mét. Có thất thoát tài sản.";
+  expect(() =>
+    validateStory(
+      story,
+      profile,
+      cast.map((c) => c.characterId),
+    ),
+  ).toThrow(/STORY_LINE_ADULT_REGISTER: lượt 1/);
+});
+
+it("vẫn cho một từ người lớn duy nhất làm cú chốt", () => {
+  const story = structuredClone(plans[0].story);
+  story.dialogue[0].text = "Chị mở tủ trước kìa. Để em ghi biên bản.";
+  expect(
+    validateStory(
+      story,
+      profile,
+      cast.map((c) => c.characterId),
+    ),
+  ).toBeTruthy();
+});
+
+describe("adultRegisterTerms", () => {
+  it("chỉ ra đúng những từ công sở trong câu", () => {
+    expect(adultRegisterTerms("Có thất thoát tài sản chung.")).toEqual([
+      "thất thoát",
+      "tài sản",
+    ]);
+  });
+
+  it("không bắt nhầm câu trẻ con bình thường", () => {
+    expect(adultRegisterTerms("Chị ăn bánh flan của em rồi!")).toEqual([]);
+  });
 });
 
 it("vẫn nhận lượt thoại dài vừa phải của nhịp đối đáp bình thường", () => {

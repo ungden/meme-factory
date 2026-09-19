@@ -1,5 +1,5 @@
 /** Shared family premise for comedy and earned cinematic emotion. */
-export const FAMILY_WRITING_POLICY_VERSION = "family-dialogue-13";
+export const FAMILY_WRITING_POLICY_VERSION = "family-dialogue-14";
 
 export const FAMILY_WRITING_POLICY = `LUẬT NỀN BIÊN KỊCH ${FAMILY_WRITING_POLICY_VERSION}: HÀI GIA ĐÌNH VÀ CẢM XÚC CÓ NGUYÊN NHÂN
 Khán giả người lớn nhận ra một tình huống hoặc FORMAT quen thuộc, rồi thấy nó được diễn bởi những người/đồ vật lệch hẳn kỳ vọng. Bánh Bao & Đậu Đỏ vẫn là hai đứa CON NÍT về hình dáng và giọng, nhưng có thể gánh vai người lớn hoặc diễn những vai người lớn rất nghiêm túc. Sự tương phản phải nhìn/nghe thấy được; không cần thêm câu chơi chữ để giải thích nó.
@@ -24,6 +24,7 @@ TÍNH CÁCH, DIỄN VÀ ĐỐI ĐÁP:
 - Bánh Bao thích đứng ra chủ trì, Đậu Đỏ trực tiếp và có góc nhìn riêng. Cả hai có thể chủ động, hỏi hoặc trả lời; không mặc định chị khôn, em ngốc. Bố Mẹ có sở thích và khiếu hài, có thể tham gia hoặc vắng mặt tùy chuyện.
 - Trong parody, người hỏi cần tin vào vai của mình như người trả lời. Cho phép câu dẫn, cách xưng hô và câu trả lời có vẻ người lớn khi đúng format, được neo vào tình huống nhỏ cụ thể. Không rút câu hỏi thành câu trẻ con hoặc bắt họ nháy mắt, cười, tự nhận đang giả vờ.
 - Phân biệt parody có format/tương phản với việc rắc chức danh, thuật ngữ tài chính, họp hành, thu phí hoặc triết lý ngẫu nhiên. Không cấm phỏng vấn, làm sếp hay thuật ngữ theo từ khóa; phải xét nó có tác dụng trong format và cảnh hay không.
+- Vai người lớn nằm ở phong thái, nghi thức và đạo cụ, KHÔNG nằm ở từ vựng. Mỗi lượt thoại nhiều nhất MỘT từ công sở/hành chính và để nó làm cú chốt ("Để em ghi biên bản."). Câu dựng bằng thứ tiếng đó — "Khoảng cách giữa hai hộp sữa chua vừa tăng thêm năm xăng-ti-mét. Có thất thoát tài sản." — không phải parody, mà là kịch bản người lớn đặt vào miệng trẻ mẫu giáo; hai từ trở lên trong một câu sẽ bị từ chối.
 - Tuổi cố định diện mạo, vóc dáng, giới tính, giọng và quan hệ; KHÔNG giới hạn khả năng lập luận của nhân vật hoạt hình. Hành động phải diễn được theo vóc dáng: xe đồ chơi là xe đồ chơi, không cho bé lái xe thật hay cõng bố chỉ vì parody.
 - Xưng hô theo đúng người đang nói và người đang nghe. Trong sinh hoạt, hai chị em nói với nhau dùng chị/em, “chị em mình/tụi mình”; nói với bố mẹ dùng “tụi con”. Bố/Mẹ nói với con dùng bố/mẹ và con/các con. Không để trẻ tự gọi hai chị em là “hai đứa” như người lớn đứng ngoài đang kể. Trong parody có thể xưng tôi/anh/chị nếu vai diễn rõ; không đổi giới tính hoặc quan hệ thật.
 - Tên và cách gọi người cha luôn là “Bố/bố” trong tên nhân vật, thoại, hành động, mô tả cảnh, prompt và caption; không dùng “Ba/ba” để gọi người cha. “Ba” vẫn được dùng khi thật sự là số đếm, như “ba cảnh”, “đếm đến ba” hoặc “ba ngón tay”.
