@@ -247,6 +247,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
     "Các phương án AI trả về chưa hợp lệ. Hãy thử lại.",
   FAMILY_PREMISES_DUPLICATED:
     "Ba phương án quá giống nhau. Hãy thử lại hoặc nêu ý tưởng cụ thể hơn.",
+  FAMILY_PREMISES_DOMAIN_NARROW:
+    "Ba phương án đang quanh quẩn trong một kiểu quan hệ hoặc bối cảnh. Hãy thử lại để có chuyện ở những môi trường xã hội khác nhau.",
   FAMILY_SELECTION_INVALID:
     "Kết quả chọn phương án chưa hợp lệ. Hãy thử lại.",
   FAMILY_DRAFT_MISSING:
@@ -316,6 +318,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
   CREATIVE_ASSIST_INVALID_JSON:
     "AI trả về kết quả không đọc được. Hãy thử lại.",
   CREATIVE_ASSIST_IDEAS_INVALID: "Danh sách ý tưởng chưa hợp lệ. Hãy thử lại.",
+  CREATIVE_ASSIST_IDEA_DOMAINS_NARROW:
+    "Ba ý tưởng đang quanh quẩn trong một bối cảnh. Hãy thử lại để mở sang trường học, nơi công cộng, khu phố, cửa hàng hoặc công việc của bố mẹ.",
   CREATIVE_ASSIST_IMAGE_INVALID: "Gợi ý ảnh chưa hợp lệ. Hãy thử lại.",
   CREATIVE_ASSIST_CLIP_INVALID: "Gợi ý clip chưa hợp lệ. Hãy thử lại.",
   CREATIVE_ASSIST_PLAN_INVALID: "Kịch bản AI trả về chưa hợp lệ. Hãy thử lại.",

@@ -4,6 +4,41 @@ import { validateCreativeAssist } from "./creative-assist";
 const context = { projectName: "Bánh Bao", characters: [{ id: "a", name: "Bánh Bao" }, { id: "b", name: "Đậu Đỏ" }], recentContent: [] };
 
 describe("creative assist validator", () => {
+  it("requires broad social domains for open-ended AIDA suggestions", () => {
+    const ideas = [1, 2, 3].map((index) => ({
+      socialDomain: "family_home",
+      title: `Ý tưởng ${index}`,
+      idea: `Một câu chuyện cụ thể ${index}`,
+      why: "Một lý do đủ rõ",
+    }));
+    expect(() =>
+      validateCreativeAssist(
+        "idea_suggestions",
+        { ideas },
+        context,
+        undefined,
+        true,
+      ),
+    ).toThrow("CREATIVE_ASSIST_IDEA_DOMAINS_NARROW");
+
+    const varied = ideas.map((idea, index) => ({
+      ...idea,
+      socialDomain: ["school", "public_space", "parents_workplace"][index],
+    }));
+    expect(
+      validateCreativeAssist(
+        "idea_suggestions",
+        { ideas: varied },
+        context,
+        undefined,
+        true,
+      ),
+    ).toEqual({
+      kind: "idea_suggestions",
+      ideas: varied.map(({ title, idea, why }) => ({ title, idea, why })),
+    });
+  });
+
   it("keeps only project characters and validates a paced three-scene plan", () => {
     const result = validateCreativeAssist("video_plan", { title: "Buổi sáng", summary: "...", scenes: [
       { characterIds: ["a", "other"], speakerCharacterId: "a", dialogue: "Đi thôi nào!", action: "Bánh Bao chạy vào bếp", setting: "Căn bếp sáng", camera: "medium", durationSeconds: 5, imagePrompt: "Bánh Bao trong bếp", motionPrompt: "chạy vào bếp" },

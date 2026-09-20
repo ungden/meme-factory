@@ -1,11 +1,12 @@
 import type { Story, FamilyEditorialIssue } from "./family-catalogue";
 
-export const FAMILY_BENCHMARK_VERSION = "family-editorial-7";
+export const FAMILY_BENCHMARK_VERSION = "family-editorial-8";
 /** User rejected these assistant-written demos; they are negative anchors, not templates. */
 export const FAMILY_EDITORIAL_BENCHMARK = `MẪU ĐỐI CHIẾU ${FAMILY_BENCHMARK_VERSION}:
 REF người dùng thích — phỏng vấn xe đồ chơi: mở nhận ra phỏng vấn chủ xe sang; tiếp xúc khách sáo, giới thiệu nghề, hỏi cụ thể và nói về người em lần lượt lộ cách nhân vật nhìn mình và tận dụng việc nhỏ trong gia đình. Không chỉ gọi đồ chơi bằng tên sang. Giữ thái độ thật với vai, câu hỏi dẫn có tác dụng. Học cách phát triển, không chép chuỗi hỏi/đáp.
 REF người dùng thích — bố mẹ nhờ mua đồ: hai bé đang đi thì bị gọi lại; mẹ dặn khẩu vị, bố chen nhu cầu khác, trẻ phản ứng, bố tìm cách nài nỉ. Mỗi người làm việc riêng của mình nhưng tác động lên nhau. Chi tiết khẩu vị, chen lời và thái độ làm quan hệ sống; không cần ai giải thích đang đảo vai.
 REF người dùng thích — đối đáp viral bám lời: mở ngay bằng một câu hỏi hoặc nhận xét xã hội ai cũng từng nghe. Người đáp không đọc một câu chốt đã soạn sẵn; họ nhặt đúng tiền đề, cách gọi hoặc ý né tránh vừa nghe để trả lại, khiến quyền chủ động đổi bên. Một biến thể dùng người thứ ba nói to phần ý đồ đang bị che. Câu có thể dài, đủ hai vế và có tiểu từ Việt tự nhiên; tiếng cười đến từ liên hệ chính xác giữa hai lượt, không từ việc chẻ mọi ý thành câu 3–5 từ. Chuỗi nhiều câu hỏi cùng loại được phép khi mỗi cặp hỏi–đáp là một va chạm mới trong cùng cuộc nói chuyện và câu đáp làm lộ thêm tính cách hoặc tăng cái giá xã hội. Học nhịp và quan hệ lượt nói; không chép chủ đề người lớn hay lời gốc.
+REF người dùng vừa xác nhận — người lớn kể nguyên văn một câu người khác từng nói, rồi Bánh Bao/Đậu Đỏ đề xuất cách đáp. Câu đạt lấy đúng tiền đề hoặc tiêu chuẩn kép trong lời vừa nghe để hỏi lại, như “ai làm cũng được” đối chiếu với việc người nói vẫn phải nhờ người khác. Người được hỏi có lý do trả lời vì đang được xin ý kiến; không cần dựng người lớn thành ngớ ngẩn. Format này được nói về cô giáo, người lạ, hàng xóm, người bán hàng, họ hàng và đồng nghiệp của bố mẹ, không bị kéo về việc nhà.
 BA DEMO NGƯỜI DÙNG ĐÃ LOẠI (không được xem là bản đạt):
 1. Bố không muốn đi làm: sếp mắng → ngại gặp sếp → nhờ con đi cùng. Chỉ kéo dài một ý bố mè nheo; hai bé thay nhau hỏi, kết chị còn gọi mẹ chỉ thêm việc. Đúng đảo vai vẫn nhạt.
 2. Review buffet tủ lạnh: bánh của mẹ, sữa của bố → vậy ăn được gì → một cái rồi nửa cái. Mất hành vi người review, trở về xin đồ ăn; trò chia bánh không phát triển parody.
@@ -14,10 +15,43 @@ KIỂM TRA TRÁNH TỰ KHEN: Một tour nhà gối chỉ lần lượt đổi g�
 LỖI ĐIỂM DỪNG NGƯỜI DÙNG VỪA LOẠI: hai bé đã nói sẽ tự đi học và mẹ đang ngái ngủ chấp nhận — phép đảo vai đã hạ. Viết thêm việc hai bé không biết đường hoặc chỉ biết tên trường mở một vấn đề mới nhưng không phát triển/giải quyết nó. Đó là đuôi thừa, không phải kết chớt quớt hay cú chốt. Kết chớt quớt được phép khi câu cuối làm cái vô lý hoặc quan hệ vừa đủ rõ; không cần kết có hậu, giải quyết hậu quả, thêm bài học hay thêm một trò đùa nữa.
 LỖI NGÔI NÓI VỪA BẮT Ở CANARY: Đậu Đỏ nói với chị “Thôi hai đứa tự đi...” nghe như người lớn đang nói về hai bé khác. Trong quan hệ thật, em nói “chị em mình/tụi mình tự đi”; nói với bố mẹ mới là “tụi con”. Bản đúng ý và đúng điểm dừng vẫn không đạt nếu đại từ làm lộ giọng tác giả hoặc giọng dịch.
 LỖI ĐẠO LÝ GƯỢNG NGƯỜI DÙNG VỪA LOẠI: Bố đã nói làm việc để mua đồ chơi, con nói “tối nay không mua lại được”, rồi Bố hỏi “Sao tối nay lại hết được?” chỉ để con giảng giải điều người lớn đương nhiên hiểu. Sau khi Bố đã gập máy, câu “nhưng hết chỗ rồi bố” lại mở một trở ngại giả, còn câu “Gấu bông bảo nó bận kiếm tiền” bắt khán giả giải mã trò của tác giả. Muốn trẻ nói một điều khiến người lớn nghĩ lại, hãy gieo một việc nhỏ cụ thể, để người lớn tự nhận ra và đổi hành động; đừng làm người lớn ngớ ngẩn hoặc nối thêm punchline sau khi chuyện đã hạ.
+LỖI ĐỐI NHÂN XỬ THẾ GIẢ: “Mọi người đứng đây chắc đang đi dạo” là câu mạng quen, không tự thành quan sát mới. “Cô không đau thì sao biết bạn đau có vậy thôi” vừa gượng tiếng Việt vừa tự bịa nguyên nhân bạn khóc. Đừng biến mọi tình huống thành màn làm người kia cứng họng. Cách đáp có thể lịch sự, hỏi rõ, giữ ranh giới, đỡ lời cho người khác, hóa giải hoặc im lặng bằng hành động; phải dùng được trong đúng quan hệ và nơi xảy ra.
 Đừng biến các bản yếu thành danh sách cấm chủ đề. Cùng chủ đề có thể viết tốt bằng hành vi, quan hệ và cách phát triển khác. Không đổi vài danh từ trong các demo này rồi coi là phương án mới. So chất lượng diễn biến với ref và điểm yếu với demo, không chấm chỉ theo tên cơ chế. Không hứa điểm hài/retention bằng con số.`;
+
+export const SOCIAL_DOMAINS = [
+  "family_home",
+  "school",
+  "public_space",
+  "parents_workplace",
+  "neighborhood",
+  "service_commerce",
+  "relatives_friends",
+] as const;
+export type SocialDomain = (typeof SOCIAL_DOMAINS)[number];
+export const INTERACTION_FRAMES = [
+  "direct_encounter",
+  "reported_situation",
+  "advice_roleplay",
+  "format_parody",
+  "quiet_observation",
+] as const;
+export type InteractionFrame = (typeof INTERACTION_FRAMES)[number];
+export const RESPONSE_MODES = [
+  "direct",
+  "polite_boundary",
+  "humorous_reframe",
+  "clarifying_question",
+  "support_someone",
+  "silence_or_action",
+  "mixed",
+] as const;
+export type ResponseMode = (typeof RESPONSE_MODES)[number];
+export const EPISODE_GUEST_ID = "guest-1";
 
 export type PremiseCandidate = {
   id: string;
+  socialDomain: SocialDomain;
+  interactionFrame: InteractionFrame;
   situation: string;
   familiarPattern: string;
   observedBehavior: string;
@@ -45,6 +79,13 @@ export type StoryPayoff = {
 };
 export type EpisodeBrief = {
   actualSituation: string;
+  socialContext: {
+    domain: SocialDomain;
+    interactionFrame: InteractionFrame;
+    outsideRole: string;
+    friction: string;
+    responseMode: ResponseMode;
+  };
   characters: Array<{
     characterId: string;
     want: string;
@@ -162,6 +203,8 @@ export function premiseSchema(ids: string[]) {
       maxItems: 3,
       items: object({
         id: { type: "string", enum: ["A", "B", "C"] },
+        socialDomain: { type: "string", enum: [...SOCIAL_DOMAINS] },
+        interactionFrame: { type: "string", enum: [...INTERACTION_FRAMES] },
         situation: string,
         familiarPattern: string,
         observedBehavior: string,
@@ -173,7 +216,7 @@ export function premiseSchema(ids: string[]) {
           minItems: 2,
           maxItems: 4,
           items: object({
-            characterId: { type: "string", enum: ids },
+            characterId: { type: "string", enum: [...ids, EPISODE_GUEST_ID] },
             text: string,
             action: string,
           }),
@@ -200,6 +243,13 @@ export const selectionSchema = object({
 });
 export const episodeBriefSchema = object({
   actualSituation: string,
+  socialContext: object({
+    domain: { type: "string", enum: [...SOCIAL_DOMAINS] },
+    interactionFrame: { type: "string", enum: [...INTERACTION_FRAMES] },
+    outsideRole: string,
+    friction: string,
+    responseMode: { type: "string", enum: [...RESPONSE_MODES] },
+  }),
   characters: {
     type: "array",
     minItems: 2,
@@ -365,8 +415,10 @@ function groundedEvidence(evidence: string, sources: string[]) {
 export function validatePremises(
   value: unknown,
   ids: string[],
+  requireDomainDiversity = false,
 ): PremiseCandidate[] {
   const c = (value as { candidates?: PremiseCandidate[] })?.candidates;
+  const allowedIds = new Set([...ids, EPISODE_GUEST_ID]);
   if (
     !Array.isArray(c) ||
     c.length !== 3 ||
@@ -375,6 +427,8 @@ export function validatePremises(
       (p) =>
         !p ||
         !["A", "B", "C"].includes(p.id) ||
+        !SOCIAL_DOMAINS.includes(p.socialDomain) ||
+        !INTERACTION_FRAMES.includes(p.interactionFrame) ||
         ![
           p.situation,
           p.familiarPattern,
@@ -392,7 +446,7 @@ export function validatePremises(
         p.sampleExchange.some(
           (d) =>
             !d ||
-            !ids.includes(d.characterId) ||
+            !allowedIds.has(d.characterId) ||
             !hasText(d.text, 2, 300) ||
             !hasText(d.action, 3, 400),
         ),
@@ -404,6 +458,12 @@ export function validatePremises(
     new Set(c.map((p) => normalized(p.progression.join(" ")))).size !== 3
   )
     throw new Error("FAMILY_PREMISES_DUPLICATED");
+  if (
+    requireDomainDiversity &&
+    (new Set(c.map((p) => p.socialDomain)).size !== 3 ||
+      c.filter((p) => p.socialDomain !== "family_home").length < 2)
+  )
+    throw new Error("FAMILY_PREMISES_DOMAIN_NARROW");
   return c;
 }
 export function validateSelection(
@@ -449,12 +509,25 @@ export function validateSelection(
 export function validateEpisodeBrief(
   value: unknown,
   ids: string[],
+  expectedDomain?: SocialDomain,
+  expectedInteractionFrame?: InteractionFrame,
 ): EpisodeBrief {
   const brief = value as EpisodeBrief;
   const payoff = brief?.storyPayoff;
+  const social = brief?.socialContext;
+  const allowedIds = new Set([...ids, EPISODE_GUEST_ID]);
   if (
     !brief ||
     !hasText(brief.actualSituation) ||
+    !social ||
+    !SOCIAL_DOMAINS.includes(social.domain) ||
+    (expectedDomain !== undefined && social.domain !== expectedDomain) ||
+    !INTERACTION_FRAMES.includes(social.interactionFrame) ||
+    (expectedInteractionFrame !== undefined &&
+      social.interactionFrame !== expectedInteractionFrame) ||
+    !hasText(social.outsideRole, 2) ||
+    !hasText(social.friction, 2) ||
+    !RESPONSE_MODES.includes(social.responseMode) ||
     !Array.isArray(brief.characters) ||
     brief.characters.length < 2 ||
     brief.characters.length > 4 ||
@@ -463,7 +536,7 @@ export function validateEpisodeBrief(
     brief.characters.some(
       (item) =>
         !item ||
-        !ids.includes(item.characterId) ||
+        !allowedIds.has(item.characterId) ||
         !hasText(item.want, 2) ||
         !hasText(item.knows, 2) ||
         !hasText(item.relationship, 2) ||

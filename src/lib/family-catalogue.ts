@@ -325,9 +325,9 @@ export function familyProfile(roles: ChannelProfile["roles"]): ChannelProfile {
     },
     writingPolicyVersion: FAMILY_WRITING_POLICY_VERSION,
     positioning:
-      "Gia đình Bánh Bao & Đậu Đỏ có cả tập hài tương phản và tập cinematic cảm động. Tập hài khai thác đảo thường thức hoặc parody thế giới người lớn; tập cảm động khai thác ký ức, sự quan tâm, thay đổi giữa các thế hệ và khoảnh khắc nhỏ trong gia đình. Không bắt mọi tập có bố mẹ, việc nhà, bánh hoặc joke.",
+      "Bánh Bao & Đậu Đỏ kể chuyện đời sống Việt Nam ở gia đình, trường học, nơi công cộng, khu phố, cửa hàng và qua chuyện công việc của bố mẹ. Tập hài khai thác quan sát xã hội, đối nhân xử thế, đảo thường thức hoặc parody thế giới người lớn; tập cảm động khai thác ký ức, sự quan tâm và khoảnh khắc nhỏ có nguyên nhân. Gia đình là điểm xuất phát của nhân vật, không phải giới hạn đề tài.",
     audience: "Người lớn, đặc biệt cha mẹ Việt Nam",
-    tone: "Hài hoặc cảm động, tùy ý tưởng người dùng. Tập hài giữ nhịp đối đáp và tương phản vui vẻ; tập cinematic cảm động đi từ một hành động/chi tiết cụ thể tới cảm xúc có nguyên nhân. Không cố chơi chữ, giảng đạo, bóp cảm xúc hoặc bắt mọi tập là con chăm bố mẹ.",
+    tone: "Hài hoặc cảm động, tùy ý tưởng người dùng. Tập hài giữ nhịp đối đáp, phép lịch sự đúng quan hệ và tương phản vui vẻ; câu sắc phải bám đúng lời vừa nghe, không chỉ nhằm hạ người khác. Tập cinematic cảm động đi từ một hành động/chi tiết cụ thể tới cảm xúc có nguyên nhân. Không cố chơi chữ, giảng đạo, bóp cảm xúc hoặc bắt mọi tập là con chăm bố mẹ.",
     roles,
     series: FAMILY_SERIES,
     references: referenceMechanisms,

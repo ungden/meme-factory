@@ -15,4 +15,14 @@ describe("fixed story evaluation set", () => {
       expect(brief.rejectIf.length).toBeGreaterThan(0);
     }
   });
+
+  it("covers social life beyond the family home", () => {
+    const comedy = evaluationBriefsFor("comedy");
+    const domains = new Set(comedy.map((brief) => brief.domain));
+    expect(domains.size).toBeGreaterThanOrEqual(6);
+    expect(domains.has("school")).toBe(true);
+    expect(domains.has("public_space")).toBe(true);
+    expect(domains.has("parents_workplace")).toBe(true);
+    expect(comedy.filter((brief) => brief.domain !== "family_home")).toHaveLength(6);
+  });
 });

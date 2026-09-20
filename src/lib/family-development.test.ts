@@ -91,6 +91,13 @@ const review = {
 };
 const episodeBrief = {
   actualSituation: "Hai bé đang kiểm túi đồ của Bố ngay trước giờ Bố đi làm.",
+  socialContext: {
+    domain: "family_home" as const,
+    interactionFrame: "direct_encounter" as const,
+    outsideRole: "không có",
+    friction: "Bố thường quên đồ ngay trước giờ đi làm.",
+    responseMode: "mixed" as const,
+  },
   characters: [
     {
       characterId: "a",
@@ -117,6 +124,14 @@ const episodeBrief = {
 };
 it("validates an episode brief against the selected cast", () => {
   expect(validateEpisodeBrief(episodeBrief, ["a", "b"])).toEqual(episodeBrief);
+  expect(() =>
+    validateEpisodeBrief(
+      episodeBrief,
+      ["a", "b"],
+      "family_home",
+      "reported_situation",
+    ),
+  ).toThrow("FAMILY_EPISODE_BRIEF_INVALID");
   expect(() =>
     validateEpisodeBrief(
       {
@@ -259,6 +274,16 @@ it("cannot pass when the story omits an explicit requested outcome", () => {
 });
 const candidates = ["A", "B", "C"].map((id, i) => ({
   id,
+  socialDomain: ([
+    "family_home",
+    "school",
+    "parents_workplace",
+  ] as const)[i],
+  interactionFrame: ([
+    "direct_encounter",
+    "reported_situation",
+    "advice_roleplay",
+  ] as const)[i],
   situation: [
     "Bố quên mang đồ đi làm",
     "Mẹ xin xem phim thêm chút",
@@ -307,6 +332,50 @@ it("validates exact distinct alternatives and selected cast", () => {
       ["a", "b"],
     ),
   ).toThrow("FAMILY_PREMISES_DUPLICATED");
+});
+it("requires broad domains for an open-ended premise request", () => {
+  expect(validatePremises({ candidates }, ["a", "b"], true)).toHaveLength(3);
+  expect(() =>
+    validatePremises(
+      {
+        candidates: candidates.map((candidate) => ({
+          ...candidate,
+          socialDomain: "family_home" as const,
+        })),
+      },
+      ["a", "b"],
+      true,
+    ),
+  ).toThrow("FAMILY_PREMISES_DOMAIN_NARROW");
+});
+it("keeps an external role explicit without changing the selected domain", () => {
+  expect(
+    validateEpisodeBrief(
+      {
+        ...episodeBrief,
+        socialContext: {
+          domain: "school" as const,
+          interactionFrame: "reported_situation" as const,
+          outsideRole: "cô giáo",
+          friction: "Mẹ kể lại nguyên văn lời góp ý trước lớp.",
+          responseMode: "polite_boundary" as const,
+        },
+        characters: [
+          episodeBrief.characters[0],
+          {
+            characterId: "guest-1",
+            want: "Muốn giải thích cách góp ý của mình.",
+            knows: "Biết lời mình đã nói trước lớp.",
+            relationship: "Cô giáo của bạn nhỏ.",
+            addressing: "Xưng cô, gọi học sinh là con.",
+          },
+        ],
+      },
+      ["a", "b"],
+      "school",
+      "reported_situation",
+    ).socialContext.outsideRole,
+  ).toBe("cô giáo");
 });
 it("cannot select a rejected or nonexistent premise, or invent its evidence", () => {
   expect(validateSelection(selection, candidates).selectedId).toBe("B");
