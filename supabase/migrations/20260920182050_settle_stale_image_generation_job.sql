@@ -1,4 +1,4 @@
--- Settle exactly one abandoned non-film image job under a row lock.  The old
+-- Settle exactly one abandoned non-film image job under a row lock. The old
 -- sweeper read output, refunded, then updated the job in three separate calls;
 -- a retry could race that gap and short-film image/TTS jobs also matched it.
 create or replace function public.settle_stale_image_generation_job(
