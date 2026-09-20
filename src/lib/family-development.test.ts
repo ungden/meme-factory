@@ -3,6 +3,7 @@ import {
   compactDevelopmentTrace,
   validatePremises,
   validateSelection,
+  validateEpisodeBrief,
   validateEditorialReview,
 } from "./family-development";
 import type { Story } from "./family-catalogue";
@@ -57,6 +58,19 @@ const review = {
     reason:
       "Bản diễn giữ tình huống kiểm đồ và đi tới đúng việc bố còn quên đồ.",
   },
+  payoffCheck: {
+    status: "grounded",
+    setupTurn: 1,
+    setupKind: "dialogue",
+    setupQuote: story.dialogue[0].text,
+    payoffTurn: 2,
+    payoffKind: "dialogue",
+    payoffQuote: story.dialogue[1].text,
+    explanation:
+      "Câu kiểm tra đồ ở lượt đầu được cụ thể hóa bằng món đồ thật sự bị quên ở lượt sau.",
+    shareReason:
+      "Cha mẹ từng bị con nhắc đồ sẽ nhận ra cảnh buổi sáng này.",
+  },
   watchability: {
     decision: "ready_for_user",
     formatOnly: false,
@@ -75,6 +89,85 @@ const review = {
     })),
   },
 };
+const episodeBrief = {
+  actualSituation: "Hai bé đang kiểm túi đồ của Bố ngay trước giờ Bố đi làm.",
+  characters: [
+    {
+      characterId: "a",
+      want: "Muốn Bố mang đủ đồ.",
+      knows: "Biết Bố thường quên bình nước.",
+      relationship: "Con đang nhắc Bố trước giờ đi làm.",
+      addressing: "Con gọi người lớn là Bố, tự xưng con.",
+    },
+    {
+      characterId: "b",
+      want: "Muốn việc chuẩn bị xong nhanh.",
+      knows: "Nhìn thấy bình nước còn ở cửa.",
+      relationship: "Người nhà cùng chuẩn bị buổi sáng.",
+      addressing: "Gọi người lớn là Bố và nói với chị bằng chị/em.",
+    },
+  ],
+  requiredElements: ["Bình nước còn nằm trước cửa."],
+  storyPayoff: {
+    initialReading: "Hai bé chỉ đang phụ Bố kiểm lại túi đồ.",
+    groundingDetail: "Bình nước của Bố vẫn nằm ngay trước cửa.",
+    reframedReading: "Hai bé mới là người phải lo Bố quên đồ như phụ huynh.",
+    shareReason: "Cha mẹ từng được con nhỏ nhắc đồ sẽ muốn gửi cho nhau.",
+  },
+};
+it("validates an episode brief against the selected cast", () => {
+  expect(validateEpisodeBrief(episodeBrief, ["a", "b"])).toEqual(episodeBrief);
+  expect(() =>
+    validateEpisodeBrief(
+      {
+        ...episodeBrief,
+        characters: [
+          episodeBrief.characters[0],
+          { ...episodeBrief.characters[1], characterId: "outside" },
+        ],
+      },
+      ["a", "b"],
+    ),
+  ).toThrow("FAMILY_EPISODE_BRIEF_INVALID");
+});
+it("requires grounded payoff evidence in the right order", () => {
+  expect(
+    validateEditorialReview(
+      {
+        ...review,
+        payoffCheck: { ...review.payoffCheck, status: "needs_revision" },
+      },
+      story,
+    ).passed,
+  ).toBe(false);
+  expect(() =>
+    validateEditorialReview(
+      {
+        ...review,
+        payoffCheck: {
+          ...review.payoffCheck,
+          setupTurn: 2,
+          setupQuote: story.dialogue[1].text,
+          payoffTurn: 1,
+          payoffQuote: story.dialogue[0].text,
+        },
+      },
+      story,
+    ),
+  ).toThrow("FAMILY_EDITORIAL_REVIEW_INVALID");
+  expect(() =>
+    validateEditorialReview(
+      {
+        ...review,
+        payoffCheck: {
+          ...review.payoffCheck,
+          payoffQuote: "Một câu không có trong bản diễn",
+        },
+      },
+      story,
+    ),
+  ).toThrow("FAMILY_EDITORIAL_REVIEW_INVALID");
+});
 it("does not equate no errors or passed=true with editorial acceptance", () => {
   const r = validateEditorialReview(
     {

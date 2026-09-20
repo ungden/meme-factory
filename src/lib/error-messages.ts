@@ -195,6 +195,10 @@ export const ERROR_MESSAGES: Record<string, string> = {
     "Mạch gây cười chưa đủ: thiếu điều bất ngờ, thiếu lần đẩy tới hoặc thiếu câu chốt cuối. Hãy cho AI viết lại.",
   STORY_COUNTERPLAY_INVALID:
     "Mạch đối đáp chưa bám vào lời vừa nghe hoặc chưa có điểm kết. Hãy sửa các lượt đáp thay vì thêm câu chốt rời.",
+  FAMILY_EPISODE_BRIEF_INVALID:
+    "Hồ sơ riêng của tập chưa đủ động cơ, hiểu biết, quan hệ hoặc căn cứ cho điểm kết.",
+  FAMILY_EDITORIAL_REVIEW_REQUIRED:
+    "Bản chữ cần đi qua tiêu chuẩn biên tập hiện tại trước khi lập phân cảnh.",
   STORY_LINE_ADULT_REGISTER:
     "Có lượt thoại nói bằng giọng công sở chứ không phải giọng trẻ con. Hãy cho AI viết lại câu đó.",
   STORY_SHOTS_MISSING: "Thiếu mô tả cảnh cho một số lượt thoại.",

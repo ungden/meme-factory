@@ -189,7 +189,7 @@ export function compilePerformanceDirection(direction: PerformanceDirection) {
     adult_format_parody: "parody format người lớn",
     literal_logic: "luật vô lý được theo đuổi nhất quán",
     physical_escalation: "leo thang hình thể an toàn",
-    verbal_counterplay: "đối đáp bám lời, giành lại thế chủ động",
+    verbal_counterplay: "đối đáp nghe đúng ý, làm cách hiểu hoặc tình thế đổi",
     cinematic_cool: "ngầu kiểu điện ảnh rồi bẻ bằng chi tiết trẻ con",
     cinematic_emotion: "cảm xúc điện ảnh tiết chế, có nguyên nhân",
   }[d.lane];

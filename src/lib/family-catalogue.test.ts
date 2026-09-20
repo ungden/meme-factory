@@ -172,7 +172,7 @@ describe("family catalogue", () => {
         profile,
         cast.map((item) => item.characterId),
       ),
-    ).toThrow("STORY_COUNTERPLAY_INVALID");
+    ).not.toThrow();
   });
   it("rejects a twenty-fifth reaction shot before purchasing or planning media", () => {
     const story = {

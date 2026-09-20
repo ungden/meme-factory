@@ -108,11 +108,33 @@ const selection = {
   reason: "A có thao tác kiểm túi và phản ứng của bố cụ thể hơn hai phương án còn lại",
   evaluations: candidates.map((c) => ({
     candidateId: c.id,
-    decision: c.id === "A" ? "develop" : "reject",
+    decision: (c.id === "A" ? "develop" : "reject") as
+      | "develop"
+      | "reject",
     strongestDetail: c.observedBehavior,
     weakness: c.risk,
     reason: "Đánh giá dựa vào các hành vi và đối đáp đã mô tả trong phương án",
   })),
+};
+const episodeBrief = {
+  actualSituation: "Hai bé đang kiểm túi đồ của Bố ngay trước giờ Bố đi làm.",
+  characters: story.wants.slice(0, 2).map((want, index) => ({
+    characterId: want.characterId,
+    want: want.want,
+    knows:
+      index === 0
+        ? "Biết Bố thường quên bình nước."
+        : "Nhìn thấy đôi giày của Bố còn ở cửa.",
+    relationship: "Con đang giúp Bố chuẩn bị đi làm.",
+    addressing: "Gọi người lớn là Bố và tự xưng con.",
+  })),
+  requiredElements: ["Hai bé kiểm túi đồ và nhìn đôi giày còn ở cửa."],
+  storyPayoff: {
+    initialReading: "Hai bé chỉ đang giúp Bố kiểm túi đồ.",
+    groundingDetail: "Bình nước và đôi giày của Bố vẫn còn ở cửa.",
+    reframedReading: "Hai bé mới là người đang lo Bố quên đồ như phụ huynh.",
+    shareReason: "Cha mẹ từng được con nhỏ nhắc đồ sẽ nhận ra cảnh này.",
+  },
 };
 const reviewFor = () => ({
   passed: true,
@@ -134,6 +156,18 @@ const reviewFor = () => ({
     status: "faithful",
     evidence: story.dialogue.at(-1)!.text,
     reason: "Giữ đúng ý tưởng người dùng.",
+  },
+  payoffCheck: {
+    status: "grounded",
+    setupTurn: 1,
+    setupKind: "dialogue",
+    setupQuote: story.dialogue[0].text,
+    payoffTurn: story.dialogue.length,
+    payoffKind: "dialogue",
+    payoffQuote: story.dialogue.at(-1)!.text,
+    explanation:
+      "Việc kiểm đồ ở đầu được lượt cuối phát huy thành việc hai bé phải lo Bố như phụ huynh.",
+    shareReason: "Cha mẹ từng được con nhắc đồ sẽ nhận ra cảnh buổi sáng này.",
   },
   watchability: {
     decision: "ready_for_user",
@@ -176,6 +210,7 @@ it("runs exactly one stage per call and resumes from the persisted snapshot", as
   calls.responses = [
     { candidates },
     selection,
+    episodeBrief,
     story,
     reviewFor(),
     ...shotResults(),
@@ -204,13 +239,39 @@ it("runs exactly one stage per call and resumes from the persisted snapshot", as
   expect(continued.done).toBe(true);
   expect(continued.finalResult?.kind).toBe("video_plan");
   expect(continued.finalResult?.story?.development?.stage).toBe("complete");
-  expect(calls.prompts).toHaveLength(4 + shotChunkGroups(plans[0].story).length);
+  expect(calls.prompts).toHaveLength(5 + shotChunkGroups(plans[0].story).length);
+});
+
+it("checkpoints the episode brief and reuses it when drafting resumes", async () => {
+  calls.responses = [
+    { candidates },
+    selection,
+    episodeBrief,
+    new Error("transport_down"),
+  ];
+  const director = new FamilyScriptDirector(input);
+  await director.runStage("premises", Date.now() + 90000);
+  await director.runStage("selection", Date.now() + 90000);
+  await expect(
+    director.runStage("draft", Date.now() + 90000),
+  ).rejects.toThrow("transport_down");
+  expect(director.pipelineState.episodeBrief).toEqual(episodeBrief);
+  expect(director.pipelineState.completedStages).not.toContain("draft");
+
+  calls.prompts = [];
+  calls.responses = [story];
+  const resumed = new FamilyScriptDirector(input);
+  resumed.restore(director.snapshot());
+  await resumed.runStage("draft", Date.now() + 90000);
+  expect(calls.prompts).toHaveLength(1);
+  expect(calls.prompts[0]).toContain("HỒ SƠ TẬP ĐÃ CHỐT");
+  expect(calls.prompts[0]).toContain(episodeBrief.storyPayoff.groundingDetail);
 });
 
 it("builds storyboards part by part and resumes from the saved parts", async () => {
   const parts = shotResults();
   expect(parts.length).toBeGreaterThan(1);
-  calls.responses = [{ candidates }, selection, story, reviewFor()];
+  calls.responses = [{ candidates }, selection, episodeBrief, story, reviewFor()];
   const director = new FamilyScriptDirector(input);
   for (const stage of ["premises", "selection", "draft", "review"] as const)
     await director.runStage(stage, Date.now() + 90000);
@@ -242,7 +303,7 @@ it("builds storyboards part by part and resumes from the saved parts", async () 
 });
 
 it("storyboards a wordless beat without inventing or dropping dialogue", async () => {
-  calls.responses = [{ candidates }, selection, story, reviewFor()];
+  calls.responses = [{ candidates }, selection, episodeBrief, story, reviewFor()];
   const director = new FamilyScriptDirector(input);
   for (const stage of ["premises", "selection", "draft", "review"] as const)
     await director.runStage(stage, Date.now() + 90000);
@@ -272,7 +333,7 @@ it("lets a user-written idea remake a recent story but guards AI-chosen topics",
   const recentContext = { ...input.context, recentStories: [story] };
   const run = async (intent: string | undefined) => {
     // Bản bị chặn được sửa một lần, nên cần thêm một phản hồi cho lượt sửa.
-    calls.responses = [{ candidates }, selection, story, story];
+    calls.responses = [{ candidates }, selection, episodeBrief, story, story];
     const director = new FamilyScriptDirector({ ...input, intent, context: recentContext });
     for (const stage of ["premises", "selection", "draft"] as const)
       await director.runStage(stage, Date.now() + 90000);
@@ -285,7 +346,7 @@ it("lets a user-written idea remake a recent story but guards AI-chosen topics",
 it("returns guests the user declared for the run when the story uses them", async () => {
   const guest = { key: "guest-ong-noi", name: "Ông nội", description: "Ông tóc bạc, áo sơ mi bạc màu", personality: "Trầm" };
   const withGuest = { ...input, guestCharacters: [guest] };
-  calls.responses = [{ candidates }, selection, story, reviewFor()];
+  calls.responses = [{ candidates }, selection, episodeBrief, story, reviewFor()];
   const director = new FamilyScriptDirector(withGuest);
   for (const stage of ["premises", "selection", "draft", "review"] as const)
     await director.runStage(stage, Date.now() + 90000);
@@ -312,7 +373,7 @@ it("folds a writer-declared copy of a user guest back onto the user's guest key"
     guests: [{ key: "guest-1", name: "Ông nội", description: "Ông tóc bạc khoảng 60 tuổi", personality: "" }],
     dialogue: story.dialogue.map((line, i) => (i === 1 ? { ...line, characterId: "guest-1" } : line)),
   };
-  calls.responses = [{ candidates }, selection, copied];
+  calls.responses = [{ candidates }, selection, episodeBrief, copied];
   const director = new FamilyScriptDirector({ ...input, guestCharacters: [guest] });
   for (const stage of ["premises", "selection", "draft"] as const)
     await director.runStage(stage, Date.now() + 90000);
@@ -358,6 +419,28 @@ it("orders the stage pipe and keeps an empty state resumable", () => {
   const director = new FamilyScriptDirector(input);
   director.restore(state);
   expect(director.pipelineState.completedStages).toEqual([]);
+});
+
+it("routes an old reviewed draft through the current editor before shots", () => {
+  const director = new FamilyScriptDirector(input);
+  director.restore({
+    ...emptyFamilyScriptState(),
+    benchmarkVersion: "family-editorial-6",
+    stage: "shots",
+    candidates,
+    selection,
+    story,
+    draftVersion: 1,
+    reviewPassed: true,
+    completedStages: ["premises", "selection", "draft", "review"],
+  });
+  expect(director.requiredStage("shots")).toBe("review");
+  expect(director.pipelineState.completedStages).toEqual([
+    "premises",
+    "selection",
+    "draft",
+  ]);
+  expect(director.pipelineState.episodeBrief).toBeUndefined();
 });
 
 it("switches to the fallback model when the provider rejects the request", async () => {

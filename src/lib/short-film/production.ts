@@ -305,7 +305,7 @@ async function advanceScriptStage(admin: SupabaseClient, run: Run) {
     .select("*")
     .eq("run_id", run.id)
     .maybeSingle();
-  const stage: FamilyScriptStageKind | "done" =
+  let stage: FamilyScriptStageKind | "done" =
     row?.stage === "done"
       ? "done"
       : row && FAMILY_SCRIPT_STAGES.includes(row.stage as FamilyScriptStageKind)
@@ -334,6 +334,7 @@ const directorInput = {
   director.restore(
     savedState.benchmarkVersion ? savedState : emptyFamilyScriptState(),
   );
+  if (stage !== "done") stage = director.requiredStage(stage);
 
   // Hết ngân sách thì mới hỏi người: một bước kẹt thật sự không được biến thành
   // vòng lặp gọi model vô tận.

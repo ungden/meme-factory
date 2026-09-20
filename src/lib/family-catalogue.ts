@@ -47,38 +47,6 @@ export const BEAT_FUNCTIONS = [
 export type BeatFunction = (typeof BEAT_FUNCTIONS)[number];
 
 /**
- * Trung vị số từ mỗi lượt thoại cho nhánh game hài ngắn.
- *
- * Trẻ 4–5 tuổi nói trung bình 4,5–5 từ một câu (chuẩn MLU trong ngôn ngữ trị
- * liệu), và bộ tham chiếu game trước đó có trung vị 4–8 từ. Hai tập AIDA gần nhất có
- * trung vị 14 và 15 — đó là câu của người lớn, và đó là lý do thoại nghe gượng.
- *
- * Chặn bằng TRUNG VỊ chứ không bằng trần mỗi câu: một câu dài làm cú chốt vẫn
- * được, cả kịch bản game toàn câu dài thì không. verbal_counterplay được miễn
- * luật này vì câu đáp cần giữ trọn tiền đề và tiểu từ tiếng Việt.
- */
-export const MAX_MEDIAN_LINE_WORDS = 8;
-/** Số lượt thoại tối thiểu cho một tập hài; tập cinematic được thưa hơn. */
-export const MIN_COMEDY_TURNS = 8;
-/** Số lần leo thang tối thiểu: dưới ba lần, khán giả chưa kịp thấy có luật chơi. */
-export const MIN_HEIGHTENS = 3;
-
-const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
-
-/** Trung vị số từ của các lượt CÓ LỜI; nhịp không lời không tính. */
-export function medianLineWords(lines: { text: string }[]): number {
-  const counts = lines
-    .map((line) => wordCount(String(line.text || "")))
-    .filter((n) => n > 0)
-    .sort((a, b) => a - b);
-  if (!counts.length) return 0;
-  const middle = Math.floor(counts.length / 2);
-  return counts.length % 2
-    ? counts[middle]
-    : (counts[middle - 1] + counts[middle]) / 2;
-}
-
-/**
  * Từ vựng công sở/hành chính mà trẻ mẫu giáo không bao giờ nói.
  *
  * Không cấm hẳn: một từ người lớn duy nhất giữa một câu trẻ con CHÍNH LÀ cú
@@ -486,7 +454,7 @@ export function validateStory(
     throw new Error(
       `STORY_LINE_TOO_LONG: lượt ${longLine + 1} dài khoảng ${spokenSeconds(
         s.dialogue[longLine].text,
-      )} giây, vượt trần ${MAX_LINE_SECONDS} giây của nhịp short-form. Tách thành hai lượt hoặc cắt bớt: “${s.dialogue[
+      )} giây, vượt trần ${MAX_LINE_SECONDS} giây của nhịp short-form. Rút gọn ý nói hoặc chuyển phần có thể nhìn thấy sang action; không tự chia thành hai người nói: “${s.dialogue[
         longLine
       ].text.slice(0, 60)}…”`,
     );
@@ -503,65 +471,11 @@ export function validateStory(
         jargonLine
       ].text.slice(0, 60)}…”`,
     );
-  // Đối đáp bám lời dùng câu Việt trọn ý, có tiểu từ và nhịp dài-ngắn như
-  // hội thoại thật. Ép median 8 từ làm câu bị bẻ vụn và cà giật.
-  const cinematic = genre === "emotion";
   const verbalCounterplay = s.performanceLane === "verbal_counterplay";
-  if (editorial && !cinematic) {
-    const median = medianLineWords(s.dialogue);
-    if (!verbalCounterplay && median > MAX_MEDIAN_LINE_WORDS)
-      throw new Error(
-        `STORY_LINES_TOO_ADULT: trung vị ${median} từ mỗi lượt, quá dài cho trẻ mẫu giáo (chuẩn 4–5 từ, trần ${MAX_MEDIAN_LINE_WORDS}). Tách câu dài thành nhiều lượt đối đáp ngắn thay vì rút gọn ý.`,
-      );
-    const spoken = s.dialogue.filter((d) => d.text?.trim()).length;
-    if (spoken < MIN_COMEDY_TURNS)
-      throw new Error(
-        `STORY_TOO_FEW_TURNS: mới ${spoken} lượt có lời, cần ít nhất ${MIN_COMEDY_TURNS}. Thêm lượt phản ứng (frame) và lượt giải thích lô-gíc (explore) giữa các lần leo thang; đừng kéo dài câu đã có.`,
-      );
-    const functions = s.dialogue.map((d) => d.beatFunction);
-    if (functions.every(Boolean)) {
-      const count = (name: BeatFunction) =>
-        functions.filter((f) => f === name).length;
-      const lastSpoken = s.dialogue.reduce(
-        (found, line, index) => (line.text?.trim() ? index : found),
-        -1,
-      );
-      if (verbalCounterplay) {
-        if (
-          !["social_probe", "base_reality"].includes(String(functions[0])) ||
-          count("counter") + count("reframe") < 3 ||
-          !["callback", "exit"].includes(String(functions[lastSpoken]))
-        )
-          throw new Error(
-            "STORY_COUNTERPLAY_INVALID: đối đáp cần mở bằng một va chạm xã hội, có ít nhất ba lượt đáp bám lời và kết bằng callback hoặc chủ động thoát cuộc nói chuyện.",
-          );
-      } else if (count("unusual_thing") !== 1)
-        throw new Error(
-          `STORY_GAME_INVALID: phải có đúng một lượt unusual_thing (đang có ${count("unusual_thing")}). Một tập chỉ chơi một luật.`,
-        );
-      if (!verbalCounterplay && count("heighten") < MIN_HEIGHTENS)
-        throw new Error(
-          `STORY_GAME_INVALID: mới ${count("heighten")} lần leo thang, cần ít nhất ${MIN_HEIGHTENS}; dưới ba lần khán giả chưa nhận ra có luật chơi.`,
-        );
-      // Button là câu chốt, nên nó là lượt CÓ LỜI cuối cùng. Một nhịp không lời
-      // sau đó (đứng hình, máy ảnh tách) vẫn là phản ứng của chính cú chốt ấy,
-      // không phải cú chốt thứ hai — bản nháp đầu tiên gắn button cho cả hai.
-      if (!verbalCounterplay && count("button") !== 1)
-        throw new Error(
-          `STORY_GAME_INVALID: phải có đúng một button (đang có ${count("button")}). Nhịp không lời kết thúc để beatFunction là explore hoặc frame, không phải button thứ hai.`,
-        );
-      if (!verbalCounterplay && functions[lastSpoken] !== "button")
-        throw new Error(
-          "STORY_GAME_INVALID: lượt có lời cuối cùng phải là button — câu chốt, cắt ngay sau đó, không có lời nào đi sau nó.",
-        );
-      const unusualAt = functions.indexOf("unusual_thing");
-      const earlyHeighten = functions.findIndex((f) => f === "heighten");
-      if (!verbalCounterplay && earlyHeighten >= 0 && earlyHeighten < unusualAt)
-        throw new Error(
-          "STORY_GAME_INVALID: có lượt leo thang trước khi điều lạ được nói ra; chưa có luật thì chưa đẩy được.",
-        );
-    }
-  }
+  // beatFunction remains part of the V2 wire shape for saved stories and shot
+  // direction. Editorial quality is decided from the actual dialogue/action;
+  // counts of heighten, counter or a mandated final label made characters talk
+  // only to satisfy the schema.
   if (s.dialogue.length + (reactionIndex >= 0 ? 1 : 0) > 24)
     throw new Error(
       "STORY_SHOT_LIMIT: tối đa 24 shot kể cả reaction; giữ đối đáp, bỏ reaction nếu không cần",
@@ -592,7 +506,7 @@ export function validateStory(
     (n, d) => n + d.text.trim().split(/\s+/).filter(Boolean).length,
     0,
   );
-  const maxWords = verbalCounterplay ? 180 : 120;
+  const maxWords = verbalCounterplay ? 180 : 160;
   if (words < 15 || words > maxWords)
     throw new Error(`STORY_WORDS_${words}: cần 15–${maxWords} đơn vị lời thoại`);
   if (

@@ -1,6 +1,6 @@
 import type { Story, FamilyEditorialIssue } from "./family-catalogue";
 
-export const FAMILY_BENCHMARK_VERSION = "family-editorial-6";
+export const FAMILY_BENCHMARK_VERSION = "family-editorial-7";
 /** User rejected these assistant-written demos; they are negative anchors, not templates. */
 export const FAMILY_EDITORIAL_BENCHMARK = `MẪU ĐỐI CHIẾU ${FAMILY_BENCHMARK_VERSION}:
 REF người dùng thích — phỏng vấn xe đồ chơi: mở nhận ra phỏng vấn chủ xe sang; tiếp xúc khách sáo, giới thiệu nghề, hỏi cụ thể và nói về người em lần lượt lộ cách nhân vật nhìn mình và tận dụng việc nhỏ trong gia đình. Không chỉ gọi đồ chơi bằng tên sang. Giữ thái độ thật với vai, câu hỏi dẫn có tác dụng. Học cách phát triển, không chép chuỗi hỏi/đáp.
@@ -13,6 +13,7 @@ BA DEMO NGƯỜI DÙNG ĐÃ LOẠI (không được xem là bản đạt):
 KIỂM TRA TRÁNH TỰ KHEN: Một tour nhà gối chỉ lần lượt đổi gối thành vật liệu nhập khẩu, bánh quy thành kho năng lượng, trùm chăn thành bảo mật vẫn có thể rất nhạt. MC hỏi tiện ích/an ninh, chủ nhà liệt kê, rồi thực hiện đúng tính năng vừa báo trước: không phải tự nhiên đã có diễn biến thú vị. Trích hai câu đặt tên hoa mỹ chưa chứng minh chất lượng. Cần thấy quan sát riêng về con người, cách đáp làm thay đổi cách hiểu hoặc tương tác, nét đời thường khiến vai diễn sống. Phỏng vấn được phép kể nhưng cách kể phải bộc lộ nhân vật, không chỉ kể thông tin.
 LỖI ĐIỂM DỪNG NGƯỜI DÙNG VỪA LOẠI: hai bé đã nói sẽ tự đi học và mẹ đang ngái ngủ chấp nhận — phép đảo vai đã hạ. Viết thêm việc hai bé không biết đường hoặc chỉ biết tên trường mở một vấn đề mới nhưng không phát triển/giải quyết nó. Đó là đuôi thừa, không phải kết chớt quớt hay cú chốt. Kết chớt quớt được phép khi câu cuối làm cái vô lý hoặc quan hệ vừa đủ rõ; không cần kết có hậu, giải quyết hậu quả, thêm bài học hay thêm một trò đùa nữa.
 LỖI NGÔI NÓI VỪA BẮT Ở CANARY: Đậu Đỏ nói với chị “Thôi hai đứa tự đi...” nghe như người lớn đang nói về hai bé khác. Trong quan hệ thật, em nói “chị em mình/tụi mình tự đi”; nói với bố mẹ mới là “tụi con”. Bản đúng ý và đúng điểm dừng vẫn không đạt nếu đại từ làm lộ giọng tác giả hoặc giọng dịch.
+LỖI ĐẠO LÝ GƯỢNG NGƯỜI DÙNG VỪA LOẠI: Bố đã nói làm việc để mua đồ chơi, con nói “tối nay không mua lại được”, rồi Bố hỏi “Sao tối nay lại hết được?” chỉ để con giảng giải điều người lớn đương nhiên hiểu. Sau khi Bố đã gập máy, câu “nhưng hết chỗ rồi bố” lại mở một trở ngại giả, còn câu “Gấu bông bảo nó bận kiếm tiền” bắt khán giả giải mã trò của tác giả. Muốn trẻ nói một điều khiến người lớn nghĩ lại, hãy gieo một việc nhỏ cụ thể, để người lớn tự nhận ra và đổi hành động; đừng làm người lớn ngớ ngẩn hoặc nối thêm punchline sau khi chuyện đã hạ.
 Đừng biến các bản yếu thành danh sách cấm chủ đề. Cùng chủ đề có thể viết tốt bằng hành vi, quan hệ và cách phát triển khác. Không đổi vài danh từ trong các demo này rồi coi là phương án mới. So chất lượng diễn biến với ref và điểm yếu với demo, không chấm chỉ theo tên cơ chế. Không hứa điểm hài/retention bằng con số.`;
 
 export type PremiseCandidate = {
@@ -36,6 +37,24 @@ export type PremiseSelection = {
     reason: string;
   }[];
 };
+export type StoryPayoff = {
+  initialReading: string;
+  groundingDetail: string;
+  reframedReading: string;
+  shareReason: string;
+};
+export type EpisodeBrief = {
+  actualSituation: string;
+  characters: Array<{
+    characterId: string;
+    want: string;
+    knows: string;
+    relationship: string;
+    addressing: string;
+  }>;
+  requiredElements: string[];
+  storyPayoff: StoryPayoff;
+};
 export type Watchability = {
   decision: "ready_for_user" | "revise" | "reject";
   reason: string;
@@ -48,6 +67,17 @@ export type Watchability = {
     quote: string;
     why: string;
   }[];
+};
+export type PayoffCheck = {
+  status: "grounded" | "needs_revision";
+  setupTurn: number;
+  setupKind: "dialogue" | "action";
+  setupQuote: string;
+  payoffTurn: number;
+  payoffKind: "dialogue" | "action";
+  payoffQuote: string;
+  explanation: string;
+  shareReason: string;
 };
 export type EditorialReview = {
   passed: boolean;
@@ -70,12 +100,16 @@ export type EditorialReview = {
     evidence: string;
     reason: string;
   };
+  payoffCheck: PayoffCheck;
   watchability: Watchability;
 };
 export type FamilyDevelopmentTrace = {
   benchmarkVersion: string;
+  writingPolicyVersion?: string;
+  reviewedWithBenchmarkVersion?: string;
   stage: "premises" | "selection" | "draft" | "review" | "shots" | "complete";
   candidates: PremiseCandidate[];
+  episodeBrief?: EpisodeBrief;
   validationFailures?: { stage: string; error: string; response: unknown }[];
   selection?: PremiseSelection;
   drafts: {
@@ -164,6 +198,33 @@ export const selectionSchema = object({
     }),
   },
 });
+export const episodeBriefSchema = object({
+  actualSituation: string,
+  characters: {
+    type: "array",
+    minItems: 2,
+    maxItems: 4,
+    items: object({
+      characterId: string,
+      want: string,
+      knows: string,
+      relationship: string,
+      addressing: string,
+    }),
+  },
+  requiredElements: {
+    type: "array",
+    minItems: 0,
+    maxItems: 8,
+    items: string,
+  },
+  storyPayoff: object({
+    initialReading: string,
+    groundingDetail: string,
+    reframedReading: string,
+    shareReason: string,
+  }),
+});
 export const editorialReviewSchema = object({
   evidence: object(
     Object.fromEntries(editorialEvidenceKeys.map((k) => [k, string])),
@@ -195,6 +256,17 @@ export const editorialReviewSchema = object({
       description: 'Mỗi cảnh ý tưởng yêu cầu một câu trích nguyên văn trong ngoặc kép: Cảnh 1: "…"; Cảnh 2: "…".',
     },
     reason: string,
+  }),
+  payoffCheck: object({
+    status: { type: "string", enum: ["grounded", "needs_revision"] },
+    setupTurn: { type: "integer", minimum: 1 },
+    setupKind: { type: "string", enum: ["dialogue", "action"] },
+    setupQuote: string,
+    payoffTurn: { type: "integer", minimum: 1 },
+    payoffKind: { type: "string", enum: ["dialogue", "action"] },
+    payoffQuote: string,
+    explanation: string,
+    shareReason: string,
   }),
   watchability: object({
     decision: { type: "string", enum: ["ready_for_user", "revise", "reject"] },
@@ -374,6 +446,43 @@ export function validateSelection(
     throw new Error("FAMILY_SELECTION_INVALID");
   return s;
 }
+export function validateEpisodeBrief(
+  value: unknown,
+  ids: string[],
+): EpisodeBrief {
+  const brief = value as EpisodeBrief;
+  const payoff = brief?.storyPayoff;
+  if (
+    !brief ||
+    !hasText(brief.actualSituation) ||
+    !Array.isArray(brief.characters) ||
+    brief.characters.length < 2 ||
+    brief.characters.length > 4 ||
+    new Set(brief.characters.map((item) => item?.characterId)).size !==
+      brief.characters.length ||
+    brief.characters.some(
+      (item) =>
+        !item ||
+        !ids.includes(item.characterId) ||
+        !hasText(item.want, 2) ||
+        !hasText(item.knows, 2) ||
+        !hasText(item.relationship, 2) ||
+        !hasText(item.addressing, 2),
+    ) ||
+    !Array.isArray(brief.requiredElements) ||
+    brief.requiredElements.length > 8 ||
+    !brief.requiredElements.every((item) => hasText(item, 2)) ||
+    !payoff ||
+    ![
+      payoff.initialReading,
+      payoff.groundingDetail,
+      payoff.reframedReading,
+      payoff.shareReason,
+    ].every((item) => hasText(item))
+  )
+    throw new Error("FAMILY_EPISODE_BRIEF_INVALID");
+  return brief;
+}
 export function validateEditorialReview(
   value: unknown,
   story: Story,
@@ -435,6 +544,7 @@ export function validateEditorialReview(
   const ending = r.endingCheck;
   const speech = r.speechCheck;
   const intent = r.intentCheck;
+  const payoff = r.payoffCheck;
   const storyEvidence = [
     story.setup,
     story.payoff,
@@ -454,6 +564,8 @@ export function validateEditorialReview(
     throw new Error(
       "FAMILY_EDITORIAL_REVIEW_INVALID: intentCheck.evidence phải trích nguyên văn từ bản diễn; nếu chi tiết yêu cầu chưa xảy ra, đặt status=needs_revision và trích câu/hành động thực tế",
     );
+  const payoffSetup = story.dialogue[payoff?.setupTurn - 1];
+  const payoffResult = story.dialogue[payoff?.payoffTurn - 1];
   if (
     !ending ||
     !["clean_stop", "forced_tail", "unfinished"].includes(ending.status) ||
@@ -480,6 +592,25 @@ export function validateEditorialReview(
     !hasText(intent.evidence, 2) ||
     !hasText(intent.reason, 15) ||
     (intentEvidence !== "" && !groundedEvidence(String(intentEvidence), storyEvidence)) ||
+    !payoff ||
+    !["grounded", "needs_revision"].includes(payoff.status) ||
+    !Number.isInteger(payoff.setupTurn) ||
+    !Number.isInteger(payoff.payoffTurn) ||
+    payoff.setupTurn >= payoff.payoffTurn ||
+    !payoffSetup ||
+    !payoffResult ||
+    !["dialogue", "action"].includes(payoff.setupKind) ||
+    !["dialogue", "action"].includes(payoff.payoffKind) ||
+    !hasText(payoff.setupQuote, 2) ||
+    !hasText(payoff.payoffQuote, 2) ||
+    !(payoff.setupKind === "dialogue" ? payoffSetup.text : payoffSetup.action).includes(
+      payoff.setupQuote,
+    ) ||
+    !(payoff.payoffKind === "dialogue" ? payoffResult.text : payoffResult.action).includes(
+      payoff.payoffQuote,
+    ) ||
+    !hasText(payoff.explanation, 15) ||
+    !hasText(payoff.shareReason, 12) ||
     !w ||
     !["ready_for_user", "revise", "reject"].includes(w.decision) ||
     !hasText(w.reason, 15) ||
@@ -515,9 +646,13 @@ export function validateEditorialReview(
     ending.lastNecessaryLine === story.dialogue.length;
   const speechIsNatural = speech.status === "natural";
   const intentIsFaithful = intent.status === "faithful";
+  const payoffIsGrounded = payoff.status === "grounded";
   const decision = w.formatOnly
     ? "reject"
-    : (!endingIsClean || !speechIsNatural || !intentIsFaithful) &&
+    : (!endingIsClean ||
+          !speechIsNatural ||
+          !intentIsFaithful ||
+          !payoffIsGrounded) &&
         w.decision === "ready_for_user"
       ? "revise"
       : w.decision;
@@ -528,6 +663,7 @@ export function validateEditorialReview(
       endingIsClean &&
       speechIsNatural &&
       intentIsFaithful &&
+      payoffIsGrounded &&
       !w.formatOnly &&
       r.issues.length === 0 &&
       decision === "ready_for_user",

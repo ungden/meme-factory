@@ -160,6 +160,26 @@ const selection = {
     reason: "Đánh giá dựa vào các hành vi và đối đáp đã mô tả trong phương án",
   })),
 };
+const episodeBrief = {
+  actualSituation: "Hai bé đang kiểm túi đồ của Bố ngay trước giờ Bố đi làm.",
+  characters: plans[0].story.wants.slice(0, 2).map((want, index) => ({
+    characterId: want.characterId,
+    want: want.want,
+    knows:
+      index === 0
+        ? "Biết Bố thường quên bình nước."
+        : "Nhìn thấy đôi giày của Bố còn ở cửa.",
+    relationship: "Con đang giúp Bố chuẩn bị đi làm.",
+    addressing: "Gọi người lớn là Bố và tự xưng con.",
+  })),
+  requiredElements: ["Hai bé kiểm đồ và nhìn đôi giày còn ở cửa."],
+  storyPayoff: {
+    initialReading: "Hai bé chỉ đang phụ Bố kiểm túi đồ.",
+    groundingDetail: "Bình nước và đôi giày của Bố vẫn còn ở cửa.",
+    reframedReading: "Hai bé mới là người đang lo Bố quên đồ như phụ huynh.",
+    shareReason: "Cha mẹ từng được con nhỏ nhắc đồ sẽ nhận ra cảnh này.",
+  },
+};
 const reviewFor = (story = plans[0].story, decision = "ready_for_user") => ({
   passed: decision === "ready_for_user",
   evidence,
@@ -183,6 +203,20 @@ const reviewFor = (story = plans[0].story, decision = "ready_for_user") => ({
     reason:
       "Bản diễn giữ đầy đủ tình huống và đi tới đúng kết quả mà ý tưởng yêu cầu.",
   },
+  payoffCheck: {
+    status: "grounded",
+    setupTurn: 1,
+    setupKind: story.dialogue[0].text ? "dialogue" : "action",
+    setupQuote: story.dialogue[0].text || story.dialogue[0].action,
+    payoffTurn: story.dialogue.length,
+    payoffKind: story.dialogue.at(-1)!.text ? "dialogue" : "action",
+    payoffQuote:
+      story.dialogue.at(-1)!.text || story.dialogue.at(-1)!.action,
+    explanation:
+      "Chi tiết ở lượt đầu được lượt cuối phát huy để người xem hiểu lại quan hệ trong cảnh.",
+    shareReason:
+      "Người từng được một đứa trẻ nhắc việc sẽ nhận ra trải nghiệm gia đình này.",
+  },
   watchability: {
     decision,
     formatOnly: false,
@@ -203,7 +237,12 @@ const reviewFor = (story = plans[0].story, decision = "ready_for_user") => ({
   },
 });
 const queue = (...afterSelection: unknown[]) => {
-  calls.responses = [{ candidates }, selection, ...afterSelection];
+  calls.responses = [
+    { candidates },
+    selection,
+    episodeBrief,
+    ...afterSelection,
+  ];
 };
 beforeEach(() => {
   calls.prompts = [];
@@ -226,11 +265,18 @@ it("records all alternatives and comparison, then freezes reviewed dialogue into
       checkpoints.push(t);
     },
   });
-  expect(calls.prompts).toHaveLength(4 + SHOT_CALLS);
+  expect(calls.prompts).toHaveLength(5 + SHOT_CALLS);
   if (result.kind !== "video_plan") throw Error("Wrong kind");
   expect(result.story?.profileVersion).toBe(11);
   expect(result.story?.development?.candidates).toHaveLength(3);
   expect(result.story?.development?.selection?.selectedId).toBe("A");
+  expect(result.story?.development?.episodeBrief).toEqual(episodeBrief);
+  expect(result.story?.development?.writingPolicyVersion).toBe(
+    "family-dialogue-18",
+  );
+  expect(result.story?.development?.reviewedWithBenchmarkVersion).toBe(
+    "family-editorial-7",
+  );
   expect(result.story?.development?.stage).toBe("complete");
   expect(result.story?.development?.drafts).toHaveLength(1);
   expect(
@@ -241,7 +287,10 @@ it("records all alternatives and comparison, then freezes reviewed dialogue into
   ).toEqual(plans[0].story.dialogue.map((d) => d.text));
   expect(checkpoints.length).toBeGreaterThan(3);
   // Reviewer must not see the author's labels or the premise winner as an endorsement.
-  expect(calls.prompts[3]).not.toContain('"selectedId":"A"');
+  expect(calls.prompts[4]).not.toContain('"selectedId":"A"');
+  expect(calls.prompts[4]).not.toContain(
+    episodeBrief.storyPayoff.reframedReading,
+  );
 });
 it("stops before drafting when no premise merits development and retains the comparison", async () => {
   calls.responses = [
@@ -278,8 +327,8 @@ it("rejects a structurally valid but dull script without inventing a structural 
         checkpoints.push(t);
       },
     }),
-  ).rejects.toThrow("FAMILY_EDITORIAL_NEEDS_REVIEW");
-  expect(calls.prompts).toHaveLength(4);
+  ).rejects.toThrow("FAMILY_PREMISES_NEED_REVIEW");
+  expect(calls.prompts).toHaveLength(5);
   expect(checkpoints.at(-1)).toMatchObject({
     stage: "review",
     drafts: [{ review: { issues: [], watchability: { decision: "reject" } } }],
@@ -307,7 +356,7 @@ it("revises only after a concrete review, preserving both drafts", async () => {
   expect(
     result.kind === "video_plan" && result.story?.development?.drafts,
   ).toHaveLength(2);
-  expect(calls.prompts).toHaveLength(6 + SHOT_CALLS);
+  expect(calls.prompts).toHaveLength(7 + SHOT_CALLS);
 });
 it("removes a forced spoken tail instead of inventing another ending", async () => {
   const forcedTail = {
@@ -356,7 +405,7 @@ it("removes a forced spoken tail instead of inventing another ending", async () 
   expect(
     result.scenes.map((scene) => scene.dialogue).filter(Boolean),
   ).not.toContain("Nhưng chị chỉ biết tên trường thôi.");
-  expect(calls.prompts[4]).toContain("cắt từ sau lastNecessaryLine");
+  expect(calls.prompts[5]).toContain("cắt từ sau lastNecessaryLine");
 });
 it("does not continue an unproductive revision loop", async () => {
   queue(
@@ -368,7 +417,7 @@ it("does not continue an unproductive revision loop", async () => {
   await expect(generateCreativeAssist(input)).rejects.toThrow(
     "FAMILY_EDITORIAL_NEEDS_REVIEW",
   );
-  expect(calls.prompts).toHaveLength(6);
+  expect(calls.prompts).toHaveLength(7);
 });
 it("retains reviewed work when checkpoint storage fails before shot planning", async () => {
   queue(plans[0].story, reviewFor(), ...shotResults(plans[0]));
@@ -379,7 +428,7 @@ it("retains reviewed work when checkpoint storage fails before shot planning", a
       },
     }),
   ).rejects.toThrow("storage down");
-  expect(calls.prompts).toHaveLength(4);
+  expect(calls.prompts).toHaveLength(5);
 });
 it("normalizes provider durations without altering the editorial timing or exact speakers", async () => {
   queue(
@@ -439,6 +488,7 @@ it("limits malformed response repair per call and never drops invalid shots", as
     {},
     { candidates },
     selection,
+    episodeBrief,
     plans[0].story,
     reviewFor(),
     bad[0],
@@ -447,7 +497,7 @@ it("limits malformed response repair per call and never drops invalid shots", as
   // Mỗi lời gọi có một lượt sửa riêng: phần storyboard hỏng được sửa đúng một
   // lần rồi dừng, không bỏ qua panel hỏng.
   await expect(generateCreativeAssist(input)).rejects.toThrow("INVALID");
-  expect(calls.prompts).toHaveLength(7);
+  expect(calls.prompts).toHaveLength(8);
 });
 it("preserves a sibling-only staged parody without inventing a parent or final reaction", async () => {
   const story = {
@@ -515,7 +565,7 @@ it("keeps the general idea assist single-call and preserves identities", async (
   ];
   await generateCreativeAssist({ ...input, kind: "idea_suggestions" });
   expect(calls.prompts).toHaveLength(1);
-  expect(calls.prompts[0]).toContain("family-dialogue-17");
+  expect(calls.prompts[0]).toContain("family-dialogue-18");
 });
 it("compiles listener reactions without inventing extra dialogue", () => {
   const story = {
@@ -585,7 +635,7 @@ it("stops at the time budget with the current draft checkpoint intact", async ()
         },
       }),
     ).rejects.toThrow("FAMILY_WRITING_TIMEOUT");
-    expect(calls.prompts).toHaveLength(3);
+    expect(calls.prompts).toHaveLength(4);
     expect(saved?.stage).toBe("review");
     expect(saved?.drafts).toHaveLength(1);
   } finally {
@@ -598,13 +648,14 @@ it("repairs malformed JSON once but does not retry transport failures", async ()
     new SyntaxError("Unexpected token"),
     { candidates },
     selection,
+    episodeBrief,
     plans[0].story,
     reviewFor(),
     ...shotResults(plans[0]),
   ];
   const result = await generateCreativeAssist(input);
   expect(result.kind).toBe("video_plan");
-  expect(calls.prompts).toHaveLength(5 + SHOT_CALLS);
+  expect(calls.prompts).toHaveLength(6 + SHOT_CALLS);
   calls.prompts = [];
   calls.responses = [new Error("connection closed")];
   await expect(generateCreativeAssist(input)).rejects.toThrow(
