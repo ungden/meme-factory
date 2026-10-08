@@ -17,6 +17,12 @@ end $$;
 alter table public.short_film_automation_settings
   add constraint short_film_automation_films_per_day check (films_per_day between 1 and 6);
 
+-- Ràng buộc cũ "một lượt lên lịch mỗi ngày" chặn phim thứ hai. Chống trùng nay
+-- dựa vào khoá idempotency theo thứ tự phim trong ngày và dòng lịch bị khoá
+-- (for update) trong lúc xếp.
+alter table public.short_film_production_runs
+  drop constraint if exists short_film_production_runs_project_id_scheduler_date_key;
+
 create or replace function public.schedule_due_film_automations() returns integer
 language plpgsql set search_path=public as $$
 declare s short_film_automation_settings; local_day date; chosen uuid; chosen_version integer; rid uuid; n integer:=0; selected_model text; done_today integer;
