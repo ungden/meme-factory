@@ -48,3 +48,75 @@ export function nativeSampleWindow(
     outSeconds: Math.round(outSeconds * 100) / 100,
   };
 }
+
+type SampleScene = {
+  id: string;
+  storyboard?: {
+    durationSeconds: number;
+    beats: Array<{ speakerCharacterId: string | null; dialogue: string; startSeconds: number; endSeconds: number }>;
+  } | null;
+};
+type SampleTask = {
+  id: string;
+  kind: string;
+  scene_id: string | null;
+  status: string;
+  created_at: string;
+  approved_at?: string | null;
+  auto_accepted_at?: string | null;
+  input?: { audioMode?: string } | null;
+};
+
+/**
+ * Chọn giọng chuẩn cho từng bé từ phim vừa quay, không hỏi ai.
+ *
+ * Lấy đoạn một người nói liền mạch dài nhất (gộp các nhịp liền nhau của cùng
+ * người) trong clip tự nói đã qua kiểm tra. Đoạn dài cho model nghe đủ âm sắc;
+ * chỉ một người nói để giọng mẫu không lẫn giọng người khác.
+ */
+export function pickNativeVoiceSamples(
+  scenes: SampleScene[],
+  tasks: SampleTask[],
+  eligibleCharacterIds: string[],
+): Array<{ characterId: string; sourceTaskId: string; inSeconds: number; outSeconds: number }> {
+  const best = new Map<string, { characterId: string; sourceTaskId: string; inSeconds: number; outSeconds: number }>();
+  for (const scene of scenes) {
+    const board = scene.storyboard;
+    if (!board) continue;
+    const clip = tasks
+      .filter(
+        (task) =>
+          task.scene_id === scene.id &&
+          task.kind === "video" &&
+          task.status === "completed" &&
+          task.input?.audioMode === "native" &&
+          Boolean(task.approved_at || task.auto_accepted_at),
+      )
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+    if (!clip) continue;
+    for (let i = 0; i < board.beats.length; ) {
+      const speaker = board.beats[i].speakerCharacterId;
+      let j = i;
+      while (j + 1 < board.beats.length && board.beats[j + 1].speakerCharacterId === speaker) j += 1;
+      const spoken = board.beats.slice(i, j + 1).some((beat) => beat.dialogue.trim());
+      if (speaker && spoken && eligibleCharacterIds.includes(speaker)) {
+        const inSeconds = board.beats[i].startSeconds;
+        const outSeconds = Math.min(board.beats[j].endSeconds, inSeconds + NATIVE_SAMPLE_MAX_SECONDS, board.durationSeconds);
+        const length = outSeconds - inSeconds;
+        const current = best.get(speaker);
+        if (
+          length >= NATIVE_SAMPLE_MIN_SECONDS &&
+          (!current || length > current.outSeconds - current.inSeconds)
+        )
+          best.set(speaker, {
+            characterId: speaker,
+            sourceTaskId: clip.id,
+            inSeconds: Math.round(inSeconds * 100) / 100,
+            outSeconds: Math.round(outSeconds * 100) / 100,
+          });
+      }
+      i = j + 1;
+    }
+  }
+  return [...best.values()];
+}
