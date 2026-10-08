@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { access, fail, FilmError } from "@/lib/short-film/server";
-import { fixedVoiceEnabled } from "@/lib/short-film/features";
 import {
-  defaultAudioMode,
-  nativeSpeechSupported,
-  seedanceReferenceModel,
-} from "@/lib/video-models";
+  defaultFilmAudioMode,
+  fixedVoiceEnabled,
+  nativeSpeechAllowed,
+} from "@/lib/short-film/features";
+import { seedanceReferenceModel } from "@/lib/video-models";
 
 export async function GET(
   request: NextRequest,
@@ -66,7 +66,7 @@ export async function PUT(
       queuedPlans = data || [];
       if (
         queuedPlans.some(
-          (plan) => plan.audio_mode === "native" && !nativeSpeechSupported(plan.video_model),
+          (plan) => plan.audio_mode === "native" && !nativeSpeechAllowed(a.project.id, plan.video_model),
         )
       )
         throw new FilmError(
@@ -100,7 +100,7 @@ export async function PUT(
           duration: 35,
           format: "16:9",
           resolution: "720p",
-          audioMode: defaultAudioMode(body.videoModel),
+          audioMode: defaultFilmAudioMode(a.project.id, body.videoModel),
           subtitles: true,
           videoModel: seedanceReferenceModel(body.videoModel),
         },

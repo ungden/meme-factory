@@ -261,6 +261,19 @@ export type FilmCast = {
     settings: Record<string, unknown>;
     source?: "approved" | "auto_guest";
   };
+  /**
+   * Giọng mẫu cho Seedance 2.5 tự nói. Tách khỏi `voice` vì nhánh lồng tiếng
+   * vẫn cần giọng TTS: nếu giọng mẫu thành bản duyệt mới nhất trong `voice`,
+   * clip dự phòng lồng tiếng sẽ gọi TTS với một giọng không tồn tại.
+   */
+  nativeVoice?: {
+    id: string;
+    voice_id: string;
+    model: string;
+    settings: Record<string, unknown>;
+  };
+  /** Trang phục riêng của tập này; ảnh thân trong referenceImages đã mặc nó. */
+  episodeOutfit?: string;
 };
 export type FilmPlan = {
   id: string;
@@ -478,7 +491,10 @@ export const NATIVE_VOICE_MODEL = "seedance-native";
 export type NativeVoiceSample = {
   characterId: string;
   name: string;
-  source: { url: string } | { path: string };
+  source:
+    | { url: string }
+    | { path: string }
+    | { taskId: string; inSeconds: number; outSeconds: number };
   seconds: number;
 };
 
@@ -494,19 +510,24 @@ export function nativeVoiceSamples(
   const samples: NativeVoiceSample[] = [];
   let total = 0;
   for (const cast of scene.cast_snapshot) {
-    if (!speakers.has(cast.characterId) || cast.voice?.model !== NATIVE_VOICE_MODEL) continue;
-    const settings = cast.voice.settings || {};
+    if (!speakers.has(cast.characterId) || cast.nativeVoice?.model !== NATIVE_VOICE_MODEL) continue;
+    const settings = cast.nativeVoice.settings || {};
     const url = typeof settings.sampleUrl === "string" ? settings.sampleUrl : "";
     const path = typeof settings.samplePath === "string" ? settings.samplePath : "";
-    const seconds = Number(settings.sampleSeconds);
-    if ((!/^https:\/\//i.test(url) && !path) || !Number.isFinite(seconds) || seconds <= 0) continue;
+    const taskId = typeof settings.sourceTaskId === "string" ? settings.sourceTaskId : "";
+    const inSeconds = Number(settings.inSeconds);
+    const outSeconds = Number(settings.outSeconds);
+    const fromClip = Boolean(taskId) && Number.isFinite(inSeconds) && outSeconds > inSeconds;
+    const seconds = fromClip ? outSeconds - inSeconds : Number(settings.sampleSeconds);
+    if ((!fromClip && !/^https:\/\//i.test(url) && !path) || !Number.isFinite(seconds) || seconds <= 0)
+      continue;
     // Bỏ giọng vượt trần thay vì hỏng cả clip: người nói đó vẫn được tả bằng chữ.
     if (total + seconds > maxSeconds) continue;
     total += seconds;
     samples.push({
       characterId: cast.characterId,
       name: cast.name,
-      source: path ? { path } : { url },
+      source: fromClip ? { taskId, inSeconds, outSeconds } : path ? { path } : { url },
       seconds,
     });
   }
@@ -526,7 +547,9 @@ function nativeVoiceLine(
     .filter((cast) => speakerIds.has(cast.characterId))
     .map((cast) => {
       const sample = samples.findIndex((item) => item.characterId === cast.characterId);
-      const direction = String(cast.voice?.settings?.direction || "").trim();
+      const direction = String(
+        cast.nativeVoice?.settings?.direction || cast.voice?.settings?.direction || "",
+      ).trim();
       const who = String(cast.description || "").split(/[,.]/u)[0].trim();
       const voice = direction || `giọng thật đúng tuổi và giới của ${who || cast.name}`;
       return `${cast.name}: ${sample >= 0 ? `giọng y hệt @audio${sample + 1}; ` : ""}${voice}`;
@@ -597,7 +620,7 @@ export function compileFilmMotion(
       `REFERENCE PACK: ${referenceBindings.join(" ")} Dùng đúng vai trò đã gắn cho từng @image; không trộn mặt, trang phục, đạo cụ hoặc bối cảnh giữa các ảnh. Storyboard tổng chỉ để duyệt và không nằm trong input provider.`,
       // Mô tả cắt ngắn: nhận diện đã do ảnh chuẩn khoá, và tài liệu Seedance nói
       // ảnh tham chiếu thắng chữ khi hai bên nói khác nhau về ngoại hình.
-      `CAST: ${scene.cast_snapshot.map((c) => `${c.name}: ${String(c.description || "").split(/[,.]/u).slice(0, 2).join(",").trim()}`).join("; ")}. Không trộn người giữa các lượt.`,
+      `CAST: ${scene.cast_snapshot.map((c) => `${c.name}: ${String(c.description || "").split(/[,.]/u).slice(0, 2).join(",").trim()}${c.episodeOutfit ? `, tập này mặc ${c.episodeOutfit}` : ""}`).join("; ")}. Không trộn người giữa các lượt.`,
       REALTIME_MOTION_DIRECTION,
       ...(performance ? [`ACTING INTENT: ${performance.comicObjective}. HOOK 0–1s: ${performance.hook}. END CUE: ${performance.revealOrCut}. Các hành vi cụ thể nằm trong timeline dưới đây; không diễn lại thành chuỗi thứ hai.`] : []),
       hopsLocation

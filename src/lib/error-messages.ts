@@ -229,6 +229,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
     "Kiểu diễn của tập không hợp lệ. Hãy cho AI viết lại.",
   STORY_FILM_FORMAT_INVALID:
     "Cách quay của tập không hợp lệ. Hãy cho AI viết lại.",
+  STORY_WARDROBE_INVALID:
+    "Trang phục riêng của tập không hợp lệ. Hãy cho AI viết lại.",
   STORY_FILM_FORMAT_GENRE:
     "Tập cảm động không quay kiểu bé nói với máy hay bé đầu bếp. Hãy cho AI viết lại.",
   STORY_REPEATED_COMBINATION:

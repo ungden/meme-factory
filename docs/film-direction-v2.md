@@ -131,27 +131,32 @@ Theo CLAUDE.md, chạy thật một tập trước khi đổi pipeline:
 
 ## 4. Trạng thái (08/10/2026)
 
-Đã làm (chưa commit, chưa deploy):
+Đã làm:
 
-- `src/lib/film-camera-language.ts`: 13 preset máy + `free`, 4 định dạng, luật
-  viết theo định dạng, khối LOOK.
-- Người viết chọn `filmFormat`; đạo diễn storyboard chọn `cameraPreset` từng
-  panel; storyboard mang `filmFormat` và `setting` theo nhịp.
-- Prompt Seedance: LOOK theo định dạng, jump cut đổi nơi, nhìn ống kính. Ảnh
-  cảnh tham chiếu cũng nhận LOOK (Seedance bám ảnh cảnh hơn chữ).
-- Âm thanh: 2.5 mặc định native, 2.0 Fast mặc định lồng tiếng; native trên 2.5
-  không còn bị chặn. Khối AUDIO native: mô tả giọng từng người nói, không nhạc
-  nền. Giọng mẫu: `character_voice_versions.model = 'seedance-native'`,
-  `settings = { samplePath | sampleUrl, sampleSeconds, direction }` → worker ký
-  và gửi `reference_audios`.
-- Hồ sơ kênh gia đình v12 với look `family-phone-real-v2`; script cài bộ ảnh
-  v2 (`scripts/install-family-photoreal-assets.cjs`) đẩy mặt/thân/lưng với đủ
-  vai trò.
+- `src/lib/film-camera-language.ts`: 16 preset máy + `free`, 4 định dạng, luật
+  viết theo định dạng, `COMEDY_CRAFT_RULES` (trang phục, bối cảnh, lời, diễn —
+  xem `docs/film-direction-playbook.md`), khối LOOK, mục tiêu 60 giây.
+- Studio có lựa chọn "Cách quay"; dấu `[AIDA_FORMAT=…]` đi cùng ý tưởng và khoá
+  `filmFormat` ở bước viết.
+- Người viết chọn `filmFormat` và khai `wardrobe`; đạo diễn storyboard chọn
+  `cameraPreset` từng panel; storyboard mang `filmFormat` và `setting` theo
+  nhịp; sửa lại một đoạn giữ cả hai.
+- Trang phục theo tập: lúc lưu kịch bản, server vẽ ảnh toàn thân mặc bộ đồ từ
+  ảnh cận mặt; ảnh này thay ảnh thân/lưng trong cast của tập đó.
+- Âm thanh: 2.5 + dự án được bật (`SHORT_FILM_NATIVE_VOICE_PROJECT_IDS` hoặc
+  `SHORT_FILM_NATIVE_VOICE_ENABLED`) mặc định tự nói; còn lại lồng tiếng.
+  `cast.nativeVoice` tách khỏi `cast.voice` (TTS) để nhánh lồng tiếng không
+  nhận nhầm giọng mẫu.
+- Giọng mẫu: `POST /api/projects/[id]/voices/native` nhận file tải lên hoặc một
+  đoạn trong clip native (task + giây). Worker tự cắt đoạn đó bằng ffmpeg và
+  gửi `reference_audios`. Studio có ô "Giọng của các bé" với nút "Dùng giọng
+  câu này" trên từng câu đã quay.
+- Bộ ảnh chuẩn v2 (12 ảnh) và script cài `scripts/install-family-photoreal-assets.cjs`.
 
-Chưa làm:
+Chưa làm, có chủ đích:
 
-- Chưa có giọng mẫu nào và chưa có màn hình tạo/duyệt giọng mẫu.
-- Chưa tự lồng tiếng thay cho clip native nói sai lời; hiện clip đó dừng ở
-  bước kiểm cho người xem.
-- Sửa lại một đoạn (segment repair) chưa giữ `setting` theo nhịp.
+- Tự lồng tiếng thay cho clip native nói sai lời. Chế độ âm thanh đang là của
+  cả phim; tách theo từng cảnh đụng máy trạng thái và đường trừ điểm, nên đợi
+  lần chạy thật cho biết tỉ lệ sai rồi mới thiết kế. Hiện clip đó dừng ở bước
+  kiểm cho người xem.
 - Chưa chạy thật tập thử ở mục 3.5.

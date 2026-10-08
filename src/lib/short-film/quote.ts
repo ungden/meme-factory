@@ -27,11 +27,10 @@ import {
   type FilmKind,
   type QuotedTask,
 } from "./contracts";
-import { fixedVoiceEnabled } from "./features";
+import { fixedVoiceEnabled, nativeSpeechAllowed } from "./features";
 import {
   seedanceMaxDuration,
   seedanceReferenceLimit,
-  nativeSpeechSupported,
 } from "../video-models";
 import { FORMAT_LOOK } from "../film-camera-language";
 import { performanceCheck } from "../performance-direction";
@@ -102,7 +101,7 @@ export async function quotePlan(
     );
   if (
     plan.audio_mode === "native" &&
-    !nativeSpeechSupported(plan.video_model) &&
+    !nativeSpeechAllowed(a.project.id, plan.video_model) &&
     ["prepare", "video"].includes(stage)
   )
     throw new FilmError(

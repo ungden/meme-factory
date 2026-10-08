@@ -30,6 +30,9 @@ export const CAMERA_PRESETS = [
   "studio_top_down",
   "studio_face_close",
   "vlog_tele",
+  "object_pov",
+  "hands_insert",
+  "high_angle_down",
   "free",
 ] as const;
 export type CameraPreset = (typeof CAMERA_PRESETS)[number];
@@ -116,6 +119,24 @@ const PRESETS: Record<Exclude<CameraPreset, "free">, PresetSpec> = {
     showsFeet: false,
     use: "nếm thử, phản ứng cay/ngon, câu chốt",
   },
+  object_pov: {
+    direction:
+      "máy đặt bên trong một đồ vật nhìn ra (trong tủ lạnh, ngăn kéo, nồi, hộp cơm), viền đồ vật lọt khung, bé ghé mặt vào sát ống kính, cận",
+    showsFeet: false,
+    use: "góc lạ ngay sau hook: bé bắt quả tang người xem hoặc mở đồ ra",
+  },
+  hands_insert: {
+    direction:
+      "cận đôi tay bé đang làm việc (đếm tiền, bấm điện thoại, chỉ vào đồ vật), không thấy mặt, máy tĩnh",
+    showsFeet: false,
+    use: "chèn bằng chứng: con số, món đồ, việc tay đang làm",
+  },
+  high_angle_down: {
+    direction:
+      "máy ở tầm mắt người lớn chĩa xuống, bé nhỏ dưới chân ngước lên nhìn ống kính, thấy toàn thân",
+    showsFeet: true,
+    use: "bé bị mắng, xin xỏ, hoặc nhấn người lớn đang nhìn xuống",
+  },
   vlog_tele: {
     direction:
       "điện thoại ống tele 3x cầm tay theo bé, xoá phông tự nhiên, nắng thật, cảm giác vlog du lịch gia đình, thấy toàn thân",
@@ -137,12 +158,16 @@ export const FORMAT_CAMERA_PRESETS: Record<FilmFormat, readonly CameraPreset[]> 
     "phone_follow_back",
     "peephole_fisheye",
     "vox_pop_mic",
+    "object_pov",
+    "hands_insert",
+    "high_angle_down",
   ],
   cooking_show: [
     "studio_counter",
     "studio_top_down",
     "studio_face_close",
     "phone_pov_hand",
+    "hands_insert",
   ],
   phone_vlog: [
     "vlog_tele",
@@ -151,6 +176,7 @@ export const FORMAT_CAMERA_PRESETS: Record<FilmFormat, readonly CameraPreset[]> 
     "phone_wide_tiny",
     "phone_pov_hand",
     "phone_face_push",
+    "hands_insert",
   ],
 };
 
@@ -206,25 +232,45 @@ export function cameraPresetMenu(format: FilmFormat): string {
  */
 export const FORMAT_WRITING_RULES: Record<FilmFormat, string> = {
   family_scene: "",
-  talk_to_camera: `ĐỊNH DẠNG BÉ NÓI VỚI MÁY:
-• Một bé chính nói thẳng với người xem qua ống kính suốt phim. Người lớn chỉ là người cầm máy: lọt tay vào khung hoặc nói một câu ngắn từ ngoài khung; không cắt sang mặt họ.
-• Hài đến từ tương phản: bé nói chuyện người lớn (lương, sếp, ăn kiêng, đầu tư, hẹn hò, mạng xã hội, "giới trẻ bây giờ") bằng hành vi em bé thật (khóc thét, nằm vật ra sàn, chu môi, liếc, chỉ tay vào máy).
-• Mỗi lượt tối đa khoảng 10 từ, nói được trong 1–3 giây. Phim 60 giây cần khoảng 14–22 lượt.
-• Lượt 1 là hook trong 1 giây đầu: một câu kêu hoặc câu hỏi thẳng vào máy kèm hành vi mạnh.
-• Mỗi lượt diễn ở một nơi cụ thể; đổi nơi khi đổi ý (thường sau 1–2 lượt): chợ, ga tàu, hành lang chung cư, cầu vượt, tiệm tiện lợi, bãi đỗ xe, quán ăn. action ghi rõ nơi đó.
-• Kết bằng cận mặt: bé bình tĩnh lại và nói nhỏ câu chốt hoặc lời khuyên đảo ngược.`,
-  cooking_show: `ĐỊNH DẠNG BÉ ĐẦU BẾP:
-• Bé dạy làm một món thật theo đúng thứ tự công thức; mỗi lượt là một bước nhìn thấy được (đổ, khuấy, cuốn, nếm).
-• Lời ngắn, tự tin như đầu bếp thật, xen một hai câu tự khen hoặc cãi khán giả.
-• Kết bằng bé nếm và phản ứng thật (cay đỏ mặt, ngon quá, làm hỏng) cùng một câu chốt.`,
-  phone_vlog: `ĐỊNH DẠNG VLOG ĐIỆN THOẠI:
-• Cả nhà đi một nơi có thật; mỗi lượt là một khoảnh khắc ở một điểm khác nhau của chuyến đi.
-• Ít lời: nhiều lượt có thể là nhịp không lời; câu nói ngắn, tự nhiên, như trẻ nói khi chơi.
-• Kết ở một khoảnh khắc nhỏ mà ai đi chơi cùng con cũng nhận ra.`,
+  talk_to_camera: `ĐỊNH DẠNG BÉ NÓI VỚI NGƯỜI XEM (khoảng 60 giây):
+• Tiền đề: một nỗi khổ người lớn ai cũng gặp (lương về ba ngày đã hết, sáng thứ Hai, ăn khuya, lướt điện thoại tới 2 giờ, đầu tư theo hội, "ăn gì cũng được", giới trẻ bây giờ) do một em bé nói, hoặc em bé đóng vai bố mẹ/sếp/đàn anh mắng thẳng người xem. Hài đến từ chênh lệch: chuyện người lớn × thân hình, giọng và cảm xúc em bé, rồi được đẩy lên bằng lặp lại và leo thang. Không giảng đạo, không chơi chữ.
+• Người xem là người đối thoại: bé nói thẳng vào ống kính, gọi người xem ("mấy người", "ông", "bạn"), có khi coi người xem là người bị mắng hoặc bị nhờ. Người cầm máy (Bố/Mẹ) là nhân vật thứ hai trong hồ sơ tập nhưng chỉ lọt bàn tay ở mép khung hoặc nói một câu từ ngoài khung; không bao giờ thấy mặt.
+• Lượt 1 là hook trong giây đầu: một câu buộc tội, mệnh lệnh hoặc cái tít ("Tiền tui đâu rồi?!", "Dậy!!", "Đặc điểm người cháy túi") kèm hành vi mạnh (nằm vật ra sàn gào, chỉ thẳng vào máy).
+• Mỗi lượt là MỘT nơi và một ý, gồm 1–3 câu cực ngắn (mỗi câu 2–8 tiếng, nói được trong 1–2 giây). Phim 60 giây có khoảng 8–10 lượt. action của lượt ghi rõ nơi đó và việc bé đang làm ở đó.
+• Nhịp 60 giây: cứ khoảng 15 giây (2 lượt) là một nấc leo thang hoặc một luận điểm; có thể đếm "Một… Hai… Cuối cùng". Khoảng giây 30–40 đổi tông (tủi thân, ngồi quay lưng, im lặng) rồi bùng lại. Ngay trước câu chốt là một nhịp im, bé nhìn chằm chằm vào máy.
+• Kết bằng MỘT trong: (a) mẹo người lớn có thật, có con số và làm được ngay, nói sau một câu nhượng bộ ("Đâu bắt bỏ hẳn… Nhưng lương về thì rút trước một trăm nghìn cất riêng"); (b) đảo ngược làm lộ tẩy ("Ủa… hôm nay thứ Bảy mà"); (c) đổi giọng sang lễ phép ("…được không ạ?"); (d) nói thẳng với người còn đang xem hoặc mồi bình luận ("Tức thì bình luận đi. Dù sao tui vẫn đúng"); (e) lặp nguyên văn câu mở để video tự vòng lại. Câu cuối ngắn, nói nhỏ, mặt lạnh — không la.`,
+  cooking_show: `ĐỊNH DẠNG BÉ VÀO BẾP (khoảng 60 giây):
+• Bé đóng vai đầu bếp/người dạy nấu rất tự tin, dạy một món Việt thật theo đúng thứ tự công thức (trứng chiên, mì gói, bánh mì kẹp, cơm chiên, gỏi cuốn…). Mỗi lượt là một bước nhìn thấy được (đổ, đập, khuấy, cuộn, nêm) và lời nói khớp đúng việc tay đang làm.
+• Hài đến từ lời nói ngược với việc làm và tự biện hộ: nói "rưới mỏng thôi" mà đổ cả chén; "thêm chút nữa" lặp hai ba lần; hỏng thì đổi định nghĩa ("Không phải bể. Nó vốn vậy"). Để hình ảnh tự lộ, không ai nói toạc ra.
+• Mẹo nấu ăn có thật nằm rải trong thân phim (một hai mẹo), không dồn ở cuối.
+• Kết bằng hậu quả thể chất khi nếm (cay đỏ mặt, nóng, ngon tới mức im lặng) và một câu chốt ngắn đổi giọng: lễ phép ("Cho con xin ly nước ạ") hoặc rút lá bài em bé ("Con còn nhỏ xíu mà").`,
+  phone_vlog: `ĐỊNH DẠNG VLOG / TIỂU PHẨM ĐI CHƠI (60–90 giây):
+• Hai nhân vật (chị em, hoặc bé đóng vai cặp đôi, sếp–nhân viên) trong một chuyến đi có thật; tiền đề là một tình huống ai cũng gặp (người yêu bắt chụp hình, "ăn gì cũng được", đi chơi với sếp).
+• Shot rất ngắn (2–3 giây), phần lớn diễn câm: cận phản ứng, liếc mắt, cảnh chèn đồ vật/đôi chân. Lời thưa: 1 câu ngắn mỗi lượt, nhiều lượt không lời.
+• Mức xưng hô chính là trò đùa (nhân viên nói "dạ… ạ", sếp nói trống không).
+• Kết bằng đảo ngược rồi lặp lại nguyên văn câu mở hoặc một câu hỏi lễ phép mà xát muối, để video tự vòng lại.`,
+};
+
+/**
+ * Luật chung về trang phục, bối cảnh, lời và diễn — rút từ 19 video của kênh
+ * mẫu (docs/film-direction-playbook.md). Áp cho mọi định dạng mới.
+ */
+export const COMEDY_CRAFT_RULES = `TAY NGHỀ HÀI ĐỜI THƯỜNG:
+• TRANG PHỤC: nhân vật có một bộ đồ thường ngày nhận diện (trong ảnh chuẩn) — mặc nó khi bé "nói chuyện thật". Khi bé ĐÓNG VAI thì khai wardrobe một bộ đồ của vai cho cả tập (vest cà vạt đi phỏng vấn, đồ ngủ sáng thứ Hai, mũ và áo đầu bếp, bộ đồ thú bông, kính râm + dây chuyền khi làm màu, ria mép dán khi làm sếp). Bộ đồ càng dễ thương thì lời càng phải ngược với nó. Phụ kiện được thêm/bỏ đúng lúc làm cú chốt (tháo kính khi bị lộ). Hai nhân vật cùng khung thì tách màu rõ.
+• BỐI CẢNH: mỗi câu đặt ở đúng nơi chuyện đó xảy ra ngoài đời Việt Nam và bé đang làm đúng việc mình nói (than tiền điện cạnh đồng hồ điện, nói chuyện kẹt xe trên cầu vượt nhìn xuống dòng xe, chê ăn khuya trong quán ốc). Phần lời khuyên chuyển sang nơi yên tĩnh. Ánh sáng đi theo cảm xúc: ban ngày khi la hét, hoàng hôn khi tủi thân, đêm khi nói thật lòng. Toàn cảnh rất xa với em bé tí xíu dùng cho lúc gào bất lực.
+• LỜI: câu 2–8 tiếng, mỗi câu một ý. Dùng câu hỏi tu từ bắt quả tang ("Chưa tới chứ gì?", "Tui thua cả quả trứng hả?"), trích lại câu bào chữa của người khác rồi đập lại ("'Năm phút nữa thôi'… Bốn mươi phút!"), con số cụ thể nhỏ (3 ngày, 2 giờ sáng, 10 giây), nhân cách hoá ("Lương ghé chào một cái rồi đi"), liệt kê ba vế, lặp với cường độ tăng dần, câu cửa miệng người lớn ("Hồi tui á hả…"). Phá nhịp bằng một chữ "Ủa?". Chất giọng em bé Việt: "hông", "nè", "chớ", "nha"; xưng "tui" với người xem, "con" khi xin, "em" khi tán chị.
+• DIỄN: biên độ cảm xúc rộng trong 60 giây — gào há miệng sát ống kính, nằm lăn ra sàn, khoanh tay dạng chân, chỉ thẳng vào máy, quỳ chắp tay, ngồi quay lưng, liếc ngang, khóc oà rồi tắt ngay. Mặt tỉnh bơ khi ra vẻ chuyên gia, câu chốt luôn mặt lạnh. Cái hài nằm ở hình trái với lời; để người xem tự phát hiện.`;
+
+/** Thời lượng mục tiêu gần đúng theo định dạng; kênh mẫu chốt ở 60 giây. */
+export const FORMAT_TARGET_SECONDS: Record<FilmFormat, number | null> = {
+  family_scene: null,
+  talk_to_camera: 60,
+  cooking_show: 60,
+  phone_vlog: 60,
 };
 
 /** Hướng dẫn chọn định dạng cho bước viết nháp. */
-export const FILM_FORMAT_MENU = `family_scene: đối thoại giữa các thành viên trong một bối cảnh; talk_to_camera: một bé nói thẳng với người xem về chuyện người lớn, đổi nơi liên tục; cooking_show: bé dạy nấu một món trên phông đen; phone_vlog: cả nhà đi chơi, cắt nhanh, ít lời.`;
+export const FILM_FORMAT_MENU = `family_scene: đối thoại giữa các thành viên trong một bối cảnh; talk_to_camera: một bé nói thẳng với người xem về chuyện người lớn, đổi nơi liên tục; cooking_show: bé dạy nấu một món trên phông đen; phone_vlog: đi chơi hoặc tiểu phẩm hai vai, cắt nhanh, ít lời.`;
 
 /**
  * Khối LOOK gửi kèm mọi clip của định dạng mới. Đây là thứ đẩy Seedance khỏi
@@ -248,4 +294,25 @@ export function formatAllowsLocationCuts(format: FilmFormat): boolean {
 /** Định dạng nào bắt nhân vật nói thẳng vào ống kính. */
 export function formatAddressesCamera(format: FilmFormat): boolean {
   return format === "talk_to_camera" || format === "cooking_show";
+}
+
+const FORMAT_MARKER = /\[AIDA_FORMAT=(family_scene|talk_to_camera|cooking_show|phone_vlog)\]\s*/u;
+
+/**
+ * Cách quay người dùng chọn ở studio đi cùng ý tưởng như dấu thể loại, để lượt
+ * chạy giữ đúng lựa chọn mà không cần thêm cột. Không chọn thì AI tự chọn.
+ */
+export function markedFormatIntent(intent: string, format: FilmFormat | null) {
+  const clean = String(intent || "").replace(FORMAT_MARKER, "");
+  if (!format) return clean;
+  const genre = clean.match(/^\[AIDA_GENRE=[a-z]+\]\n?/u)?.[0] || "";
+  return `${genre}[AIDA_FORMAT=${format}]\n${clean.slice(genre.length)}`;
+}
+
+export function filmFormatFromIntent(intent: string | null | undefined): FilmFormat | null {
+  return (String(intent || "").match(FORMAT_MARKER)?.[1] as FilmFormat | undefined) || null;
+}
+
+export function stripFilmFormatMarker(intent: string) {
+  return intent.replace(FORMAT_MARKER, "");
 }

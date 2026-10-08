@@ -8,6 +8,7 @@ import {
 } from "./performance-direction";
 import { spokenSeconds } from "./film-storyboard";
 import { FILM_FORMATS, type FilmFormat } from "./film-camera-language";
+import { normalizeWardrobe, type EpisodeWardrobe } from "./short-film/wardrobe";
 
 /**
  * Trần thời lượng ước tính cho một lượt thoại, tính bằng giây.
@@ -150,6 +151,8 @@ export type Story = {
   performanceLane?: PerformanceLane;
   /** Truyện cũ không có trường này và được dựng như family_scene. */
   filmFormat?: FilmFormat;
+  /** Đồ riêng của tập; người không có mục mặc đồ trong ảnh chuẩn. */
+  wardrobe?: EpisodeWardrobe[];
   intendedShotSeconds?: number[];
   writingPolicyVersion?: string;
   profileVersion: number;
@@ -524,7 +527,13 @@ export function validateStory(
     throw new Error("STORY_DIALOGUE_LINE_TOO_LONG");
   if (recent.some((r) => fingerprint(r) === fingerprint(s)))
     throw new Error("STORY_REPEATED_COMBINATION");
-  return { ...s, genre, profileVersion: profile.version };
+  const wardrobe = normalizeWardrobe(s.wardrobe, allowed);
+  return {
+    ...s,
+    genre,
+    profileVersion: profile.version,
+    ...(s.wardrobe !== undefined ? { wardrobe } : {}),
+  };
 }
 
 export type FamilyEditorialIssue = {
@@ -601,6 +610,7 @@ export function storyContractForGenre(genre: StoryGenre) {
         ? "cinematic_emotion"
         : "deadpan_reversal|adult_format_parody|literal_logic|physical_escalation|verbal_counterplay",
     filmFormat: FILM_FORMATS.join("|"),
+    wardrobe: [{ characterId: "uuid", outfit: "chỉ khi tập cần đồ riêng" }],
     series: "",
     situation: "",
     mechanism: "",

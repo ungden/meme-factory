@@ -5,9 +5,12 @@ import {
   cameraDirection,
   cameraPresetMenu,
   filmFormat,
+  filmFormatFromIntent,
+  markedFormatIntent,
   presetShowsFeet,
 } from "./film-camera-language";
 import { framingCanShowFeet } from "./family-ai-contract";
+import { markedStoryIntent, storyGenreFromIntent, stripStoryGenreMarker } from "./story-genre";
 
 describe("ngôn ngữ máy quay", () => {
   it("đặt câu chuẩn của preset trước phần riêng của đạo diễn", () => {
@@ -41,5 +44,21 @@ describe("ngôn ngữ máy quay", () => {
       if (feet === undefined) continue;
       if (!feet) expect(framingCanShowFeet(cameraDirection(preset, ""))).toBe(false);
     }
+  });
+});
+
+describe("cách quay người dùng chọn ở studio", () => {
+  it("đi cùng ý tưởng mà không làm hỏng dấu thể loại hay đề bài", () => {
+    const intent = markedFormatIntent(markedStoryIntent("Bé than tiền điện", "comedy"), "talk_to_camera");
+    expect(filmFormatFromIntent(intent)).toBe("talk_to_camera");
+    expect(storyGenreFromIntent(intent)).toBe("comedy");
+    expect(stripStoryGenreMarker(intent)).toBe("Bé than tiền điện");
+  });
+
+  it("để AI chọn thì không gắn dấu nào", () => {
+    const intent = markedFormatIntent(markedStoryIntent("Bé than tiền điện", "comedy"), null);
+    expect(filmFormatFromIntent(intent)).toBeNull();
+    expect(markedFormatIntent(markedFormatIntent(intent, "cooking_show"), "phone_vlog")).toContain("[AIDA_FORMAT=phone_vlog]");
+    expect(markedFormatIntent(markedFormatIntent(intent, "cooking_show"), "phone_vlog")).not.toContain("cooking_show");
   });
 });

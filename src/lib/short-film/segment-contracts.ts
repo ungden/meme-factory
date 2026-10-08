@@ -21,6 +21,8 @@ export type FilmSegmentRevision = {
   dialogue: string;
   action: string;
   camera: string;
+  /** Nơi quay riêng của nhịp ở định dạng đổi nơi; không có bản sửa riêng. */
+  setting?: string;
   motionPrompt: string;
   imagePrompt: string;
   openingState: SegmentContinuityState;

@@ -22,10 +22,10 @@ const doDo = {
   referenceImages: [],
 };
 
-function talkScene(voice?: FilmScene["cast_snapshot"][number]["voice"]): FilmScene {
+function talkScene(nativeVoice?: FilmScene["cast_snapshot"][number]["nativeVoice"]): FilmScene {
   return {
     setting: "chợ dân sinh buổi sáng",
-    cast_snapshot: [{ ...doDo, ...(voice ? { voice } : {}) }],
+    cast_snapshot: [{ ...doDo, ...(nativeVoice ? { nativeVoice } : {}) }],
     speaker_character_id: "do",
     storyboard: {
       version: 2,
@@ -125,5 +125,20 @@ describe("Seedance 2.5 tự nói tiếng Việt", () => {
     expect(fast).not.toHaveProperty("reference_audio_sources");
     const long = { ...voice, settings: { ...voice.settings, sampleSeconds: 31 } };
     expect(nativeVoiceSamples(talkScene(long))).toEqual([]);
+  });
+
+  it("giọng mẫu cắt từ một clip native: worker tự cắt đúng đoạn", () => {
+    const fromClip = {
+      ...voice,
+      settings: { sourceTaskId: "task-1", inSeconds: 2.5, outSeconds: 8.5, direction: "giọng bé trai" },
+    };
+    expect(nativeVoiceSamples(talkScene(fromClip))).toEqual([
+      {
+        characterId: "do",
+        name: "Đậu Đỏ",
+        source: { taskId: "task-1", inSeconds: 2.5, outSeconds: 8.5 },
+        seconds: 6,
+      },
+    ]);
   });
 });

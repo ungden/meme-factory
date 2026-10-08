@@ -13,6 +13,7 @@ import {
   filmFormat,
   formatAllowsLocationCuts,
   presetShowsFeet,
+  type FilmFormat,
 } from "./film-camera-language";
 import type { ChannelProfile, Story, StoryGenre } from "./family-catalogue";
 import {
@@ -68,6 +69,7 @@ export function storyResponseSchema(
   profile: ChannelProfile,
   ids: string[],
   genre?: StoryGenre,
+  format?: FilmFormat | null,
 ) {
   void ids;
   const characterId = { type: "string" };
@@ -75,7 +77,15 @@ export function storyResponseSchema(
     storyVersion: { type: "integer", enum: [2] },
     genre: genre ? { type: "string", enum: [genre] } : { type: "string", enum: ["comedy", "emotion"] },
     performanceLane: { type: "string", enum: PERFORMANCE_LANES },
-    filmFormat: { type: "string", enum: FILM_FORMATS },
+    filmFormat: { type: "string", enum: format ? [format] : FILM_FORMATS },
+    wardrobe: {
+      type: "array",
+      minItems: 0,
+      maxItems: 4,
+      description:
+        "Đồ riêng của tập cho từng nhân vật cần đổi đồ; mảng rỗng nếu mọi người mặc đồ thường ngày trong ảnh chuẩn.",
+      items: object({ characterId: string, outfit: string }),
+    },
     ...(genre === "emotion"
       ? {
           emotionalArc: object({

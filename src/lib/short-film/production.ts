@@ -277,7 +277,7 @@ async function saveScriptResult(
     format,
     resolution: "720p",
     videoModel,
-    audioMode: "dubbed",
+    // Không ép lồng tiếng: savePlan chọn theo model và cổng thử nghiệm của dự án.
     subtitles: true,
     scenes: result.scenes.map((s) => ({
       ...s,

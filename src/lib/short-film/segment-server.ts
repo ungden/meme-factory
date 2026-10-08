@@ -170,6 +170,7 @@ export async function readFilmSegments(a: Access, plan: FilmPlan) {
         dialogue: effectiveDialogue,
         action: revision?.action ?? beat.action,
         camera: revision?.camera ?? beat.camera,
+        ...(beat.setting ? { setting: beat.setting } : {}),
         motionPrompt: revision?.motion_prompt ?? beat.motion,
         imagePrompt: revision?.image_prompt ?? scene.image_prompt,
         openingState: revision?.opening_state || beat.openingState || {},
@@ -484,6 +485,9 @@ export async function quoteFilmSegment(
     durationSeconds: providerDuration,
     contentEndSeconds: usefulDuration,
     timingPolicy: "audio_driven_v1" as const,
+    // Quay lại một đoạn phải giữ cách quay và nơi quay của tập, nếu không đoạn
+    // sửa ra chất phim gia đình giữa một tập quay bằng điện thoại.
+    ...(scene.storyboard?.filmFormat ? { filmFormat: scene.storyboard.filmFormat } : {}),
     beats: [
       {
         segmentId,
@@ -493,6 +497,7 @@ export async function quoteFilmSegment(
         dialogue: segment.dialogue,
         action: segment.action,
         camera: segment.camera,
+        ...(segment.setting ? { setting: segment.setting } : {}),
         motion: segment.motionPrompt,
         openingState: segment.openingState,
         closingState: segment.closingState,
