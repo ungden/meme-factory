@@ -39,9 +39,12 @@ import {
   ScriptPanel,
   StatusPill,
   VoiceSamplePanel,
+  AutopilotPanel,
+  type AutopilotSettings,
   type SceneTile,
   type VoiceCandidate,
 } from "./studio-view";
+import { FilmSetupPanel, type SetupCharacter } from "./film-setup-panel";
 
 type PlanDetail = FilmPlan & { video_plan_scenes: FilmPlan["video_plan_scenes"] };
 
@@ -79,6 +82,13 @@ export default function EpisodeStudio() {
   // Dự án tự nói tiếng Việt cần Seedance 2.5; chọn sẵn cho người dùng, trừ khi
   // họ đã tự đổi ở mục tuỳ chọn.
   const qualityTouched = useRef(false);
+  const [autopilot, setAutopilot] = useState<AutopilotSettings | null>(null);
+  const [setup, setSetup] = useState<{
+    ready: boolean;
+    owner: boolean;
+    characters: SetupCharacter[];
+    pointsPerImage: number;
+  } | null>(null);
   const [profileAudience, setProfileAudience] = useState("Gia đình Việt xem video ngắn");
   const [profileTone, setProfileTone] = useState("Hài tự nhiên và cảm động có nguyên nhân");
   const [profilePositioning, setProfilePositioning] = useState("");
@@ -133,6 +143,28 @@ export default function EpisodeStudio() {
     setPlans(planList.plans || []);
     setWorkspace(planList.workspaceVersion ?? null);
     setChannelProfile(planList.channelProfile || null);
+    const filmSetup = await api(`${base}/film-setup`).catch(() => null);
+    setSetup(
+      filmSetup
+        ? {
+            ready: filmSetup.ready === true,
+            owner: filmSetup.owner === true,
+            characters: filmSetup.characters || [],
+            pointsPerImage: Number(filmSetup.pointsPerImage || 0),
+          }
+        : null,
+    );
+    const automation = await api(`${base}/film-automation`).catch(() => null);
+    // Chỉ chủ kênh bật được lịch; người cùng dự án không thấy thẻ này.
+    setAutopilot(
+      automation?.owner
+        ? {
+            enabled: automation.automation?.enabled === true,
+            filmsPerDay: Number(automation.automation?.films_per_day || 1),
+            localTime: String(automation.automation?.local_time || "09:00").slice(0, 5),
+          }
+        : null,
+    );
     if (planList.nativeVoice && !qualityTouched.current) {
       setQuality("quality");
       setLimit(qualityOption("quality").defaultLimit);
@@ -275,16 +307,23 @@ export default function EpisodeStudio() {
     select(response.runId);
   }
 
-  async function saveChannelProfile() {
+  async function saveChannelProfile(characterIds?: string[]) {
     const response = await api(`${base}/channel-profile`, {
-      audience: profileAudience,
-      tone: profileTone,
-      positioning: profilePositioning,
-      speechRegister: profileSpeechRegister,
-      genres: profileGenres,
+      audience: channelProfile?.audience || profileAudience,
+      tone: channelProfile?.tone || profileTone,
+      positioning: channelProfile?.positioning || profilePositioning,
+      speechRegister: channelProfile?.speechRegister || profileSpeechRegister,
+      genres: channelProfile?.genres || profileGenres,
+      // Kênh mới mặc định đưa mọi nhân vật lên phim; bước chuẩn bị cho bớt đi.
+      characterIds:
+        characterIds ||
+        (channelProfile?.roles?.length
+          ? channelProfile.roles.map((role) => role.characterId)
+          : (setup?.characters || []).map((character) => character.id)),
     });
     setChannelProfile(response.profile);
   }
+
 
   const run = runDetail?.run || null;
   const attention = run
@@ -465,36 +504,76 @@ export default function EpisodeStudio() {
                 </select>
               </label>
               <p className="text-xs th-text-secondary">Thêm nhân vật, quan hệ, ảnh và giọng ở trang Nhân vật trước khi dựng. Kịch bản sẽ không bị ép giọng trẻ nếu kênh không chọn điều đó.</p>
-              <button type="button" onClick={() => act(saveChannelProfile)} disabled={busy || !profilePositioning.trim() || !profileGenres.length} className="w-fit rounded-lg th-bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Lưu và bắt đầu viết</button>
+              <button type="button" onClick={() => act(() => saveChannelProfile())} disabled={busy || !profilePositioning.trim() || !profileGenres.length} className="w-fit rounded-lg th-bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Lưu và bắt đầu viết</button>
             </section>
-          ) : !episode ? (
-            <IdeaPanel
-              idea={idea}
-              onIdea={setIdea}
-              genre={genre}
-              onGenre={setGenre}
-              allowedGenres={channelProfile?.genres || ["comedy", "emotion"]}
-              format={format}
-              onFormat={setFormat}
-              suggestions={suggestions}
-              suggesting={suggesting}
-              onSuggest={suggest}
-              quality={quality}
-              onQuality={(value) => {
-                qualityTouched.current = true;
-                setQuality(value);
+          ) : !episode && setup && !setup.ready ? (
+            <FilmSetupPanel
+              base={base}
+              workspace={workspace}
+              characters={setup.characters}
+              castIds={(channelProfile?.roles || []).map((role) => role.characterId)}
+              pointsPerImage={setup.pointsPerImage}
+              owner={setup.owner}
+              mascotsHref={`/projects/${ref}/mascots`}
+              onSaveCast={(ids) => saveChannelProfile(ids)}
+              onDone={async () => {
+                await refreshList();
               }}
-              limit={limit}
-              onLimit={setLimit}
-              starting={busy}
-              onStart={() =>
-                act(async () => {
-                  await startRun(idea.trim(), limit, qualityOption(quality).model);
-                  setIdea("");
-                })
-              }
-              advancedHref={advancedHref}
             />
+          ) : !episode ? (
+            <div className="flex flex-col gap-6">
+              <IdeaPanel
+                idea={idea}
+                onIdea={setIdea}
+                genre={genre}
+                onGenre={setGenre}
+                allowedGenres={channelProfile?.genres || ["comedy", "emotion"]}
+                format={format}
+                onFormat={setFormat}
+                suggestions={suggestions}
+                suggesting={suggesting}
+                onSuggest={suggest}
+                quality={quality}
+                onQuality={(value) => {
+                  qualityTouched.current = true;
+                  setQuality(value);
+                }}
+                limit={limit}
+                onLimit={setLimit}
+                starting={busy}
+                onStart={() =>
+                  act(async () => {
+                    await startRun(idea.trim(), limit, qualityOption(quality).model);
+                    setIdea("");
+                  })
+                }
+                advancedHref={advancedHref}
+              />
+              {autopilot && (
+                <AutopilotPanel
+                  key={`${autopilot.enabled}-${autopilot.filmsPerDay}-${autopilot.localTime}`}
+                  settings={autopilot}
+                  pointsPerFilm={limit}
+                  saving={busy}
+                  onSave={(next) =>
+                    act(async () => {
+                      await api(
+                        `${base}/film-automation`,
+                        {
+                          enabled: next.enabled,
+                          filmsPerDay: next.filmsPerDay,
+                          localTime: next.localTime,
+                          maxPointsPerFilm: limit,
+                          maxPointsPerDay: limit * next.filmsPerDay,
+                          videoModel: qualityOption(quality).model,
+                        },
+                        "PUT",
+                      );
+                    })
+                  }
+                />
+              )}
+            </div>
           ) : (
             <>
               <div className="flex flex-wrap items-center gap-3">

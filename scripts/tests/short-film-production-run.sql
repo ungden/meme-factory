@@ -6,7 +6,7 @@ begin
   select * into p from projects order by created_at limit 1;
   perform save_film_plan(p.id,p.user_id,p.workspace_version,plan_id,null,
     '{"title":"Production QA","brief":"QA","format":"9:16","resolution":"720p","audio_mode":"native","video_model":"bytedance/seedance-2.5/text-to-video","cast_snapshot":[],"target_duration_seconds":30}'::jsonb,
-    jsonb_build_array(jsonb_build_object('id',scene_id,'scene_index',0,'cast_snapshot','[]'::jsonb,'dialogue','','action','QA','setting','QA','camera','close','duration_seconds',5,'image_prompt','QA','motion_prompt','QA','source_mode','manual','input_hash','qa')));
+    jsonb_build_array(jsonb_build_object('id',scene_id,'scene_index',0,'cast_snapshot','[]'::jsonb,'dialogue','','action','QA','setting','QA','camera','close','duration_seconds',5,'image_prompt','QA','motion_prompt','QA','source_mode','manual','input_hash','qa','follows_previous',false)));
   run_id:=create_film_production_run_v2(p.id,p.user_id,p.workspace_version,plan_id,1,'',5,10,request_id,'manual',null,null);
   duplicate_id:=create_film_production_run_v2(p.id,p.user_id,p.workspace_version,plan_id,1,'',5,10,request_id,'manual',null,null);
   if duplicate_id<>run_id then raise exception 'Run idempotency failed';end if;

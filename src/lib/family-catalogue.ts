@@ -91,9 +91,13 @@ export const FAMILY_SERIES = [
 ] as const;
 export type ChannelProfile = {
   version: number;
+  /** Khung phim của kênh; vắng mặt là 9:16 vì đây là kênh phim ngắn dọc. */
+  videoFormat?: "9:16" | "16:9" | "1:1" | "4:5";
   visualDirection?: {
     id: string;
     prompt: string;
+    /** Chất liệu phim; hồ sơ cũ không có thì suy từ id (xem filmMediumOfProfile). */
+    medium?: "photoreal" | "animated";
   };
   writingPolicyVersion?: string;
   positioning: string;

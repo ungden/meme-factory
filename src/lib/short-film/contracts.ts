@@ -6,8 +6,9 @@ import {
 } from "../film-storyboard";
 import { REALTIME_MOTION_DIRECTION } from "../film-motion-policy";
 import {
-  FORMAT_LOOK,
+  formatLook,
   formatAddressesCamera,
+  type FilmMediumKind,
   formatAllowsLocationCuts,
 } from "../film-camera-language";
 import type { Story } from "../family-catalogue";
@@ -585,6 +586,7 @@ export function compileFilmMotion(
   referenceBindings: string[] = [],
   videoModel: string = FILM_MODELS.video,
   voiceSamples: NativeVoiceSample[] = [],
+  medium: FilmMediumKind = "photoreal",
 ) {
   if (scene.storyboard) {
     if (mode === "fixed")
@@ -616,7 +618,7 @@ export function compileFilmMotion(
     const facesLens = formatAddressesCamera(filmFormat);
     return [
       `STORYBOARD: clip nguồn ${board.durationSeconds} giây ${format}; câu chuyện hữu ích kết thúc ở ${Number(board.contentEndSeconds ?? board.durationSeconds).toFixed(2)} giây và phần nguồn còn lại sẽ bị cắt. Diễn nhiều nhịp đối đáp/hành động liên tục theo thứ tự sau. ${hopsLocation ? "Bối cảnh mở" : "Bối cảnh"} ${scene.setting}.`,
-      ...(FORMAT_LOOK[filmFormat] ? [FORMAT_LOOK[filmFormat]] : []),
+      ...(formatLook(filmFormat, medium) ? [formatLook(filmFormat, medium)] : []),
       `REFERENCE PACK: ${referenceBindings.join(" ")} Dùng đúng vai trò đã gắn cho từng @image; không trộn mặt, trang phục, đạo cụ hoặc bối cảnh giữa các ảnh. Storyboard tổng chỉ để duyệt và không nằm trong input provider.`,
       // Mô tả cắt ngắn: nhận diện đã do ảnh chuẩn khoá, và tài liệu Seedance nói
       // ảnh tham chiếu thắng chữ khi hai bên nói khác nhau về ngoại hình.
@@ -765,6 +767,7 @@ export function filmVideoInputs(
   audioDuration = 0,
   videoModel: FilmVideoModel = FILM_MODELS.video,
   measuredSpeechSeconds?: ReadonlyMap<number, number>,
+  medium: FilmMediumKind = "photoreal",
 ) {
   const duration = scene.storyboard
     ? scene.storyboard.durationSeconds
@@ -787,6 +790,7 @@ export function filmVideoInputs(
         references.bindings,
         videoModel,
         voiceSamples,
+        medium,
       ),
     ),
     reference_images: references.urls,

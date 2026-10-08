@@ -48,11 +48,21 @@ export async function PUT(
     const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.localTime))
       ? `${body.localTime}:00`
       : "09:00:00";
+    const { data: existing } = await a.admin
+      .from("short_film_automation_settings")
+      .select("queued_plan_ids,films_per_day")
+      .eq("project_id", a.project.id)
+      .maybeSingle();
+    // Studio chỉ bật/tắt và chỉnh nhịp; không gửi hàng đợi thì giữ hàng đợi đã
+    // xếp ở trình chỉnh nâng cao thay vì xoá trắng.
     const ids = Array.isArray(body.queuedPlanIds)
       ? body.queuedPlanIds
           .filter((x: unknown): x is string => typeof x === "string")
           .slice(0, 24)
-      : [];
+      : (existing?.queued_plan_ids as string[] | undefined) || [];
+    const filmsPerDay = Number(body.filmsPerDay ?? existing?.films_per_day ?? 1);
+    if (!Number.isInteger(filmsPerDay) || filmsPerDay < 1 || filmsPerDay > 6)
+      throw new FilmError("Mỗi ngày làm từ 1 đến 6 phim.");
     let queuedPlans: Array<{ id: string; audio_mode: string; video_model: string }> = [];
     if (ids.length) {
       const { data, count } = await a.admin
@@ -92,13 +102,15 @@ export async function PUT(
         enabled: body.enabled === true,
         local_time: time,
         timezone: "Asia/Ho_Chi_Minh",
-        films_per_day: 1,
+        films_per_day: filmsPerDay,
         max_points_per_film: maxFilm,
         max_points_per_day: maxDay,
         queued_plan_ids: ids,
+        // Khung phim lấy từ hồ sơ kênh (mặc định 9:16); các khoá này chỉ còn để
+        // hiển thị lịch, không quyết định khung của lượt chạy.
         default_config: {
-          duration: 35,
-          format: "16:9",
+          duration: 60,
+          format: "9:16",
           resolution: "720p",
           audioMode: defaultFilmAudioMode(a.project.id, body.videoModel),
           subtitles: true,

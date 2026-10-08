@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FAMILY_SERIES, type ChannelProfile, type StoryGenre } from "@/lib/family-catalogue";
 import { access, fail, latestChannelProfile } from "@/lib/short-film/server";
+import { CHANNEL_VISUAL_DIRECTIONS, channelFilmMedium } from "@/lib/short-film/channel-setup";
 
 const clean = (value: unknown, max: number) => String(value || "").trim().slice(0, max);
 const GENRES: StoryGenre[] = ["comedy", "emotion"];
@@ -63,7 +64,18 @@ export async function POST(
       );
     const current = await latestChannelProfile(a);
     const version = Number(current?.version || 0) + 1;
+    const { data: dna } = characterIds.length
+      ? await a.admin.from("character_dna").select("character_id,art_direction").in("character_id", characterIds)
+      : { data: [] };
+    const medium = channelFilmMedium(
+      characterIds.map((id: string) => dna?.find((row) => row.character_id === id)?.art_direction),
+    );
     const profile: ChannelProfile = {
+      // Lưu lại hồ sơ không được làm rơi những gì kênh đã chốt ở nơi khác.
+      ...(current?.visualDirection ? { visualDirection: current.visualDirection } : { visualDirection: CHANNEL_VISUAL_DIRECTIONS[medium] }),
+      ...(current?.videoFormat ? { videoFormat: current.videoFormat } : {}),
+      ...(current?.voicesLocked ? { voicesLocked: current.voicesLocked } : {}),
+      ...(current?.terminologyRules ? { terminologyRules: current.terminologyRules } : {}),
       version,
       writingPolicyVersion: "story-v2",
       positioning,
