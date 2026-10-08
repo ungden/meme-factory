@@ -35,6 +35,7 @@ import {
   referencePackReady,
   type FilmPlan,
   type FilmTask,
+  NATIVE_VOICE_MODEL,
 } from "./contracts";
 import {
   readPlan,
@@ -43,6 +44,7 @@ import {
   type Access,
 } from "./server";
 import { quotePlan } from "./quote";
+import { pickNativeVoiceSamples } from "./native-voice";
 import {
   seedanceReferenceModel,
   seedanceMaxDuration,
@@ -512,6 +514,65 @@ async function previousSceneEvidence(
   };
 }
 
+/**
+ * Sau tập tự nói đầu tiên, mỗi bé chưa có giọng chuẩn nhận một đoạn giọng từ
+ * chính tập đó. Người dùng không phải chọn: các tập sau gửi đoạn này làm giọng
+ * mẫu để bé giữ đúng một giọng.
+ */
+async function ensureNativeVoiceSamples(a: Access, plan: FilmPlan, tasks: FilmTask[], actor: string) {
+  const coreIds = [
+    ...new Set(
+      plan.video_plan_scenes.flatMap((scene) =>
+        scene.cast_snapshot.filter((member) => !member.isGuest).map((member) => member.characterId),
+      ),
+    ),
+  ];
+  if (!coreIds.length) return;
+  const { data: existing, error } = await a.admin
+    .from("character_voice_versions")
+    .select("character_id")
+    .eq("project_id", a.project.id)
+    .eq("workspace_version", a.project.workspace_version)
+    .eq("model", NATIVE_VOICE_MODEL)
+    .not("approved_at", "is", null)
+    .in("character_id", coreIds);
+  if (error) throw error;
+  const voiced = new Set((existing || []).map((row) => row.character_id));
+  const picks = pickNativeVoiceSamples(
+    plan.video_plan_scenes,
+    tasks,
+    coreIds.filter((id) => !voiced.has(id)),
+  );
+  for (const pick of picks) {
+    const { data: last } = await a.admin
+      .from("character_voice_versions")
+      .select("version")
+      .eq("character_id", pick.characterId)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const now = new Date().toISOString();
+    const { error: insertError } = await a.admin.from("character_voice_versions").insert({
+      project_id: a.project.id,
+      workspace_version: a.project.workspace_version,
+      character_id: pick.characterId,
+      version: (last?.version || 0) + 1,
+      model: NATIVE_VOICE_MODEL,
+      voice_id: `native-${crypto.randomUUID().slice(0, 8)}`,
+      settings: {
+        sourceTaskId: pick.sourceTaskId,
+        inSeconds: pick.inSeconds,
+        outSeconds: pick.outSeconds,
+        autoPicked: true,
+      },
+      created_by: actor,
+      approved_by: actor,
+      approved_at: now,
+    });
+    if (insertError) throw insertError;
+  }
+}
+
 async function ensureTaskCheck(a: Access, run: Run, task: FilmTask) {
   if (task.approved_at || task.auto_accepted_at) return "passed";
   let check = checkTechnicalTask(task);
@@ -879,6 +940,11 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
       });
       return;
     }
+    if (stage === "render" && plan.audio_mode === "native")
+      await ensureNativeVoiceSamples(a, plan, eligible, run.created_by).catch((cause) =>
+        // Giọng chuẩn chỉ giúp các tập sau; thiếu nó không được chặn phim đang xong.
+        console.error("native voice sample pick failed", { runId: run.id, cause }),
+      );
     assertLease();
     const quote = await quotePlan(a, plan, {
       workspaceVersion: run.workspace_version,

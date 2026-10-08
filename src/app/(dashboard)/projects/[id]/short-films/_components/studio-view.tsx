@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import type { StoryGenre } from "@/lib/story-genre";
-import type { FilmFormat } from "@/lib/film-camera-language";
 import {
   AlertTriangle,
   Check,
@@ -20,6 +18,8 @@ import {
   X,
 } from "lucide-react";
 import Button from "@/components/ui/button";
+import type { StoryGenre } from "@/lib/story-genre";
+import type { FilmFormat } from "@/lib/film-camera-language";
 import SharePost from "@/components/content/share-post";
 import {
   EPISODE_STATUS_LABEL,
@@ -36,14 +36,6 @@ import {
   type StudioTask,
 } from "../_lib/studio";
 
-/** Tên gọi chủ fanpage đọc; mã định dạng chỉ là chuyện bên trong. */
-const FORMAT_CHOICES: Array<{ value: FilmFormat | null; label: string; description: string; comedyOnly?: boolean }> = [
-  { value: null, label: "Để AI chọn", description: "AI chọn cách quay hợp với ý tưởng nhất." },
-  { value: "talk_to_camera", label: "Bé nói với người xem", description: "Bé nhìn thẳng vào máy than chuyện người lớn, đổi nơi liên tục như quay bằng điện thoại.", comedyOnly: true },
-  { value: "cooking_show", label: "Bé vào bếp", description: "Bé dạy làm một món thật, kết bằng màn nếm thử.", comedyOnly: true },
-  { value: "phone_vlog", label: "Cả nhà đi chơi", description: "Vlog điện thoại, cắt nhanh, ít lời." },
-  { value: "family_scene", label: "Cả nhà đối đáp", description: "Các thành viên nói chuyện với nhau trong một bối cảnh." },
-];
 
 const STATUS_CLASS: Record<EpisodeSummary["status"], string> = {
   draft: "th-bg-tertiary th-text-secondary",
@@ -103,6 +95,54 @@ export function EpisodeList({
   );
 }
 
+/** Tên gọi chủ fanpage đọc; null là để AI tự chọn — lựa chọn mặc định. */
+const GENRE_CHOICES: Array<{ value: StoryGenre | null; label: string }> = [
+  { value: null, label: "AI tự chọn" },
+  { value: "comedy", label: "Hài tự nhiên" },
+  { value: "emotion", label: "Cảm động" },
+];
+const FORMAT_CHOICES: Array<{ value: FilmFormat | null; label: string; description: string; comedyOnly?: boolean }> = [
+  { value: null, label: "AI tự chọn", description: "AI chọn cách quay hợp với câu chuyện nhất." },
+  { value: "talk_to_camera", label: "Bé nói với người xem", description: "Bé nhìn thẳng vào máy than chuyện người lớn, đổi nơi liên tục.", comedyOnly: true },
+  { value: "cooking_show", label: "Bé vào bếp", description: "Bé dạy làm một món thật, kết bằng màn nếm thử.", comedyOnly: true },
+  { value: "phone_vlog", label: "Đi chơi / tiểu phẩm", description: "Quay như vlog điện thoại, cắt nhanh, ít lời." },
+  { value: "family_scene", label: "Cả nhà đối đáp", description: "Các thành viên nói chuyện với nhau trong một bối cảnh." },
+];
+
+function ChoiceGroup<T extends string | null>({
+  legend,
+  name,
+  value,
+  onChange,
+  choices,
+}: {
+  legend: string;
+  name: string;
+  value: T;
+  onChange: (value: T) => void;
+  choices: Array<{ value: T; label: string; description?: string }>;
+}) {
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="mb-2 text-sm font-medium th-text-primary">{legend}</legend>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {choices.map((item) => (
+          <label
+            key={item.value || "auto"}
+            className={`cursor-pointer rounded-lg border p-3 ${value === item.value ? "th-border-accent th-bg-accent-light" : "th-border th-bg-card"}`}
+          >
+            <span className="flex items-center gap-2 text-sm font-medium th-text-primary">
+              <input type="radio" name={name} checked={value === item.value} onChange={() => onChange(item.value)} />
+              {item.label}
+            </span>
+            {item.description && <span className="mt-1 block text-xs th-text-secondary">{item.description}</span>}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 export function IdeaPanel({
   idea,
   onIdea,
@@ -111,60 +151,64 @@ export function IdeaPanel({
   allowedGenres,
   format,
   onFormat,
+  suggestions,
+  suggesting,
+  onSuggest,
   quality,
   onQuality,
   limit,
   onLimit,
-  suggestions,
-  suggesting,
-  onSuggest,
   starting,
   onStart,
   advancedHref,
 }: {
   idea: string;
   onIdea: (value: string) => void;
-  genre: StoryGenre;
-  onGenre: (value: StoryGenre) => void;
+  genre: StoryGenre | null;
+  onGenre: (value: StoryGenre | null) => void;
   allowedGenres: StoryGenre[];
   format: FilmFormat | null;
   onFormat: (value: FilmFormat | null) => void;
+  suggestions: { title: string; idea: string }[];
+  suggesting: boolean;
+  onSuggest: () => void;
   quality: QualityId;
   onQuality: (value: QualityId) => void;
   limit: number;
   onLimit: (value: number) => void;
-  suggestions: { title: string; idea: string }[];
-  suggesting: boolean;
-  onSuggest: () => void;
   starting: boolean;
   onStart: () => void;
   advancedHref: string;
 }) {
   const [advanced, setAdvanced] = useState(false);
   const option = QUALITY_OPTIONS.find((item) => item.id === quality)!;
-  const ready = idea.trim().length >= 10 && limit >= option.estimatedPoints * 0.5;
+  // Để trống là một lựa chọn hợp lệ: AI tự nghĩ ba hướng, tự chọn một và làm
+  // tới hết phim. Chỉ chặn ý tưởng viết dở vài chữ.
+  const written = idea.trim();
+  const ready = (!written || written.length >= 10) && limit >= option.estimatedPoints * 0.5;
+  const choices = [genre, format].filter(Boolean).length;
   return (
     <section className="flex flex-col gap-6" aria-labelledby="idea-title">
       <header>
         <h2 id="idea-title" className="text-xl font-semibold th-text-primary">Tập mới</h2>
         <p className="mt-1 text-sm th-text-secondary">
-          Viết ý tưởng bằng vài câu. AI viết kịch bản, dựng cảnh, lồng tiếng và ghép phim; bạn chỉ cần xem khi AI hỏi.
+          Viết ý tưởng nếu bạn có, hoặc để trống. AI tự nghĩ chuyện, chọn cách quay, dựng cảnh, cho nhân vật nói và ghép thành phim.
         </p>
       </header>
 
       <div className="flex flex-col gap-2">
-        <label htmlFor="idea" className="text-sm font-medium th-text-primary">Tập này kể chuyện gì?</label>
+        <label htmlFor="idea" className="text-sm font-medium th-text-primary">Tập này kể chuyện gì? (không bắt buộc)</label>
         <textarea
           id="idea"
           value={idea}
           onChange={(event) => onIdea(event.target.value)}
-          rows={5}
-          placeholder="Ví dụ: Chiều ở biển, Bố cõng Đậu Đỏ. Bố nhớ ngày xưa ông cõng mình, mắt đỏ hoe, bảo là cát bay vào mắt. Đậu Đỏ chu môi thổi cho Bố."
+          rows={4}
+          placeholder="Ví dụ: Đậu Đỏ than lương của mẹ về ba ngày đã hết."
           className="w-full rounded-lg border th-border th-bg-input px-3 py-2.5 text-sm th-text-primary th-ring-accent focus:outline-none focus:ring-2"
         />
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="ghost" size="sm" onClick={onSuggest} loading={suggesting}>
-            <Lightbulb className="h-4 w-4" aria-hidden /> Gợi ý ý tưởng
+            <Lightbulb className="h-4 w-4" aria-hidden /> Xem vài gợi ý
           </Button>
           {suggestions.map((suggestion) => (
             <button
@@ -179,91 +223,60 @@ export function IdeaPanel({
         </div>
       </div>
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-medium th-text-primary">Cách kể tập này</legend>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {([
-            ["comedy", "Hài tự nhiên", "Đối đáp và phản ứng đời thường, dừng đúng điểm buồn cười."],
-            ["emotion", "Cảm động", "Chi tiết được gieo, nhân vật nhận ra rồi thay đổi hành động."],
-          ] as const).filter(([value]) => allowedGenres.includes(value)).map(([value, label, description]) => (
-            <label
-              key={value}
-              className={`cursor-pointer rounded-lg border p-3 ${genre === value ? "th-border-accent th-bg-accent-light" : "th-border th-bg-card"}`}
-            >
-              <span className="flex items-center gap-2 text-sm font-medium th-text-primary">
-                <input type="radio" name="story-genre" checked={genre === value} onChange={() => onGenre(value)} />
-                {label}
-              </span>
-              <span className="mt-1 block text-xs th-text-secondary">{description}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-medium th-text-primary">Cách quay</legend>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {FORMAT_CHOICES.filter((item) => genre === "comedy" || !item.comedyOnly).map((item) => (
-            <label
-              key={item.value || "auto"}
-              className={`cursor-pointer rounded-lg border p-3 ${format === item.value ? "th-border-accent th-bg-accent-light" : "th-border th-bg-card"}`}
-            >
-              <span className="flex items-center gap-2 text-sm font-medium th-text-primary">
-                <input type="radio" name="film-format" checked={format === item.value} onChange={() => onFormat(item.value)} />
-                {item.label}
-              </span>
-              <span className="mt-1 block text-xs th-text-secondary">{item.description}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      <fieldset className="flex flex-col gap-2">
-        <legend className="mb-2 text-sm font-medium th-text-primary">Chất lượng</legend>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {QUALITY_OPTIONS.map((item) => {
-            const checked = item.id === quality;
-            return (
-              <label
-                key={item.id}
-                className={`flex cursor-pointer flex-col gap-1 rounded-lg border p-3 transition-colors ${
-                  checked ? "th-border-accent th-bg-accent-light" : "th-border th-bg-card hover:th-bg-hover"
-                }`}
-              >
-                <span className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-2 text-sm font-medium th-text-primary">
-                    <input
-                      type="radio"
-                      name="quality"
-                      checked={checked}
-                      onChange={() => {
-                        onQuality(item.id);
-                        onLimit(item.defaultLimit);
-                      }}
-                      className="accent-[var(--accent)]"
-                    />
-                    {item.label}
-                  </span>
-                  <span className="text-xs th-text-secondary">khoảng {item.estimatedPoints.toLocaleString("vi-VN")} điểm</span>
-                </span>
-                <span className="pl-6 text-xs th-text-secondary">{item.description}</span>
-              </label>
-            );
-          })}
-        </div>
-      </fieldset>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Button size="lg" onClick={onStart} disabled={!ready} loading={starting}>
+          {written ? <Clapperboard className="h-5 w-5" aria-hidden /> : <Sparkles className="h-5 w-5" aria-hidden />}
+          {written ? "Làm phim" : "AI tự nghĩ và làm phim"}
+        </Button>
+        <span className="text-xs th-text-secondary">
+          {written && written.length < 10
+            ? "Viết thêm một chút, hoặc xoá hết để AI tự nghĩ."
+            : `Tối đa ${limit.toLocaleString("vi-VN")} điểm · khoảng 5–10 phút · có thể rời trang.`}
+        </span>
+      </div>
 
       <div className="rounded-lg border th-border">
         <button
           onClick={() => setAdvanced((value) => !value)}
           aria-expanded={advanced}
-          className="flex w-full items-center justify-between px-3 py-2.5 text-sm th-text-secondary"
+          className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm th-text-secondary"
         >
-          Giới hạn điểm và tùy chọn khác
-          <ChevronDown className={`h-4 w-4 transition-transform ${advanced ? "rotate-180" : ""}`} aria-hidden />
+          <span>
+            Tự chọn cách kể, cách quay, chất lượng
+            {choices > 0 && <span className="ml-1 th-text-accent">· đã chọn {choices}</span>}
+          </span>
+          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${advanced ? "rotate-180" : ""}`} aria-hidden />
         </button>
         {advanced && (
-          <div className="flex flex-col gap-3 border-t th-border px-3 py-3">
+          <div className="flex flex-col gap-4 border-t th-border px-3 py-3">
+            <ChoiceGroup
+              legend="Cách kể"
+              name="story-genre"
+              value={genre}
+              onChange={onGenre}
+              choices={GENRE_CHOICES.filter((item) => !item.value || allowedGenres.includes(item.value))}
+            />
+            <ChoiceGroup
+              legend="Cách quay"
+              name="film-format"
+              value={format}
+              onChange={onFormat}
+              choices={FORMAT_CHOICES.filter((item) => genre !== "emotion" || !item.comedyOnly)}
+            />
+            <ChoiceGroup
+              legend="Chất lượng"
+              name="quality"
+              value={quality}
+              onChange={(value) => {
+                onQuality(value);
+                onLimit(QUALITY_OPTIONS.find((item) => item.id === value)!.defaultLimit);
+              }}
+              choices={QUALITY_OPTIONS.map((item) => ({
+                value: item.id,
+                label: `${item.label} · khoảng ${item.estimatedPoints.toLocaleString("vi-VN")} điểm`,
+                description: item.description,
+              }))}
+            />
             <label className="flex flex-col gap-1 text-sm th-text-primary">
               Không tiêu quá (điểm cho tập này)
               <input
@@ -281,17 +294,6 @@ export function IdeaPanel({
             </Link>
           </div>
         )}
-      </div>
-
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <Button size="lg" onClick={onStart} disabled={!ready} loading={starting}>
-          <Clapperboard className="h-5 w-5" aria-hidden /> Làm phim
-        </Button>
-        <span className="text-xs th-text-secondary">
-          {idea.trim().length < 10
-            ? "Viết ít nhất một câu ý tưởng để bắt đầu."
-            : `Tối đa ${limit.toLocaleString("vi-VN")} điểm · khoảng 5–10 phút · có thể rời trang.`}
-        </span>
       </div>
     </section>
   );
@@ -652,6 +654,7 @@ export function VoiceSamplePanel({
   onUpload: (input: { characterId: string; file: File; seconds: number; direction: string }) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [characterId, setCharacterId] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [seconds, setSeconds] = useState(0);
@@ -679,11 +682,15 @@ export function VoiceSamplePanel({
             <Mic className="h-4 w-4" aria-hidden /> Giọng của các bé
           </h3>
           <p className="mt-1 text-xs th-text-secondary">
-            Chọn một câu bé nói hay nhất làm giọng chuẩn. Các tập sau bé sẽ nói đúng giọng đó.
+            AI tự chọn câu bé nói hay nhất làm giọng chuẩn sau tập đầu; các tập sau bé nói đúng giọng đó. Bạn có thể đổi nếu muốn.
           </p>
         </div>
-        <button onClick={() => setOpen((value) => !value)} className="text-xs font-medium th-text-accent underline">
-          {open ? "Đóng" : "Tải giọng lên"}
+        <button
+          onClick={() => setExpanded((value) => !value)}
+          aria-expanded={expanded}
+          className="shrink-0 text-xs font-medium th-text-accent underline"
+        >
+          {expanded ? "Thu gọn" : "Đổi giọng"}
         </button>
       </header>
       <ul className="flex flex-wrap gap-2">
@@ -692,11 +699,11 @@ export function VoiceSamplePanel({
             key={character.id}
             className={`rounded-full border px-3 py-1 text-xs ${character.hasSample ? "th-border-success th-text-success" : "th-border th-text-secondary"}`}
           >
-            {character.name} · {character.hasSample ? "đã có giọng chuẩn" : "chưa có giọng chuẩn"}
+            {character.name} · {character.hasSample ? "đã có giọng chuẩn" : "AI sẽ chọn sau tập này"}
           </li>
         ))}
       </ul>
-      {candidates.length > 0 && (
+      {expanded && candidates.length > 0 && (
         <ul className="flex flex-col">
           {candidates.map((candidate) => (
             <li key={candidate.key} className="flex flex-wrap items-center justify-between gap-2 border-t th-border py-2 first:border-t-0">
@@ -710,7 +717,12 @@ export function VoiceSamplePanel({
           ))}
         </ul>
       )}
-      {open && (
+      {expanded && (
+        <button onClick={() => setOpen((value) => !value)} className="w-fit text-xs font-medium th-text-accent underline">
+          {open ? "Đóng" : "Hoặc tải file giọng lên"}
+        </button>
+      )}
+      {expanded && open && (
         <form
           className="flex flex-col gap-2"
           onSubmit={(event) => {

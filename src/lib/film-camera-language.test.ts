@@ -61,4 +61,11 @@ describe("cách quay người dùng chọn ở studio", () => {
     expect(markedFormatIntent(markedFormatIntent(intent, "cooking_show"), "phone_vlog")).toContain("[AIDA_FORMAT=phone_vlog]");
     expect(markedFormatIntent(markedFormatIntent(intent, "cooking_show"), "phone_vlog")).not.toContain("cooking_show");
   });
+
+  it("người dùng chỉ chọn cách quay mà không chọn thể loại: AI vẫn tự đoán thể loại", () => {
+    const intent = markedFormatIntent("Bé than tiền điện", "talk_to_camera");
+    expect(filmFormatFromIntent(intent)).toBe("talk_to_camera");
+    expect(stripStoryGenreMarker(intent)).toBe("Bé than tiền điện");
+    expect(storyGenreFromIntent(intent)).toBe("comedy");
+  });
 });

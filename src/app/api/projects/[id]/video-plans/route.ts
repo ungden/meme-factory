@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { access, savePlan, fail, latestChannelProfile } from "@/lib/short-film/server";
-import { fixedVoiceEnabled } from "@/lib/short-film/features";
+import { fixedVoiceEnabled, nativeVoiceEnabled } from "@/lib/short-film/features";
 import { normalizeFamilyFatherTerms } from "@/lib/family-terminology";
 import { usesFatherTerminology } from "@/lib/channel-behaviour";
 export async function GET(
@@ -76,6 +76,8 @@ export async function GET(
       .maybeSingle();
     const payload = {
       channelProfile: channel?.profile || null,
+      // Dự án tự nói tiếng Việt thì studio mặc định Seedance 2.5, không bắt chọn.
+      nativeVoice: nativeVoiceEnabled(a.project.id),
       latestAssist: assist,
       plans: data?.map((p) => {
         const planTasks = tasksByPlan.get(p.id) || [];

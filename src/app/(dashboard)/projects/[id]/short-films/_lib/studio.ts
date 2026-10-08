@@ -253,18 +253,20 @@ export const QUALITY_OPTIONS = [
     label: "Tiết kiệm",
     description: "Đẹp, nhanh, phù hợp đăng hằng ngày",
     model: SEEDANCE_20_FAST_TEXT_MODEL,
-    // Đo từ lượt thật: tập 17 giây trên Seedance 2.0 Fast hết 274 điểm, tập 37
-    // giây trên Seedance 2.5 hết 1.224 điểm. Giới hạn mặc định chừa chỗ tạo lại.
-    estimatedPoints: 500,
-    defaultLimit: 800,
+    // Đo từ lượt thật: tập 17 giây trên Seedance 2.0 Fast hết 274 điểm (~16
+    // điểm/giây), tập 37 giây trên Seedance 2.5 hết 1.224 điểm (~33 điểm/giây).
+    // Định dạng mới nhắm 60 giây nên ước tính theo 60 giây; giới hạn mặc định
+    // chừa chỗ tạo lại để lượt chạy không dừng giữa chừng hỏi người dùng.
+    estimatedPoints: 1000,
+    defaultLimit: 1500,
   },
   {
     id: "quality",
     label: "Chất lượng cao",
     description: "Chuyển động mượt hơn, giá gần gấp đôi",
     model: SEEDANCE_25_TEXT_MODEL,
-    estimatedPoints: 1200,
-    defaultLimit: 1800,
+    estimatedPoints: 2000,
+    defaultLimit: 3000,
   },
 ] as const;
 

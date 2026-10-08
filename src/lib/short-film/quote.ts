@@ -21,6 +21,8 @@ import {
   filmVideoInputs,
   isAcceptedTask as accepted,
   isGeminiTtsModel,
+  NATIVE_VOICE_MODEL,
+  type FilmCast,
   type FilmPlan,
   type FilmScene,
   type FilmTask,
@@ -399,6 +401,31 @@ async function quoteVideo({
       "Giọng cố định đang kiểm chứng. Bạn vẫn có thể chuẩn bị ảnh và nghe thử giọng.",
       409,
     );
+  // Giọng chuẩn được AI tự chọn ở cuối một tập trước, sau khi cast của tập này
+  // đã đóng băng; đọc bản mới nhất ở đây để tập này dùng được ngay.
+  const nativeVoices = new Map<string, NonNullable<FilmCast["nativeVoice"]>>();
+  if (plan.audio_mode === "native") {
+    const ids = [...new Set(scenes.flatMap((s) => s.cast_snapshot.filter((c) => !c.isGuest).map((c) => c.characterId)))];
+    const { data } = ids.length
+      ? await a.admin
+          .from("character_voice_versions")
+          .select("id,character_id,voice_id,model,settings,version")
+          .eq("project_id", a.project.id)
+          .eq("workspace_version", a.project.workspace_version)
+          .eq("model", NATIVE_VOICE_MODEL)
+          .not("approved_at", "is", null)
+          .in("character_id", ids)
+          .order("version", { ascending: false })
+      : { data: [] };
+    for (const row of data || [])
+      if (!nativeVoices.has(row.character_id))
+        nativeVoices.set(row.character_id, {
+          id: row.id,
+          voice_id: row.voice_id,
+          model: row.model,
+          settings: row.settings || {},
+        });
+  }
   tasks.push(...(await perScene(scenes, async (s) => {
     const image = latest(s, "image"),
       audio = latest(s, "tts");
@@ -413,7 +440,15 @@ async function quoteVideo({
       );
     const directed = plan.audio_mode === "dubbed"
       ? measuredDubbedScene(eligible, s, seedanceMaxDuration(plan.video_model))
-      : { scene: s, measuredSpeechSeconds: undefined };
+      : {
+          scene: {
+            ...s,
+            cast_snapshot: s.cast_snapshot.map((c) =>
+              nativeVoices.has(c.characterId) ? { ...c, nativeVoice: nativeVoices.get(c.characterId) } : c,
+            ),
+          },
+          measuredSpeechSeconds: undefined,
+        };
     const schedule =
       plan.audio_mode === "dubbed" ? dubbingSchedule(eligible, directed.scene) : [];
     if (

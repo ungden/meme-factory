@@ -69,12 +69,16 @@ export default function EpisodeStudio() {
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
 
   const [idea, setIdea] = useState("");
-  const [genre, setGenre] = useState<StoryGenre>("comedy");
+  // null = để AI tự chọn; người dùng chỉ đổi khi muốn, trong mục thu gọn.
+  const [genre, setGenre] = useState<StoryGenre | null>(null);
   const [format, setFormat] = useState<FilmFormat | null>(null);
-  const [quality, setQuality] = useState<QualityId>("saving");
-  const [limit, setLimit] = useState<number>(QUALITY_OPTIONS[0].defaultLimit);
   const [suggestions, setSuggestions] = useState<{ title: string; idea: string }[]>([]);
   const [suggesting, setSuggesting] = useState(false);
+  const [quality, setQuality] = useState<QualityId>("saving");
+  const [limit, setLimit] = useState<number>(QUALITY_OPTIONS[0].defaultLimit);
+  // Dự án tự nói tiếng Việt cần Seedance 2.5; chọn sẵn cho người dùng, trừ khi
+  // họ đã tự đổi ở mục tuỳ chọn.
+  const qualityTouched = useRef(false);
   const [profileAudience, setProfileAudience] = useState("Gia đình Việt xem video ngắn");
   const [profileTone, setProfileTone] = useState("Hài tự nhiên và cảm động có nguyên nhân");
   const [profilePositioning, setProfilePositioning] = useState("");
@@ -102,6 +106,7 @@ export default function EpisodeStudio() {
     refreshVoices().catch(() => undefined);
   }, [refreshVoices]);
 
+
   const episodes = useMemo(() => episodeSummaries(plans, runs), [plans, runs]);
   // Lượt đang viết kịch bản được chọn bằng id lượt; khi kịch bản ra đời, tập đó
   // mang khoá của kịch bản. Tìm cả theo id lượt để màn không rơi về "Tập mới".
@@ -128,6 +133,10 @@ export default function EpisodeStudio() {
     setPlans(planList.plans || []);
     setWorkspace(planList.workspaceVersion ?? null);
     setChannelProfile(planList.channelProfile || null);
+    if (planList.nativeVoice && !qualityTouched.current) {
+      setQuality("quality");
+      setLimit(qualityOption("quality").defaultLimit);
+    }
     setRuns(runList.runs || []);
     setLoaded(true);
   }, [base]);
@@ -164,11 +173,6 @@ export default function EpisodeStudio() {
   useEffect(() => {
     refreshList().catch((cause) => setError(cause.message));
   }, [refreshList]);
-
-  useEffect(() => {
-    if (channelProfile?.genres?.length && !channelProfile.genres.includes(genre))
-      setGenre(channelProfile.genres[0]);
-  }, [channelProfile, genre]);
 
   useEffect(() => {
     if (episode && selectedKey && episode.key !== selectedKey) select(episode.key);
@@ -239,17 +243,27 @@ export default function EpisodeStudio() {
     }
   }
 
-  async function startRun(intent: string, maxFilm: number, videoModel: string, storyGenre = genre) {
+  /**
+   * Thể loại và cách quay do AI tự chọn từ ý tưởng, trừ khi người dùng đã chọn
+   * ở mục tuỳ chọn hoặc đang viết lại một tập đã có thể loại.
+   */
+  async function startRun(
+    intent: string,
+    maxFilm: number,
+    videoModel: string,
+    storyGenre: StoryGenre | null = genre,
+    filmFormat: FilmFormat | null = format,
+  ) {
     if (!channelProfile) throw new Error("Hãy hoàn tất hồ sơ kênh trước khi viết kịch bản.");
-    if (channelProfile.genres?.length && !channelProfile.genres.includes(storyGenre))
-      throw new Error("Thể loại này chưa được bật trong hồ sơ kênh.");
     const current = runs.find((run) => runIsActive(run));
     const response = await api(`${base}/production-runs`, {
       planId: null,
       // Tập cảm động không quay kiểu bé nói với máy; lựa chọn cũ không được lọt qua.
       intent: markedFormatIntent(
-        markedStoryIntent(intent, storyGenre),
-        storyGenre === "emotion" && (format === "talk_to_camera" || format === "cooking_show") ? null : format,
+        storyGenre ? markedStoryIntent(intent, storyGenre) : intent,
+        storyGenre === "emotion" && (filmFormat === "talk_to_camera" || filmFormat === "cooking_show")
+          ? null
+          : filmFormat,
       ),
       guests: [],
       maxPointsPerFilm: maxFilm,
@@ -462,13 +476,16 @@ export default function EpisodeStudio() {
               allowedGenres={channelProfile?.genres || ["comedy", "emotion"]}
               format={format}
               onFormat={setFormat}
-              quality={quality}
-              onQuality={setQuality}
-              limit={limit}
-              onLimit={setLimit}
               suggestions={suggestions}
               suggesting={suggesting}
               onSuggest={suggest}
+              quality={quality}
+              onQuality={(value) => {
+                qualityTouched.current = true;
+                setQuality(value);
+              }}
+              limit={limit}
+              onLimit={setLimit}
               starting={busy}
               onStart={() =>
                 act(async () => {
@@ -535,6 +552,7 @@ export default function EpisodeStudio() {
                         run.max_points_per_film,
                         plan?.video_model || qualityOption("saving").model,
                         storyGenreFromIntent(originalIntent, channelProfile?.genres),
+                        null,
                       );
                     })
                   }
@@ -566,7 +584,7 @@ export default function EpisodeStudio() {
               {plan?.audio_mode === "native" && (
                 <VoiceSamplePanel
                   characters={voiceCharacters}
-                  candidates={voiceCandidates.filter((candidate) => !nativeVoiceIds.has(candidate.characterId))}
+                  candidates={voiceCandidates}
                   busy={busy}
                   onUseClip={(candidate) =>
                     saveVoice({
