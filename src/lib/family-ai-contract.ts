@@ -608,6 +608,12 @@ export function compileStoryboards(
   const normalized = normalizeShotResponse(value);
   const planned = compileStoryShots(normalized, story, characters);
   const format = filmFormat(story.filmFormat);
+  // Bé nói với người xem: người nói nhiều nhất là người dẫn trên hình; ai khác có
+  // lời là người cầm máy, ở ngoài khung.
+  const spokenCount = new Map<string, number>();
+  for (const line of story.dialogue)
+    if (line.text.trim()) spokenCount.set(line.characterId, (spokenCount.get(line.characterId) || 0) + 1);
+  const host = [...spokenCount.entries()].sort((x, y) => y[1] - x[1])[0]?.[0];
   const hasReaction = story.beats.at(-1)?.purpose === "reaction";
   const initialGroups = storyboardGroups(
     story.dialogue,
@@ -723,6 +729,12 @@ export function compileStoryboards(
         version: 2,
         timingPolicy: "audio_driven_v1",
         ...(format !== "family_scene" ? { filmFormat: format } : {}),
+        ...(format === "talk_to_camera" && host
+          ? (() => {
+              const offscreen = characterIds.filter((id) => id !== host);
+              return offscreen.length ? { offscreenCharacterIds: offscreen } : {};
+            })()
+          : {}),
         durationSeconds: providerDuration,
         contentEndSeconds: Math.round(sum * 100) / 100,
         beats,

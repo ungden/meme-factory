@@ -10,7 +10,10 @@ export type SetupCharacter = {
   name: string;
   avatarUrl: string | null;
   ready: boolean;
+  packComplete?: boolean;
   references: Record<string, string>;
+  /** Ảnh đã tạo mà chưa khoá ở lần trước; dùng lại thay vì trả tiền vẽ lại. */
+  drafts?: Partial<Record<"face" | "body" | "back", { path: string; url: string }>>;
 };
 
 const VIEWS = ["face", "body", "back"] as const;
@@ -50,8 +53,11 @@ export function FilmSetupPanel({
   const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
   const [running, setRunning] = useState(false);
-  const pending = characters.filter((c) => selected.includes(c.id) && !c.ready);
-  const cost = pending.length * VIEWS.length * pointsPerImage;
+  // Nhân vật đã lên phim được nhưng chưa có đủ ba góc vẫn nên được nâng cấp.
+  const pending = characters.filter((c) => selected.includes(c.id) && !(c.packComplete ?? c.ready));
+  const cost =
+    pending.reduce((sum, character) => sum + VIEWS.filter((view) => !character.drafts?.[view]).length, 0) *
+    pointsPerImage;
 
   async function call(body: Record<string, unknown>) {
     const response = await fetch(`${base}/film-setup`, {
@@ -70,17 +76,28 @@ export function FilmSetupPanel({
     try {
       if ([...selected].sort().join() !== [...castIds].sort().join()) await onSaveCast(selected);
       let step = 0;
-      const total = pending.length * VIEWS.length;
+      const total = pending.reduce(
+        (sum, character) => sum + VIEWS.filter((view) => !character.drafts?.[view]).length,
+        0,
+      );
       for (const character of pending) {
-        const images: Array<Record<string, unknown>> = [];
+        const paths: Partial<Record<(typeof VIEWS)[number], string>> = Object.fromEntries(
+          Object.entries(character.drafts || {}).map(([view, draft]) => [view, draft!.path]),
+        );
         for (const view of VIEWS) {
+          if (paths[view]) continue;
           step += 1;
           setProgress(`Đang tạo ${VIEW_LABEL[view]} của ${character.name} (${step}/${total})`);
-          const face = images.find((image) => image.view === "face");
-          images.push(await call({ action: "generate", characterId: character.id, view, faceUrl: face?.url }));
+          try {
+            const made = await call({ action: "generate", characterId: character.id, view, facePath: paths.face });
+            paths[view] = made.path;
+          } catch (cause) {
+            // Ảnh lưng chỉ là thêm: thiếu nó vẫn khoá được bộ mặt + thân.
+            if (view !== "back") throw cause;
+          }
         }
         setProgress(`Đang lưu bộ ảnh của ${character.name}`);
-        await call({ action: "lock", characterId: character.id, images });
+        await call({ action: "lock", characterId: character.id, paths });
       }
       setProgress("");
       await onDone();
@@ -136,10 +153,10 @@ export function FilmSetupPanel({
                   />
                   <span className="min-w-0 truncate font-medium">{character.name}</span>
                 </span>
-                <span className={`px-2.5 pb-2 text-xs ${character.ready ? "th-text-success" : "th-text-secondary"}`}>
-                  {character.ready ? (
-                    <span className="inline-flex items-center gap-1"><Check className="h-3 w-3" aria-hidden /> Sẵn sàng lên phim</span>
-                  ) : chosen ? "Cần bộ ảnh chuẩn" : "Không dùng trong phim"}
+                <span className={`px-2.5 pb-2 text-xs ${(character.packComplete ?? character.ready) ? "th-text-success" : "th-text-secondary"}`}>
+                  {(character.packComplete ?? character.ready) ? (
+                    <span className="inline-flex items-center gap-1"><Check className="h-3 w-3" aria-hidden /> Bộ ảnh đầy đủ</span>
+                  ) : !chosen ? "Không dùng trong phim" : character.ready ? "Lên phim được · nên bổ sung bộ ảnh" : "Cần bộ ảnh chuẩn"}
                 </span>
               </label>
             </li>

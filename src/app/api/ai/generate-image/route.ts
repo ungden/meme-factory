@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getRequestUser } from "@/lib/supabase/request-auth";
 import {
-  compileMemeImagePrompt,
   compileCharacterPosePrompt,
   compileBackgroundPrompt,
-  generateMemeImage,
   generateCharacterPose,
   generateBackground,
   IMAGE_MODEL,
@@ -25,13 +23,9 @@ import {
 } from "@/lib/ai-pricing";
 import { isArtDirectionId } from "@/lib/mascot-art-direction";
 import {
-  OPENAI_IMAGE_MODEL,
   calculateOpenAiActualCost,
-  generateMemeImageWithOpenAI,
-  openAiSizeFor,
 } from "@/lib/openai-image";
-import { hasOpenAiApiKey } from "@/lib/server-secrets";
-import { buildMemeManifest } from "@/lib/continuity/meme-manifest";
+import { planMemeImage, runMemeImage } from "@/lib/meme-image";
 import {
   buildBackgroundManifest,
   buildCharacterManifest,
@@ -233,82 +227,15 @@ export async function POST(request: NextRequest) {
           textPosition: textPosition || "top", characters: chars || [],
           format: format || "1:1", style, backgroundDescription, referenceImages, customPrompt, watermark,
         };
-        const initialPlan = buildMemeManifest({
-          prompt: "",
-          model: IMAGE_MODEL,
-          policy: "balanced",
-          aspectRatio: unfilteredParams.format,
-          characters: unfilteredParams.characters,
-          referenceImages: unfilteredParams.referenceImages,
-          watermark: unfilteredParams.watermark,
-          sourceMemeId: body.source_meme_id,
-        });
-        const selectedCharacterIndexes = new Set(initialPlan.selectedCharacterIndexes);
-        const selectedContextIndexes = new Set(initialPlan.selectedContextIndexes);
-        const providerParams: GenerateMemeImageParams = {
-          ...unfilteredParams,
-          characters: unfilteredParams.characters.map((character, index) =>
-            character.poseImageBase64 && !selectedCharacterIndexes.has(index)
-              ? { ...character, poseImageBase64: undefined, poseMimeType: undefined }
-              : character
-          ),
-          referenceImages: unfilteredParams.referenceImages?.filter((_, index) =>
-            selectedContextIndexes.has(index)
-          ),
-          watermark: unfilteredParams.watermark
-            ? {
-                ...unfilteredParams.watermark,
-                logoBase64: initialPlan.includeWatermarkLogo
-                  ? unfilteredParams.watermark.logoBase64
-                  : undefined,
-                logoMimeType: initialPlan.includeWatermarkLogo
-                  ? unfilteredParams.watermark.logoMimeType
-                  : undefined,
-              }
-            : undefined,
-        };
-        const compiledPrompt = compileMemeImagePrompt(providerParams);
-        const manifestPlan = buildMemeManifest({
-          prompt: compiledPrompt,
-          model: IMAGE_MODEL,
-          policy: "balanced",
-          aspectRatio: unfilteredParams.format,
-          characters: unfilteredParams.characters,
-          referenceImages: unfilteredParams.referenceImages,
-          watermark: unfilteredParams.watermark,
-          sourceMemeId: body.source_meme_id,
-        });
-        // The caption is drawn by the model here, and Vietnamese diacritics are
-        // where Gemini slips. GPT Image 2 is the provider OpenAI documents for
-        // text rendering, and at medium quality it also costs less than Gemini 1K
-        // (0.053 vs 0.067 USD), so text memes route there when a key exists.
-        const wantsRenderedText = Boolean(headline?.trim() || subtext?.trim());
-        useOpenAi = wantsRenderedText && hasOpenAiApiKey();
-
-        generationRecipe = useOpenAi
-          ? { ...manifestPlan.recipe, provider: "openai", model: OPENAI_IMAGE_MODEL }
-          : manifestPlan.recipe;
-        priceEstimate = useOpenAi
-          ? estimateImageGenerationPrice({
-              model: "gpt-image-2",
-              resolution: openAiSizeFor(unfilteredParams.format).resolution,
-              quality: "medium",
-              inputImageCount: manifestPlan.recipe.references.length,
-              prompt: compiledPrompt,
-            })
-          : estimateImageGenerationPrice({
-              model: IMAGE_MODEL,
-              resolution: "1K",
-              inputImageCount: manifestPlan.recipe.references.length,
-              prompt: compiledPrompt,
-            });
+        const plan = planMemeImage(unfilteredParams, body.source_meme_id);
+        useOpenAi = plan.useOpenAi;
+        generationRecipe = plan.recipe;
+        priceEstimate = plan.priceEstimate;
         generationJobPersisted = await persistGenerationJob(generationRecipe, priceEstimate, {
           type: body.source_meme_id ? "meme" : null,
           id: body.source_meme_id || null,
         });
-        result = useOpenAi
-          ? await generateMemeImageWithOpenAI({ ...providerParams, quality: "medium" })
-          : await generateMemeImage(providerParams);
+        result = await runMemeImage(plan);
         break;
       }
 

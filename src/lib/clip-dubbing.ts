@@ -53,6 +53,8 @@ export async function resolveClipDubbing(
     .select("id,voice_id,model,settings")
     .eq("character_id", character.id)
     .eq("workspace_version", project.workspace_version)
+    // Giọng mẫu cho Seedance tự nói không phải giọng TTS; lấy nó là hỏng lồng tiếng.
+    .neq("model", "seedance-native")
     .not("approved_at", "is", null)
     .order("version", { ascending: false })
     .limit(1)

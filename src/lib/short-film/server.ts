@@ -15,7 +15,8 @@ import { normalizeScene, type SceneInput } from "@/lib/multiscene-video";
 import {
   AI_PRICE_MARKUP_MULTIPLIER,
   AI_PRICING_USD_VND,
-  BILLING_POINT_FLOOR_VND
+  BILLING_POINT_FLOOR_VND,
+  estimateImageGenerationPrice,
 } from "@/lib/ai-pricing";
 import {
   NATIVE_VOICE_MODEL,
@@ -30,7 +31,9 @@ import {
 import {
   generateFilmGuestReference,
   generateFilmWardrobeReference,
+  IMAGE_MODEL,
 } from "@/lib/gemini-image";
+import { chargedCharacterImage, InsufficientPointsError } from "@/lib/charged-image";
 import {
   dressCast,
   normalizeWardrobe,
@@ -586,13 +589,33 @@ export async function savePlan(
       });
       if (!existing?.length) {
         const face = await loadReferenceImage(a, wardrobeFaceSource(character));
-        const generated = await generateFilmWardrobeReference({
-          name: character.name,
-          description: character.description,
-          outfit,
-          identityImage: face,
-          artDirectionPrompt: wardrobeLook,
+        // Mỗi bộ đồ là một ảnh trả tiền; trước đây vẽ miễn phí ở mỗi lần lưu
+        // nên ai đổi chữ trang phục liên tục là đốt tiền của nền tảng.
+        const charged = await chargedCharacterImage({
+          project: a.project,
+          actorUserId: a.user.id,
+          description: `trang phục tập phim của ${character.name}`,
+          workflowVersion: "film-wardrobe-v1",
+          model: IMAGE_MODEL,
+          provider: "google",
+          prompt: `${character.name}: ${outfit}`,
+          references: [{ role: "identity_face", source: wardrobeFaceSource(character) }],
+          estimate: estimateImageGenerationPrice({ model: IMAGE_MODEL, resolution: "1K", inputImageCount: 1, prompt: outfit }),
+          requestedOutput: { planId, characterId: character.characterId, outfit },
+          sourceEntity: { type: "video_plan", id: planId },
+          generate: () =>
+            generateFilmWardrobeReference({
+              name: character.name,
+              description: character.description,
+              outfit,
+              identityImage: face,
+              artDirectionPrompt: wardrobeLook,
+            }),
+        }).catch((error) => {
+          if (error instanceof InsufficientPointsError) throw new FilmError(error.message, 402);
+          throw error;
         });
+        const generated = charged.result;
         const { error: uploadError } = await bucket.upload(
           path,
           Buffer.from(generated.image, "base64"),

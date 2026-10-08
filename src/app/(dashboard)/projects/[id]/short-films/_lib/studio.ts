@@ -13,6 +13,7 @@ export type StudioRun = {
   id: string;
   plan_id: string | null;
   intent: string | null;
+  video_model?: string | null;
   status: string;
   phase: string;
   points_committed: number;

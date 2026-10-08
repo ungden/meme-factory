@@ -313,6 +313,25 @@ describe("compileStoryboards", () => {
     expect(beats.map((b) => b.setting)).toEqual(["Chợ sáng", "Hành lang chung cư"]);
   });
 
+  // Người nói nhiều nhất là người dẫn trên hình; người còn lại là người cầm máy.
+  it("bé nói với người xem: đánh dấu người cầm máy ở ngoài khung", () => {
+    const board = compileStoryboards(
+      reply(3),
+      story({
+        filmFormat: "talk_to_camera",
+        dialogue: [
+          { characterId: "char-a", text: "Tiền tui đâu rồi?", action: "gào" },
+          { characterId: "char-b", text: "Con nói gì đó?", action: "hỏi từ sau máy" },
+          { characterId: "char-a", text: "Ba ngày là hết!", action: "chỉ vào máy" },
+        ],
+      }),
+      CAST,
+      30,
+    );
+    const offscreen = board.scenes.flatMap((scene) => scene.storyboard?.offscreenCharacterIds || []);
+    expect(new Set(offscreen)).toEqual(new Set(["char-b"]));
+  });
+
   it("phim gia đình không mang nơi quay theo nhịp", () => {
     const board = compileStoryboards(
       reply(2, { shot1: { cameraPreset: "free" } }),

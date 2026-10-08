@@ -111,7 +111,15 @@ export const fromScene = (s: FilmScene): DraftScene => ({
   startImageUrl: s.start_image_url,
   endImageUrl: s.end_image_url,
 });
-export const fromPlan = (p: FilmPlan): Draft => ({
+/**
+ * Bản tự nói chỉ giữ nguyên khi kênh được bật giọng tự nói. Ép mọi bản tự nói
+ * thành lồng tiếng (như trước) làm lần lưu kế tiếp đổi chế độ, và mọi clip đã
+ * quay xong bị coi như chưa có — người dùng trả tiền quay lại cả tập.
+ */
+export function editableAudioMode(mode: Draft["audioMode"], nativeAllowed: boolean): Draft["audioMode"] {
+  return mode === "native" && !nativeAllowed ? "dubbed" : mode;
+}
+export const fromPlan = (p: FilmPlan, nativeAllowed = false): Draft => ({
   title: p.title,
   brief: p.brief,
   caption: p.caption,
@@ -121,7 +129,7 @@ export const fromPlan = (p: FilmPlan): Draft => ({
   format: p.format,
   resolution: p.resolution,
   videoModel: seedanceReferenceModel(p.video_model),
-  audioMode: p.audio_mode === "native" ? "dubbed" : p.audio_mode,
+  audioMode: editableAudioMode(p.audio_mode, nativeAllowed),
   subtitles: p.subtitles,
   guests: (p.cast_snapshot || [])
     .filter((c) => c.isGuest)

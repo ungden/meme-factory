@@ -614,6 +614,9 @@ export function compileFilmMotion(
           .join("; ")}.`
       : "";
     const filmFormat = board.filmFormat || "family_scene";
+    const offscreen = new Set(board.offscreenCharacterIds || []);
+    const onscreenCast = scene.cast_snapshot.filter((c) => !offscreen.has(c.characterId));
+    const offscreenNames = scene.cast_snapshot.filter((c) => offscreen.has(c.characterId)).map((c) => c.name);
     const hopsLocation = formatAllowsLocationCuts(filmFormat);
     const facesLens = formatAddressesCamera(filmFormat);
     return [
@@ -622,7 +625,10 @@ export function compileFilmMotion(
       `REFERENCE PACK: ${referenceBindings.join(" ")} Dùng đúng vai trò đã gắn cho từng @image; không trộn mặt, trang phục, đạo cụ hoặc bối cảnh giữa các ảnh. Storyboard tổng chỉ để duyệt và không nằm trong input provider.`,
       // Mô tả cắt ngắn: nhận diện đã do ảnh chuẩn khoá, và tài liệu Seedance nói
       // ảnh tham chiếu thắng chữ khi hai bên nói khác nhau về ngoại hình.
-      `CAST: ${scene.cast_snapshot.map((c) => `${c.name}: ${String(c.description || "").split(/[,.]/u).slice(0, 2).join(",").trim()}${c.episodeOutfit ? `, tập này mặc ${c.episodeOutfit}` : ""}`).join("; ")}. Không trộn người giữa các lượt.`,
+      `CAST: ${onscreenCast.map((c) => `${c.name}: ${String(c.description || "").split(/[,.]/u).slice(0, 2).join(",").trim()}${c.episodeOutfit ? `, tập này mặc ${c.episodeOutfit}` : ""}`).join("; ")}. Không trộn người giữa các lượt.`,
+      ...(offscreenNames.length
+        ? [`NGOÀI KHUNG: ${offscreenNames.join(", ")} là người cầm máy — chỉ có thể lọt bàn tay ở mép khung hoặc nói từ ngoài khung; không bao giờ thấy mặt hay người.`]
+        : []),
       REALTIME_MOTION_DIRECTION,
       ...(performance ? [`ACTING INTENT: ${performance.comicObjective}. HOOK 0–1s: ${performance.hook}. END CUE: ${performance.revealOrCut}. Các hành vi cụ thể nằm trong timeline dưới đây; không diễn lại thành chuỗi thứ hai.`] : []),
       hopsLocation
@@ -644,7 +650,9 @@ export function compileFilmMotion(
           opening ? `Mở nhịp: ${sentence(opening)}` : "",
           closing ? `Kết nhịp: ${sentence(closing)}` : "",
           b.performance ? `Phản ứng: ${b.performance.expressionChange}; ${sentence(b.performance.reactionTarget)}` : "",
-          b.dialogue
+          b.dialogue && b.speakerCharacterId && offscreen.has(b.speakerCharacterId)
+            ? `${name(b.speakerCharacterId)} nói tiếng Việt từ ngoài khung {${b.dialogue}}${mode === "native" ? "" : ", video im tiếng, lồng tiếng sau"}; không thấy mặt ${name(b.speakerCharacterId)}. Người trên hình nghe và phản ứng, miệng đóng.`
+            : b.dialogue
             ? `Chỉ ${name(b.speakerCharacterId)} nói tiếng Việt {${b.dialogue}}${mode === "native" ? "" : ", video im tiếng, lồng tiếng sau"}. Người còn lại nghe, miệng đóng.${
                 measuredSpeechSeconds?.has(i)
                   ? ` Nói xong trước khi hết nhịp${/seedance-2\.5/.test(videoModel) ? ` (khoảng giây ${Math.round(b.startSeconds + measuredSpeechSeconds.get(i)!)})` : ""}; phần còn lại là phản ứng, không kéo môi cho đầy nhịp.`

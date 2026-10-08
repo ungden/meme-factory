@@ -68,6 +68,17 @@ describe("prompt Seedance theo định dạng", () => {
     expect(prompt).not.toContain("không đổi bối cảnh");
   });
 
+  it("người cầm máy nói từ ngoài khung và không có trong danh sách trên hình", () => {
+    const scene = talkScene();
+    scene.cast_snapshot.push({ ...doDo, characterId: "me", name: "Mẹ", description: "Mẹ trẻ" });
+    scene.storyboard!.offscreenCharacterIds = ["me"];
+    scene.storyboard!.beats[1] = { ...scene.storyboard!.beats[1], speakerCharacterId: "me", dialogue: "Con nói gì đó?" };
+    const prompt = compileFilmMotion(scene, "dubbed", "9:16");
+    expect(prompt).toContain("NGOÀI KHUNG: Mẹ là người cầm máy");
+    expect(prompt).toContain("Mẹ nói tiếng Việt từ ngoài khung");
+    expect(prompt).not.toMatch(/CAST:[^\n]*Mẹ:/u);
+  });
+
   it("phim gia đình cũ giữ nguyên luật không đổi bối cảnh và không thêm look", () => {
     const scene = talkScene();
     delete scene.storyboard!.filmFormat;

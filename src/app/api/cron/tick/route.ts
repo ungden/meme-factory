@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
   const origin = SITE_URL;
   const endpoints = [
     "/api/internal/short-film-production/advance",
+    "/api/internal/meme-production/advance",
     "/api/internal/wavespeed/reconcile",
     "/api/internal/refund-sweeper",
   ];

@@ -58,6 +58,15 @@ export async function POST(request: NextRequest) {
       if (result?.settled) refunded += 1;
     }
 
+    // Khoản trừ không kịp ghi job (tiến trình chết giữa hai bước) — xem migration 20261008150000.
+    const { data: orphans, error: orphanError } = await admin.rpc("settle_orphan_image_payments", {
+      _stale_before: staleBefore,
+      _limit: BATCH,
+    });
+    if (orphanError)
+      await reportError(new Error(orphanError.message), { scope: "refund.sweeper.orphan" });
+    refunded += Number(orphans || 0);
+
     return NextResponse.json({ scanned: jobs?.length || 0, refunded });
   } catch (error) {
     await reportError(error, { scope: "refund.sweeper" });

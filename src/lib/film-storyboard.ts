@@ -62,6 +62,11 @@ export type FilmStoryboard = {
   timingPolicy?: "audio_driven_v1";
   /** Vắng mặt nghĩa là family_scene, kể cả mọi storyboard trước v2. */
   filmFormat?: FilmFormat;
+  /**
+   * Người cầm máy ở định dạng bé nói với người xem: chỉ lọt tay hoặc nói từ ngoài
+   * khung. Không có danh sách này, Seedance đưa Bố/Mẹ lên hình nói vào ống kính.
+   */
+  offscreenCharacterIds?: string[];
   /** Story-aware image pack used to approve the visual logic before I2V. */
   referencePlan?: SceneReferencePlan;
 };
@@ -165,6 +170,11 @@ export function validateStoryboard(
   if (b.timingPolicy !== undefined && b.timingPolicy !== "audio_driven_v1")
     throw new Error("STORYBOARD_TIMING_POLICY_INVALID");
   if (b.filmFormat !== undefined && !isFilmFormat(b.filmFormat))
+    throw new Error("STORYBOARD_FILM_FORMAT_INVALID");
+  if (
+    b.offscreenCharacterIds !== undefined &&
+    (!Array.isArray(b.offscreenCharacterIds) || b.offscreenCharacterIds.some((id) => !castIds.includes(id)))
+  )
     throw new Error("STORYBOARD_FILM_FORMAT_INVALID");
   for (const [index, beat] of b.beats.entries()) {
     const speechSeconds = measuredSpeechSeconds?.get(index) ?? spokenSeconds(typeof beat?.dialogue === "string" ? beat.dialogue : "");

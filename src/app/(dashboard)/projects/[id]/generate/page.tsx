@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { MemeAutopilot } from "./_components/meme-autopilot";
 import { IS_MOCK_MODE, useProject, useCharacters, useMemes, generateContent, generateImage } from "@/lib/use-store";
 import {
   MAX_REF_IMAGES,
@@ -42,6 +43,8 @@ export default function GeneratePage() {
 
   // Steps
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  // Ý tưởng truyền sẵn qua URL (từ onboarding) nghĩa là người dùng muốn tự chỉnh.
+  const [showManual, setShowManual] = useState(() => Boolean(searchParams.get("idea")));
   const [idea, setIdea] = useState("");
   const [generating, setGenerating] = useState(false);
   const [variations, setVariations] = useState<ContentVariation[]>([]);
@@ -1005,6 +1008,19 @@ export default function GeneratePage() {
           )}
         </div>
 
+        {/* Luồng chính: AI làm trọn meme. Làm từng bước vẫn còn, mở khi cần. */}
+        {step === 1 && !showManual && !fromMemeId && (
+          <>
+            <MemeAutopilot
+              projectId={projectId}
+              workspaceVersion={(project as { workspace_version?: number } | null)?.workspace_version ?? null}
+            />
+            <Button variant="outline" onClick={() => setShowManual(true)}>
+              Tự làm từng bước
+            </Button>
+          </>
+        )}
+
         {fromMemeId && fromMode === "regenerate" && (
           <div className="mb-4 p-3 rounded-xl border th-border-accent th-bg-accent-light">
             <p className="text-sm th-text-accent">Đang tạo biến thể từ đầu ra đã lưu. Bạn có thể chỉnh prompt rồi bấm &ldquo;Tạo ảnh bằng AI&rdquo;.</p>
@@ -1018,7 +1034,7 @@ export default function GeneratePage() {
         )}
 
         {/* Step 1: Input */}
-        {step === 1 && (
+        {step === 1 && (showManual || Boolean(fromMemeId)) && (
           <div className="grid items-start gap-6 lg:grid-cols-[minmax(360px,400px)_minmax(0,1fr)]">
             <Card className="min-w-0">
               <CardHeader>
