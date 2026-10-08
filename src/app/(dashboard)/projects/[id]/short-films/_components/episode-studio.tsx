@@ -12,6 +12,7 @@ import {
   type StoryGenre,
 } from "@/lib/story-genre";
 import ConfirmModal from "@/components/ui/confirm-modal";
+import { markedFormatIntent, type FilmFormat } from "@/lib/film-camera-language";
 import { castIdentityGaps } from "@/lib/short-film/cast-quality";
 import { suggestHashtags } from "@/lib/post-text";
 import { api } from "../../video/multiscene/_lib/draft";
@@ -37,7 +38,9 @@ import {
   SceneStrip,
   ScriptPanel,
   StatusPill,
+  VoiceSamplePanel,
   type SceneTile,
+  type VoiceCandidate,
 } from "./studio-view";
 
 type PlanDetail = FilmPlan & { video_plan_scenes: FilmPlan["video_plan_scenes"] };
@@ -67,6 +70,7 @@ export default function EpisodeStudio() {
 
   const [idea, setIdea] = useState("");
   const [genre, setGenre] = useState<StoryGenre>("comedy");
+  const [format, setFormat] = useState<FilmFormat | null>(null);
   const [quality, setQuality] = useState<QualityId>("saving");
   const [limit, setLimit] = useState<number>(QUALITY_OPTIONS[0].defaultLimit);
   const [suggestions, setSuggestions] = useState<{ title: string; idea: string }[]>([]);
@@ -81,6 +85,22 @@ export default function EpisodeStudio() {
   const [planTasks, setPlanTasks] = useState<StudioTask[]>([]);
   const [runDetail, setRunDetail] = useState<{ run: StudioRun; checks: StudioCheck[] } | null>(null);
   const generation = useRef(0);
+  const [nativeVoiceIds, setNativeVoiceIds] = useState<Set<string>>(new Set());
+
+  const refreshVoices = useCallback(async () => {
+    const response = await api(`${base}/voices`);
+    setNativeVoiceIds(
+      new Set(
+        ((response.voices || []) as Array<{ character_id: string; model: string; approved_at: string | null }>)
+          .filter((voice) => voice.model === "seedance-native" && voice.approved_at)
+          .map((voice) => voice.character_id),
+      ),
+    );
+  }, [base]);
+
+  useEffect(() => {
+    refreshVoices().catch(() => undefined);
+  }, [refreshVoices]);
 
   const episodes = useMemo(() => episodeSummaries(plans, runs), [plans, runs]);
   // Lượt đang viết kịch bản được chọn bằng id lượt; khi kịch bản ra đời, tập đó
@@ -226,7 +246,11 @@ export default function EpisodeStudio() {
     const current = runs.find((run) => runIsActive(run));
     const response = await api(`${base}/production-runs`, {
       planId: null,
-      intent: markedStoryIntent(intent, storyGenre),
+      // Tập cảm động không quay kiểu bé nói với máy; lựa chọn cũ không được lọt qua.
+      intent: markedFormatIntent(
+        markedStoryIntent(intent, storyGenre),
+        storyGenre === "emotion" && (format === "talk_to_camera" || format === "cooking_show") ? null : format,
+      ),
       guests: [],
       maxPointsPerFilm: maxFilm,
       maxPointsPerDay: Math.max(maxFilm, current?.max_points_per_day || 0, maxFilm * 3),
@@ -289,6 +313,64 @@ export default function EpisodeStudio() {
         task: clip || image,
       };
     });
+
+  // Câu nào trong cảnh đã quay bằng giọng AI tự nói đều có thể làm giọng chuẩn.
+  // Câu ngắn hơn 3 giây được nới tới 3 giây vì model cần nghe đủ âm sắc.
+  const voiceCandidates: VoiceCandidate[] = (plan?.video_plan_scenes || []).flatMap((scene) => {
+    const clip = planTasks
+      .filter(
+        (task) =>
+          task.scene_id === scene.id &&
+          task.kind === "video" &&
+          task.status === "completed" &&
+          task.input?.audioMode === "native",
+      )
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+    if (!clip) return [];
+    return (scene.storyboard?.beats || []).flatMap((beat, index) => {
+      if (!beat.dialogue?.trim() || !beat.speakerCharacterId) return [];
+      const inSeconds = beat.startSeconds;
+      const outSeconds = Math.min(
+        Math.max(beat.endSeconds, inSeconds + 3),
+        inSeconds + 10,
+        scene.storyboard!.durationSeconds,
+      );
+      if (outSeconds - inSeconds < 3) return [];
+      return [{
+        key: `${clip.id}:${index}`,
+        characterId: beat.speakerCharacterId,
+        name: names.get(beat.speakerCharacterId) || "Nhân vật",
+        dialogue: beat.dialogue,
+        taskId: clip.id,
+        inSeconds,
+        outSeconds,
+      }];
+    });
+  });
+  const voiceCharacters = [...castByCharacter.values()]
+    .filter((member) => !member.isGuest)
+    .map((member) => ({
+      id: member.characterId,
+      name: member.name,
+      hasSample: nativeVoiceIds.has(member.characterId),
+    }));
+
+  async function saveVoice(body: Record<string, unknown> | FormData) {
+    setBusy(true);
+    setError("");
+    try {
+      if (body instanceof FormData) {
+        const response = await fetch(`${base}/voices/native`, { method: "POST", body });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Chưa lưu được giọng chuẩn.");
+      } else await api(`${base}/voices/native`, body);
+      await refreshVoices();
+    } catch (cause) {
+      setError((cause as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const resume = (body: Record<string, unknown> = {}) =>
     api(`${base}/production-runs/${run!.id}`, { action: "resume", ...body }, "PATCH");
@@ -378,6 +460,8 @@ export default function EpisodeStudio() {
               genre={genre}
               onGenre={setGenre}
               allowedGenres={channelProfile?.genres || ["comedy", "emotion"]}
+              format={format}
+              onFormat={setFormat}
               quality={quality}
               onQuality={setQuality}
               limit={limit}
@@ -479,6 +563,32 @@ export default function EpisodeStudio() {
                 editHref={plan ? advancedHref : null}
               />
               <SceneStrip scenes={scenes} />
+              {plan?.audio_mode === "native" && (
+                <VoiceSamplePanel
+                  characters={voiceCharacters}
+                  candidates={voiceCandidates.filter((candidate) => !nativeVoiceIds.has(candidate.characterId))}
+                  busy={busy}
+                  onUseClip={(candidate) =>
+                    saveVoice({
+                      workspaceVersion: workspace,
+                      characterId: candidate.characterId,
+                      sourceTaskId: candidate.taskId,
+                      inSeconds: candidate.inSeconds,
+                      outSeconds: candidate.outSeconds,
+                    })
+                  }
+                  onUpload={({ characterId, file, seconds, direction }) => {
+                    const form = new FormData();
+                    form.set("workspaceVersion", String(workspace ?? ""));
+                    form.set("characterId", characterId);
+                    form.set("seconds", String(seconds));
+                    form.set("direction", direction);
+                    form.set("rightsConfirmed", "true");
+                    form.set("file", file);
+                    saveVoice(form);
+                  }}
+                />
+              )}
 
               {!run && !film && plan && (
                 <p className="text-sm th-text-secondary">

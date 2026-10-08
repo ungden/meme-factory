@@ -6,6 +6,15 @@ import {
   type StoryboardBeat,
 } from "./film-storyboard";
 import { BEAT_FUNCTIONS } from "./family-catalogue";
+import {
+  FILM_FORMATS,
+  FORMAT_CAMERA_PRESETS,
+  cameraDirection,
+  filmFormat,
+  formatAllowsLocationCuts,
+  presetShowsFeet,
+  type FilmFormat,
+} from "./film-camera-language";
 import type { ChannelProfile, Story, StoryGenre } from "./family-catalogue";
 import {
   PERFORMANCE_LANES,
@@ -60,6 +69,7 @@ export function storyResponseSchema(
   profile: ChannelProfile,
   ids: string[],
   genre?: StoryGenre,
+  format?: FilmFormat | null,
 ) {
   void ids;
   const characterId = { type: "string" };
@@ -67,6 +77,15 @@ export function storyResponseSchema(
     storyVersion: { type: "integer", enum: [2] },
     genre: genre ? { type: "string", enum: [genre] } : { type: "string", enum: ["comedy", "emotion"] },
     performanceLane: { type: "string", enum: PERFORMANCE_LANES },
+    filmFormat: { type: "string", enum: format ? [format] : FILM_FORMATS },
+    wardrobe: {
+      type: "array",
+      minItems: 0,
+      maxItems: 4,
+      description:
+        "Đồ riêng của tập cho từng nhân vật cần đổi đồ; mảng rỗng nếu mọi người mặc đồ thường ngày trong ảnh chuẩn.",
+      items: object({ characterId: string, outfit: string }),
+    },
     ...(genre === "emotion"
       ? {
           emotionalArc: object({
@@ -192,6 +211,12 @@ export function shotResponseSchema(
       type: "string",
       description:
         "Nơi diễn ra panel. Vẫn cùng một nơi với panel trước thì CHÉP LẠI NGUYÊN VĂN chuỗi setting của panel trước, không viết gọn và không diễn đạt lại; chỉ viết chuỗi mới khi thật sự đổi địa điểm.",
+    },
+    cameraPreset: {
+      type: "string",
+      enum: [...FORMAT_CAMERA_PRESETS[filmFormat(story.filmFormat)]],
+      description:
+        "Kiểu máy quay có tên. camera chỉ ghi phần riêng của panel (ai lọt khung, hướng đi, nhìn đâu), không tả lại kiểu máy.",
     },
     camera: string,
     durationSeconds: { type: "number", minimum: 0.5, maximum: 30 },
@@ -582,6 +607,7 @@ export function compileStoryboards(
 ) {
   const normalized = normalizeShotResponse(value);
   const planned = compileStoryShots(normalized, story, characters);
+  const format = filmFormat(story.filmFormat);
   const hasReaction = story.beats.at(-1)?.purpose === "reaction";
   const initialGroups = storyboardGroups(
     story.dialogue,
@@ -661,7 +687,12 @@ export function compileStoryboards(
         dialogue: line?.text || "",
         pauseAfterSeconds: Number(shot.pauseAfterSeconds ?? 0.15),
         action: String(shot.action),
-        camera: String(shot.camera),
+        camera: cameraDirection(shot.cameraPreset, String(shot.camera), format),
+        // Kênh mẫu đổi nơi mỗi 1–2 câu ngay trong một clip 15 giây; với các
+        // định dạng đó nơi quay là của từng nhịp chứ không của cả clip.
+        ...(formatAllowsLocationCuts(format) && String(shot.setting || "").trim()
+          ? { setting: String(shot.setting).trim().slice(0, 300) }
+          : {}),
         motion: String(shot.motionPrompt)
           .replace(
             /(?:^|\s)\d+(?:\.\d+)?s?\s*[–-]\s*\d+(?:\.\d+)?s\s*:\s*/g,
@@ -691,6 +722,7 @@ export function compileStoryboards(
       {
         version: 2,
         timingPolicy: "audio_driven_v1",
+        ...(format !== "family_scene" ? { filmFormat: format } : {}),
         durationSeconds: providerDuration,
         contentEndSeconds: Math.round(sum * 100) / 100,
         beats,
@@ -720,7 +752,7 @@ export function compileStoryboards(
             const footwearPattern = /chân trần|đi đất|giày|dép|guốc|tất|vớ/iu;
             const needsFootwear =
               footwearPattern.test(opening) &&
-              framingCanShowFeet(String(shot.camera || "")) &&
+              (presetShowsFeet(shot.cameraPreset) ?? framingCanShowFeet(String(shot.camera || ""))) &&
               !shotRequirements.some((requirement) => footwearPattern.test(requirement.description));
             const withFootwear: VisualRequirement[] = needsFootwear
               ? [

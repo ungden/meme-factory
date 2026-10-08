@@ -74,6 +74,8 @@ const story = plans[0].story;
 const candidates = [
   {
     id: "A",
+    socialDomain: "family_home" as const,
+    interactionFrame: "direct_encounter" as const,
     situation: "Hai bé kiểm túi đồ của bố trước giờ đi làm",
     familiarPattern: "Cha mẹ lo đồ đi học cho con",
     observedBehavior: "Bố sợ mang bình nước nặng nên hai bé phải kiểm lại",
@@ -84,6 +86,8 @@ const candidates = [
   },
   {
     id: "B",
+    socialDomain: "school" as const,
+    interactionFrame: "reported_situation" as const,
     situation: "Mẹ đòi ăn kem trước bữa tối của gia đình",
     familiarPattern: "Trẻ đòi món ngọt trước cơm",
     observedBehavior: "Mẹ giấu que kem sau hộp rau trong tủ lạnh",
@@ -94,6 +98,8 @@ const candidates = [
   },
   {
     id: "C",
+    socialDomain: "parents_workplace" as const,
+    interactionFrame: "advice_roleplay" as const,
     situation: "Hai bé dẫn một buổi phỏng vấn chủ nhà gối",
     familiarPattern: "Dẫn tour căn nhà sang trọng",
     observedBehavior: "Chủ nhà phải bò qua cửa bằng gối mới vào được",
@@ -118,6 +124,13 @@ const selection = {
 };
 const episodeBrief = {
   actualSituation: "Hai bé đang kiểm túi đồ của Bố ngay trước giờ Bố đi làm.",
+  socialContext: {
+    domain: "family_home" as const,
+    interactionFrame: "direct_encounter" as const,
+    outsideRole: "không có",
+    friction: "Bố thường quên đồ ngay trước giờ đi làm.",
+    responseMode: "mixed" as const,
+  },
   characters: story.wants.slice(0, 2).map((want, index) => ({
     characterId: want.characterId,
     want: want.want,

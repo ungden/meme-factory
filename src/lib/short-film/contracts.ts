@@ -5,6 +5,11 @@ import {
   type FilmStoryboard,
 } from "../film-storyboard";
 import { REALTIME_MOTION_DIRECTION } from "../film-motion-policy";
+import {
+  FORMAT_LOOK,
+  formatAddressesCamera,
+  formatAllowsLocationCuts,
+} from "../film-camera-language";
 import type { Story } from "../family-catalogue";
 import {
   compilePerformanceDirection,
@@ -12,6 +17,8 @@ import {
 } from "../performance-direction";
 import {
   SEEDANCE_25_TEXT_MODEL,
+  SEEDANCE_REFERENCE_AUDIO_MAX_SECONDS,
+  nativeSpeechSupported,
   seedanceMaxDuration,
   validSeedanceDuration,
   type FilmVideoModel,
@@ -254,6 +261,19 @@ export type FilmCast = {
     settings: Record<string, unknown>;
     source?: "approved" | "auto_guest";
   };
+  /**
+   * Giọng mẫu cho Seedance 2.5 tự nói. Tách khỏi `voice` vì nhánh lồng tiếng
+   * vẫn cần giọng TTS: nếu giọng mẫu thành bản duyệt mới nhất trong `voice`,
+   * clip dự phòng lồng tiếng sẽ gọi TTS với một giọng không tồn tại.
+   */
+  nativeVoice?: {
+    id: string;
+    voice_id: string;
+    model: string;
+    settings: Record<string, unknown>;
+  };
+  /** Trang phục riêng của tập này; ảnh thân trong referenceImages đã mặc nó. */
+  episodeOutfit?: string;
 };
 export type FilmPlan = {
   id: string;
@@ -461,6 +481,102 @@ export function sanitizeProviderPrompt(prompt: string): string {
   return prompt.replace(/--+/gu, "—");
 }
 
+/**
+ * Giọng mẫu cho Seedance 2.5: một bản ghi giọng đã được chủ kênh duyệt, lưu ở
+ * `character_voice_versions` với model `seedance-native`. Gửi kèm mọi clip để
+ * cùng một bé nói cùng một giọng từ clip đầu tới clip cuối.
+ */
+export const NATIVE_VOICE_MODEL = "seedance-native";
+
+export type NativeVoiceSample = {
+  characterId: string;
+  name: string;
+  source:
+    | { url: string }
+    | { path: string }
+    | { taskId: string; inSeconds: number; outSeconds: number };
+  seconds: number;
+};
+
+export function nativeVoiceSamples(
+  scene: Pick<FilmScene, "cast_snapshot" | "storyboard" | "speaker_character_id">,
+  maxSeconds = SEEDANCE_REFERENCE_AUDIO_MAX_SECONDS,
+): NativeVoiceSample[] {
+  const speakers = new Set(
+    scene.storyboard
+      ? scene.storyboard.beats.map((beat) => beat.speakerCharacterId).filter(Boolean)
+      : [scene.speaker_character_id].filter(Boolean),
+  );
+  const samples: NativeVoiceSample[] = [];
+  let total = 0;
+  for (const cast of scene.cast_snapshot) {
+    if (!speakers.has(cast.characterId) || cast.nativeVoice?.model !== NATIVE_VOICE_MODEL) continue;
+    const settings = cast.nativeVoice.settings || {};
+    const url = typeof settings.sampleUrl === "string" ? settings.sampleUrl : "";
+    const path = typeof settings.samplePath === "string" ? settings.samplePath : "";
+    const taskId = typeof settings.sourceTaskId === "string" ? settings.sourceTaskId : "";
+    const inSeconds = Number(settings.inSeconds);
+    const outSeconds = Number(settings.outSeconds);
+    const fromClip = Boolean(taskId) && Number.isFinite(inSeconds) && outSeconds > inSeconds;
+    const seconds = fromClip ? outSeconds - inSeconds : Number(settings.sampleSeconds);
+    if ((!fromClip && !/^https:\/\//i.test(url) && !path) || !Number.isFinite(seconds) || seconds <= 0)
+      continue;
+    // Bỏ giọng vượt trần thay vì hỏng cả clip: người nói đó vẫn được tả bằng chữ.
+    if (total + seconds > maxSeconds) continue;
+    total += seconds;
+    samples.push({
+      characterId: cast.characterId,
+      name: cast.name,
+      source: fromClip ? { taskId, inSeconds, outSeconds } : path ? { path } : { url },
+      seconds,
+    });
+  }
+  return samples;
+}
+
+/**
+ * Lời tả giọng cho từng người nói. Không có giọng mẫu thì đây là thứ duy nhất
+ * giữ tuổi giọng: thiếu nó Seedance cho bé 2 tuổi nói giọng thiếu niên.
+ */
+function nativeVoiceLine(
+  scene: Pick<FilmScene, "cast_snapshot">,
+  speakerIds: Set<string>,
+  samples: NativeVoiceSample[],
+): string {
+  const parts = scene.cast_snapshot
+    .filter((cast) => speakerIds.has(cast.characterId))
+    .map((cast) => {
+      const sample = samples.findIndex((item) => item.characterId === cast.characterId);
+      const direction = String(
+        cast.nativeVoice?.settings?.direction || cast.voice?.settings?.direction || "",
+      ).trim();
+      const who = String(cast.description || "").split(/[,.]/u)[0].trim();
+      const voice = direction || `giọng thật đúng tuổi và giới của ${who || cast.name}`;
+      return `${cast.name}: ${sample >= 0 ? `giọng y hệt @audio${sample + 1}; ` : ""}${voice}`;
+    });
+  return parts.length ? `GIỌNG: ${parts.join(". ")}. Mỗi người giữ đúng một giọng suốt clip.` : "";
+}
+
+export function nativeAudioDirection(
+  scene: Pick<FilmScene, "cast_snapshot" | "storyboard" | "speaker_character_id">,
+  samples: NativeVoiceSample[] = [],
+): string {
+  const speakerIds = new Set(
+    (scene.storyboard
+      ? scene.storyboard.beats.map((beat) => beat.speakerCharacterId)
+      : [scene.speaker_character_id]
+    ).filter((id): id is string => Boolean(id)),
+  );
+  return [
+    // Nhạc nền do model tự sinh đổi bài ở mỗi clip, nghe như cắt nhạc giữa phim;
+    // nhạc nếu cần thì ghép một lần lúc dựng.
+    "AUDIO: nhân vật tự nói tiếng Việt, đúng nguyên văn từng câu trong {} và đúng người nói, giọng tự nhiên như đời thật, rõ dấu. Chỉ tiếng môi trường thật của nơi quay, nhỏ. Không nhạc nền, không thêm lời, không tiếng đệm. Không phụ đề, nhãn thời gian hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ.",
+    nativeVoiceLine(scene, speakerIds, samples),
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export function compileFilmMotion(
   scene: FilmScene,
   mode: "native" | "fixed" | "dubbed",
@@ -468,6 +584,7 @@ export function compileFilmMotion(
   measuredSpeechSeconds?: ReadonlyMap<number, number>,
   referenceBindings: string[] = [],
   videoModel: string = FILM_MODELS.video,
+  voiceSamples: NativeVoiceSample[] = [],
 ) {
   if (scene.storyboard) {
     if (mode === "fixed")
@@ -494,15 +611,24 @@ export function compileFilmMotion(
           .map((prop) => propPhrase(prop, (id) => scene.cast_snapshot.find((c) => c.characterId === id)?.name))
           .join("; ")}.`
       : "";
+    const filmFormat = board.filmFormat || "family_scene";
+    const hopsLocation = formatAllowsLocationCuts(filmFormat);
+    const facesLens = formatAddressesCamera(filmFormat);
     return [
-      `STORYBOARD: clip nguồn ${board.durationSeconds} giây ${format}; câu chuyện hữu ích kết thúc ở ${Number(board.contentEndSeconds ?? board.durationSeconds).toFixed(2)} giây và phần nguồn còn lại sẽ bị cắt. Diễn nhiều nhịp đối đáp/hành động liên tục theo thứ tự sau. Bối cảnh ${scene.setting}.`,
+      `STORYBOARD: clip nguồn ${board.durationSeconds} giây ${format}; câu chuyện hữu ích kết thúc ở ${Number(board.contentEndSeconds ?? board.durationSeconds).toFixed(2)} giây và phần nguồn còn lại sẽ bị cắt. Diễn nhiều nhịp đối đáp/hành động liên tục theo thứ tự sau. ${hopsLocation ? "Bối cảnh mở" : "Bối cảnh"} ${scene.setting}.`,
+      ...(FORMAT_LOOK[filmFormat] ? [FORMAT_LOOK[filmFormat]] : []),
       `REFERENCE PACK: ${referenceBindings.join(" ")} Dùng đúng vai trò đã gắn cho từng @image; không trộn mặt, trang phục, đạo cụ hoặc bối cảnh giữa các ảnh. Storyboard tổng chỉ để duyệt và không nằm trong input provider.`,
       // Mô tả cắt ngắn: nhận diện đã do ảnh chuẩn khoá, và tài liệu Seedance nói
       // ảnh tham chiếu thắng chữ khi hai bên nói khác nhau về ngoại hình.
-      `CAST: ${scene.cast_snapshot.map((c) => `${c.name}: ${String(c.description || "").split(/[,.]/u).slice(0, 2).join(",").trim()}`).join("; ")}. Không trộn người giữa các lượt.`,
+      `CAST: ${scene.cast_snapshot.map((c) => `${c.name}: ${String(c.description || "").split(/[,.]/u).slice(0, 2).join(",").trim()}${c.episodeOutfit ? `, tập này mặc ${c.episodeOutfit}` : ""}`).join("; ")}. Không trộn người giữa các lượt.`,
       REALTIME_MOTION_DIRECTION,
       ...(performance ? [`ACTING INTENT: ${performance.comicObjective}. HOOK 0–1s: ${performance.hook}. END CUE: ${performance.revealOrCut}. Các hành vi cụ thể nằm trong timeline dưới đây; không diễn lại thành chuỗi thứ hai.`] : []),
-      "CAMERA: mỗi shot đúng một phương án máy đã ghi; máy tĩnh được phép. Cắt thẳng giữa các shot, giữ trục nhìn, bên trái/phải và vị trí đạo cụ qua cut. Không dissolve, không chuyển cảnh trang trí, không đổi bối cảnh.",
+      hopsLocation
+        ? "CAMERA: mỗi shot đúng một phương án máy đã ghi. Cắt thẳng (jump cut) giữa các shot; shot nào ghi nơi khác thì cắt thẳng sang nơi đó, cùng người, cùng trang phục. Không dissolve, không chuyển cảnh trang trí."
+        : "CAMERA: mỗi shot đúng một phương án máy đã ghi; máy tĩnh được phép. Cắt thẳng giữa các shot, giữ trục nhìn, bên trái/phải và vị trí đạo cụ qua cut. Không dissolve, không chuyển cảnh trang trí, không đổi bối cảnh.",
+      ...(facesLens
+        ? ["NHÌN MÁY: người nói nói thẳng vào ống kính như đang nói với người xem; khi không nói vẫn có thể liếc ống kính để phản ứng."]
+        : []),
       ...(propsLine ? [propsLine] : []),
       ...board.beats.map((b, i) => {
         const opening = stateSentence(b.openingState);
@@ -512,7 +638,7 @@ export function compileFilmMotion(
           return !trimmed || /[.!?;]$/u.test(trimmed) ? trimmed : `${trimmed}.`;
         };
         return [
-          `${beatHeading(i, b.startSeconds, b.endSeconds, videoModel)}: CAMERA ${sentence(b.camera)} ${sentence(b.motion)}`,
+          `${beatHeading(i, b.startSeconds, b.endSeconds, videoModel)}: ${hopsLocation && b.setting ? `Ở ${sentence(b.setting)} ` : ""}CAMERA ${sentence(b.camera)} ${sentence(b.motion)}`,
           opening ? `Mở nhịp: ${sentence(opening)}` : "",
           closing ? `Kết nhịp: ${sentence(closing)}` : "",
           b.performance ? `Phản ứng: ${b.performance.expressionChange}; ${sentence(b.performance.reactionTarget)}` : "",
@@ -529,7 +655,7 @@ export function compileFilmMotion(
       }),
       `NHỊP: diễn hết toàn bộ các shot trên, đúng thứ tự, không bỏ shot nào. Nói trọn câu rồi mới đổi lượt, không chồng lời. Xong diễn biến ở giây ${Math.round(Number(board.contentEndSeconds ?? board.durationSeconds))} thì giữ tư thế kết, không thêm hành động hay lời mới.`,
       mode === "native"
-        ? "AUDIO: giọng đúng người đang nói, rõ ở tiền cảnh; nhạc không lời vui vẻ, tinh nghịch nhẹ, âm lượng thấp. Không thêm lời thoại, phụ đề, nhãn thời gian hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ tham chiếu."
+        ? nativeAudioDirection(scene, voiceSamples)
         : sceneUsesAmbientAudio(scene, mode) || sceneHasWordlessBeat(scene, mode)
           ? AMBIENT_AUDIO_DIRECTION
           : "SILENT VIDEO: không phát lời thoại, không nhạc. Người nói nhép môi tự nhiên trong lượt của mình (không cần khớp từng chữ), người nghe phản ứng; lồng tiếng riêng. Không phụ đề, nhãn thời gian hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ.",
@@ -560,7 +686,7 @@ export function compileFilmMotion(
       ? `ACTIVE SPEAKER: ${speaker || "người nói đã chỉ định"} là người nói và nhép môi tự nhiên trong lúc nói (không cần khớp từng chữ). Người nghe chủ yếu giữ miệng đóng, phản ứng bằng mắt, nét mặt và cơ thể. ${mode === "native" ? `Nói đúng một câu nguyên văn tiếng Việt, không thêm tiếng đệm hoặc câu đáp: “${scene.dialogue}”.` : "Tập trung rõ gương mặt người nói; không phát lời vì audio sẽ được đồng bộ riêng."}`
       : "ACTIVE SPEAKER: không ai nói; mọi nhân vật giữ miệng đóng.",
     mode === "native"
-      ? "AUDIO: lời thoại rõ ở tiền cảnh; nhạc nền không lời vui vẻ, ấm áp, tinh nghịch nhẹ kiểu gia đình, âm lượng thấp và liên tục. Không thêm lời nói, tiếng đệm, phụ đề hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ."
+      ? nativeAudioDirection(scene, voiceSamples)
       : sceneUsesAmbientAudio(scene, mode)
         ? AMBIENT_AUDIO_DIRECTION
         : "AUDIO: không lời thoại và không nhạc; audio lồng tiếng sẽ được đồng bộ riêng. Không thêm phụ đề hay chữ phủ lên hình; giữ nguyên chữ/số thật trên đạo cụ.",
@@ -649,6 +775,8 @@ export function filmVideoInputs(
     );
   if (!references.urls.length || references.urls.length !== references.bindings.length)
     throw new Error("Bộ ảnh tham chiếu video không hợp lệ.");
+  const voiceSamples =
+    mode === "native" && nativeSpeechSupported(videoModel) ? nativeVoiceSamples(scene) : [];
   return {
     prompt: sanitizeProviderPrompt(
       compileFilmMotion(
@@ -658,9 +786,14 @@ export function filmVideoInputs(
         measuredSpeechSeconds,
         references.bindings,
         videoModel,
+        voiceSamples,
       ),
     ),
     reference_images: references.urls,
+    // Worker ký đường dẫn rồi đổi thành `reference_audios` ngay trước khi gửi.
+    ...(voiceSamples.length
+      ? { reference_audio_sources: voiceSamples.map((sample) => sample.source) }
+      : {}),
     aspect_ratio: format,
     duration,
     resolution,

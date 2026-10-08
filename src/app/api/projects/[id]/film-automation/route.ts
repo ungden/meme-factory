@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { access, fail, FilmError } from "@/lib/short-film/server";
-import { fixedVoiceEnabled } from "@/lib/short-film/features";
+import {
+  defaultFilmAudioMode,
+  fixedVoiceEnabled,
+  nativeSpeechAllowed,
+} from "@/lib/short-film/features";
 import { seedanceReferenceModel } from "@/lib/video-models";
 
 export async function GET(
@@ -49,18 +53,22 @@ export async function PUT(
           .filter((x: unknown): x is string => typeof x === "string")
           .slice(0, 24)
       : [];
-    let queuedPlans: Array<{ id: string; audio_mode: string }> = [];
+    let queuedPlans: Array<{ id: string; audio_mode: string; video_model: string }> = [];
     if (ids.length) {
       const { data, count } = await a.admin
         .from("video_plans")
-        .select("id,audio_mode", { count: "exact" })
+        .select("id,audio_mode,video_model", { count: "exact" })
         .eq("project_id", a.project.id)
         .eq("workspace_version", a.project.workspace_version)
         .in("id", ids);
       if (count !== ids.length)
         throw new FilmError("Hàng đợi có kịch bản không thuộc dự án.");
       queuedPlans = data || [];
-      if (queuedPlans.some((plan) => plan.audio_mode === "native"))
+      if (
+        queuedPlans.some(
+          (plan) => plan.audio_mode === "native" && !nativeSpeechAllowed(a.project.id, plan.video_model),
+        )
+      )
         throw new FilmError(
           "Lưu các kịch bản trong hàng đợi sang lồng tiếng trước khi bật lịch.",
           409,
@@ -92,7 +100,7 @@ export async function PUT(
           duration: 35,
           format: "16:9",
           resolution: "720p",
-          audioMode: "dubbed",
+          audioMode: defaultFilmAudioMode(a.project.id, body.videoModel),
           subtitles: true,
           videoModel: seedanceReferenceModel(body.videoModel),
         },

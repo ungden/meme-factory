@@ -297,6 +297,35 @@ describe("compileStoryShots", () => {
 });
 
 describe("compileStoryboards", () => {
+  it("bé nói với máy: ghép câu chuẩn của preset và giữ nơi quay của từng nhịp", () => {
+    const board = compileStoryboards(
+      reply(2, {
+        shot1: { cameraPreset: "phone_ultrawide_low", camera: "bé đứng giữa lối đi", setting: "Chợ sáng" },
+        shot2: { cameraPreset: "phone_face_push", camera: "bé dí sát máy", setting: "Hành lang chung cư" },
+      }),
+      story({ filmFormat: "talk_to_camera" }),
+      CAST,
+      15,
+    );
+    const beats = board.scenes.flatMap((s) => s.storyboard?.beats || []);
+    expect(board.scenes[0].storyboard?.filmFormat).toBe("talk_to_camera");
+    expect(beats[0].camera).toMatch(/^điện thoại 0\.5x ultra-wide.*; bé đứng giữa lối đi$/u);
+    expect(beats.map((b) => b.setting)).toEqual(["Chợ sáng", "Hành lang chung cư"]);
+  });
+
+  it("phim gia đình không mang nơi quay theo nhịp", () => {
+    const board = compileStoryboards(
+      reply(2, { shot1: { cameraPreset: "free" } }),
+      story(),
+      CAST,
+      30,
+    );
+    const beats = board.scenes.flatMap((s) => s.storyboard?.beats || []);
+    expect(beats[0].camera).toBe("Trung cảnh ngang tầm mắt");
+    expect(beats.every((b) => b.setting === undefined)).toBe(true);
+    expect(board.scenes[0].storyboard?.filmFormat).toBeUndefined();
+  });
+
   it("produces beats that carry the dialogue in order", () => {
     const board = compileStoryboards(reply(2), story(), CAST, 30);
     const spoken = board.scenes.flatMap((s) => s.storyboard?.beats || []);

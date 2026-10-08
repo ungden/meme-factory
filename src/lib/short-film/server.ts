@@ -18,6 +18,7 @@ import {
   BILLING_POINT_FLOOR_VND
 } from "@/lib/ai-pricing";
 import {
+  NATIVE_VOICE_MODEL,
   remapStoryboardCharacters,
   type FilmPlan,
   type FilmCast,
@@ -26,11 +27,21 @@ import {
   type QuotedTask,
   type FilmKind
 } from "./contracts";
-import { generateFilmGuestReference } from "@/lib/gemini-image";
+import {
+  generateFilmGuestReference,
+  generateFilmWardrobeReference,
+} from "@/lib/gemini-image";
+import {
+  dressCast,
+  normalizeWardrobe,
+  wardrobeFaceSource,
+  wardrobeStoragePath,
+} from "./wardrobe";
 import {
   seedanceReferenceModel,
-  seedanceMaxDuration
+  seedanceMaxDuration,
 } from "../video-models";
+import { defaultFilmAudioMode, nativeSpeechAllowed } from "./features";
 import { normalizeFamilyFatherTerms } from "../family-terminology";
 import { usesFatherTerminology } from "../channel-behaviour";
 import { automaticGuestVoice } from "./guest-voices";
@@ -349,6 +360,17 @@ export async function freezeCast(
       .select("id,voice_id,model,settings")
       .eq("character_id", c.id)
       .eq("workspace_version", a.project.workspace_version)
+      .neq("model", NATIVE_VOICE_MODEL)
+      .not("approved_at", "is", null)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const { data: nativeVoice } = await a.admin
+      .from("character_voice_versions")
+      .select("id,voice_id,model,settings")
+      .eq("character_id", c.id)
+      .eq("workspace_version", a.project.workspace_version)
+      .eq("model", NATIVE_VOICE_MODEL)
       .not("approved_at", "is", null)
       .order("version", { ascending: false })
       .limit(1)
@@ -387,6 +409,7 @@ export async function freezeCast(
           }
         : {}),
       ...(frozenVoice ? { voice: frozenVoice } : {}),
+      ...(nativeVoice || old?.nativeVoice ? { nativeVoice: nativeVoice || old?.nativeVoice } : {}),
     } as FilmCast);
   }
   return cast;
@@ -527,11 +550,59 @@ export async function savePlan(
   const guestUuids = new Set(
     [...guestByKey.values()].map((guest) => guest.id),
   );
-  const previousCast = body.refreshCast === true ? [] : old?.cast_snapshot;
-  const coreCast = await freezeCast(
-    a,
-    ids.filter((id) => !guestUuids.has(id)),
-    previousCast,
+  const coreIds = ids.filter((id) => !guestUuids.has(id));
+  let wardrobe;
+  try {
+    // Khách mời đã được tả kèm trang phục khi tạo ảnh; đồ riêng chỉ dành cho cast cố định.
+    const requested = (body.story as { wardrobe?: unknown } | null)?.wardrobe;
+    wardrobe = normalizeWardrobe(
+      Array.isArray(requested)
+        ? requested.filter((item) => coreIds.includes(String((item as { characterId?: unknown })?.characterId)))
+        : requested,
+      coreIds,
+    );
+  } catch {
+    throw new FilmError("Trang phục của tập không hợp lệ. Hãy cho AI viết lại.");
+  }
+  const outfitOf = (id: string) => wardrobe.find((item) => item.characterId === id)?.outfit;
+  // Người đã mặc đồ của bản trước mà bản này đổi/bỏ đồ phải được dựng lại từ
+  // ảnh chuẩn gốc; giữ bản cũ thì họ mặc nhầm đồ tập trước.
+  const previousCast = (body.refreshCast === true ? [] : old?.cast_snapshot || []).filter(
+    (character) => !character.episodeOutfit || character.episodeOutfit === outfitOf(character.characterId),
+  );
+  const frozenCoreCast = await freezeCast(a, coreIds, previousCast);
+  const wardrobeLook = wardrobe.length
+    ? (await latestChannelProfile(a))?.visualDirection?.prompt
+    : undefined;
+  const coreCast = await Promise.all(
+    frozenCoreCast.map(async (character) => {
+      const outfit = outfitOf(character.characterId);
+      if (!outfit || character.episodeOutfit === outfit) return character;
+      const path = wardrobeStoragePath(a.project.id, planId, character.characterId, outfit, hash);
+      const bucket = a.admin.storage.from("content-media");
+      const folder = path.slice(0, path.lastIndexOf("/"));
+      const { data: existing } = await bucket.list(folder, {
+        search: path.slice(path.lastIndexOf("/") + 1),
+      });
+      if (!existing?.length) {
+        const face = await loadReferenceImage(a, wardrobeFaceSource(character));
+        const generated = await generateFilmWardrobeReference({
+          name: character.name,
+          description: character.description,
+          outfit,
+          identityImage: face,
+          artDirectionPrompt: wardrobeLook,
+        });
+        const { error: uploadError } = await bucket.upload(
+          path,
+          Buffer.from(generated.image, "base64"),
+          { contentType: "image/png", upsert: true },
+        );
+        if (uploadError)
+          throw new FilmError(`Không lưu được ảnh trang phục của ${character.name}.`);
+      }
+      return dressCast(character, outfit, path);
+    }),
   );
   const usedVoices = new Set(
     coreCast
@@ -715,11 +786,15 @@ export async function savePlan(
     resolution: body.resolution === "1080p" ? "1080p" : "720p",
     video_model: videoModel,
     audio_mode:
-      body.audioMode === "native"
-        ? "native"
-        : body.audioMode === "fixed"
-          ? "fixed"
-          : "dubbed",
+      body.audioMode === "fixed"
+        ? "fixed"
+        : body.audioMode === "dubbed"
+          ? "dubbed"
+          : body.audioMode === "native" && !nativeSpeechAllowed(a.project.id, videoModel)
+            ? "dubbed"
+            : body.audioMode === "native"
+              ? "native"
+              : defaultFilmAudioMode(a.project.id, videoModel),
     subtitles: body.subtitles !== false,
     story,
     trim_speech:
@@ -858,6 +933,24 @@ export async function refreshPlanCastIfStale(a: Access, plan: FilmPlan) {
     plan,
   );
 }
+/** Ảnh chuẩn có thể là URL công khai hoặc đường dẫn trong kho media của dự án. */
+async function loadReferenceImage(a: Access, source: string) {
+  if (isProjectMediaPath(a.project.id, source)) {
+    const { data, error } = await a.admin.storage.from("content-media").download(source);
+    if (error || !data) throw new FilmError("Không đọc được ảnh chuẩn nhân vật.");
+    return {
+      mimeType: data.type || "image/png",
+      base64: Buffer.from(await data.arrayBuffer()).toString("base64"),
+    };
+  }
+  if (!/^https:\/\//i.test(source)) throw new FilmError("Ảnh chuẩn nhân vật không hợp lệ.");
+  const response = await fetch(source, { signal: AbortSignal.timeout(20000) });
+  if (!response.ok) throw new FilmError("Không đọc được ảnh chuẩn nhân vật.");
+  return {
+    mimeType: response.headers.get("content-type") || "image/png",
+    base64: Buffer.from(await response.arrayBuffer()).toString("base64"),
+  };
+}
 export async function signed(a: Access, path: string) {
   if (!isProjectMediaPath(a.project.id, path))
     throw new FilmError("Media không thuộc dự án.", 403);
@@ -950,6 +1043,7 @@ export async function publicTasks(a: Access, tasks: FilmTask[]) {
         visualRequirements: t.input.visualRequirements,
         referenceBindings: t.input.referenceBindings,
         referenceTaskIds: t.input.referenceTaskIds,
+        audioMode: t.input.audioMode,
       },
       result: t.result,
       url: t.result?.path ? await signed(a, String(t.result.path)) : undefined,

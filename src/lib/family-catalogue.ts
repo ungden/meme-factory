@@ -7,6 +7,8 @@ import {
   type PerformanceLane,
 } from "./performance-direction";
 import { spokenSeconds } from "./film-storyboard";
+import { FILM_FORMATS, type FilmFormat } from "./film-camera-language";
+import { normalizeWardrobe, type EpisodeWardrobe } from "./short-film/wardrobe";
 
 /**
  * Trần thời lượng ước tính cho một lượt thoại, tính bằng giây.
@@ -147,6 +149,10 @@ export type Story = {
   storyVersion?: 2;
   genre?: StoryGenre;
   performanceLane?: PerformanceLane;
+  /** Truyện cũ không có trường này và được dựng như family_scene. */
+  filmFormat?: FilmFormat;
+  /** Đồ riêng của tập; người không có mục mặc đồ trong ảnh chuẩn. */
+  wardrobe?: EpisodeWardrobe[];
   intendedShotSeconds?: number[];
   writingPolicyVersion?: string;
   profileVersion: number;
@@ -317,17 +323,19 @@ export const referenceMechanisms: ChannelProfile["references"] = [
 ];
 export function familyProfile(roles: ChannelProfile["roles"]): ChannelProfile {
   return {
-    version: 11,
+    // v12: look ống kính điện thoại thay cho 35–50mm ánh cửa sổ, vốn in chất
+    // phim dàn dựng vào mọi tập (docs/film-direction-v2.md).
+    version: 12,
     visualDirection: {
-      id: "family-photoreal-v1",
+      id: "family-phone-real-v2",
       prompt:
-        "Ảnh live-action photorealistic về một gia đình Việt Nam thật: giải phẫu và tỷ lệ người tự nhiên, mắt và đầu đúng kích thước, da có lỗ chân lông, tóc có sợi nhỏ, vải có thớ thật, ánh sáng cửa sổ mềm và tiêu cự 35–50mm. Giữ chính xác khuôn mặt, tuổi, tóc, vóc dáng và trang phục từ từng ảnh chuẩn. Không CGI, không 3D render, không Pixar, không hoạt hình, không chibi, không búp bê, không da nhựa, không mắt bóng quá cỡ.",
+        "Live-action như do chính gia đình quay bằng điện thoại: người Việt thật, giải phẫu và tỷ lệ tự nhiên, mắt và đầu đúng kích thước, da có lỗ chân lông và lông tơ, ửng đỏ không đều, tóc có sợi lẻ, vải có thớ và nếp nhăn. Ánh sáng có sẵn tại nơi quay, HDR và độ nét kiểu điện thoại, màu tự nhiên không chỉnh điện ảnh, không retouch, không làm đẹp da. Giữ chính xác khuôn mặt, tuổi, tóc, vóc dáng và trang phục từ từng ảnh chuẩn. Không CGI, không 3D render, không Pixar, không hoạt hình, không chibi, không búp bê, không da nhựa, không mắt bóng quá cỡ.",
     },
     writingPolicyVersion: FAMILY_WRITING_POLICY_VERSION,
     positioning:
-      "Gia đình Bánh Bao & Đậu Đỏ có cả tập hài tương phản và tập cinematic cảm động. Tập hài khai thác đảo thường thức hoặc parody thế giới người lớn; tập cảm động khai thác ký ức, sự quan tâm, thay đổi giữa các thế hệ và khoảnh khắc nhỏ trong gia đình. Không bắt mọi tập có bố mẹ, việc nhà, bánh hoặc joke.",
+      "Bánh Bao & Đậu Đỏ kể chuyện đời sống Việt Nam ở gia đình, trường học, nơi công cộng, khu phố, cửa hàng và qua chuyện công việc của bố mẹ. Tập hài khai thác quan sát xã hội, đối nhân xử thế, đảo thường thức hoặc parody thế giới người lớn; tập cảm động khai thác ký ức, sự quan tâm và khoảnh khắc nhỏ có nguyên nhân. Gia đình là điểm xuất phát của nhân vật, không phải giới hạn đề tài.",
     audience: "Người lớn, đặc biệt cha mẹ Việt Nam",
-    tone: "Hài hoặc cảm động, tùy ý tưởng người dùng. Tập hài giữ nhịp đối đáp và tương phản vui vẻ; tập cinematic cảm động đi từ một hành động/chi tiết cụ thể tới cảm xúc có nguyên nhân. Không cố chơi chữ, giảng đạo, bóp cảm xúc hoặc bắt mọi tập là con chăm bố mẹ.",
+    tone: "Hài hoặc cảm động, tùy ý tưởng người dùng. Tập hài giữ nhịp đối đáp, phép lịch sự đúng quan hệ và tương phản vui vẻ; câu sắc phải bám đúng lời vừa nghe, không chỉ nhằm hạ người khác. Tập cinematic cảm động đi từ một hành động/chi tiết cụ thể tới cảm xúc có nguyên nhân. Không cố chơi chữ, giảng đạo, bóp cảm xúc hoặc bắt mọi tập là con chăm bố mẹ.",
     roles,
     series: FAMILY_SERIES,
     references: referenceMechanisms,
@@ -374,6 +382,8 @@ export function validateStory(
     throw new Error("STORY_VERSION_INVALID");
   if (s?.performanceLane !== undefined && !PERFORMANCE_LANES.includes(s.performanceLane))
     throw new Error("STORY_PERFORMANCE_LANE_INVALID");
+  if (s?.filmFormat !== undefined && !FILM_FORMATS.includes(s.filmFormat))
+    throw new Error("STORY_FILM_FORMAT_INVALID");
   if (
     s?.comicPremise !== undefined &&
     (!s.comicPremise ||
@@ -517,7 +527,13 @@ export function validateStory(
     throw new Error("STORY_DIALOGUE_LINE_TOO_LONG");
   if (recent.some((r) => fingerprint(r) === fingerprint(s)))
     throw new Error("STORY_REPEATED_COMBINATION");
-  return { ...s, genre, profileVersion: profile.version };
+  const wardrobe = normalizeWardrobe(s.wardrobe, allowed);
+  return {
+    ...s,
+    genre,
+    profileVersion: profile.version,
+    ...(s.wardrobe !== undefined ? { wardrobe } : {}),
+  };
 }
 
 export type FamilyEditorialIssue = {
@@ -574,6 +590,11 @@ export function validateGeneratedFamilyStory(
     throw new Error("STORY_EMOTIONAL_LANE_REQUIRED");
   if (story.genre === "comedy" && String(story.performanceLane || "").startsWith("cinematic"))
     throw new Error("STORY_COMEDY_LANE_REQUIRED");
+  if (
+    story.genre === "emotion" &&
+    (story.filmFormat === "talk_to_camera" || story.filmFormat === "cooking_show")
+  )
+    throw new Error("STORY_FILM_FORMAT_GENRE");
   return {
     ...story,
     storyVersion: 2,
@@ -588,6 +609,8 @@ export function storyContractForGenre(genre: StoryGenre) {
       genre === "emotion"
         ? "cinematic_emotion"
         : "deadpan_reversal|adult_format_parody|literal_logic|physical_escalation|verbal_counterplay",
+    filmFormat: FILM_FORMATS.join("|"),
+    wardrobe: [{ characterId: "uuid", outfit: "chỉ khi tập cần đồ riêng" }],
     series: "",
     situation: "",
     mechanism: "",

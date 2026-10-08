@@ -25,7 +25,7 @@ const { profile, plans } = buildFamilyPilot(cast, testPilot);
 describe("family catalogue", () => {
   it("keeps a dedicated cinematic family lane alongside comedy", () => {
     const emotional = familyProfile([]);
-    expect(emotional.version).toBe(11);
+    expect(emotional.version).toBe(12);
     expect(emotional.series).toContain("Gia đình và ký ức");
     expect(emotional.tone).toContain("cảm động");
     expect(FAMILY_WRITING_POLICY).toContain("CINEMATIC CẢM ĐỘNG");

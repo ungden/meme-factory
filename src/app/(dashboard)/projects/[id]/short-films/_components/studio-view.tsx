@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { StoryGenre } from "@/lib/story-genre";
+import type { FilmFormat } from "@/lib/film-camera-language";
 import {
   AlertTriangle,
   Check,
@@ -10,6 +11,7 @@ import {
   Clapperboard,
   Download,
   Lightbulb,
+  Mic,
   Pause,
   Play,
   Plus,
@@ -33,6 +35,15 @@ import {
   type StudioRun,
   type StudioTask,
 } from "../_lib/studio";
+
+/** Tên gọi chủ fanpage đọc; mã định dạng chỉ là chuyện bên trong. */
+const FORMAT_CHOICES: Array<{ value: FilmFormat | null; label: string; description: string; comedyOnly?: boolean }> = [
+  { value: null, label: "Để AI chọn", description: "AI chọn cách quay hợp với ý tưởng nhất." },
+  { value: "talk_to_camera", label: "Bé nói với người xem", description: "Bé nhìn thẳng vào máy than chuyện người lớn, đổi nơi liên tục như quay bằng điện thoại.", comedyOnly: true },
+  { value: "cooking_show", label: "Bé vào bếp", description: "Bé dạy làm một món thật, kết bằng màn nếm thử.", comedyOnly: true },
+  { value: "phone_vlog", label: "Cả nhà đi chơi", description: "Vlog điện thoại, cắt nhanh, ít lời." },
+  { value: "family_scene", label: "Cả nhà đối đáp", description: "Các thành viên nói chuyện với nhau trong một bối cảnh." },
+];
 
 const STATUS_CLASS: Record<EpisodeSummary["status"], string> = {
   draft: "th-bg-tertiary th-text-secondary",
@@ -98,6 +109,8 @@ export function IdeaPanel({
   genre,
   onGenre,
   allowedGenres,
+  format,
+  onFormat,
   quality,
   onQuality,
   limit,
@@ -114,6 +127,8 @@ export function IdeaPanel({
   genre: StoryGenre;
   onGenre: (value: StoryGenre) => void;
   allowedGenres: StoryGenre[];
+  format: FilmFormat | null;
+  onFormat: (value: FilmFormat | null) => void;
   quality: QualityId;
   onQuality: (value: QualityId) => void;
   limit: number;
@@ -180,6 +195,24 @@ export function IdeaPanel({
                 {label}
               </span>
               <span className="mt-1 block text-xs th-text-secondary">{description}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-2">
+        <legend className="text-sm font-medium th-text-primary">Cách quay</legend>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {FORMAT_CHOICES.filter((item) => genre === "comedy" || !item.comedyOnly).map((item) => (
+            <label
+              key={item.value || "auto"}
+              className={`cursor-pointer rounded-lg border p-3 ${format === item.value ? "th-border-accent th-bg-accent-light" : "th-border th-bg-card"}`}
+            >
+              <span className="flex items-center gap-2 text-sm font-medium th-text-primary">
+                <input type="radio" name="film-format" checked={format === item.value} onChange={() => onFormat(item.value)} />
+                {item.label}
+              </span>
+              <span className="mt-1 block text-xs th-text-secondary">{item.description}</span>
             </label>
           ))}
         </div>
@@ -585,6 +618,140 @@ export function FilmPanel({
       {/* Tải phim về rồi vẫn còn phải tự nghĩ caption; đưa luôn khối chữ dán
           được vào bài đăng. */}
       <SharePost caption={caption} hashtags={hashtags} label="Sao chép bài đăng" />
+    </section>
+  );
+}
+
+export type VoiceCharacter = { id: string; name: string; hasSample: boolean };
+export type VoiceCandidate = {
+  key: string;
+  characterId: string;
+  name: string;
+  dialogue: string;
+  taskId: string;
+  inSeconds: number;
+  outSeconds: number;
+};
+
+/**
+ * Giọng mẫu giữ cho mỗi bé nói một giọng qua mọi cảnh khi AI tự nói. Cách dễ
+ * nhất là nghe phim rồi bấm vào câu bé nói hay nhất; tải file lên dành cho ai
+ * có sẵn giọng thật được phép dùng.
+ */
+export function VoiceSamplePanel({
+  characters,
+  candidates,
+  busy,
+  onUseClip,
+  onUpload,
+}: {
+  characters: VoiceCharacter[];
+  candidates: VoiceCandidate[];
+  busy: boolean;
+  onUseClip: (candidate: VoiceCandidate) => void;
+  onUpload: (input: { characterId: string; file: File; seconds: number; direction: string }) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [characterId, setCharacterId] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [seconds, setSeconds] = useState(0);
+  const [direction, setDirection] = useState("");
+  const [rights, setRights] = useState(false);
+  if (!characters.length) return null;
+  const pick = (value: File | null) => {
+    setFile(value);
+    setSeconds(0);
+    if (!value) return;
+    const audio = document.createElement("audio");
+    audio.preload = "metadata";
+    audio.onloadedmetadata = () => {
+      setSeconds(audio.duration);
+      URL.revokeObjectURL(audio.src);
+    };
+    audio.src = URL.createObjectURL(value);
+  };
+  const lengthOk = seconds >= 3 && seconds <= 12;
+  return (
+    <section aria-labelledby="voice-title" className="flex flex-col gap-3 rounded-xl border th-border th-bg-card p-4">
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h3 id="voice-title" className="flex items-center gap-2 text-sm font-semibold th-text-primary">
+            <Mic className="h-4 w-4" aria-hidden /> Giọng của các bé
+          </h3>
+          <p className="mt-1 text-xs th-text-secondary">
+            Chọn một câu bé nói hay nhất làm giọng chuẩn. Các tập sau bé sẽ nói đúng giọng đó.
+          </p>
+        </div>
+        <button onClick={() => setOpen((value) => !value)} className="text-xs font-medium th-text-accent underline">
+          {open ? "Đóng" : "Tải giọng lên"}
+        </button>
+      </header>
+      <ul className="flex flex-wrap gap-2">
+        {characters.map((character) => (
+          <li
+            key={character.id}
+            className={`rounded-full border px-3 py-1 text-xs ${character.hasSample ? "th-border-success th-text-success" : "th-border th-text-secondary"}`}
+          >
+            {character.name} · {character.hasSample ? "đã có giọng chuẩn" : "chưa có giọng chuẩn"}
+          </li>
+        ))}
+      </ul>
+      {candidates.length > 0 && (
+        <ul className="flex flex-col">
+          {candidates.map((candidate) => (
+            <li key={candidate.key} className="flex flex-wrap items-center justify-between gap-2 border-t th-border py-2 first:border-t-0">
+              <span className="min-w-0 text-sm th-text-primary">
+                <span className="font-medium">{candidate.name}:</span> “{candidate.dialogue}”
+              </span>
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => onUseClip(candidate)}>
+                Dùng giọng câu này
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {open && (
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (file && characterId && lengthOk && rights) onUpload({ characterId, file, seconds, direction });
+          }}
+        >
+          <select
+            value={characterId}
+            onChange={(event) => setCharacterId(event.target.value)}
+            className="rounded-lg border th-border th-bg-input px-3 py-2 text-sm th-text-primary"
+          >
+            <option value="">Giọng của ai?</option>
+            {characters.map((character) => (
+              <option key={character.id} value={character.id}>{character.name}</option>
+            ))}
+          </select>
+          <input
+            type="file"
+            accept="audio/wav,audio/mpeg,audio/mp4,audio/x-m4a"
+            onChange={(event) => pick(event.target.files?.[0] || null)}
+            className="text-sm th-text-secondary"
+          />
+          {file && !lengthOk && (
+            <p className="text-xs th-text-warning">File cần dài 3–12 giây, chỉ có giọng một bé.</p>
+          )}
+          <input
+            value={direction}
+            onChange={(event) => setDirection(event.target.value)}
+            placeholder="Tả giọng, ví dụ: bé trai gần 2 tuổi, giọng cao, hơi ngọng"
+            className="rounded-lg border th-border th-bg-input px-3 py-2 text-sm th-text-primary"
+          />
+          <label className="flex items-start gap-2 text-xs th-text-secondary">
+            <input type="checkbox" checked={rights} onChange={(event) => setRights(event.target.checked)} />
+            Tôi có quyền dùng giọng trong file này.
+          </label>
+          <Button type="submit" size="sm" disabled={busy || !file || !characterId || !lengthOk || !rights}>
+            Lưu giọng chuẩn
+          </Button>
+        </form>
+      )}
     </section>
   );
 }

@@ -41,7 +41,7 @@ export type StudioTask = {
   url?: string;
   posterUrl?: string;
   srtUrl?: string;
-  input?: { dialogue?: string; referencePurpose?: string };
+  input?: { dialogue?: string; referencePurpose?: string; audioMode?: string };
   created_at: string;
 };
 

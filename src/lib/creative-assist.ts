@@ -10,7 +10,11 @@ import type {
   StoryGuest,
   RecentStory,
 } from "./family-catalogue";
-import type { FamilyDevelopmentTrace } from "./family-development";
+import {
+  SOCIAL_DOMAINS,
+  type FamilyDevelopmentTrace,
+  type SocialDomain,
+} from "./family-development";
 import { normalizeFamilyFatherTerms } from "./family-terminology";
 import {
   PERFORMANCE_LANES,
@@ -238,6 +242,7 @@ export function validateCreativeAssist(
   value: unknown,
   context: CreativeContext,
   targetDurationSeconds?: number,
+  requireIdeaDomainDiversity = false,
 ): CreativeAssistResult {
   if (context.channelProfile?.roles.some((role) => role.name === "Bố"))
     value = normalizeFamilyFatherTerms(value);
@@ -251,11 +256,27 @@ export function validateCreativeAssist(
             title: text((item as Record<string, unknown>).title, 100),
             idea: text((item as Record<string, unknown>).idea, 500),
             why: text((item as Record<string, unknown>).why, 240),
+            socialDomain: text(
+              (item as Record<string, unknown>).socialDomain,
+              40,
+            ) as SocialDomain,
           }))
           .filter((item) => item.title && item.idea)
       : [];
     if (ideas.length !== 3) throw new Error("CREATIVE_ASSIST_IDEAS_INVALID");
-    return { kind, ideas };
+    if (
+      requireIdeaDomainDiversity &&
+      (ideas.some((item) => !SOCIAL_DOMAINS.includes(item.socialDomain)) ||
+        new Set(ideas.map((item) => item.socialDomain)).size !== 3 ||
+        ideas.filter((item) => item.socialDomain !== "family_home").length < 2)
+    )
+      throw new Error(
+        "CREATIVE_ASSIST_IDEA_DOMAINS_NARROW: dùng ba socialDomain khác nhau và ít nhất hai domain ngoài family_home",
+      );
+    return {
+      kind,
+      ideas: ideas.map(({ title, idea, why }) => ({ title, idea, why })),
+    };
   }
   if (kind === "image_plan") {
     const ids = Array.isArray(result.characterIds)
@@ -338,9 +359,11 @@ export function validateCreativeAssist(
   return { kind, scenes, summary: text(result.summary, 700) } as CreativeAssistResult;
 }
 
-function schemaFor(kind: CreativeAssistKind) {
+function schemaFor(kind: CreativeAssistKind, includeIdeaDomain = false) {
   if (kind === "idea_suggestions")
-    return '{"ideas":[{"title":"","idea":"","why":""},{"title":"","idea":"","why":""},{"title":"","idea":"","why":""}]}';
+    return includeIdeaDomain
+      ? '{"ideas":[{"socialDomain":"family_home|school|public_space|parents_workplace|neighborhood|service_commerce|relatives_friends","title":"","idea":"","why":""},{"socialDomain":"school","title":"","idea":"","why":""},{"socialDomain":"parents_workplace","title":"","idea":"","why":""}]}'
+      : '{"ideas":[{"title":"","idea":"","why":""},{"title":"","idea":"","why":""},{"title":"","idea":"","why":""}]}';
   if (kind === "image_plan")
     return '{"headline":"","subtext":"","caption":"","imagePrompt":"","visualDirection":"","characterIds":["uuid"],"textPosition":"bottom"}';
   if (kind === "video_clip_plan")
@@ -356,7 +379,7 @@ function instruction(input: CreativeAssistInput) {
   const target = input.targetDurationSeconds || 30;
   const base = `Bạn là biên kịch và đạo diễn nội dung AIDA cho fanpage Việt Nam. Viết tiếng Việt tự nhiên, cụ thể, không văn mẫu. Bạn lập kế hoạch để người dùng duyệt trước khi sinh media, không nói về provider hay giá. Không tạo nhân vật hoặc ID mới. Giữ nhân vật 3D, trang phục và nhận diện từ ảnh chuẩn; không hứa giữ giọng tuyệt đối. Không tự chèn headline, phụ đề hay chữ trang trí lên ảnh; chữ/số thật trên đạo cụ được phép khi là dữ kiện của câu chuyện.\n\n${contextText(input.context, input.selectedCharacterIds || [])}\n\nYÊU CẦU CỦA NGƯỜI DÙNG: ${input.intent || "Hãy đề xuất từ bối cảnh dự án."}`;
   if (input.kind === "idea_suggestions")
-    return `${base}\n\nĐề xuất đúng ba hướng khác nhau, hữu ích để bắt đầu, không lặp nội dung gần đây. Mỗi hướng có title, idea và why.`;
+    return `${base}\n\nĐề xuất đúng ba hướng khác nhau, hữu ích để bắt đầu, không lặp nội dung gần đây. ${input.context.channelProfile ? "Nếu người dùng không chỉ định đề tài, ba hướng phải mở ra ba bối cảnh khác nhau và ít nhất hai hướng nằm ngoài gia đình: trường học, nơi công cộng, khu phố, cửa hàng, họ hàng/bạn bè hoặc chuyện công việc của bố mẹ. Cho phép Bố/Mẹ kể nguyên văn một câu người khác nói rồi hỏi Bánh Bao/Đậu Đỏ cách đáp; đối nhân xử thế không đồng nghĩa mọi câu đều phải gắt." : ""} Mỗi hướng có title, idea và why.`;
   if (input.kind === "image_plan")
     return `${base}\n\nSoạn một phương án ảnh hoàn chỉnh: cảnh, hành động, bố cục, ánh sáng, biểu cảm, caption. imagePrompt chỉ mô tả hình, không nhét chữ. headline/subtext để trống trừ khi người dùng yêu cầu rõ bài meme hoặc chữ trên ảnh.`;
   if (input.kind === "video_clip_plan")
@@ -389,13 +412,18 @@ export async function generateCreativeAssist(
   const boardRevision =
     (input.kind === "scene_revision" || input.kind === "performance_revision") &&
     input.currentScenes?.some((s) => s.storyboard);
-  const prompt = `${instruction(input)}\n\nTrả về JSON ĐÚNG schema, không markdown:\n${schemaFor(input.kind)}${boardRevision ? "\nVới scene có storyboard, giữ thêm toàn bộ storyboard (version, durationSeconds, contentEndSeconds nếu có và beats). Chỉ sửa beat được yêu cầu; giữ timeline liên tục từ 0 đến contentEndSeconds hoặc durationSeconds hiện tại, cast/người nói hợp lệ. dialogue của scene là nối các beat.dialogue có chữ bằng newline, speakerCharacterId của scene=null. Không được bỏ storyboard, ép clip về 15 giây hoặc đổi đoạn thành clip một câu." : ""}`;
+  const genericIdeaRequest =
+    input.kind === "idea_suggestions" &&
+    Boolean(input.context.channelProfile) &&
+    !input.intent?.trim();
+  const prompt = `${instruction(input)}\n\nTrả về JSON ĐÚNG schema, không markdown:\n${schemaFor(input.kind, genericIdeaRequest)}${boardRevision ? "\nVới scene có storyboard, giữ thêm toàn bộ storyboard (version, durationSeconds, contentEndSeconds nếu có và beats). Chỉ sửa beat được yêu cầu; giữ timeline liên tục từ 0 đến contentEndSeconds hoặc durationSeconds hiện tại, cast/người nói hợp lệ. dialogue của scene là nối các beat.dialogue có chữ bằng newline, speakerCharacterId của scene=null. Không được bỏ storyboard, ép clip về 15 giây hoặc đổi đoạn thành clip một câu." : ""}`;
   const validate = (value: unknown) => {
     const result = validateCreativeAssist(
       input.kind,
       value,
       input.context,
       input.targetDurationSeconds,
+      genericIdeaRequest,
     );
     if (
       (input.kind === "scene_revision" || input.kind === "performance_revision") &&

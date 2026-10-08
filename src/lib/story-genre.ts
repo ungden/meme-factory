@@ -12,7 +12,12 @@ export function markedStoryIntent(intent: string, genre: StoryGenre) {
 }
 
 export function stripStoryGenreMarker(intent: string | null | undefined) {
-  return String(intent || "").replace(GENRE_MARKER, "").trim();
+  // Dấu cách quay (film-camera-language) đứng ngay sau dấu thể loại; cả hai đều
+  // không được lọt vào đề bài đưa cho model hay người đọc.
+  return String(intent || "")
+    .replace(GENRE_MARKER, "")
+    .replace(/^\[AIDA_FORMAT=[a-z_]+\]\s*/u, "")
+    .trim();
 }
 
 /** Only the episode brief may choose a genre. Channel tone often advertises

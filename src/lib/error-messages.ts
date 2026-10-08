@@ -227,6 +227,12 @@ export const ERROR_MESSAGES: Record<string, string> = {
     "Bản hài không thể dùng nhịp cinematic. Hãy chọn nhịp hài phù hợp.",
   STORY_PERFORMANCE_LANE_INVALID:
     "Kiểu diễn của tập không hợp lệ. Hãy cho AI viết lại.",
+  STORY_FILM_FORMAT_INVALID:
+    "Cách quay của tập không hợp lệ. Hãy cho AI viết lại.",
+  STORY_WARDROBE_INVALID:
+    "Trang phục riêng của tập không hợp lệ. Hãy cho AI viết lại.",
+  STORY_FILM_FORMAT_GENRE:
+    "Tập cảm động không quay kiểu bé nói với máy hay bé đầu bếp. Hãy cho AI viết lại.",
   STORY_REPEATED_COMBINATION:
     "Ý tưởng này trùng với một tập đã có. Hãy đổi ý tưởng hoặc để AI tự đề xuất tập mới.",
   STORY_GUESTS_INVALID: "Danh sách khách mời không hợp lệ.",
@@ -247,6 +253,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
     "Các phương án AI trả về chưa hợp lệ. Hãy thử lại.",
   FAMILY_PREMISES_DUPLICATED:
     "Ba phương án quá giống nhau. Hãy thử lại hoặc nêu ý tưởng cụ thể hơn.",
+  FAMILY_PREMISES_DOMAIN_NARROW:
+    "Ba phương án đang quanh quẩn trong một kiểu quan hệ hoặc bối cảnh. Hãy thử lại để có chuyện ở những môi trường xã hội khác nhau.",
   FAMILY_SELECTION_INVALID:
     "Kết quả chọn phương án chưa hợp lệ. Hãy thử lại.",
   FAMILY_DRAFT_MISSING:
@@ -276,6 +284,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
     "Không chia được storyboard thành các clip hợp lệ. Hãy cho AI dựng lại.",
   STORYBOARD_TIMING_POLICY_INVALID:
     "Nhịp thời gian của storyboard chưa hợp lệ. Hãy cho AI dựng lại.",
+  STORYBOARD_FILM_FORMAT_INVALID:
+    "Cách quay của phân cảnh không hợp lệ. Hãy cho AI dựng lại.",
   STORYBOARD_PROP_IDENTITY_CHANGED:
     "Một đạo cụ đổi hình dạng giữa các cảnh. Hãy cho AI dựng lại storyboard.",
   STORYBOARD_SEGMENT_STATE_INVALID:
@@ -316,6 +326,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
   CREATIVE_ASSIST_INVALID_JSON:
     "AI trả về kết quả không đọc được. Hãy thử lại.",
   CREATIVE_ASSIST_IDEAS_INVALID: "Danh sách ý tưởng chưa hợp lệ. Hãy thử lại.",
+  CREATIVE_ASSIST_IDEA_DOMAINS_NARROW:
+    "Ba ý tưởng đang quanh quẩn trong một bối cảnh. Hãy thử lại để mở sang trường học, nơi công cộng, khu phố, cửa hàng hoặc công việc của bố mẹ.",
   CREATIVE_ASSIST_IMAGE_INVALID: "Gợi ý ảnh chưa hợp lệ. Hãy thử lại.",
   CREATIVE_ASSIST_CLIP_INVALID: "Gợi ý clip chưa hợp lệ. Hãy thử lại.",
   CREATIVE_ASSIST_PLAN_INVALID: "Kịch bản AI trả về chưa hợp lệ. Hãy thử lại.",

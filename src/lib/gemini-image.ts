@@ -502,6 +502,50 @@ YÊU CẦU BẮT BUỘC:
   return extractImageFromResponse(response);
 }
 
+export interface GenerateFilmWardrobeReferenceParams {
+  name: string;
+  description: string;
+  outfit: string;
+  /** Ảnh cận mặt đã duyệt; chỉ dùng để giữ khuôn mặt, không lấy quần áo từ đây. */
+  identityImage: { mimeType: string; base64: string };
+  artDirectionPrompt?: string;
+}
+
+/**
+ * Ảnh toàn thân của một nhân vật quen mặc bộ đồ riêng của một tập (vest đi
+ * phỏng vấn, đồ gấu, mũ đầu bếp). Ảnh này thay ảnh thân mặc định trong cast
+ * của riêng tập đó, nên phải giữ khuôn mặt tuyệt đối và đổi hẳn quần áo.
+ */
+export async function generateFilmWardrobeReference(
+  params: GenerateFilmWardrobeReferenceParams,
+): Promise<GeneratedImageResult> {
+  const ai = await getClient();
+  const look = params.artDirectionPrompt?.trim();
+  const prompt = `Ảnh đính kèm là khuôn mặt đã duyệt của "${params.name}" (${params.description}). Dựng một ảnh toàn thân MỚI của đúng người này, nhìn rõ từ đầu đến chân, đứng tự nhiên, mặt hướng máy.
+
+TRANG PHỤC TẬP NÀY (bắt buộc, thay hoàn toàn quần áo trong ảnh đính kèm): ${params.outfit}
+
+YÊU CẦU BẮT BUỘC:
+1. Giữ chính xác khuôn mặt, tuổi, tóc, nước da và vóc dáng từ ảnh đính kèm.
+2. Mặc đúng và đủ trang phục trên, đúng cỡ người này (đồ trẻ con thì là đồ trẻ con thật, hơi rộng là bình thường); không giữ lại tạp dề, áo hay giày của ảnh đính kèm nếu trang phục không nhắc tới.
+3. ${look ? `PHONG CÁCH KÊNH: ${look}` : "Ảnh live-action photorealistic, không CGI, không hoạt hình."}
+4. Nền tường trơn sáng trong một căn hộ thật, ánh sáng tự nhiên, để dễ nhìn rõ bộ đồ.
+5. KHÔNG text, watermark, logo thương hiệu.`;
+  const response = await ai.models.generateContent({
+    model: IMAGE_MODEL,
+    contents: [
+      { text: prompt },
+      { inlineData: { mimeType: params.identityImage.mimeType, data: params.identityImage.base64 } },
+    ],
+    config: {
+      httpOptions: { timeout: GEMINI_IMAGE_TIMEOUT_MS },
+      responseModalities: ["TEXT", "IMAGE"],
+      imageConfig: { aspectRatio: "9:16", imageSize: "1K" },
+    },
+  });
+  return extractImageFromResponse(response);
+}
+
 // ============================================
 // Helper: Strip provenance metadata from provider output
 // ============================================

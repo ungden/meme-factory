@@ -110,6 +110,8 @@ const input = {
 const candidates = [
   {
     id: "A",
+    socialDomain: "family_home" as const,
+    interactionFrame: "direct_encounter" as const,
     situation: "Hai bé kiểm túi đồ của bố trước giờ đi làm",
     familiarPattern: "Cha mẹ lo đồ đi học cho con",
     observedBehavior: "Bố sợ mang bình nước nặng nên hai bé phải kiểm lại",
@@ -123,6 +125,8 @@ const candidates = [
   },
   {
     id: "B",
+    socialDomain: "public_space" as const,
+    interactionFrame: "reported_situation" as const,
     situation: "Mẹ đòi ăn kem trước bữa tối của gia đình",
     familiarPattern: "Trẻ đòi món ngọt trước cơm",
     observedBehavior: "Mẹ giấu que kem sau hộp rau trong tủ lạnh",
@@ -136,6 +140,8 @@ const candidates = [
   },
   {
     id: "C",
+    socialDomain: "parents_workplace" as const,
+    interactionFrame: "advice_roleplay" as const,
     situation: "Hai bé dẫn một buổi phỏng vấn chủ nhà gối",
     familiarPattern: "Dẫn tour căn nhà sang trọng",
     observedBehavior: "Chủ nhà phải bò qua cửa bằng gối mới vào được",
@@ -162,6 +168,13 @@ const selection = {
 };
 const episodeBrief = {
   actualSituation: "Hai bé đang kiểm túi đồ của Bố ngay trước giờ Bố đi làm.",
+  socialContext: {
+    domain: "family_home" as const,
+    interactionFrame: "direct_encounter" as const,
+    outsideRole: "không có",
+    friction: "Bố thường quên đồ ngay trước giờ đi làm.",
+    responseMode: "mixed" as const,
+  },
   characters: plans[0].story.wants.slice(0, 2).map((want, index) => ({
     characterId: want.characterId,
     want: want.want,
@@ -267,15 +280,15 @@ it("records all alternatives and comparison, then freezes reviewed dialogue into
   });
   expect(calls.prompts).toHaveLength(5 + SHOT_CALLS);
   if (result.kind !== "video_plan") throw Error("Wrong kind");
-  expect(result.story?.profileVersion).toBe(11);
+  expect(result.story?.profileVersion).toBe(12);
   expect(result.story?.development?.candidates).toHaveLength(3);
   expect(result.story?.development?.selection?.selectedId).toBe("A");
   expect(result.story?.development?.episodeBrief).toEqual(episodeBrief);
   expect(result.story?.development?.writingPolicyVersion).toBe(
-    "family-dialogue-18",
+    "family-dialogue-19",
   );
   expect(result.story?.development?.reviewedWithBenchmarkVersion).toBe(
-    "family-editorial-7",
+    "family-editorial-8",
   );
   expect(result.story?.development?.stage).toBe("complete");
   expect(result.story?.development?.drafts).toHaveLength(1);
@@ -557,15 +570,22 @@ it("keeps the general idea assist single-call and preserves identities", async (
   calls.responses = [
     {
       ideas: [1, 2, 3].map((i) => ({
+        socialDomain: ["school", "public_space", "parents_workplace"][i - 1],
         title: `Ý tưởng ${i}`,
         idea: `Một ý tưởng cụ thể ${i}`,
         why: "Tình huống phù hợp với gia đình",
       })),
     },
   ];
-  await generateCreativeAssist({ ...input, kind: "idea_suggestions" });
+  await generateCreativeAssist({
+    ...input,
+    kind: "idea_suggestions",
+    intent: undefined,
+  });
   expect(calls.prompts).toHaveLength(1);
-  expect(calls.prompts[0]).toContain("family-dialogue-18");
+  expect(calls.prompts[0]).toContain("family-dialogue-19");
+  expect(calls.prompts[0]).toContain("ít nhất hai hướng nằm ngoài gia đình");
+  expect(calls.prompts[0]).toContain('"socialDomain"');
 });
 it("compiles listener reactions without inventing extra dialogue", () => {
   const story = {

@@ -176,7 +176,40 @@ export function makeFilmWorker(db) {
     });
     return null;
   }
-  async function prepareInputs(t) {
+  /**
+   * Giọng mẫu lấy từ một đoạn của clip native đã duyệt: cắt tiếng một lần, lưu
+   * theo tên cố định để các clip sau dùng lại đúng file đó.
+   */
+  async function voiceSampleFromClip(sample, project, dir) {
+    const inSeconds = Number(sample.inSeconds);
+    const outSeconds = Number(sample.outSeconds);
+    if (!Number.isFinite(inSeconds) || !(outSeconds > inSeconds) || outSeconds - inSeconds > 12)
+      throw new Error("VIDEO_REFERENCE_AUDIO_INVALID");
+    const storagePath = `${project}/voices/native/${sample.taskId}-${inSeconds.toFixed(2)}-${outSeconds.toFixed(2)}.wav`;
+    const bucket = db.storage.from("content-media");
+    const folder = storagePath.slice(0, storagePath.lastIndexOf("/"));
+    const { data: existing } = await bucket.list(folder, {
+      search: storagePath.slice(storagePath.lastIndexOf("/") + 1),
+    });
+    if (!existing?.length) {
+      const clip = await source(sample.taskId, project);
+      if (clip.kind !== "video" || !clip.result?.path) throw new Error("VIDEO_REFERENCE_AUDIO_INVALID");
+      const video = path.join(dir, `voice-${sample.taskId}.mp4`);
+      await download(await sign(clip.result.path, project), video, VIDEO_MAX_BYTES);
+      const wav = path.join(dir, `voice-${sample.taskId}.wav`);
+      await ffmpeg([
+        "-ss", String(inSeconds), "-to", String(outSeconds), "-i", video,
+        "-vn", "-ac", "1", "-ar", "44100", wav,
+      ]);
+      const { error } = await bucket.upload(storagePath, await readFile(wav), {
+        contentType: "audio/wav",
+        upsert: true,
+      });
+      if (error) throw error;
+    }
+    return sign(storagePath, project);
+  }
+  async function prepareInputs(t, dir) {
     const i = { ...t.input.providerInputs };
     if (t.kind === "video") {
       if (Array.isArray(t.input.referenceSources)) {
@@ -193,6 +226,17 @@ export function makeFilmWorker(db) {
         );
         delete i.image;
         delete i.last_image;
+        if (Array.isArray(i.reference_audio_sources)) {
+          i.reference_audios = await Promise.all(
+            i.reference_audio_sources.map(async (sample) => {
+              if (sample.taskId) return voiceSampleFromClip(sample, t.project_id, dir);
+              if (sample.path) return sign(sample.path, t.project_id);
+              if (/^https:\/\//i.test(sample.url || "")) return sample.url;
+              throw new Error("VIDEO_REFERENCE_AUDIO_INVALID");
+            }),
+          );
+          delete i.reference_audio_sources;
+        }
       } else {
         const image = await source(t.input.imageTaskId, t.project_id);
         i.image = await sign(image.result.path, t.project_id);
@@ -687,7 +731,7 @@ export function makeFilmWorker(db) {
           await checkpoint(t, { checkpoint: { persisted: result } });
         } else {
           if (!t.provider_id) {
-            await send(t, await prepareInputs(t));
+            await send(t, await prepareInputs(t, dir));
             return;
           }
           const prediction =
