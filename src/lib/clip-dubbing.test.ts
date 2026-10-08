@@ -15,6 +15,7 @@ function database(rows: Record<string, Row>) {
     const builder: Record<string, unknown> = {
       select: () => builder,
       eq: () => builder,
+      neq: () => builder,
       not: () => builder,
       order: () => builder,
       limit: () => builder,

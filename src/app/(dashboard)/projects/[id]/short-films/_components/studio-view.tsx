@@ -742,7 +742,7 @@ export function VoiceSamplePanel({
           </select>
           <input
             type="file"
-            accept="audio/wav,audio/mpeg,audio/mp4,audio/x-m4a"
+            accept="audio/wav,audio/x-wav,audio/mpeg"
             onChange={(event) => pick(event.target.files?.[0] || null)}
             className="text-sm th-text-secondary"
           />

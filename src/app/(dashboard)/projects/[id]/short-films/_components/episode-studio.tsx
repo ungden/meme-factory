@@ -12,7 +12,7 @@ import {
   type StoryGenre,
 } from "@/lib/story-genre";
 import ConfirmModal from "@/components/ui/confirm-modal";
-import { markedFormatIntent, type FilmFormat } from "@/lib/film-camera-language";
+import { filmFormatFromIntent, markedFormatIntent, type FilmFormat } from "@/lib/film-camera-language";
 import { castIdentityGaps } from "@/lib/short-film/cast-quality";
 import { suggestHashtags } from "@/lib/post-text";
 import { api } from "../../video/multiscene/_lib/draft";
@@ -83,6 +83,7 @@ export default function EpisodeStudio() {
   // họ đã tự đổi ở mục tuỳ chọn.
   const qualityTouched = useRef(false);
   const [autopilot, setAutopilot] = useState<AutopilotSettings | null>(null);
+  const [showSetup, setShowSetup] = useState(false);
   const [setup, setSetup] = useState<{
     ready: boolean;
     owner: boolean;
@@ -380,6 +381,11 @@ export default function EpisodeStudio() {
       )
       .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
     if (!clip) return [];
+    // Clip nhiều người nói: đoạn cắt theo mốc dự kiến có thể dính giọng bé khác.
+    const speakers = new Set(
+      (scene.storyboard?.beats || []).filter((beat) => beat.dialogue?.trim()).map((beat) => beat.speakerCharacterId),
+    );
+    if (speakers.size !== 1) return [];
     return (scene.storyboard?.beats || []).flatMap((beat, index) => {
       if (!beat.dialogue?.trim() || !beat.speakerCharacterId) return [];
       const inSeconds = beat.startSeconds;
@@ -442,9 +448,22 @@ export default function EpisodeStudio() {
           {castGaps.map((gap) => (
             <p key={gap.characterId}>{gap.message}</p>
           ))}
-          <Link href={`/projects/${ref}/mascots`} className="mt-1 inline-block font-semibold underline">
-            Mở trang Nhân vật
-          </Link>
+          {setup?.owner ? (
+            <button
+              type="button"
+              onClick={() => {
+                setShowSetup(true);
+                select(null);
+              }}
+              className="mt-1 inline-block font-semibold underline"
+            >
+              Để AI bổ sung bộ ảnh chuẩn
+            </button>
+          ) : (
+            <Link href={`/projects/${ref}/mascots`} className="mt-1 inline-block font-semibold underline">
+              Mở trang Nhân vật
+            </Link>
+          )}
         </div>
       )}
 
@@ -506,7 +525,7 @@ export default function EpisodeStudio() {
               <p className="text-xs th-text-secondary">Thêm nhân vật, quan hệ, ảnh và giọng ở trang Nhân vật trước khi dựng. Kịch bản sẽ không bị ép giọng trẻ nếu kênh không chọn điều đó.</p>
               <button type="button" onClick={() => act(() => saveChannelProfile())} disabled={busy || !profilePositioning.trim() || !profileGenres.length} className="w-fit rounded-lg th-bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Lưu và bắt đầu viết</button>
             </section>
-          ) : !episode && setup && !setup.ready ? (
+          ) : !episode && setup && (!setup.ready || showSetup) ? (
             <FilmSetupPanel
               base={base}
               workspace={workspace}
@@ -517,6 +536,7 @@ export default function EpisodeStudio() {
               mascotsHref={`/projects/${ref}/mascots`}
               onSaveCast={(ids) => saveChannelProfile(ids)}
               onDone={async () => {
+                setShowSetup(false);
                 await refreshList();
               }}
             />
@@ -629,9 +649,10 @@ export default function EpisodeStudio() {
                       await startRun(
                         stripStoryGenreMarker(originalIntent),
                         run.max_points_per_film,
-                        plan?.video_model || qualityOption("saving").model,
+                        // Viết lại giữ đúng model, thể loại và cách quay của lượt gốc.
+                        plan?.video_model || run.video_model || qualityOption("saving").model,
                         storyGenreFromIntent(originalIntent, channelProfile?.genres),
-                        null,
+                        filmFormatFromIntent(originalIntent),
                       );
                     })
                   }

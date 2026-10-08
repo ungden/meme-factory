@@ -271,6 +271,9 @@ async function quotePreparation({
             ? `${formatLook(s.storyboard!.filmFormat!, medium).replace(/^LOOK: (video|phim|chương trình|vlog)/u, "LOOK ƯU TIÊN HƠN PHONG CÁCH KÊNH: khung hình $1")} Khung ảnh là một khoảnh khắc dừng của video đó.`
             : "",
           "Chỉ nhân vật cần thiết trong khung được xuất hiện; giữ nhận diện, tuổi, tỷ lệ cơ thể và trang phục. Không thêm người khác.",
+          s.storyboard?.offscreenCharacterIds?.length
+            ? `${s.cast_snapshot.filter((c) => s.storyboard!.offscreenCharacterIds!.includes(c.characterId)).map((c) => c.name).join(", ")} là người cầm máy, KHÔNG xuất hiện trong khung (tối đa một bàn tay ở mép khung).`
+            : "",
           "Không phụ đề, nhãn giao diện, mũi tên hoặc watermark giả. Nếu bằng chứng yêu cầu chữ/số thật trên đạo cụ thì phải giữ đúng, rõ và đọc được.",
           reference.role === "scene"
             ? "Đây là ảnh bố cục/trạng thái của cảnh để model hiểu không gian và quan hệ nhân vật."
@@ -286,7 +289,8 @@ async function quotePreparation({
           model: FILM_MODELS.image,
           ...(imported ? { importPath: imported } : {}),
           prompt,
-          cast: s.cast_snapshot,
+          // Ảnh của người cầm máy không gửi kèm, kẻo model vẽ họ vào khung.
+          cast: s.cast_snapshot.filter((c) => !s.storyboard?.offscreenCharacterIds?.includes(c.characterId)),
           dialogue: s.dialogue,
           speakerCharacterId: s.speaker_character_id,
           storyboard: s.storyboard || null,
@@ -492,7 +496,9 @@ async function quoteVideo({
         source: { taskId: referenceTask.id },
       });
     }
-    for (const character of s.cast_snapshot) {
+    // Người cầm máy ở ngoài khung: gửi mặt họ là mời Seedance đưa họ lên hình.
+    const offscreen = new Set(s.storyboard?.offscreenCharacterIds || []);
+    for (const character of s.cast_snapshot.filter((member) => !offscreen.has(member.characterId))) {
       for (const pick of castReferencePicks(character)) {
         const source = pick.source;
         if (references.some((reference) => reference.url === source)) continue;

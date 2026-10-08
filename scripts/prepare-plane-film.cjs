@@ -319,6 +319,7 @@ async function main() {
         .from("character_voice_versions")
         .select("id,voice_id,model,settings")
         .eq("character_id", character.id)
+        .neq("model", "seedance-native")
         .not("approved_at", "is", null)
         .order("version", { ascending: false })
         .limit(1)

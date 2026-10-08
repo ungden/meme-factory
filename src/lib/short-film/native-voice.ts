@@ -64,15 +64,17 @@ type SampleTask = {
   created_at: string;
   approved_at?: string | null;
   auto_accepted_at?: string | null;
-  input?: { audioMode?: string } | null;
+  input?: { audioMode?: string; videoTaskId?: string } | null;
+  result?: { segments?: Array<{ start: number; end: number; text: string }> } | null;
 };
 
 /**
  * Chọn giọng chuẩn cho từng bé từ phim vừa quay, không hỏi ai.
  *
- * Lấy đoạn một người nói liền mạch dài nhất (gộp các nhịp liền nhau của cùng
- * người) trong clip tự nói đã qua kiểm tra. Đoạn dài cho model nghe đủ âm sắc;
- * chỉ một người nói để giọng mẫu không lẫn giọng người khác.
+ * Chỉ lấy từ clip có đúng MỘT người nói: model tự quyết lúc nào ai nói, nên
+ * mốc giờ dự kiến trong clip nhiều người có thể rơi vào giọng bé khác, và giọng
+ * mẫu sai sẽ bị chép sang mọi tập sau. Mốc cắt lấy từ bản chép lời thật (Whisper)
+ * khi có, không thì từ storyboard. Đoạn dài nhất (3–10 giây) thắng.
  */
 export function pickNativeVoiceSamples(
   scenes: SampleScene[],
@@ -83,6 +85,10 @@ export function pickNativeVoiceSamples(
   for (const scene of scenes) {
     const board = scene.storyboard;
     if (!board) continue;
+    const spoken = board.beats.filter((beat) => beat.dialogue.trim() && beat.speakerCharacterId);
+    const speakers = new Set(spoken.map((beat) => beat.speakerCharacterId));
+    const speaker = spoken[0]?.speakerCharacterId;
+    if (speakers.size !== 1 || !speaker || !eligibleCharacterIds.includes(speaker)) continue;
     const clip = tasks
       .filter(
         (task) =>
@@ -94,29 +100,52 @@ export function pickNativeVoiceSamples(
       )
       .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
     if (!clip) continue;
-    for (let i = 0; i < board.beats.length; ) {
-      const speaker = board.beats[i].speakerCharacterId;
-      let j = i;
-      while (j + 1 < board.beats.length && board.beats[j + 1].speakerCharacterId === speaker) j += 1;
-      const spoken = board.beats.slice(i, j + 1).some((beat) => beat.dialogue.trim());
-      if (speaker && spoken && eligibleCharacterIds.includes(speaker)) {
-        const inSeconds = board.beats[i].startSeconds;
-        const outSeconds = Math.min(board.beats[j].endSeconds, inSeconds + NATIVE_SAMPLE_MAX_SECONDS, board.durationSeconds);
-        const length = outSeconds - inSeconds;
-        const current = best.get(speaker);
-        if (
-          length >= NATIVE_SAMPLE_MIN_SECONDS &&
-          (!current || length > current.outSeconds - current.inSeconds)
-        )
-          best.set(speaker, {
-            characterId: speaker,
-            sourceTaskId: clip.id,
-            inSeconds: Math.round(inSeconds * 100) / 100,
-            outSeconds: Math.round(outSeconds * 100) / 100,
-          });
+    const segments = tasks
+      .filter((task) => task.kind === "transcribe" && task.status === "completed" && task.input?.videoTaskId === clip.id)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
+      ?.result?.segments?.filter((segment) => Number.isFinite(segment.start) && Number.isFinite(segment.end) && segment.end > segment.start);
+    let inSeconds: number;
+    let outSeconds: number;
+    if (segments?.length) {
+      inSeconds = segments[0].start;
+      outSeconds = inSeconds;
+      for (const segment of segments) {
+        if (segment.end - inSeconds > NATIVE_SAMPLE_MAX_SECONDS) break;
+        outSeconds = segment.end;
       }
-      i = j + 1;
+    } else {
+      inSeconds = spoken[0].startSeconds;
+      outSeconds = Math.min(spoken[spoken.length - 1].endSeconds, inSeconds + NATIVE_SAMPLE_MAX_SECONDS);
     }
+    outSeconds = Math.min(outSeconds, board.durationSeconds);
+    const length = outSeconds - inSeconds;
+    const current = best.get(speaker);
+    if (length >= NATIVE_SAMPLE_MIN_SECONDS && (!current || length > current.outSeconds - current.inSeconds))
+      best.set(speaker, {
+        characterId: speaker,
+        sourceTaskId: clip.id,
+        inSeconds: Math.round(inSeconds * 100) / 100,
+        outSeconds: Math.round(outSeconds * 100) / 100,
+      });
   }
   return [...best.values()];
+}
+
+/**
+ * Độ dài file WAV đọc từ header (chunk "fmt " và "data"). Không tin số giây
+ * client gửi: một file dài hơn trần 30 giây làm hỏng mọi clip dùng giọng này.
+ */
+export function wavDurationSeconds(bytes: Uint8Array): number | null {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const tag = (offset: number) => String.fromCharCode(...bytes.subarray(offset, offset + 4));
+  if (bytes.length < 44 || tag(0) !== "RIFF" || tag(8) !== "WAVE") return null;
+  let byteRate = 0;
+  for (let offset = 12; offset + 8 <= bytes.length; ) {
+    const id = tag(offset);
+    const size = view.getUint32(offset + 4, true);
+    if (id === "fmt ") byteRate = view.getUint32(offset + 16, true);
+    if (id === "data") return byteRate > 0 ? Math.min(size, bytes.length - offset - 8) / byteRate : null;
+    offset += 8 + size + (size % 2);
+  }
+  return null;
 }

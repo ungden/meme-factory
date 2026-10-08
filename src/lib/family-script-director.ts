@@ -34,7 +34,7 @@ import {
   type ChannelProfile,
   type Story,
 } from "./family-catalogue";
-import { storyGenreFromIntent, stripStoryGenreMarker } from "./story-genre";
+import { storyGenreFromIntent, stripStoryGenreMarker, type StoryGenre } from "./story-genre";
 import {
   FAMILY_EDITORIAL_BENCHMARK,
   FAMILY_BENCHMARK_VERSION,
@@ -637,6 +637,16 @@ Mở ngay ở việc đang diễn ra hoặc câu người lớn đang xin trẻ 
   }
 
   /** Runs exactly one pipeline stage within its own deadline. */
+  /**
+   * Cách quay người dùng chọn, trừ khi thể loại thật (AI suy từ ý tưởng khi người
+   * dùng để "AI tự chọn") là cảm động: hai định dạng chỉ dành cho tập hài sẽ
+   * làm mọi bản nháp trượt kiểm tra mà model không được phép đổi định dạng.
+   */
+  private chosenFormat(genre: StoryGenre) {
+    const format = filmFormatFromIntent(this.input.intent);
+    return genre === "emotion" && (format === "talk_to_camera" || format === "cooking_show") ? null : format;
+  }
+
   async runStage(stage: FamilyScriptStageKind, deadlineMs: number) {
     if (this.state.completedStages.includes(stage)) return;
     if (
@@ -725,7 +735,7 @@ storyPayoff là giả thuyết phát triển: initialReading là cách người 
         // exact brief instead of paying to devise the episode again.
         await this.checkpoint("draft");
       }
-      const chosenFormat = filmFormatFromIntent(this.input.intent);
+      const chosenFormat = this.chosenFormat(genre);
       const genreContract = genre === "emotion"
         ? `THỂ LOẠI: cảm động. genre phải là emotion và performanceLane phải cinematic_emotion. Dùng chuỗi quan hệ cụ thể → chi tiết được gieo → khoảnh khắc nhận ra → hành động thay đổi → dư âm. emotionalArc phải trích NGUYÊN VĂN action/text của ba lượt khác nhau theo đúng thứ tự đó. Nhịp không lời là bình thường. Không trả game, beatFunction, unusual_thing, heighten, button, đảo vai hay câu chốt hài.`
         : `THỂ LOẠI: hài. genre phải là comedy. comicPremise ghi thường thức, điều đảo và tương phản nhìn/nghe thấy được. performanceLane mô tả cách diễn; verbal_counterplay vẫn được dùng cho cảnh đối đáp nhưng không ép mọi câu thành phản đòn.`;
@@ -831,7 +841,12 @@ NHẬN XÉT BẮT BUỘC SỬA: ${JSON.stringify(review)}
 Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống. Nếu intentCheck=needs_revision, khôi phục đầy đủ chi tiết/điểm kết người dùng đã yêu cầu và cho nó diễn ra trong thoại hoặc hành động; không thay bằng một kết gần giống xảy ra sớm hơn. Nếu payoffCheck=needs_revision, gieo dữ kiện sớm hơn hoặc sửa lượt phát huy để hai lượt thật sự nối nghĩa; không thêm bí mật mới, câu hỏi ngớ ngẩn hay lời giảng đạo. Nếu endingCheck=forced_tail, cắt từ sau lastNecessaryLine rồi cập nhật endingPlan; không thay đuôi thừa bằng một câu chốt mới. Nếu unfinished, phát triển đúng việc đang diễn trước khi chọn điểm cắt. Nếu speechCheck=needs_revision, sửa đúng ngôi nói/khẩu ngữ ở câu được trích và rà cùng lỗi trong các câu khác; không đổi diễn biến chỉ để chữa đại từ. Nối lại câu bị bẻ vụn, nhưng không thêm tiểu từ máy móc hoặc biến mọi lượt thành phản đòn. Nếu genre=emotion, chỉ sửa seed/recognition/changedAction bị đứt, trích nguyên văn ba lượt theo đúng thứ tự và không thêm game hay punchline. Nếu genre=comedy, sửa động cơ, dữ kiện gieo hoặc diễn biến yếu trước khi nghĩ tới câu cuối. Giữ nguyên đề tài, cast khách mời, format và hồ sơ tập. Trả toàn bộ JSON: ${storyContractForGenre(story.genre || this.draftGenre())}`,
           (v) => this.validateStoryValue(v),
           deadlineMs,
-          storyResponseSchema(this.profile, this.allowed, this.state.story?.genre || this.draftGenre()),
+          storyResponseSchema(
+            this.profile,
+            this.allowed,
+            this.state.story?.genre || this.draftGenre(),
+            this.chosenFormat(this.state.story?.genre || this.draftGenre()),
+          ),
           undefined,
           familyStageModels("draft"),
         );

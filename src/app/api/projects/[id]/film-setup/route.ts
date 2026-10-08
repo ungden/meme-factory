@@ -2,30 +2,63 @@ import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { access, fail, FilmError, latestChannelProfile } from "@/lib/short-film/server";
 import { getSupabaseAdmin } from "@/lib/admin";
-import { spendProjectPoints } from "@/lib/project-points";
-import { POINT_LABELS } from "@/lib/point-pricing";
-import { assertPriceCoversCost, getPointCost } from "@/lib/point-pricing.server";
+import { getPointCost } from "@/lib/point-pricing.server";
 import { estimateImageGenerationPrice } from "@/lib/ai-pricing";
 import { generateFilmReferenceView, IMAGE_MODEL } from "@/lib/gemini-image";
+import { chargedCharacterImage, InsufficientPointsError } from "@/lib/charged-image";
 import {
   FILM_REFERENCE_VIEWS,
   filmMediumFor,
   filmPackReady,
   filmReferencePrompt,
   isFilmReferenceView,
+  type FilmReferenceView,
 } from "@/lib/short-film/channel-setup";
 
 const BUCKET = "character-poses";
 
-type CharacterRow = {
-  id: string;
-  name: string;
-  description: string | null;
-  avatar_url: string | null;
-  continuity_asset_id: string | null;
-};
+type Access = Awaited<ReturnType<typeof access>>;
 
-async function loadCharacters(a: Awaited<ReturnType<typeof access>>) {
+/** Ảnh của bộ phải nằm đúng thư mục bộ ảnh của nhân vật này trong kho của dự án. */
+function packFolder(projectId: string, characterId: string) {
+  return `${projectId}/film-pack/${characterId}`;
+}
+function ownsPackPath(projectId: string, characterId: string, path: unknown): path is string {
+  return (
+    typeof path === "string" &&
+    path.startsWith(`${packFolder(projectId, characterId)}/`) &&
+    !path.includes("..") &&
+    /\/(face|body|back)-[0-9a-f-]{36}\.png$/i.test(path)
+  );
+}
+
+async function download(path: string) {
+  const { data, error } = await getSupabaseAdmin().storage.from(BUCKET).download(path);
+  if (error || !data) throw new FilmError("Không đọc được ảnh nhân vật. Hãy tạo lại.");
+  return Buffer.from(await data.arrayBuffer());
+}
+
+/**
+ * Ảnh đã tạo mà chưa khoá (lần trước dừng giữa chừng): trả về để lần sau dùng
+ * lại thay vì trả tiền vẽ lại góc đã có.
+ */
+async function draftViews(projectId: string, characterId: string) {
+  const bucket = getSupabaseAdmin().storage.from(BUCKET);
+  const { data } = await bucket.list(packFolder(projectId, characterId), {
+    limit: 100,
+    sortBy: { column: "created_at", order: "desc" },
+  });
+  const drafts: Partial<Record<FilmReferenceView, { path: string; url: string }>> = {};
+  for (const file of data || []) {
+    const view = file.name.split("-")[0];
+    if (!isFilmReferenceView(view) || drafts[view]) continue;
+    const path = `${packFolder(projectId, characterId)}/${file.name}`;
+    drafts[view] = { path, url: bucket.getPublicUrl(path).data.publicUrl };
+  }
+  return drafts;
+}
+
+async function loadCharacters(a: Access) {
   const { data: characters, error } = await a.admin
     .from("characters")
     .select("id,name,description,avatar_url,continuity_asset_id")
@@ -40,26 +73,33 @@ async function loadCharacters(a: Awaited<ReturnType<typeof access>>) {
   const { data: versions } = assetIds.length
     ? await a.admin
         .from("asset_versions")
-        .select("asset_id,version,reference_images(role,image_url)")
+        .select("asset_id,version,reference_images(role,image_url,is_primary)")
         .in("asset_id", assetIds)
         .eq("status", "locked")
         .order("version", { ascending: false })
     : { data: [] };
-  return (characters as CharacterRow[]).map((character) => {
-    const latest = (versions || []).find((version) => version.asset_id === character.continuity_asset_id);
-    const references = (latest?.reference_images || []) as Array<{ role: string; image_url: string }>;
-    const artDirection = dna?.find((row) => row.character_id === character.id)?.art_direction || "soft_3d";
-    return {
-      id: character.id,
-      name: character.name,
-      description: character.description || "",
-      avatarUrl: character.avatar_url,
-      artDirection,
-      medium: filmMediumFor(artDirection),
-      ready: filmPackReady(references.map((reference) => reference.role)),
-      references: Object.fromEntries(references.map((reference) => [reference.role, reference.image_url])),
-    };
-  });
+  return Promise.all(
+    (characters || []).map(async (character) => {
+      const latest = (versions || []).find((version) => version.asset_id === character.continuity_asset_id);
+      const references = (latest?.reference_images || []) as Array<{ role: string; image_url: string; is_primary: boolean }>;
+      const artDirection = dna?.find((row) => row.character_id === character.id)?.art_direction || "soft_3d";
+      const packComplete = filmPackReady(references.map((reference) => reference.role));
+      return {
+        id: character.id,
+        name: character.name,
+        description: character.description || "",
+        avatarUrl: character.avatar_url,
+        artDirection,
+        medium: filmMediumFor(artDirection),
+        // Khâu quay chỉ cần một phiên bản khoá có ảnh chính (freezeCast); bộ đủ
+        // ba góc là nâng cấp, không phải điều kiện để được làm phim.
+        ready: references.some((reference) => reference.is_primary),
+        packComplete,
+        references: Object.fromEntries(references.map((reference) => [reference.role, reference.image_url])),
+        drafts: packComplete ? {} : await draftViews(a.project.id, character.id),
+      };
+    }),
+  );
 }
 
 /** Trạng thái thiết lập kênh phim: hồ sơ kênh và bộ ảnh chuẩn của từng nhân vật. */
@@ -81,26 +121,7 @@ export async function GET(r: NextRequest, { params }: { params: Promise<{ id: st
   }
 }
 
-async function imageInput(url: string) {
-  const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
-  if (!response.ok) throw new FilmError("Không đọc được ảnh gốc của nhân vật.");
-  return {
-    mimeType: response.headers.get("content-type") || "image/png",
-    base64: Buffer.from(await response.arrayBuffer()).toString("base64"),
-  };
-}
-
-/** Ảnh trong bộ phải là ảnh vừa tạo cho đúng nhân vật này, không phải URL tuỳ ý. */
-function ownsPackUrl(projectId: string, characterId: string, url: unknown): url is string {
-  return (
-    typeof url === "string" &&
-    /^https:\/\//i.test(url) &&
-    url.includes(`/${BUCKET}/${projectId}/film-pack/${characterId}/`)
-  );
-}
-
 export async function POST(r: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  let refund: null | (() => Promise<void>) = null;
   try {
     const a = await access(r, (await params).id);
     const body = await r.json().catch(() => ({}));
@@ -121,18 +142,23 @@ export async function POST(r: NextRequest, { params }: { params: Promise<{ id: s
     const medium = filmMediumFor(dna?.art_direction);
 
     if (body.action === "lock") {
-      const images = Array.isArray(body.images) ? body.images : [];
-      const pack = FILM_REFERENCE_VIEWS.flatMap((item) => {
-        const image = images.find((candidate: { view?: string }) => candidate?.view === item.view);
-        if (!image || !ownsPackUrl(a.project.id, character.id, image.url)) return [];
-        return [{
+      const paths = (body.paths || {}) as Record<string, unknown>;
+      const { default: sharp } = await import("sharp");
+      const pack = [];
+      for (const item of FILM_REFERENCE_VIEWS) {
+        const path = paths[item.view];
+        if (!ownsPackPath(a.project.id, character.id, path)) continue;
+        // Hash và kích thước tính từ chính file trong kho, không tin số client gửi.
+        const bytes = await download(path);
+        const info = await sharp(bytes).metadata();
+        pack.push({
           role: item.role,
-          url: image.url,
-          hash: String(image.hash || "").slice(0, 128),
-          width: Number(image.width) || null,
-          height: Number(image.height) || null,
-        }];
-      });
+          url: a.admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl,
+          hash: crypto.createHash("sha256").update(bytes).digest("hex"),
+          width: info.width || null,
+          height: info.height || null,
+        });
+      }
       const { data, error } = await a.admin.rpc("lock_film_reference_pack", {
         p_project: a.project.id,
         p_actor: a.user.id,
@@ -154,8 +180,10 @@ export async function POST(r: NextRequest, { params }: { params: Promise<{ id: s
       throw new FilmError("Yêu cầu không hợp lệ.");
     const view = FILM_REFERENCE_VIEWS.find((item) => item.view === body.view)!;
     // Ảnh mặt dựng từ ảnh gốc của nhân vật; thân và lưng dựng từ ảnh mặt vừa tạo
-    // để cả bộ là đúng một người.
-    let sources: string[];
+    // để cả bộ là đúng một người. Mọi ảnh đầu vào đọc từ kho của app, không tải
+    // URL do client gửi.
+    const identity: Array<{ mimeType: string; base64: string }> = [];
+    const references: Array<Record<string, string>> = [];
     if (view.view === "face") {
       const { data: poses } = await a.admin
         .from("character_poses")
@@ -163,128 +191,58 @@ export async function POST(r: NextRequest, { params }: { params: Promise<{ id: s
         .eq("character_id", character.id)
         .order("created_at", { ascending: true })
         .limit(2);
-      sources = [character.avatar_url, ...(poses || []).map((pose) => pose.image_url)].filter(
-        (url): url is string => typeof url === "string" && /^https:\/\//i.test(url),
-      );
-      if (!sources.length)
-        throw new FilmError(`${character.name} chưa có ảnh nào. Tạo một ảnh nhân vật trước.`);
+      const marker = `/storage/v1/object/public/${BUCKET}/`;
+      const own = [character.avatar_url, ...(poses || []).map((pose) => pose.image_url)]
+        .filter((url): url is string => typeof url === "string" && url.includes(marker))
+        .slice(0, 3);
+      if (!own.length) throw new FilmError(`${character.name} chưa có ảnh nào. Tạo một ảnh nhân vật trước.`);
+      for (const url of own) {
+        const path = decodeURIComponent(url.split(marker)[1].split("?")[0]);
+        identity.push({ mimeType: "image/png", base64: (await download(path)).toString("base64") });
+        references.push({ url });
+      }
     } else {
-      if (!ownsPackUrl(a.project.id, character.id, body.faceUrl))
-        throw new FilmError("Tạo ảnh cận mặt trước.");
-      sources = [body.faceUrl, character.avatar_url].filter(
-        (url): url is string => typeof url === "string" && /^https:\/\//i.test(url),
-      );
+      if (!ownsPackPath(a.project.id, character.id, body.facePath)) throw new FilmError("Tạo ảnh cận mặt trước.");
+      identity.push({ mimeType: "image/png", base64: (await download(body.facePath)).toString("base64") });
+      references.push({ path: body.facePath });
     }
     const prompt = filmReferencePrompt(
       view.view,
       { name: character.name, description: character.description || "" },
       medium,
     );
-
-    const cost = await getPointCost("character");
-    if (cost > 0) await assertPriceCoversCost("character", cost);
-    const requestId = crypto.randomUUID();
-    const admin = getSupabaseAdmin();
-    if (cost > 0) {
-      const spent = await spendProjectPoints(async (name, args) => admin.rpc(name, args), {
-        projectId: a.project.id,
-        projectOwnerId: String(a.project.user_id),
-        actorUserId: a.user.id,
-        cost,
-        description: `${POINT_LABELS.character} cho phim (-${cost} điểm)`,
-        requestId,
-        aiAction: "character",
-        metadata: { type: "film_reference", view: view.view, character_id: character.id },
-        projectName: String(a.project.name || ""),
-      });
-      if (!spent.ok && spent.code === "FAILED") throw new Error(spent.message);
-      if (!spent.ok)
-        return NextResponse.json(
-          {
-            error: `Không đủ điểm. Mỗi ảnh chuẩn cần ${cost} điểm, bạn đang có ${spent.available} điểm.`,
-            code: "INSUFFICIENT_POINTS",
-          },
-          { status: 402 },
-        );
-      refund = async () => {
-        const { error } = await admin.rpc("atomic_refund_project_points", {
-          _project_id: a.project.id,
-          _actor_user_id: a.user.id,
-          _cost: cost,
-          _description: `Hoàn ${cost} điểm — lỗi tạo ảnh chuẩn phim`,
-          _request_id: requestId,
-          _ai_action: "character",
-          _metadata: { reason: "generation_failed" },
-        });
-        if (error) console.error("Film reference refund failed:", error.message);
-        // Job còn "running" thì sweeper sẽ coi là treo và hoàn thêm một lần nữa.
-        await admin
-          .from("generation_jobs")
-          .update({
-            status: "failed",
-            error: { code: "GENERATION_FAILED" },
-            completed_at: new Date().toISOString(),
-          })
-          .eq("id", requestId);
-      };
-    }
-    const estimate = estimateImageGenerationPrice({
+    const { result, requestId } = await chargedCharacterImage({
+      project: a.project,
+      actorUserId: a.user.id,
+      description: `ảnh chuẩn phim của ${character.name}`,
+      workflowVersion: "film-pack-v1",
       model: IMAGE_MODEL,
-      resolution: "1K",
-      inputImageCount: sources.length,
-      prompt,
-    });
-    // Bản ghi job có trước lời gọi AI: tiến trình chết giữa chừng thì sweeper
-    // thấy job treo và hoàn điểm.
-    const { error: jobError } = await admin.from("generation_jobs").insert({
-      id: requestId,
-      project_id: a.project.id,
-      creation_kind: "character_reference",
-      source_entity_type: "character",
-      source_entity_id: character.id,
-      workflow_version: "film-pack-v1",
       provider: "google",
-      model: IMAGE_MODEL,
-      status: "running",
-      compiled_prompt: prompt,
-      reference_manifest: sources.map((url) => ({ url })),
-      manifest_hash: crypto.createHash("sha256").update(prompt + sources.join("|")).digest("hex"),
-      requested_output: { view: view.view, aspectRatio: view.aspectRatio },
-      estimated_points: cost,
-      estimated_cost_usd: estimate.providerCostUsd,
-      created_by: a.user.id,
-      started_at: new Date().toISOString(),
-    });
-    if (jobError) throw jobError;
-
-    const generated = await generateFilmReferenceView({
       prompt,
-      identityImages: await Promise.all(sources.slice(0, 3).map(imageInput)),
-      aspectRatio: view.aspectRatio,
+      references,
+      estimate: estimateImageGenerationPrice({
+        model: IMAGE_MODEL,
+        resolution: "1K",
+        inputImageCount: identity.length,
+        prompt,
+      }),
+      requestedOutput: { view: view.view, aspectRatio: view.aspectRatio, characterId: character.id },
+      sourceEntity: { type: "character", id: character.id },
+      generate: () => generateFilmReferenceView({ prompt, identityImages: identity, aspectRatio: view.aspectRatio }),
     });
-    const bytes = Buffer.from(generated.image, "base64");
-    const { default: sharp } = await import("sharp");
-    const info = await sharp(bytes).metadata();
-    const path = `${a.project.id}/film-pack/${character.id}/${view.view}-${requestId}.png`;
-    const { error: uploadError } = await admin.storage
+    const path = `${packFolder(a.project.id, character.id)}/${view.view}-${requestId}.png`;
+    const { error: uploadError } = await a.admin.storage
       .from(BUCKET)
-      .upload(path, bytes, { contentType: "image/png", cacheControl: "31536000" });
+      .upload(path, Buffer.from(result.image, "base64"), { contentType: "image/png", cacheControl: "31536000" });
     if (uploadError) throw uploadError;
-    const url = admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
-    await admin
-      .from("generation_jobs")
-      .update({ status: "completed", actual_points: cost, usage: generated.usage ?? null, completed_at: new Date().toISOString() })
-      .eq("id", requestId);
-    refund = null;
     return NextResponse.json({
       view: view.view,
-      url,
-      hash: crypto.createHash("sha256").update(bytes).digest("hex"),
-      width: info.width,
-      height: info.height,
+      path,
+      url: a.admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl,
     });
   } catch (error) {
-    if (refund) await refund();
+    if (error instanceof InsufficientPointsError)
+      return NextResponse.json({ error: error.message, code: "INSUFFICIENT_POINTS" }, { status: 402 });
     return fail(error);
   }
 }

@@ -21,7 +21,7 @@ export async function GET(
     const { data, error } = await a.admin
       .from("short_film_production_runs")
       .select(
-        "id,plan_id,plan_version,source,intent,status,phase,max_points_per_film,max_points_per_day,points_committed,error,snapshot,created_at,updated_at,completed_at",
+        "id,plan_id,plan_version,source,intent,video_model,status,phase,max_points_per_film,max_points_per_day,points_committed,error,snapshot,created_at,updated_at,completed_at",
       )
       .eq("project_id", a.project.id)
       .eq("workspace_version", a.project.workspace_version)

@@ -55,6 +55,7 @@ import {
   episodePickerLabels,
   episodePickerStatus,
   fromPlan,
+  editableAudioMode,
   labels,
   sceneBlank,
   statusLabels,
@@ -120,11 +121,12 @@ export default function ShortFilmPage() {
   // làm đổi hành vi, và khách khác cũng bật được cái này.
   const familyVoicesLocked = voicesLocked(channel);
   const requestKeys = useRef<Record<string, string>>({});
+  const nativeAllowed = useRef(false);
   const change = (patch: Partial<Draft>) => {
     edited.current = true;
     setDirty(true);
     setQuote(null);
-    setDraft((d) => ({ ...d, ...patch, audioMode: (patch.audioMode || d.audioMode) === "native" ? "dubbed" : (patch.audioMode || d.audioMode) }));
+    setDraft((d) => ({ ...d, ...patch, audioMode: editableAudioMode(patch.audioMode || d.audioMode, nativeAllowed.current) }));
   };
   const visiblePlans = plans.filter((candidate) => {
     const state = episodePickerStatus(candidate);
@@ -235,10 +237,11 @@ export default function ShortFilmPage() {
         setStorageKey(key);
         setWorkspace(j.workspaceVersion);
         setEnabled(j.fixedVoiceEnabled);
+        nativeAllowed.current = j.nativeVoice === true;
         if (j.latestAssist?.status !== "failed")
           setAssistId(j.latestAssist?.id || null);
         let initial = p
-          ? fromPlan(p)
+          ? fromPlan(p, nativeAllowed.current)
           : { ...blank(), targetDurationSeconds: j.channelProfile ? 35 : 30 };
         const raw = localStorage.getItem(key);
         if (raw) {
@@ -251,10 +254,7 @@ export default function ShortFilmPage() {
               initial = {
                 ...saved.draft,
                 videoModel: seedanceReferenceModel(saved.draft.videoModel),
-                audioMode:
-                  saved.draft.audioMode === "native"
-                    ? "dubbed"
-                    : saved.draft.audioMode,
+                audioMode: editableAudioMode(saved.draft.audioMode, nativeAllowed.current),
               };
               setDirty(saved.dirty);
               setCast(saved.cast || []);
@@ -451,7 +451,7 @@ export default function ShortFilmPage() {
     setPlan(savedPlan);
     setSegments([]);
     setPlans((ps) => [savedPlan, ...ps.filter((p) => p.id !== savedPlan.id)]);
-    setDraft(fromPlan(savedPlan));
+    setDraft(fromPlan(savedPlan, nativeAllowed.current));
     setDirty(false);
     edited.current = false;
     setQuote(null);
@@ -490,7 +490,7 @@ export default function ShortFilmPage() {
     if (id && !nextPlan)
       throw new Error("Kịch bản không còn trong workspace hiện tại.");
     let nextDraft = nextPlan
-      ? fromPlan(nextPlan)
+      ? fromPlan(nextPlan, nativeAllowed.current)
       : { ...blank(), targetDurationSeconds: 35 };
     let nextCast =
       nextPlan?.cast_snapshot.map(
@@ -513,10 +513,7 @@ export default function ShortFilmPage() {
           nextDraft = {
             ...saved.draft,
             videoModel: seedanceReferenceModel(saved.draft.videoModel),
-            audioMode:
-              saved.draft.audioMode === "native"
-                ? "dubbed"
-                : saved.draft.audioMode,
+            audioMode: editableAudioMode(saved.draft.audioMode, nativeAllowed.current),
           };
           nextCast = Array.isArray(saved.cast) ? saved.cast : [];
           nextDirty = true;
@@ -1806,6 +1803,9 @@ export default function ShortFilmPage() {
                         })
                       }
                     >
+                      {(nativeAllowed.current || draft.audioMode === "native") && (
+                        <option value="native">Nhân vật tự nói (chất lượng cao)</option>
+                      )}
                       <option value="dubbed">
                         Lồng tiếng Gemini theo từng nhân vật
                       </option>

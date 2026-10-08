@@ -2,16 +2,18 @@ import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { access, checkVersion, fail, FilmError } from "@/lib/short-film/server";
 import { NATIVE_VOICE_MODEL } from "@/lib/short-film/contracts";
-import { nativeSampleWindow } from "@/lib/short-film/native-voice";
+import { nativeSampleWindow, wavDurationSeconds } from "@/lib/short-film/native-voice";
 
-const AUDIO_TYPES: Record<string, string> = {
-  "audio/wav": "wav",
-  "audio/x-wav": "wav",
-  "audio/wave": "wav",
-  "audio/mpeg": "mp3",
-  "audio/mp4": "m4a",
-  "audio/x-m4a": "m4a",
+// Kho content-media chỉ nhận audio/wav và audio/mpeg; nhận thêm kiểu khác là
+// lần tải nào cũng hỏng ở bước lưu.
+const AUDIO_TYPES: Record<string, { ext: string; mime: string }> = {
+  "audio/wav": { ext: "wav", mime: "audio/wav" },
+  "audio/x-wav": { ext: "wav", mime: "audio/wav" },
+  "audio/wave": { ext: "wav", mime: "audio/wav" },
+  "audio/mpeg": { ext: "mp3", mime: "audio/mpeg" },
 };
+/** MP3 không đọc được độ dài ở đây; 400 KB ở 192 kbps là khoảng 16 giây. */
+const MAX_MP3_BYTES = 400 * 1024;
 
 /**
  * Giọng mẫu để Seedance 2.5 nói đúng một giọng qua mọi clip.
@@ -43,18 +45,23 @@ export async function POST(
     let settings: Record<string, unknown>;
     if (form) {
       const file = form.get("file");
-      const ext = file instanceof File ? AUDIO_TYPES[file.type] : undefined;
-      if (!(file instanceof File) || !ext || file.size > 4 * 1024 * 1024)
-        throw new FilmError("Chọn file giọng WAV, MP3 hoặc M4A tối đa 4 MB.");
+      const type = file instanceof File ? AUDIO_TYPES[file.type] : undefined;
+      if (!(file instanceof File) || !type || file.size > 4 * 1024 * 1024)
+        throw new FilmError("Chọn file giọng WAV hoặc MP3 tối đa 4 MB.");
       if (body.rightsConfirmed !== "true")
         throw new FilmError("Xác nhận bạn có quyền dùng giọng trong file này.");
-      const seconds = Number(body.seconds);
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const measured = type.ext === "wav" ? wavDurationSeconds(bytes) : null;
+      if (type.ext === "wav" && measured === null) throw new FilmError("Không đọc được file WAV này.");
+      if (type.ext === "mp3" && bytes.length > MAX_MP3_BYTES)
+        throw new FilmError("File MP3 quá dài; giọng mẫu chỉ cần 3–12 giây.");
+      const seconds = measured ?? Number(body.seconds);
       if (!Number.isFinite(seconds) || seconds < 3 || seconds > 12)
         throw new FilmError("Giọng mẫu cần dài 3–12 giây.");
-      const path = `${a.project.id}/voices/native/${crypto.randomUUID()}.${ext}`;
+      const path = `${a.project.id}/voices/native/${crypto.randomUUID()}.${type.ext}`;
       const { error } = await a.admin.storage
         .from("content-media")
-        .upload(path, Buffer.from(await file.arrayBuffer()), { contentType: file.type });
+        .upload(path, Buffer.from(bytes), { contentType: type.mime });
       if (error) throw new FilmError("Không lưu được file giọng.");
       settings = { samplePath: path, sampleSeconds: Math.round(seconds * 100) / 100, direction };
     } else {

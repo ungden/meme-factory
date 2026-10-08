@@ -70,30 +70,48 @@ export async function POST(
     const medium = channelFilmMedium(
       characterIds.map((id: string) => dna?.find((row) => row.character_id === id)?.art_direction),
     );
-    const profile: ChannelProfile = {
-      // Lưu lại hồ sơ không được làm rơi những gì kênh đã chốt ở nơi khác.
-      ...(current?.visualDirection ? { visualDirection: current.visualDirection } : { visualDirection: CHANNEL_VISUAL_DIRECTIONS[medium] }),
-      ...(current?.videoFormat ? { videoFormat: current.videoFormat } : {}),
-      ...(current?.voicesLocked ? { voicesLocked: current.voicesLocked } : {}),
-      ...(current?.terminologyRules ? { terminologyRules: current.terminologyRules } : {}),
-      version,
-      writingPolicyVersion: "story-v2",
-      positioning,
-      audience,
-      tone,
-      roles: (characters || []).map((character) => ({
-        characterId: character.id,
-        name: character.name,
-        personality: character.personality || character.description || "",
-        speechStyle: "",
-      })),
-      series: FAMILY_SERIES,
-      avoid: ["Không áp lời thoại, độ tuổi hoặc quan hệ của kênh khác vào dàn nhân vật này."],
-      references: [],
-      speechRegister,
-      genres: genres.length ? genres : GENRES,
-      relationships,
-    };
+    // Hồ sơ đã có thì gộp vào chứ không dựng lại: kênh đã chăm chút (quan hệ, cách
+    // nói của từng vai, tham chiếu, series) không được mất chỉ vì đổi danh sách
+    // nhân vật lên phim. Vai giữ nguyên được giữ nguyên mô tả cũ.
+    const rolesFor = (characters || []).map((character) => {
+      const kept = current?.roles?.find((role) => role.characterId === character.id);
+      return (
+        kept || {
+          characterId: character.id,
+          name: character.name,
+          personality: character.personality || character.description || "",
+          speechStyle: "",
+        }
+      );
+    });
+    const profile: ChannelProfile = current
+      ? {
+          ...current,
+          ...(current.visualDirection ? {} : { visualDirection: CHANNEL_VISUAL_DIRECTIONS[medium] }),
+          version,
+          positioning,
+          audience,
+          tone,
+          roles: rolesFor,
+          speechRegister,
+          genres: genres.length ? genres : GENRES,
+          relationships: Array.isArray(body.relationships) ? relationships : current.relationships || [],
+        }
+      : {
+          visualDirection: CHANNEL_VISUAL_DIRECTIONS[medium],
+          version,
+          writingPolicyVersion: "story-v2",
+          positioning,
+          audience,
+          tone,
+          roles: rolesFor,
+          series: FAMILY_SERIES,
+          avoid: ["Không áp lời thoại, độ tuổi hoặc quan hệ của kênh khác vào dàn nhân vật này."],
+          references: [],
+          speechRegister,
+          genres: genres.length ? genres : GENRES,
+          relationships,
+        };
     const { error } = await a.admin.from("channel_profiles").insert({
       project_id: a.project.id,
       workspace_version: a.project.workspace_version,
