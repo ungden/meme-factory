@@ -227,6 +227,10 @@ export const ERROR_MESSAGES: Record<string, string> = {
     "Bản hài không thể dùng nhịp cinematic. Hãy chọn nhịp hài phù hợp.",
   STORY_PERFORMANCE_LANE_INVALID:
     "Kiểu diễn của tập không hợp lệ. Hãy cho AI viết lại.",
+  STORY_FILM_FORMAT_INVALID:
+    "Cách quay của tập không hợp lệ. Hãy cho AI viết lại.",
+  STORY_FILM_FORMAT_GENRE:
+    "Tập cảm động không quay kiểu bé nói với máy hay bé đầu bếp. Hãy cho AI viết lại.",
   STORY_REPEATED_COMBINATION:
     "Ý tưởng này trùng với một tập đã có. Hãy đổi ý tưởng hoặc để AI tự đề xuất tập mới.",
   STORY_GUESTS_INVALID: "Danh sách khách mời không hợp lệ.",
@@ -278,6 +282,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
     "Không chia được storyboard thành các clip hợp lệ. Hãy cho AI dựng lại.",
   STORYBOARD_TIMING_POLICY_INVALID:
     "Nhịp thời gian của storyboard chưa hợp lệ. Hãy cho AI dựng lại.",
+  STORYBOARD_FILM_FORMAT_INVALID:
+    "Cách quay của phân cảnh không hợp lệ. Hãy cho AI dựng lại.",
   STORYBOARD_PROP_IDENTITY_CHANGED:
     "Một đạo cụ đổi hình dạng giữa các cảnh. Hãy cho AI dựng lại storyboard.",
   STORYBOARD_SEGMENT_STATE_INVALID:

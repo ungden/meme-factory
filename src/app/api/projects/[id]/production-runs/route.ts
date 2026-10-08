@@ -9,7 +9,7 @@ import {
 } from "@/lib/short-film/server";
 import { speechLines } from "@/lib/short-film/contracts";
 import { fixedVoiceEnabled } from "@/lib/short-film/features";
-import { seedanceReferenceModel } from "@/lib/video-models";
+import { nativeSpeechSupported, seedanceReferenceModel } from "@/lib/video-models";
 
 export async function GET(
   request: NextRequest,
@@ -72,9 +72,9 @@ export async function POST(
         "Duyệt giọng của các nhân vật nói trong kịch bản trước.",
         409,
       );
-    if (plan?.audio_mode === "native")
+    if (plan?.audio_mode === "native" && !nativeSpeechSupported(plan.video_model))
       throw new FilmError(
-        "Lưu kịch bản sang lồng tiếng trước khi tạo phim mới.",
+        "Bản Tiết kiệm chưa tự nói tiếng Việt. Lưu kịch bản sang lồng tiếng hoặc chọn Chất lượng cao.",
         409,
       );
     if (plan?.audio_mode === "dubbed")

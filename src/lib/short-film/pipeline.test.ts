@@ -38,7 +38,9 @@ describe("film production invariants", () => {
     expect(fixed).not.toContain("Nói nguyên văn");
     const native = compileFilmMotion(scene, "native", "9:16");
     expect(native).toContain("Bánh của con!");
-    expect(native).toContain("nhạc nền không lời vui vẻ");
+    // Nhạc do model tự sinh đổi bài ở mỗi clip; nhạc chỉ ghép lúc dựng.
+    expect(native).toContain("Không nhạc nền");
+    expect(native).toContain("GIỌNG: Bánh Bao: giọng thật đúng tuổi và giới của áo vàng");
     expect(fixed).toContain("AUDIO: không lời thoại và không nhạc");
     expect(fixed).toContain("0.0–");
     expect(fixed).toContain("hành động bắt đầu ở giây 0");

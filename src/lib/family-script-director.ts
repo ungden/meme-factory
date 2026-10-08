@@ -1,3 +1,12 @@
+import {
+  FILM_FORMATS,
+  FILM_FORMAT_MENU,
+  FORMAT_WRITING_RULES,
+  cameraPresetMenu,
+  filmFormat,
+  formatAddressesCamera,
+  formatAllowsLocationCuts,
+} from "./film-camera-language";
 import { FILM_INTERACTION_POLICY } from "./film-motion-policy";
 import { storyboardGroups } from "./film-storyboard";
 import {
@@ -181,6 +190,10 @@ const REPAIR_HINTS: Record<string, string> = {
     "Thiếu endingPlan. Chọn mode, đặt stopAfterLine bằng đúng số lượt thoại, trích anchorQuote nguyên văn từ lượt cuối và nêu lý do dừng ở đó.",
   STORY_PERFORMANCE_LANE_INVALID:
     "performanceLane phải là đúng một giá trị trong danh sách lane đã cho.",
+  STORY_FILM_FORMAT_INVALID:
+    "filmFormat phải là đúng một trong family_scene, talk_to_camera, cooking_show, phone_vlog.",
+  STORY_FILM_FORMAT_GENRE:
+    "Tập cảm động chỉ dùng filmFormat family_scene hoặc phone_vlog; đổi định dạng, giữ nguyên câu chuyện.",
   STORY_REPEATED_COMBINATION:
     "Bộ ba situation/mechanism/outcome trùng một tập đã có. Đổi cách chuyện diễn ra, không chỉ đổi đồ vật hay tên.",
   STORY_GUESTS_INVALID:
@@ -736,6 +749,8 @@ NHẬN XÉT SO SÁNH: ${JSON.stringify(this.state.selection)}
 ${genreContract}
 Viết bản đầy đủ bằng tiếng Việt, dùng hồ sơ tập làm căn cứ nhưng không chép initialReading/reframedReading/shareReason vào miệng nhân vật. Mỗi người chỉ nói điều họ có lý do nói từ want/knows/relationship; không cho họ hỏi ngớ ngẩn, cãi vô cớ, đổi nghĩa lời trước hoặc tự nhận thua để kê câu cuối. Với tập parody, action phải cho thấy nhân vật dùng đạo cụ nhận diện của chính format đó trong suốt nghi thức; không để hoạt động trẻ con không liên quan thay chỗ format. Với tập cảm động, không ép đảo vai/parody/joke; emotionalCause (như nhìn bóng lưng, thấy kỷ vật) phải nằm trong action của một lượt TRƯỚC lời nói cuối, không gộp vào chính câu kết. Phim chỉ nối bằng hard cut: chuyển cảnh hoặc vào hồi ức bằng hard cut/match cut, không dissolve/fade. Giữ các câu phản ứng có tác dụng, không bắt mỗi câu là một trò đùa. Khác biệt hai bé phải thể hiện qua cách xử lý/đối đáp, không chỉ đổi tên người nói.
 Chọn performanceLane đúng một trong: ${PERFORMANCE_LANES.join(", ")}. Mô tả lane bằng hành động trong thoại/action; không tự khen bản thân là hài.
+ĐỊNH DẠNG PHIM: chọn filmFormat đúng một trong — ${FILM_FORMAT_MENU} Ý tưởng nói rõ cách quay thì theo đúng ý tưởng; không nói rõ thì chọn định dạng làm tình huống đọng nhất.${genre === "emotion" ? " Tập cảm động chỉ dùng family_scene hoặc phone_vlog." : ""} Định dạng đã chọn kéo theo luật viết riêng dưới đây (chỉ áp luật của định dạng đã chọn):
+${FILM_FORMATS.filter((f) => FORMAT_WRITING_RULES[f]).map((f) => FORMAT_WRITING_RULES[f]).join("\n")}
 MỌI CẢNH NGƯỜI DÙNG NÊU RÕ trong ý tưởng (ví dụ: cõng con đi dọc biển, một đoạn hồi tưởng, nhìn kỷ vật) phải thành lượt riêng theo đúng thứ tự, không gộp vào action của lượt khác và không lược đi cho gọn. Cảnh không cần lời dùng NHỊP KHÔNG LỜI: text là chuỗi rỗng, characterId là người hành động chính, action tả cụ thể việc nhìn thấy (tối thiểu 6 từ; hồi tưởng ghi rõ "hồi tưởng" và ai làm gì). Tối đa 3 nhịp không lời, vẫn cần ít nhất 2 lượt có lời; lượt cuối nên có lời hoặc là reaction. Câu nói mà ý tưởng nêu ra (ví dụ con hỏi "Bố sao vậy", Bố bảo "cát bay vào mắt", con hứa sau này cõng lại Bố) phải được CHÍNH người đó NÓI trong text, không chỉ tả trong action, và giữ đúng người nói như ý tưởng.
 Thời lượng ${this.input.targetDurationSeconds || 35} giây chỉ là mục tiêu gần đúng. Hoàn tất trọn diễn biến và kết thúc người dùng yêu cầu trước; nếu câu chuyện tự nhiên cần dài hơn thì viết thêm lượt đến đúng điểm kết, nếu xong sớm thì dừng, tuyệt đối không cắt mất kết hoặc kéo lời để chạm mốc. Có thể không có reaction nếu đã đủ điểm dừng. Viết tình huống đang diễn ra, lời kể chỉ khi format cần và cách kể tự có sức hút.
 ${genreWritingRules}
@@ -888,6 +903,7 @@ Sửa một lượt theo lý do cụ thể, giữ đoạn đang có sức sống
       Object.entries((chunk?.shots || {}) as Record<string, unknown>)
         .sort(([a], [b]) => Number(a.slice(4)) - Number(b.slice(4)))
         .map(([, shot]) => shot);
+    const storyFormat = filmFormat(story.filmFormat);
     const basePrompt = `${contextText(shotContext, shotAllowed)}
 Ý TƯỞNG NGƯỜI DÙNG: ${this.intent}
 CÂU CHUYỆN ĐÃ SOẠN: ${JSON.stringify(story)}
@@ -895,7 +911,10 @@ RÀNG BUỘC XUYÊN PHIM: openingState của mỗi panel ghi rõ giày dép củ
 ${FILM_INTERACTION_POLICY}
 LỚP ĐẠO DIỄN BIỂU CẢM: lane=${story.performanceLane || "deadpan_reversal"}. Mỗi panel phải trả performanceDirection với comicObjective (ở tập cảm động, trường tương thích này ghi mục tiêu cảm xúc của nhân vật), statusBefore/statusAfter, hook, tối thiểu hai beat hành động vật lý, reactionTarget cụ thể và revealOrCut. Với verbal_counterplay, hai beat là cách người nói phát câu và vi phản ứng của người nghe (liếc, khựng, nhướng mày, quay mặt); giữ shot–reverse-shot/cận biểu cảm, không bịa đạo cụ hay đại động tác để minh họa câu nói. Với lane khác, hai beat có thể là hai pha của cùng hành động hoặc hành động chính và phản ứng đồng thời của người nghe. Không bắt mỗi câu có hai trò, hai góc máy hoặc một cú lật. Dùng hành vi nhìn thấy được; không dùng riêng các nhãn “tự nhiên”, “nghiêm túc”, “ngây thơ”, “đáng yêu”, “gật đầu”, “nhìn ngơ”.
 DỰNG STORYBOARD: chia thành ${groups.length} clip nguồn. Server chọn duration nguyên 4–${maxVideoDuration} giây cho từng request Seedance từ cả lời nói VÀ durationSeconds do đạo diễn cấp; phim cuối cắt ở đúng contentEndSeconds. Các nhịp thoại/panel được nhóm sẵn (chỉ số từ 1): ${JSON.stringify(groups.map((g) => g.map((i) => i + 1)))}. Mỗi panel là một nhịp bên trong đoạn, KHÔNG phải một job video riêng. GIỮ NGUYÊN câu thoại, thứ tự và người nói. Không thêm lời. durationSeconds phải đủ cho toàn bộ hành động nhìn thấy được từ openingState tới closingState; đừng chỉ đo thời gian phát âm câu thoại và đừng thêm đệm vô nghĩa.
-Trong cùng đoạn: cùng bối cảnh, ánh sáng, vị trí nhân vật, hướng nhìn và trục máy. Có thể pan theo người nói hoặc cắt đối đáp theo storyboard; không đổi cảnh ngẫu nhiên. Hành động bắt đầu ngay, người nghe phản ứng trong khi người kia nói, không đứng đợi tới lượt. Viết motionPrompt cho từng nhịp bằng hành động cụ thể, KHÔNG thêm mốc giây riêng; server gắn mốc liên tục theo lượng thoại và hành động. Chỉ một người nói tại mỗi thời điểm, đến nhịp sau mới đổi người. Không slow motion, kéo dài âm tiết, khoảng chờ mở đầu hoặc lặp động tác để đủ thời lượng.
+${formatAllowsLocationCuts(storyFormat)
+  ? "Định dạng này được đổi nơi giữa các panel, kể cả trong cùng đoạn: mỗi panel ghi setting là một nơi thật, cụ thể (chợ, ga tàu, hành lang chung cư…); cùng nơi với panel trước thì chép lại nguyên văn. Người và trang phục giữ nguyên qua mọi nơi."
+  : "Trong cùng đoạn: cùng bối cảnh, ánh sáng, vị trí nhân vật, hướng nhìn và trục máy. Có thể pan theo người nói hoặc cắt đối đáp theo storyboard; không đổi cảnh ngẫu nhiên."}
+MÁY QUAY (filmFormat=${storyFormat}): mỗi panel chọn cameraPreset trong menu — ${cameraPresetMenu(storyFormat)}. Đổi preset giữa hai panel liền nhau khi có thể; câu chốt dùng khung cận nhất.${formatAddressesCamera(storyFormat) ? " Người nói nhìn thẳng ống kính khi nói." : ""} Hành động bắt đầu ngay, người nghe phản ứng trong khi người kia nói, không đứng đợi tới lượt. Viết motionPrompt cho từng nhịp bằng hành động cụ thể, KHÔNG thêm mốc giây riêng; server gắn mốc liên tục theo lượng thoại và hành động. Chỉ một người nói tại mỗi thời điểm, đến nhịp sau mới đổi người. Không slow motion, kéo dài âm tiết, khoảng chờ mở đầu hoặc lặp động tác để đủ thời lượng.
 Trước khi mô tả ảnh, hãy hiểu logic thị giác riêng của tập và trả visualDirection ở cấp toàn phim: storyMechanism, audienceMustSee, và characterKnowledge cho từng người gồm họ biết gì và chi tiết nào chưa được lộ trước thời điểm nào. Xác định điều gì gây lệch/hài, khán giả phải thấy gì và ở thời điểm nào, đạo cụ/hành động nào quyết định câu chuyện. Không bê checklist tiền, cặp hay micro sang tập khác. Mỗi panel phải có visualRequirements và referenceImages. visualRequirements chỉ liệt kê bằng chứng thật sự cần nhìn thấy (với lane adult_format_parody, đạo cụ nhận diện format của chính tập này là critical); dùng kind=count/text và legibility=countable/readable khi số lượng hoặc chữ/số là dữ kiện của câu chuyện. Mỗi critical requirement phải được ít nhất một reference image bao phủ. referenceImages là các ảnh riêng độ phân giải đầy đủ đưa cùng nhau vào reference_images của Seedance; role=scene cho bố cục/trạng thái, character cho nhận diện, prop cho vật thể quyết định, environment cho bối cảnh. Không tạo first/last-frame contract và không dùng grid/storyboard sheet làm input video. Chỉ đặt requiresOwnSource=true khi góc nhìn, trạng thái hoặc nhịp diễn khác đến mức không nên nằm chung một clip liên tục.
 Panel đầu mỗi đoạn là một khung sạch có đủ người sẽ xuất hiện trong đoạn đó; đủ ảnh chuẩn từng người, đúng tỷ lệ, trang phục và vị trí. Mỗi panel phải có openingState, closingState và props. Mỗi đạo cụ có id ổn định xuyên các panel, tên, màu, kích thước, dấu hiệu, số lượng, người cầm và vị trí; cùng vật không được tự đổi màu/kích thước hay nhân bản. Chữ/số thật trên đạo cụ được yêu cầu bởi câu chuyện phải được giữ; chỉ cấm phụ đề, nhãn giao diện, mũi tên và chữ trang trí do model tự thêm. closingState của panel trước phải khớp openingState của panel sau, kể cả người đã rời khung. Trang phục, giày dép và trạng thái đạo cụ giữ nguyên qua các panel, chỉ đổi khi có hành động nhìn thấy được làm đổi. Các panel sau mô tả diễn tiến hành động/camera. Kết đoạn có tư thế, đạo cụ và hướng nhìn khớp đầu đoạn tiếp; giữ trục đối thoại để nối bằng hard cut. Không cố thêm reaction sau điểm dừng đã chọn. Với parody giữ tín hiệu nhận diện format.
 `;

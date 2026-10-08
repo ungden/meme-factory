@@ -246,16 +246,20 @@ describe("quotePlan gates", () => {
   });
 
   it.each(["prepare", "video"])(
-    "refuses stage %s while the plan is still native audio",
+    "refuses stage %s for native audio on Seedance 2.0 Fast, which cannot speak Vietnamese",
     async (stage) => {
       const { quotePlan } = await import("./quote");
       await expect(
         quotePlan(
           quoteAccess(),
-          { ...plan, audio_mode: "native" } as never,
+          {
+            ...plan,
+            audio_mode: "native",
+            video_model: "bytedance/seedance-2.0-fast/text-to-video",
+          } as never,
           body({ stage }),
         ),
-      ).rejects.toMatchObject({ status: 409 });
+      ).rejects.toMatchObject({ status: 409, message: /Tiết kiệm chưa tự nói/ });
     },
   );
 

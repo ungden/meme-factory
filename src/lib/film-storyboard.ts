@@ -7,6 +7,7 @@ import {
   validateSceneReferencePlan,
   type SceneReferencePlan,
 } from "./visual-direction";
+import { isFilmFormat, type FilmFormat } from "./film-camera-language";
 
 /** Planned timings direct the model; they are never subtitle timestamps. */
 export type StoryboardBeat = {
@@ -19,6 +20,8 @@ export type StoryboardBeat = {
   action: string;
   camera: string;
   motion: string;
+  /** Nơi quay riêng của nhịp, chỉ có ở định dạng được đổi nơi trong cùng clip. */
+  setting?: string;
   /** Deliberate pause, not an estimate of how long the speech takes. */
   pauseAfterSeconds?: number;
   /** Optional v2 acting direction; v1 storyboards remain readable. */
@@ -57,6 +60,8 @@ export type FilmStoryboard = {
   performanceDirection?: PerformanceDirection;
   /** New plans retime before purchase; old plans keep their authored timing. */
   timingPolicy?: "audio_driven_v1";
+  /** Vắng mặt nghĩa là family_scene, kể cả mọi storyboard trước v2. */
+  filmFormat?: FilmFormat;
   /** Story-aware image pack used to approve the visual logic before I2V. */
   referencePlan?: SceneReferencePlan;
 };
@@ -159,6 +164,8 @@ export function validateStoryboard(
   if (b.referencePlan) validateSceneReferencePlan(b.referencePlan);
   if (b.timingPolicy !== undefined && b.timingPolicy !== "audio_driven_v1")
     throw new Error("STORYBOARD_TIMING_POLICY_INVALID");
+  if (b.filmFormat !== undefined && !isFilmFormat(b.filmFormat))
+    throw new Error("STORYBOARD_FILM_FORMAT_INVALID");
   for (const [index, beat] of b.beats.entries()) {
     const speechSeconds = measuredSpeechSeconds?.get(index) ?? spokenSeconds(typeof beat?.dialogue === "string" ? beat.dialogue : "");
     if (
@@ -175,6 +182,7 @@ export function validateStoryboard(
       beat.action.length > 900 ||
       beat.camera.length > 600 ||
       beat.motion.length > 1600 ||
+      (beat.setting !== undefined && (typeof beat.setting !== "string" || beat.setting.length > 300)) ||
       !beat.action.trim() ||
       !beat.camera.trim() ||
       !beat.motion.trim() ||

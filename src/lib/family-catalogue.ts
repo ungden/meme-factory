@@ -7,6 +7,7 @@ import {
   type PerformanceLane,
 } from "./performance-direction";
 import { spokenSeconds } from "./film-storyboard";
+import { FILM_FORMATS, type FilmFormat } from "./film-camera-language";
 
 /**
  * Trần thời lượng ước tính cho một lượt thoại, tính bằng giây.
@@ -147,6 +148,8 @@ export type Story = {
   storyVersion?: 2;
   genre?: StoryGenre;
   performanceLane?: PerformanceLane;
+  /** Truyện cũ không có trường này và được dựng như family_scene. */
+  filmFormat?: FilmFormat;
   intendedShotSeconds?: number[];
   writingPolicyVersion?: string;
   profileVersion: number;
@@ -317,11 +320,13 @@ export const referenceMechanisms: ChannelProfile["references"] = [
 ];
 export function familyProfile(roles: ChannelProfile["roles"]): ChannelProfile {
   return {
-    version: 11,
+    // v12: look ống kính điện thoại thay cho 35–50mm ánh cửa sổ, vốn in chất
+    // phim dàn dựng vào mọi tập (docs/film-direction-v2.md).
+    version: 12,
     visualDirection: {
-      id: "family-photoreal-v1",
+      id: "family-phone-real-v2",
       prompt:
-        "Ảnh live-action photorealistic về một gia đình Việt Nam thật: giải phẫu và tỷ lệ người tự nhiên, mắt và đầu đúng kích thước, da có lỗ chân lông, tóc có sợi nhỏ, vải có thớ thật, ánh sáng cửa sổ mềm và tiêu cự 35–50mm. Giữ chính xác khuôn mặt, tuổi, tóc, vóc dáng và trang phục từ từng ảnh chuẩn. Không CGI, không 3D render, không Pixar, không hoạt hình, không chibi, không búp bê, không da nhựa, không mắt bóng quá cỡ.",
+        "Live-action như do chính gia đình quay bằng điện thoại: người Việt thật, giải phẫu và tỷ lệ tự nhiên, mắt và đầu đúng kích thước, da có lỗ chân lông và lông tơ, ửng đỏ không đều, tóc có sợi lẻ, vải có thớ và nếp nhăn. Ánh sáng có sẵn tại nơi quay, HDR và độ nét kiểu điện thoại, màu tự nhiên không chỉnh điện ảnh, không retouch, không làm đẹp da. Giữ chính xác khuôn mặt, tuổi, tóc, vóc dáng và trang phục từ từng ảnh chuẩn. Không CGI, không 3D render, không Pixar, không hoạt hình, không chibi, không búp bê, không da nhựa, không mắt bóng quá cỡ.",
     },
     writingPolicyVersion: FAMILY_WRITING_POLICY_VERSION,
     positioning:
@@ -374,6 +379,8 @@ export function validateStory(
     throw new Error("STORY_VERSION_INVALID");
   if (s?.performanceLane !== undefined && !PERFORMANCE_LANES.includes(s.performanceLane))
     throw new Error("STORY_PERFORMANCE_LANE_INVALID");
+  if (s?.filmFormat !== undefined && !FILM_FORMATS.includes(s.filmFormat))
+    throw new Error("STORY_FILM_FORMAT_INVALID");
   if (
     s?.comicPremise !== undefined &&
     (!s.comicPremise ||
@@ -574,6 +581,11 @@ export function validateGeneratedFamilyStory(
     throw new Error("STORY_EMOTIONAL_LANE_REQUIRED");
   if (story.genre === "comedy" && String(story.performanceLane || "").startsWith("cinematic"))
     throw new Error("STORY_COMEDY_LANE_REQUIRED");
+  if (
+    story.genre === "emotion" &&
+    (story.filmFormat === "talk_to_camera" || story.filmFormat === "cooking_show")
+  )
+    throw new Error("STORY_FILM_FORMAT_GENRE");
   return {
     ...story,
     storyVersion: 2,
@@ -588,6 +600,7 @@ export function storyContractForGenre(genre: StoryGenre) {
       genre === "emotion"
         ? "cinematic_emotion"
         : "deadpan_reversal|adult_format_parody|literal_logic|physical_escalation|verbal_counterplay",
+    filmFormat: FILM_FORMATS.join("|"),
     series: "",
     situation: "",
     mechanism: "",

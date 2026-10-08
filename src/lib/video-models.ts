@@ -87,3 +87,19 @@ export function validSeedanceDuration(value: unknown, model: unknown) {
     duration <= seedanceMaxDuration(model)
   );
 }
+
+/**
+ * Seedance 2.5 tự nói tiếng Việt và nhận giọng mẫu (`reference_audios`), nên
+ * giọng giữ được qua các clip — lý do native bị tắt hồi 10/09 là giọng đổi giữa
+ * các clip. 2.0 Fast không có cả hai, nên vẫn lồng tiếng.
+ */
+export function nativeSpeechSupported(value: unknown) {
+  return seedanceVariant(value) === "seedance-2.5";
+}
+
+export function defaultAudioMode(value: unknown): "native" | "dubbed" {
+  return nativeSpeechSupported(value) ? "native" : "dubbed";
+}
+
+/** Tổng giọng mẫu gửi một lần gọi; WaveSpeed từ chối khi vượt. */
+export const SEEDANCE_REFERENCE_AUDIO_MAX_SECONDS = 30;

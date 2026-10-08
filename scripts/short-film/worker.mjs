@@ -193,6 +193,16 @@ export function makeFilmWorker(db) {
         );
         delete i.image;
         delete i.last_image;
+        if (Array.isArray(i.reference_audio_sources)) {
+          i.reference_audios = await Promise.all(
+            i.reference_audio_sources.map(async (sample) => {
+              if (sample.path) return sign(sample.path, t.project_id);
+              if (/^https:\/\//i.test(sample.url || "")) return sample.url;
+              throw new Error("VIDEO_REFERENCE_AUDIO_INVALID");
+            }),
+          );
+          delete i.reference_audio_sources;
+        }
       } else {
         const image = await source(t.input.imageTaskId, t.project_id);
         i.image = await sign(image.result.path, t.project_id);

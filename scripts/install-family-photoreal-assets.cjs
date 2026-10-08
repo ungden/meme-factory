@@ -7,35 +7,42 @@ const { createClient } = require("@supabase/supabase-js");
 
 const PROJECT_ID = "0eed3bc2-b0e9-499a-afc4-b4ac425b44d2";
 const PROJECT_NAME = "Bánh Bao & Đậu Đỏ";
-const PACK = "asset-pack-v3-photoreal";
+const PACK = "asset-pack-v4-phone-real";
 const VISUAL_DIRECTION = {
-  id: "family-photoreal-v1",
+  id: "family-phone-real-v2",
   prompt:
-    "Ảnh live-action photorealistic về một gia đình Việt Nam thật: giải phẫu và tỷ lệ người tự nhiên, mắt và đầu đúng kích thước, da có lỗ chân lông, tóc có sợi nhỏ, vải có thớ thật, ánh sáng cửa sổ mềm và tiêu cự 35–50mm. Giữ chính xác khuôn mặt, tuổi, tóc, vóc dáng và trang phục từ từng ảnh chuẩn. Không CGI, không 3D render, không Pixar, không hoạt hình, không chibi, không búp bê, không da nhựa, không mắt bóng quá cỡ.",
+    "Live-action như do chính gia đình quay bằng điện thoại: người Việt thật, giải phẫu và tỷ lệ tự nhiên, mắt và đầu đúng kích thước, da có lỗ chân lông và lông tơ, ửng đỏ không đều, tóc có sợi lẻ, vải có thớ và nếp nhăn. Ánh sáng có sẵn tại nơi quay, HDR và độ nét kiểu điện thoại, màu tự nhiên không chỉnh điện ảnh, không retouch, không làm đẹp da. Giữ chính xác khuôn mặt, tuổi, tóc, vóc dáng và trang phục từ từng ảnh chuẩn. Không CGI, không 3D render, không Pixar, không hoạt hình, không chibi, không búp bê, không da nhựa, không mắt bóng quá cỡ.",
 };
-const ROOT = path.resolve(__dirname, "../artifacts/banh-bao-dau-do/photoreal-v1");
+const ROOT = path.resolve(__dirname, "../artifacts/banh-bao-dau-do/photoreal-v2");
+// Ảnh cả nhà chưa gen lại: vẫn dùng bản v1 để khoá chiều cao tương đối.
+const FAMILY_CAST = path.resolve(__dirname, "../artifacts/banh-bao-dau-do/photoreal-v1/shared/family-cast.png");
+// Gen bằng photoreal-v2/gen.sh. Một ảnh toàn thân để mặt quá nhỏ, Seedance đổi
+// mặt giữa các cảnh; cận mặt được gửi trước (castReferencePicks).
+const IMAGES = [
+  { file: "face.png", role: "identity_face", priority: 100, coverage: "faceCloseUp" },
+  { file: "body.png", role: "identity_body", priority: 90, coverage: "fullBody" },
+  { file: "back.png", role: "look", priority: 80, coverage: "backView" },
+];
 const CHARACTERS = {
   "Bánh Bao": {
     slug: "banh-bao",
     description:
-      "Chị gái tuổi mẫu giáo, gương mặt tròn phúng phính, mắt nâu đúng tỷ lệ tự nhiên, tóc nâu đen búi hai bên và mái bằng, áo vàng mù tạt, tạp dề cotton kem, hai má dính bột.",
+      "Chị gái tuổi mẫu giáo, gương mặt tròn phúng phính, mắt nâu đúng tỷ lệ tự nhiên, tóc nâu đen búi hai bên và mái bằng, áo vàng mù tạt, tạp dề vải canvas kem trơn.",
     mustPreserve: [
       "gương mặt tròn phúng phính",
       "hai búi tóc và mái bằng",
       "áo vàng mù tạt và tạp dề kem",
-      "hai má có bột",
       "tỷ lệ người thật, lớn tuổi hơn Đậu Đỏ",
     ],
   },
   "Đậu Đỏ": {
     slug: "dau-do",
     description:
-      "Em trai tuổi chập chững, gương mặt bầu bĩnh, mắt nâu đúng tỷ lệ tự nhiên, tóc nâu đen xoăn ngắn với một lọn cong trên đỉnh, áo đỏ gạch, tạp dề cotton kem, hai má dính bột.",
+      "Em trai tuổi chập chững, gương mặt bầu bĩnh, mắt nâu đúng tỷ lệ tự nhiên, tóc nâu đen xoăn ngắn với một lọn cong trên đỉnh, áo đỏ gạch, tạp dề vải canvas kem trơn.",
     mustPreserve: [
       "bé trai nhỏ tuổi nhất nhà",
       "lọn tóc cong trên đỉnh",
       "áo đỏ gạch và tạp dề kem",
-      "hai má có bột",
       "tỷ lệ người thật, thấp hơn Bánh Bao",
     ],
   },
@@ -123,7 +130,7 @@ async function main() {
   if (characters.length !== 4)
     throw new Error("Expected exactly four canonical family characters.");
 
-  const family = await fileInfo(path.join(ROOT, "shared/family-cast.png"));
+  const family = await fileInfo(FAMILY_CAST);
   const familyPath = `${PROJECT_ID}/${PACK}/shared/family-cast.png`;
   const familyUrl = await uploadVerified(familyPath, family);
   const installed = {};
@@ -132,15 +139,17 @@ async function main() {
     const definition = CHARACTERS[character.name];
     if (!character.continuity_asset_id)
       throw new Error(`${character.name} has no continuity asset.`);
-    const master = await fileInfo(
-      path.join(ROOT, `characters/${definition.slug}/master.png`),
-    );
-    const storagePath = `${PROJECT_ID}/${PACK}/characters/${definition.slug}/master.png`;
-    const imageUrl = await uploadVerified(storagePath, master);
+    const images = [];
+    for (const image of IMAGES) {
+      const info = await fileInfo(path.join(ROOT, definition.slug, image.file));
+      const storagePath = `${PROJECT_ID}/${PACK}/characters/${definition.slug}/${image.file}`;
+      images.push({ ...image, info, storagePath, url: await uploadVerified(storagePath, info) });
+    }
+    const body = images.find((image) => image.role === "identity_body");
     const contentHash = sha256(
       JSON.stringify({
         visualDirection: VISUAL_DIRECTION.id,
-        master: master.hash,
+        images: images.map((image) => [image.role, image.info.hash]),
         family: family.hash,
       }),
     );
@@ -171,7 +180,7 @@ async function main() {
             status: "draft",
             identity_profile_type: "human",
             notes:
-              "Photorealistic family identity rebuilt from the two owner-provided concept references; machine visual audit only, no fabricated human approval.",
+              "Phone-real identity pack (face, full body, back) regenerated from the v3 masters; machine visual audit only, no fabricated human approval.",
             invariants: definition.mustPreserve,
             usage_rights: {
               source: "owner_provided_references",
@@ -184,30 +193,28 @@ async function main() {
           .single(),
       );
       await query(
-        db.from("reference_images").insert({
-          asset_version_id: version.id,
-          role: "identity_body",
-          subject_id: character.id,
-          image_url: imageUrl,
-          source_hash: master.hash,
-          source_type: "generated",
-          mime_type: "image/png",
-          width: master.width,
-          height: master.height,
-          quality_report: {
-            visualDirection: VISUAL_DIRECTION.id,
-            sourceFamilyCastHash: family.hash,
-            automaticChecks: {
-              oneSubject: true,
-              fullBody: true,
-              photorealistic: true,
+        db.from("reference_images").insert(
+          images.map((image) => ({
+            asset_version_id: version.id,
+            role: image.role,
+            subject_id: character.id,
+            image_url: image.url,
+            source_hash: image.info.hash,
+            source_type: "generated",
+            mime_type: "image/png",
+            width: image.info.width,
+            height: image.info.height,
+            quality_report: {
+              visualDirection: VISUAL_DIRECTION.id,
+              sourceFamilyCastHash: family.hash,
+              automaticChecks: { oneSubject: true, [image.coverage]: true, photorealistic: true },
+              humanApproved: false,
             },
-            humanApproved: false,
-          },
-          is_primary: true,
-          reproducible: true,
-          priority: 100,
-        }),
+            is_primary: image.role === "identity_face",
+            reproducible: true,
+            priority: image.priority,
+          })),
+        ),
       );
       await query(
         db.from("identity_cards").insert({
@@ -217,7 +224,7 @@ async function main() {
           may_change: ["biểu cảm", "tư thế", "bối cảnh", "đạo cụ theo cảnh"],
           proportions: { medium: "photorealistic", familyCast: familyUrl },
           identifying_details: definition.mustPreserve,
-          coverage: { fullBody: true, frontView: true, familyCast: true },
+          coverage: { faceCloseUp: true, fullBody: true, frontView: true, backView: true, familyCast: true },
           approved_by: null,
           approved_at: null,
         }),
@@ -235,7 +242,7 @@ async function main() {
     await query(
       db
         .from("characters")
-        .update({ avatar_url: imageUrl, description: definition.description })
+        .update({ avatar_url: body.url, description: definition.description })
         .eq("id", character.id)
         .eq("project_id", PROJECT_ID),
     );
@@ -257,29 +264,35 @@ async function main() {
       characterId: character.id,
       assetVersionId: version.id,
       assetVersion: version.version,
-      imageUrl,
-      storagePath,
-      sha256: master.hash,
-      width: master.width,
-      height: master.height,
+      images: Object.fromEntries(
+        images.map((image) => [
+          image.role,
+          { imageUrl: image.url, storagePath: image.storagePath, sha256: image.info.hash },
+        ]),
+      ),
     };
   }
 
   const latestProfile = await query(
     db
       .from("channel_profiles")
-      .select("profile")
+      .select("version,profile")
       .eq("project_id", PROJECT_ID)
       .eq("workspace_version", project.workspace_version)
       .order("version", { ascending: false })
       .limit(1)
       .single(),
   );
-  const profile = {
-    ...latestProfile.profile,
-    version: 10,
-    visualDirection: VISUAL_DIRECTION,
-  };
+  // Chạy lại script không được đẻ thêm bản hồ sơ khi look đã được cài.
+  const alreadyInstalled =
+    latestProfile.profile?.visualDirection?.id === VISUAL_DIRECTION.id;
+  const profile = alreadyInstalled
+    ? latestProfile.profile
+    : {
+        ...latestProfile.profile,
+        version: Number(latestProfile.version) + 1,
+        visualDirection: VISUAL_DIRECTION,
+      };
   const existingProfile = await query(
     db
       .from("channel_profiles")
@@ -291,7 +304,7 @@ async function main() {
   );
   if (existingProfile) {
     if (JSON.stringify(existingProfile.profile) !== JSON.stringify(profile))
-      throw new Error("Channel profile v10 already exists with different data.");
+      throw new Error(`Channel profile v${profile.version} already exists with different data.`);
   } else {
     await query(
       db.from("channel_profiles").insert({
@@ -328,7 +341,7 @@ async function main() {
       characters: Object.fromEntries(
         Object.entries(installed).map(([slug, value]) => [
           slug,
-          { assetVersion: value.assetVersion, sha256: value.sha256 },
+          { assetVersion: value.assetVersion, roles: Object.keys(value.images) },
         ]),
       ),
     }),

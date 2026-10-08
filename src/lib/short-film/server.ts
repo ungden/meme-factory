@@ -29,7 +29,9 @@ import {
 import { generateFilmGuestReference } from "@/lib/gemini-image";
 import {
   seedanceReferenceModel,
-  seedanceMaxDuration
+  seedanceMaxDuration,
+  defaultAudioMode,
+  nativeSpeechSupported,
 } from "../video-models";
 import { normalizeFamilyFatherTerms } from "../family-terminology";
 import { usesFatherTerminology } from "../channel-behaviour";
@@ -715,11 +717,15 @@ export async function savePlan(
     resolution: body.resolution === "1080p" ? "1080p" : "720p",
     video_model: videoModel,
     audio_mode:
-      body.audioMode === "native"
-        ? "native"
-        : body.audioMode === "fixed"
-          ? "fixed"
-          : "dubbed",
+      body.audioMode === "fixed"
+        ? "fixed"
+        : body.audioMode === "dubbed"
+          ? "dubbed"
+          : body.audioMode === "native" && !nativeSpeechSupported(videoModel)
+            ? "dubbed"
+            : body.audioMode === "native"
+              ? "native"
+              : defaultAudioMode(videoModel),
     subtitles: body.subtitles !== false,
     story,
     trim_speech:

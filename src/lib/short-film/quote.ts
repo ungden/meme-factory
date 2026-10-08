@@ -31,7 +31,9 @@ import { fixedVoiceEnabled } from "./features";
 import {
   seedanceMaxDuration,
   seedanceReferenceLimit,
+  nativeSpeechSupported,
 } from "../video-models";
+import { FORMAT_LOOK } from "../film-camera-language";
 import { performanceCheck } from "../performance-direction";
 import { assertMediaCoherent, coherenceMessage } from "./media-coherence";
 import { FILM_MOTION_PROMPT_VERSION } from "../film-motion-policy";
@@ -98,9 +100,13 @@ export async function quotePlan(
       "Phim ngắn hiện dùng bộ ảnh tham chiếu; không còn lấy khung đầu/cuối để tạo video.",
       410,
     );
-  if (plan.audio_mode === "native" && ["prepare", "video"].includes(stage))
+  if (
+    plan.audio_mode === "native" &&
+    !nativeSpeechSupported(plan.video_model) &&
+    ["prepare", "video"].includes(stage)
+  )
     throw new FilmError(
-      "Lưu phiên bản kịch bản sang lồng tiếng trước khi tạo mới.",
+      "Bản Tiết kiệm chưa tự nói tiếng Việt. Lưu kịch bản sang lồng tiếng hoặc chọn Chất lượng cao.",
       409,
     );
   if (["prepare", "video"].includes(stage)) {
@@ -251,6 +257,11 @@ async function quotePreparation({
           `Bối cảnh ${s.setting}. Hành động ${s.action}. Máy quay ${s.camera}.`,
           visualDirection ||
             "Dựng đúng một khung ảnh điện ảnh theo phong cách của ảnh chuẩn, không lưới ảnh.",
+          // Ảnh cảnh là thứ Seedance bám chặt nhất; look của kênh (35–50mm, ánh
+          // cửa sổ) mà vẫn ở đây thì video bé-nói-với-máy ra chất phim dàn dựng.
+          FORMAT_LOOK[s.storyboard?.filmFormat || "family_scene"]
+            ? `${FORMAT_LOOK[s.storyboard!.filmFormat!].replace(/^LOOK: video/u, "LOOK ƯU TIÊN HƠN PHONG CÁCH KÊNH: khung hình")} Khung ảnh là một khoảnh khắc dừng của video đó.`
+            : "",
           "Chỉ nhân vật cần thiết trong khung được xuất hiện; giữ nhận diện, tuổi, tỷ lệ cơ thể và trang phục. Không thêm người khác.",
           "Không phụ đề, nhãn giao diện, mũi tên hoặc watermark giả. Nếu bằng chứng yêu cầu chữ/số thật trên đạo cụ thì phải giữ đúng, rõ và đọc được.",
           reference.role === "scene"
@@ -503,7 +514,12 @@ async function quoteVideo({
         format: plan.format,
         resolution: plan.resolution,
       },
-      await modelPrice(plan.video_model, inputs, priceDeadline),
+      await modelPrice(
+        plan.video_model,
+        // Giọng mẫu chưa ký nên chưa phải tham số WaveSpeed; bảng giá 2.5 chỉ tính thêm cho video tham chiếu.
+        { ...inputs, reference_audio_sources: undefined },
+        priceDeadline,
+      ),
       s,
     );
     return [v];
