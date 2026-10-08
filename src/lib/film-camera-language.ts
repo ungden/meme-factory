@@ -286,6 +286,34 @@ export const FORMAT_LOOK: Record<FilmFormat, string> = {
     "LOOK: vlog du lịch gia đình quay bằng điện thoại, nắng thật, xoá phông tự nhiên của ống tele, rung tay nhẹ, màu tự nhiên không chỉnh điện ảnh.",
 };
 
+/**
+ * Kênh mascot 3D không được nhận khối LOOK "da người thật": Seedance sẽ biến
+ * nhân vật 3D thành người. Giữ ngữ pháp máy điện thoại, đổi chất liệu.
+ */
+export const FORMAT_LOOK_ANIMATED: Record<FilmFormat, string> = {
+  family_scene: "",
+  talk_to_camera:
+    "LOOK: phim hoạt hình 3D chất lượng rạp nhưng quay như điện thoại cầm tay của người nhà: góc 0.5x thấp, rung tay nhẹ, ánh sáng tại chỗ của bối cảnh. Nhân vật giữ đúng hình khối, chất liệu và màu của ảnh chuẩn; bối cảnh dựng 3D cùng chất. Không chuyển sang người thật, không vẽ 2D.",
+  cooking_show:
+    "LOOK: chương trình nấu ăn hoạt hình 3D chất lượng rạp: phông đen trơn, softbox mềm, đồ ăn 3D bóng bẩy có hơi nóng. Nhân vật giữ đúng chất liệu ảnh chuẩn; không chuyển sang người thật.",
+  phone_vlog:
+    "LOOK: vlog du lịch hoạt hình 3D chất lượng rạp, quay như điện thoại cầm tay, nắng thật, xoá phông nhẹ. Nhân vật giữ đúng chất liệu ảnh chuẩn; không chuyển sang người thật.",
+};
+
+export type FilmMediumKind = "photoreal" | "animated";
+
+export function formatLook(format: FilmFormat, medium: FilmMediumKind = "photoreal"): string {
+  return (medium === "animated" ? FORMAT_LOOK_ANIMATED : FORMAT_LOOK)[format];
+}
+
+/** Hồ sơ kênh trước khi có `medium`: look của Bánh Bao là người thật, còn lại là mascot. */
+export function filmMediumOfProfile(
+  visualDirection: { id?: string; medium?: FilmMediumKind } | null | undefined,
+): FilmMediumKind {
+  if (visualDirection?.medium) return visualDirection.medium;
+  return /real|photo/i.test(String(visualDirection?.id || "")) ? "photoreal" : "animated";
+}
+
 /** Định dạng nào cho phép đổi nơi giữa các nhịp trong cùng một clip nguồn. */
 export function formatAllowsLocationCuts(format: FilmFormat): boolean {
   return format === "talk_to_camera" || format === "phone_vlog";

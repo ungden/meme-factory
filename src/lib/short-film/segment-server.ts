@@ -22,7 +22,9 @@ import type {
 import { historicalSceneSource } from "./segment-contracts";
 import { isProjectMediaPath } from "../project-media-path";
 import { seedanceReferenceLimit } from "../video-models";
+import { filmMediumOfProfile } from "../film-camera-language";
 import {
+  channelProfileAt,
   FilmError,
   type Access,
   hash,
@@ -558,6 +560,10 @@ export async function quoteFilmSegment(
       (reference, index) => `@image${index + 1} = ${reference.binding}.`,
     ),
   };
+  const profileVersion = (plan.story as { profileVersion?: number } | null)?.profileVersion;
+  const medium = profileVersion
+    ? filmMediumOfProfile((await channelProfileAt(a, profileVersion)).profile?.visualDirection)
+    : "animated";
   const providerInputs = filmVideoInputs(
     directed,
     "dubbed",
@@ -567,6 +573,7 @@ export async function quoteFilmSegment(
     0,
     plan.video_model,
     measured,
+    medium,
   );
   const { reference_images: _signedReferenceUrls, ...storedProviderInputs } =
     providerInputs;

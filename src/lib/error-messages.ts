@@ -229,6 +229,9 @@ export const ERROR_MESSAGES: Record<string, string> = {
     "Kiểu diễn của tập không hợp lệ. Hãy cho AI viết lại.",
   STORY_FILM_FORMAT_INVALID:
     "Cách quay của tập không hợp lệ. Hãy cho AI viết lại.",
+  FILM_PACK_INVALID: "Bộ ảnh chuẩn của nhân vật không hợp lệ. Hãy tạo lại.",
+  FILM_PACK_INCOMPLETE: "Bộ ảnh chuẩn cần ít nhất ảnh cận mặt và ảnh toàn thân.",
+  CHARACTER_NOT_FOUND: "Không tìm thấy nhân vật trong kênh này.",
   STORY_WARDROBE_INVALID:
     "Trang phục riêng của tập không hợp lệ. Hãy cho AI viết lại.",
   STORY_FILM_FORMAT_GENRE:

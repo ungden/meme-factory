@@ -232,14 +232,13 @@ async function scriptDirectorSetup(a: Access, run: Run) {
   const videoModel = seedanceReferenceModel(
     run.video_model || automation?.default_config?.videoModel,
   );
-  const configuredFormat = String(
-    automation?.default_config?.format ||
-      (a.project as Record<string, unknown>).default_format ||
-      "16:9",
-  );
+  // Khung phim là của kênh, không của lịch tự động hay khung ảnh meme của dự
+  // án: trước đây lượt bấm tay đọc cấu hình tự động (16:9) nên phim kênh dọc
+  // ra ngang.
+  const configuredFormat = String(profile.videoFormat || "9:16");
   const format = ["9:16", "16:9", "1:1", "4:5"].includes(configuredFormat)
     ? configuredFormat
-    : "16:9";
+    : "9:16";
   return { context, profile, videoModel, format };
 }
 

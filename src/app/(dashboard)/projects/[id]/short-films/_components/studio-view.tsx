@@ -767,3 +767,80 @@ export function VoiceSamplePanel({
     </section>
   );
 }
+
+export type AutopilotSettings = { enabled: boolean; filmsPerDay: number; localTime: string };
+
+/**
+ * Lựa chọn thứ hai sau "làm một tập": để kênh tự ra phim đều đặn. AI tự nghĩ ý
+ * tưởng mỗi tập (chống lặp các tập gần đây), nên người dùng chỉ chọn nhịp.
+ */
+export function AutopilotPanel({
+  settings,
+  pointsPerFilm,
+  saving,
+  onSave,
+}: {
+  settings: AutopilotSettings;
+  pointsPerFilm: number;
+  saving: boolean;
+  onSave: (next: AutopilotSettings) => void;
+}) {
+  const [draft, setDraft] = useState(settings);
+  const dirty =
+    draft.enabled !== settings.enabled ||
+    draft.filmsPerDay !== settings.filmsPerDay ||
+    draft.localTime !== settings.localTime;
+  return (
+    <section aria-labelledby="autopilot-title" className="flex flex-col gap-3 rounded-xl border th-border th-bg-card p-4">
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h3 id="autopilot-title" className="text-sm font-semibold th-text-primary">Tự làm phim mỗi ngày</h3>
+          <p className="mt-1 text-xs th-text-secondary">
+            AI tự nghĩ ý tưởng mới cho từng tập và làm tới phim hoàn chỉnh. Phim xong nằm trong danh sách tập để bạn xem và đăng.
+          </p>
+        </div>
+        <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm th-text-primary">
+          <input
+            type="checkbox"
+            checked={draft.enabled}
+            onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })}
+            className="h-4 w-4 accent-[var(--accent)]"
+          />
+          {draft.enabled ? "Đang bật" : "Tắt"}
+        </label>
+      </header>
+      {draft.enabled && (
+        <div className="flex flex-wrap items-center gap-2 text-sm th-text-primary">
+          Mỗi ngày
+          <select
+            value={draft.filmsPerDay}
+            onChange={(event) => setDraft({ ...draft, filmsPerDay: Number(event.target.value) })}
+            className="rounded-lg border th-border th-bg-input px-2 py-1.5 text-sm th-text-primary"
+          >
+            {[1, 2, 3, 4, 5, 6].map((count) => (
+              <option key={count} value={count}>{count} phim</option>
+            ))}
+          </select>
+          bắt đầu lúc
+          <input
+            type="time"
+            value={draft.localTime}
+            onChange={(event) => setDraft({ ...draft, localTime: event.target.value })}
+            className="rounded-lg border th-border th-bg-input px-2 py-1.5 text-sm th-text-primary"
+          />
+        </div>
+      )}
+      {draft.enabled && (
+        <p className="text-xs th-text-secondary">
+          Các phim trong ngày làm lần lượt, mỗi phim tối đa {pointsPerFilm.toLocaleString("vi-VN")} điểm, cả ngày tối đa{" "}
+          {(pointsPerFilm * draft.filmsPerDay).toLocaleString("vi-VN")} điểm.
+        </p>
+      )}
+      {dirty && (
+        <Button size="sm" className="w-fit" loading={saving} onClick={() => onSave(draft)}>
+          Lưu
+        </Button>
+      )}
+    </section>
+  );
+}

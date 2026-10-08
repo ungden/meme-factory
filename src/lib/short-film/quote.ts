@@ -34,7 +34,11 @@ import {
   seedanceMaxDuration,
   seedanceReferenceLimit,
 } from "../video-models";
-import { FORMAT_LOOK } from "../film-camera-language";
+import {
+  filmMediumOfProfile,
+  formatLook,
+  type FilmMediumKind,
+} from "../film-camera-language";
 import { performanceCheck } from "../performance-direction";
 import { assertMediaCoherent, coherenceMessage } from "./media-coherence";
 import { FILM_MOTION_PROMPT_VERSION } from "../film-motion-policy";
@@ -144,10 +148,12 @@ export async function quotePlan(
     scenes.forEach(assertFixedVoiceShot);
   const existing = await tasksForPlan(a, plan.id);
   let visualDirection = "";
+  let medium: FilmMediumKind = "animated";
   const profileVersion = (plan.story as Story | null)?.profileVersion;
   if (profileVersion) {
     const { profile } = await channelProfileAt(a, profileVersion);
     visualDirection = String(profile?.visualDirection?.prompt || "").trim();
+    medium = filmMediumOfProfile(profile?.visualDirection);
   }
   // An automatic run may only continue from work created by that run. Human
   // approved media can be reused deliberately; an unreviewed result from an
@@ -164,7 +170,7 @@ export async function quotePlan(
   const latest = (s: FilmScene, kind: FilmKind) =>
     currentSceneTask(eligible, s, kind, plan.audio_mode);
   const context: QuoteContext = {
-    a, plan, body, scenes, eligible, latest, visualDirection, priceDeadline,
+    a, plan, body, scenes, eligible, latest, visualDirection, medium, priceDeadline,
   };
   const tasks =
     stage === "prepare"
@@ -193,12 +199,13 @@ type QuoteContext = {
   eligible: FilmTask[];
   latest: (scene: FilmScene, kind: FilmKind) => FilmTask | undefined;
   visualDirection: string;
+  medium: FilmMediumKind;
   priceDeadline: number;
 };
 
 /** Ảnh tham chiếu và lời thoại: bước đầu tiên có trả tiền của một cảnh. */
 async function quotePreparation({
-  plan, body, scenes, eligible, latest, visualDirection, priceDeadline,
+  plan, body, scenes, eligible, latest, visualDirection, medium, priceDeadline,
 }: QuoteContext): Promise<QuotedTask[]> {
   const tasks: QuotedTask[] = [];
   tasks.push(...(await perScene(scenes, async (s) => {
@@ -260,8 +267,8 @@ async function quotePreparation({
             "Dựng đúng một khung ảnh điện ảnh theo phong cách của ảnh chuẩn, không lưới ảnh.",
           // Ảnh cảnh là thứ Seedance bám chặt nhất; look của kênh (35–50mm, ánh
           // cửa sổ) mà vẫn ở đây thì video bé-nói-với-máy ra chất phim dàn dựng.
-          FORMAT_LOOK[s.storyboard?.filmFormat || "family_scene"]
-            ? `${FORMAT_LOOK[s.storyboard!.filmFormat!].replace(/^LOOK: video/u, "LOOK ƯU TIÊN HƠN PHONG CÁCH KÊNH: khung hình")} Khung ảnh là một khoảnh khắc dừng của video đó.`
+          formatLook(s.storyboard?.filmFormat || "family_scene", medium)
+            ? `${formatLook(s.storyboard!.filmFormat!, medium).replace(/^LOOK: (video|phim|chương trình|vlog)/u, "LOOK ƯU TIÊN HƠN PHONG CÁCH KÊNH: khung hình $1")} Khung ảnh là một khoảnh khắc dừng của video đó.`
             : "",
           "Chỉ nhân vật cần thiết trong khung được xuất hiện; giữ nhận diện, tuổi, tỷ lệ cơ thể và trang phục. Không thêm người khác.",
           "Không phụ đề, nhãn giao diện, mũi tên hoặc watermark giả. Nếu bằng chứng yêu cầu chữ/số thật trên đạo cụ thì phải giữ đúng, rõ và đọc được.",
@@ -393,7 +400,7 @@ async function quotePreparation({
 
 /** Seedance dựng chuyển động từ bộ ảnh đã duyệt. */
 async function quoteVideo({
-  a, plan, body, scenes, eligible, latest, priceDeadline,
+  a, plan, body, scenes, eligible, latest, medium, priceDeadline,
 }: QuoteContext): Promise<QuotedTask[]> {
   const tasks: QuotedTask[] = [];
   if (plan.audio_mode === "fixed" && !fixedVoiceEnabled(a.project.id))
@@ -521,6 +528,7 @@ async function quoteVideo({
       plan.audio_mode === "fixed" ? Number(audio?.result?.duration || 0) : 0,
       plan.video_model,
       directed.measuredSpeechSeconds,
+      medium,
     );
     const { reference_images: _signedReferenceUrls, ...storedInputs } = inputs;
     void _signedReferenceUrls;

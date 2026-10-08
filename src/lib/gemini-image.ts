@@ -546,6 +546,33 @@ YÊU CẦU BẮT BUỘC:
   return extractImageFromResponse(response);
 }
 
+/**
+ * Một góc của bộ ảnh chuẩn phim (cận mặt, toàn thân, sau lưng). Prompt do
+ * `filmReferencePrompt` dựng; hàm này chỉ gửi kèm ảnh nhận diện.
+ */
+export async function generateFilmReferenceView(params: {
+  prompt: string;
+  identityImages: Array<{ mimeType: string; base64: string }>;
+  aspectRatio: "4:5" | "9:16";
+}): Promise<GeneratedImageResult> {
+  const ai = await getClient();
+  const response = await ai.models.generateContent({
+    model: IMAGE_MODEL,
+    contents: [
+      { text: params.prompt },
+      ...params.identityImages.map((image) => ({
+        inlineData: { mimeType: image.mimeType, data: image.base64 },
+      })),
+    ],
+    config: {
+      httpOptions: { timeout: GEMINI_IMAGE_TIMEOUT_MS },
+      responseModalities: ["TEXT", "IMAGE"],
+      imageConfig: { aspectRatio: params.aspectRatio, imageSize: "1K" },
+    },
+  });
+  return extractImageFromResponse(response);
+}
+
 // ============================================
 // Helper: Strip provenance metadata from provider output
 // ============================================
