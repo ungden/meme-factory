@@ -218,13 +218,13 @@ export function BulkUploader({
                   </div>
                 )}
                 {item.status === "done" && (
-                  <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
-                    <CheckCircle size={16} className="text-green-400" />
+                  <div className="absolute inset-0 th-bg-success-light flex items-center justify-center">
+                    <CheckCircle size={16} className="th-text-success" />
                   </div>
                 )}
                 {item.status === "error" && (
-                  <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
-                    <AlertCircle size={16} className="text-red-400" />
+                  <div className="absolute inset-0 th-bg-danger-light flex items-center justify-center">
+                    <AlertCircle size={16} className="th-text-danger" />
                   </div>
                 )}
 

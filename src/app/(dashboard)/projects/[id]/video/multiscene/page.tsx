@@ -1271,7 +1271,7 @@ export default function ShortFilmPage() {
             {plan && (
               <button
                 type="button"
-                className="min-h-11 rounded-lg border border-red-200 px-3 text-sm text-red-600 disabled:opacity-60"
+                className="min-h-11 rounded-lg border th-border-danger px-3 text-sm th-text-danger disabled:opacity-60"
                 disabled={!!busy || !ready}
                 onClick={() => setRemovePlanOpen(true)}
               >
@@ -1761,7 +1761,7 @@ export default function ShortFilmPage() {
                     scene.durationSeconds >
                     seedanceMaxDuration(draft.videoModel),
                 ) && (
-                  <p className="mt-2 text-sm text-amber-700">
+                  <p className="mt-2 text-sm th-text-warning">
                     Storyboard hiện có đoạn dài hơn giới hạn model. Bấm AI viết
                     phim để chia lại, nội dung và điểm kết vẫn được giữ.
                   </p>

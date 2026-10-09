@@ -130,7 +130,7 @@ export default function WatermarkAi({ projectId, ownerId, workspaceVersion, proj
         <button className="text-xs th-text-secondary underline" disabled={busy} onClick={() => setQuote(null)}>Lấy báo giá mới</button>
       </> : <Button size="sm" variant="secondary" loading={busy} onClick={getQuote}>Xem giá điểm</Button>}
     </div>}
-    {error && <div role="alert" className="text-sm text-red-600"><p>{error}</p><Link href={`/projects/${projectId}/wallet`} className="underline">Điểm dự án</Link></div>}
+    {error && <div role="alert" className="text-sm th-text-danger"><p>{error}</p><Link href={`/projects/${projectId}/wallet`} className="underline">Điểm dự án</Link></div>}
     <div aria-live="polite" className="space-y-3">
       {jobs.map(job => <div key={job.id} className="space-y-2 rounded-lg border th-border-secondary p-3">
         <p className="text-xs font-medium th-text-primary">{job.mode === "generate" ? "Watermark mới" : "Xóa nền logo"} · {statusLabels[job.status] || "Đang xử lý"}

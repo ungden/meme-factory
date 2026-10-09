@@ -37,7 +37,7 @@ export default function Card({
             },
           }
         : {})}
-      className={`th-bg-card border th-border rounded-xl th-shadow-sm ${
+      className={`th-bg-card border th-border rounded-2xl th-shadow-sm ${
         hover ? "hover:th-shadow-md cursor-pointer transition-all duration-200" : ""
       } ${interactive ? "cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 th-ring-accent" : ""} ${className}`}
       style={{
