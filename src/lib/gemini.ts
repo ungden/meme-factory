@@ -172,38 +172,71 @@ Chỉ trả JSON array, không kèm văn bản khác.`;
   }
 }
 
-/**
- * Người mới gõ ý tưởng trước khi có kênh: đoán tên kênh, lĩnh vực và người xem
- * để AI dựng kênh mà không hỏi thêm câu nào. Trả thô; channel-draft tự chuẩn hoá.
- */
-export async function suggestChannelFromIdea(params: {
-  idea: string;
-  fields: { id: string; label: string }[];
-}): Promise<unknown> {
+async function askJson(prompt: string, temperature: number): Promise<unknown> {
   const ai = await getClient();
-  const prompt = `Một người dùng Việt Nam muốn mở một kênh mạng xã hội và vừa gõ ý tưởng đầu tiên:
-"${params.idea}"
-
-Đoán kênh họ muốn làm:
-- name: tên kênh ngắn, dễ nhớ, tiếng Việt, không quá 4 từ, không dấu ngoặc.
-- fieldId: một trong ${params.fields.map((field) => `"${field.id}" (${field.label})`).join(", ")}.
-- audience: người xem chính, một cụm ngắn, ví dụ "bố mẹ trẻ 25–35 tuổi".
-
-Trả về đúng một JSON object {"name": "...", "fieldId": "...", "audience": "..."}, không kèm văn bản khác.`;
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: [{ text: prompt }],
     config: {
       httpOptions: { timeout: GEMINI_TEXT_TIMEOUT_MS },
       responseMimeType: "application/json",
-      temperature: 0.6,
+      temperature,
     },
   });
   try {
-    return JSON.parse(response.text ?? "{}");
+    return JSON.parse(response.text ?? "null");
   } catch {
-    return {};
+    return null;
   }
+}
+
+/**
+ * Chủ kênh tả kênh bằng vài câu; AI điền tên, người xem, giọng kể, trọng tâm
+ * và kiểu hình. Trả thô; channel-draft chuẩn hoá.
+ */
+export async function suggestChannelFromIdea(params: { idea: string }): Promise<unknown> {
+  return askJson(
+    `Một người Việt muốn mở một kênh video ngắn và meme trên mạng xã hội. Họ tả kênh:
+"${params.idea}"
+
+Điền hồ sơ kênh, viết tiếng Việt tự nhiên, cụ thể, không sáo rỗng:
+- name: tên kênh ngắn, dễ nhớ, không quá 4 từ.
+- audience: người xem chính, một cụm ngắn (ví dụ "bố mẹ trẻ 25–35 tuổi").
+- tone: giọng kể, một câu ngắn (ví dụ "hài đời thường, ấm áp, không lên gân").
+- positioning: kênh tập trung kể chuyện gì, về ai, ở đâu, 1–2 câu.
+- look: "photoreal" nếu kênh hợp với người thật (gia đình, đời thường, review), "animated" nếu hợp với nhân vật hoạt hình 3D (linh vật, con vật, thế giới tưởng tượng).
+
+Trả về đúng một JSON object {"name","audience","tone","positioning","look"}.`,
+    0.6,
+  );
+}
+
+/**
+ * Dàn nhân vật cho một kênh. Mô tả phải đủ ngoại hình để vẽ ra cùng một người
+ * mỗi lần: tuổi, dáng, tóc, mặt, trang phục quen thuộc.
+ */
+export async function suggestCastForChannel(params: {
+  channel: string;
+  look: "animated" | "photoreal";
+  existing: string[];
+  count: number;
+}): Promise<unknown> {
+  return askJson(
+    `Bạn dựng dàn nhân vật cố định cho một kênh video ngắn và meme Việt Nam.
+
+Kênh: ${params.channel}
+Kiểu hình: ${params.look === "photoreal" ? "người Việt thật, quay như video điện thoại" : "nhân vật hoạt hình 3D chất lượng rạp"}
+${params.existing.length ? `Kênh đã có: ${params.existing.join(", ")}. Không lặp lại các nhân vật này.` : ""}
+
+Gợi ý ${params.count} nhân vật khác nhau rõ về vai trong các câu chuyện của kênh (ví dụ: người gây chuyện, người phản ứng, người hiền).
+Mỗi nhân vật:
+- name: tên gọi ngắn người xem dễ nhớ.
+- description: ngoại hình để vẽ, 2–3 câu: tuổi, giới, vóc dáng, khuôn mặt, kiểu tóc, trang phục quen thuộc, một chi tiết nhận dạng riêng.
+- personality: tính cách và cách nói, 1 câu.
+
+Trả về đúng một JSON array [{"name","description","personality"}].`,
+    0.8,
+  );
 }
 
 export async function generateMemeContent(params: {

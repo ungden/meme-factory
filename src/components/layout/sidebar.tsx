@@ -194,10 +194,10 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           icon: Image,
         },
         {
-          href: `/projects/${projectId}/mascots`,
+          href: `/projects/${projectId}/characters`,
           label: "Nhân vật",
           icon: Users,
-          aliases: [`/projects/${projectId}/characters`],
+          aliases: [`/projects/${projectId}/mascots`],
         },
         {
           // Trang mẫu tồn tại từ lâu nhưng không có mục nào dẫn tới, nên trong

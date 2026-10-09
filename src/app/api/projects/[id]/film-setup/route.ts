@@ -4,7 +4,8 @@ import { access, fail, FilmError, latestChannelProfile } from "@/lib/short-film/
 import { getSupabaseAdmin } from "@/lib/admin";
 import { getPointCost } from "@/lib/point-pricing.server";
 import { estimateImageGenerationPrice } from "@/lib/ai-pricing";
-import { generateFilmReferenceView, IMAGE_MODEL } from "@/lib/gemini-image";
+import { compileCharacterPosePrompt, generateCharacterPose, generateFilmReferenceView, IMAGE_MODEL } from "@/lib/gemini-image";
+import { isArtDirectionId } from "@/lib/mascot-art-direction";
 import { chargedCharacterImage, InsufficientPointsError } from "@/lib/charged-image";
 import {
   FILM_REFERENCE_VIEWS,
@@ -106,7 +107,11 @@ async function loadCharacters(a: Access) {
 export async function GET(r: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const a = await access(r, (await params).id);
-    const [profile, characters] = await Promise.all([latestChannelProfile(a), loadCharacters(a)]);
+    const [profile, characters, { data: project }] = await Promise.all([
+      latestChannelProfile(a),
+      loadCharacters(a),
+      a.admin.from("projects").select("description").eq("id", a.project.id).single(),
+    ]);
     const roleIds = (profile?.roles || []).map((role: { characterId: string }) => role.characterId);
     const cast = characters.filter((character) => roleIds.includes(character.id));
     return NextResponse.json({
@@ -114,6 +119,14 @@ export async function GET(r: NextRequest, { params }: { params: Promise<{ id: st
       characters,
       pointsPerImage: await getPointCost("character"),
       owner: a.project.user_id === a.user.id,
+      projectId: a.project.id,
+      workspaceVersion: a.project.workspace_version,
+      // Hồ sơ kênh lấy từ bước tạo kênh, dùng khi lưu dàn nhân vật lần đầu.
+      channel: {
+        audience: profile?.audience || a.project.audience || "",
+        tone: profile?.tone || a.project.brand_voice || "",
+        positioning: profile?.positioning || project?.description || "",
+      },
       ready: Boolean(profile) && cast.length > 0 && cast.every((character) => character.ready),
     });
   } catch (error) {
@@ -140,6 +153,55 @@ export async function POST(r: NextRequest, { params }: { params: Promise<{ id: s
       .eq("character_id", character.id)
       .maybeSingle();
     const medium = filmMediumFor(dna?.art_direction);
+
+    // Ảnh gốc vẽ từ mô tả chữ: nhân vật AI vừa nghĩ ra chưa có ảnh nào, mà bộ ảnh
+    // chuẩn phải dựng từ một ảnh của chính nhân vật. Ảnh này cũng là ảnh đại diện
+    // và là tham chiếu cho meme.
+    if (body.action === "origin") {
+      const params = {
+        characterName: character.name,
+        characterDescription: character.description || character.name,
+        emotion: "neutral",
+        artDirection: isArtDirectionId(dna?.art_direction) ? dna!.art_direction : undefined,
+      };
+      const prompt = compileCharacterPosePrompt(params);
+      const { result, requestId } = await chargedCharacterImage({
+        project: a.project,
+        actorUserId: a.user.id,
+        description: `ảnh gốc của ${character.name}`,
+        workflowVersion: "character-origin-v1",
+        model: IMAGE_MODEL,
+        provider: "google",
+        prompt,
+        references: [],
+        estimate: estimateImageGenerationPrice({ model: IMAGE_MODEL, resolution: "1K", inputImageCount: 0, prompt }),
+        requestedOutput: { characterId: character.id, emotion: "neutral" },
+        sourceEntity: { type: "character", id: character.id },
+        generate: () => generateCharacterPose(params),
+      });
+      const path = `${a.project.id}/${character.id}/origin-${requestId}.png`;
+      const { error: uploadError } = await a.admin.storage
+        .from(BUCKET)
+        .upload(path, Buffer.from(result.image, "base64"), { contentType: "image/png", cacheControl: "31536000" });
+      if (uploadError) throw uploadError;
+      const url = a.admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+      const { error: poseError } = await a.admin
+        .from("character_poses")
+        .insert({ character_id: character.id, name: "Ảnh gốc", emotion: "neutral", image_url: url });
+      if (poseError) throw poseError;
+      // Vẽ lại ảnh gốc nghĩa là người dùng chưa ưng gương mặt cũ: thay luôn ảnh đại diện.
+      const { error: avatarError } = await a.admin.from("characters").update({ avatar_url: url }).eq("id", character.id);
+      if (avatarError) throw avatarError;
+      // Ảnh gốc cũ bị loại khỏi danh sách ảnh để meme không lấy nhầm gương mặt cũ
+      // làm tham chiếu. Chỉ xoá đúng ảnh do bước này vẽ (tên file "origin-").
+      await a.admin
+        .from("character_poses")
+        .delete()
+        .eq("character_id", character.id)
+        .like("image_url", "%/origin-%")
+        .neq("image_url", url);
+      return NextResponse.json({ url });
+    }
 
     if (body.action === "lock") {
       const paths = (body.paths || {}) as Record<string, unknown>;
@@ -192,8 +254,11 @@ export async function POST(r: NextRequest, { params }: { params: Promise<{ id: s
         .order("created_at", { ascending: true })
         .limit(2);
       const marker = `/storage/v1/object/public/${BUCKET}/`;
+      // Ảnh gốc bị vẽ lại vẫn còn trong danh sách ảnh; chỉ ảnh gốc đang là ảnh
+      // đại diện được dùng, không thì bộ ảnh trộn hai gương mặt.
       const own = [character.avatar_url, ...(poses || []).map((pose) => pose.image_url)]
         .filter((url): url is string => typeof url === "string" && url.includes(marker))
+        .filter((url, index, all) => all.indexOf(url) === index && (url === character.avatar_url || !/\/origin-[0-9a-f-]{36}\.png/.test(url)))
         .slice(0, 3);
       if (!own.length) throw new FilmError(`${character.name} chưa có ảnh nào. Tạo một ảnh nhân vật trước.`);
       for (const url of own) {
