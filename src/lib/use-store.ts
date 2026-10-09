@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { stripImageMetadataFromFile } from "@/lib/image-metadata";
+import { slugifyProjectName } from "@/lib/channel-draft";
 import {
   MOCK_USER,
   MOCK_PROJECTS,
@@ -50,19 +51,6 @@ type CharWithPoses = Character & { poses: CharacterPose[] };
 let mockProjects = [...MOCK_PROJECTS];
 let mockCharacters = [...MOCK_CHARACTERS];
 let mockMemes = [...MOCK_MEMES];
-
-function slugifyProjectName(name: string): string {
-  const base = name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-  return base || "du-an";
-}
 
 function buildProjectSlug(name: string, id: string): string {
   return `${slugifyProjectName(name)}-${id.slice(0, 8)}`;

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarClock, Clapperboard, Images, Loader2 } from "lucide-react";
+import { CalendarClock, Clapperboard, Images, Loader2, Repeat2 } from "lucide-react";
 import type { FeedItem, FeedStatus } from "@/lib/home-feed";
 
 const STATUS_STYLE: Record<FeedStatus, string> = {
@@ -12,7 +12,17 @@ const STATUS_STYLE: Record<FeedStatus, string> = {
 };
 
 /** Việc AI đang làm và vừa xong ở mọi kênh, việc cần người dùng xem đứng đầu. */
-export default function HomeFeedList({ items, loading, failed }: { items: FeedItem[]; loading: boolean; failed: boolean }) {
+export default function HomeFeedList({
+  items,
+  loading,
+  failed,
+  onRemix,
+}: {
+  items: FeedItem[];
+  loading: boolean;
+  failed: boolean;
+  onRemix: (item: FeedItem) => void;
+}) {
   return (
     <section aria-labelledby="feed-title" className="flex flex-col gap-3">
       <h2 id="feed-title" className="text-lg font-semibold th-text-primary">Việc của AI</h2>
@@ -29,11 +39,8 @@ export default function HomeFeedList({ items, loading, failed }: { items: FeedIt
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {items.map((item) => (
-            <li key={`${item.kind}:${item.id}`}>
-              <Link
-                href={item.href}
-                className="flex h-full flex-col overflow-hidden rounded-xl border th-border th-bg-card transition hover:th-border-accent"
-              >
+            <li key={`${item.kind}:${item.id}`} className="flex flex-col overflow-hidden rounded-xl border th-border th-bg-card transition hover:th-border-accent">
+              <Link href={item.href} className="flex flex-1 flex-col">
                 <div className="relative flex aspect-[4/3] items-center justify-center th-bg-tertiary">
                   {item.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element -- ảnh meme nằm ở kho lưu trữ, không qua tối ưu ảnh của Next
@@ -57,6 +64,15 @@ export default function HomeFeedList({ items, loading, failed }: { items: FeedIt
                   </p>
                 </div>
               </Link>
+              {item.status === "ready" && (
+                <button
+                  type="button"
+                  onClick={() => onRemix(item)}
+                  className="flex min-h-9 items-center justify-center gap-1.5 border-t th-border text-xs font-medium th-text-accent th-bg-hover"
+                >
+                  <Repeat2 size={14} aria-hidden /> Làm thêm kiểu này
+                </button>
+              )}
             </li>
           ))}
         </ul>
