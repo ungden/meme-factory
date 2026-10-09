@@ -8,6 +8,7 @@ import {
   SEEDANCE_25_TEXT_MODEL,
 } from "@/lib/video-models";
 import { stripStoryGenreMarker } from "@/lib/story-genre";
+import type { FilmFormat } from "@/lib/film-camera-language";
 
 export type StudioRun = {
   id: string;
@@ -365,3 +366,12 @@ export function latestFilm(tasks: StudioTask[]) {
         b.created_at.localeCompare(a.created_at),
     )[0];
 }
+
+/** Cách quay người dùng có thể chọn; dùng chung cho Studio phim và trang chính. */
+export const FORMAT_CHOICES: Array<{ value: FilmFormat | null; label: string; description: string; comedyOnly?: boolean }> = [
+  { value: null, label: "AI tự chọn", description: "AI chọn cách quay hợp với câu chuyện nhất." },
+  { value: "talk_to_camera", label: "Bé nói với người xem", description: "Bé nhìn thẳng vào máy than chuyện người lớn, đổi nơi liên tục.", comedyOnly: true },
+  { value: "cooking_show", label: "Bé vào bếp", description: "Bé dạy làm một món thật, kết bằng màn nếm thử.", comedyOnly: true },
+  { value: "phone_vlog", label: "Đi chơi / tiểu phẩm", description: "Quay như vlog điện thoại, cắt nhanh, ít lời." },
+  { value: "family_scene", label: "Cả nhà đối đáp", description: "Các thành viên nói chuyện với nhau trong một bối cảnh." },
+];

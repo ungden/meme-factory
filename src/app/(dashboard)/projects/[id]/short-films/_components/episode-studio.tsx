@@ -12,7 +12,8 @@ import {
   type StoryGenre,
 } from "@/lib/story-genre";
 import ConfirmModal from "@/components/ui/confirm-modal";
-import { filmFormatFromIntent, markedFormatIntent, type FilmFormat } from "@/lib/film-camera-language";
+import { filmFormatFromIntent, isFilmFormat, markedFormatIntent, type FilmFormat } from "@/lib/film-camera-language";
+import { takeFilmHandoff } from "@/lib/home-handoff";
 import { castIdentityGaps } from "@/lib/short-film/cast-quality";
 import { suggestHashtags } from "@/lib/post-text";
 import { api } from "../../video/multiscene/_lib/draft";
@@ -240,6 +241,36 @@ export default function EpisodeStudio() {
     };
   }, [episodeKey, episodePlanId, episodeRunId, active]);
 
+  // Ý tưởng gửi từ trang chính: kênh đã sẵn sàng thì làm luôn, chưa thì điền
+  // sẵn để sau bước chuẩn bị người dùng không phải gõ lại. Khoá chống trùng đi
+  // theo ý tưởng nên lỡ chạy hai lần cũng chỉ ra một lượt.
+  const handoff = useRef<ReturnType<typeof takeFilmHandoff> | undefined>(undefined);
+  useEffect(() => {
+    if (handoff.current !== undefined) return;
+    handoff.current = takeFilmHandoff(ref);
+    if (!handoff.current) return;
+    setIdea(handoff.current.idea);
+    if (isFilmFormat(handoff.current.format)) setFormat(handoff.current.format);
+  }, [ref]);
+  useEffect(() => {
+    const pending = handoff.current;
+    if (!pending?.key || !loaded || selectedKey || !channelProfile || (setup && !setup.ready)) return;
+    handoff.current = null;
+    void act(async () => {
+      await startRun(
+        pending.idea.trim(),
+        limit,
+        qualityOption(quality).model,
+        null,
+        isFilmFormat(pending.format) ? pending.format : null,
+        pending.key,
+      );
+      setIdea("");
+    });
+    // Chỉ chạy một lần khi dữ liệu kênh vừa tải xong.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, channelProfile, setup, selectedKey]);
+
   async function act(work: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -286,6 +317,7 @@ export default function EpisodeStudio() {
     videoModel: string,
     storyGenre: StoryGenre | null = genre,
     filmFormat: FilmFormat | null = format,
+    idempotencyKey: string = crypto.randomUUID(),
   ) {
     if (!channelProfile) throw new Error("Hãy hoàn tất hồ sơ kênh trước khi viết kịch bản.");
     const current = runs.find((run) => runIsActive(run));
@@ -302,7 +334,7 @@ export default function EpisodeStudio() {
       maxPointsPerFilm: maxFilm,
       maxPointsPerDay: Math.max(maxFilm, current?.max_points_per_day || 0, maxFilm * 3),
       videoModel,
-      idempotencyKey: crypto.randomUUID(),
+      idempotencyKey,
     });
     await refreshList();
     select(response.runId);
