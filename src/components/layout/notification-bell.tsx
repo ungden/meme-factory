@@ -14,7 +14,8 @@ const POLL_MS = 60_000;
  *
  * Phim chạy 30–45 phút và dừng khi cần một quyết định của người dùng. Trước đây
  * chỉ có đúng một cách biết: tự mở từng kênh ra xem. Chuông này gom mọi việc
- * đang chờ trên tất cả kênh vào một chỗ.
+ * đang chờ trên tất cả kênh vào một chỗ, cùng tin meme AI tự làm theo lịch —
+ * kênh chạy tự động thì người dùng không có màn hình nào để canh cả.
  */
 export default function NotificationBell() {
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -74,7 +75,7 @@ export default function NotificationBell() {
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        aria-label={items.length ? `Thông báo, ${items.length} việc đang chờ` : "Thông báo"}
+        aria-label={items.length ? `Thông báo, ${items.length} tin mới` : "Thông báo"}
         className="relative flex h-11 w-11 items-center justify-center rounded-lg th-text-secondary th-bg-hover lg:h-9 lg:w-9"
       >
         <Bell size={18} />
@@ -91,7 +92,7 @@ export default function NotificationBell() {
       {open && (
         <div
           role="dialog"
-          aria-label="Việc đang chờ bạn"
+          aria-label="Thông báo"
           className="absolute right-0 top-12 z-50 w-72 overflow-hidden rounded-xl border shadow-xl"
           style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
         >
