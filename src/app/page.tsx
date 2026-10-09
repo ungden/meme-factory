@@ -34,7 +34,7 @@ const EXAMPLE_IDEAS = [
   "Quán cà phê nhỏ kể chuyện khách quen",
 ];
 
-const FILM_RANGE = `${FILM_POINTS_RANGE.min}–${FILM_POINTS_RANGE.max}`;
+const FILM_RANGE = `${FILM_POINTS_RANGE.min.toLocaleString("vi-VN")}–${FILM_POINTS_RANGE.max.toLocaleString("vi-VN")}`;
 
 const OFFERINGS = [
   {

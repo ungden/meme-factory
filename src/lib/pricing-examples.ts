@@ -6,11 +6,13 @@ import { FREE_TRIAL_POINTS, POINT_COSTS, POINT_PACKAGES } from "./point-pricing"
  *
  * Giá ảnh lấy thẳng từ bảng tính điểm nên không bao giờ lệch với lúc trừ tiền.
  * Giá phim thì không có công thức tĩnh: WaveSpeed báo giá theo từng lượt, phụ
- * thuộc độ dài và số cảnh. Con số ở đây là khoảng đo được từ các tập đã sản
- * xuất thật trên Seedance 2.0 Fast (357 điểm/22 giây và 637 điểm/32 giây), và
- * được ghi rõ là ước lượng thay vì cam kết.
+ * thuộc độ dài và số cảnh. Phim mặc định nhắm 60 giây; đo từ các tập thật,
+ * bản Tiết kiệm (Seedance 2.0 Fast) tốn ~16–20 điểm/giây (357 điểm/22 giây,
+ * 637 điểm/32 giây) và bản Chất lượng cao (Seedance 2.5) ~33 điểm/giây (1.224
+ * điểm/37 giây). Khoảng này khớp với ước tính trong Studio phim
+ * (QUALITY_OPTIONS) và được ghi rõ là ước lượng thay vì cam kết.
  */
-export const FILM_POINTS_RANGE = { min: 350, max: 700, seconds: 30 } as const;
+export const FILM_POINTS_RANGE = { min: 1000, max: 2000, seconds: 60 } as const;
 
 export type PricingExample = {
   label: string;

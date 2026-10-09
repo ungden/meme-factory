@@ -163,7 +163,7 @@ export default function PricingPage() {
                 ))}
               </div>
               <p className="mt-4 text-[13px] leading-5 th-text-tertiary">
-                Ví dụ tính từ giá meme {POINT_COSTS.meme} điểm và phim {FILM_POINTS_RANGE.min}–{FILM_POINTS_RANGE.max} điểm
+                Ví dụ tính từ giá meme {POINT_COSTS.meme} điểm và phim {FILM_POINTS_RANGE.min.toLocaleString("vi-VN")}–{FILM_POINTS_RANGE.max.toLocaleString("vi-VN")} điểm
                 một tập ~{FILM_POINTS_RANGE.seconds} giây. Phim có mức chi tối đa cho từng tập và cả ngày; AI không tiêu quá
                 mức đó.
               </p>
