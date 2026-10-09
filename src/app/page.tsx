@@ -1,80 +1,90 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useEffect, useRef, useState } from "react";
-import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { FormEvent, useRef, useState } from "react";
 import {
   ArrowRight,
+  CalendarClock,
+  Check,
   ChevronDown,
   Clapperboard,
-  CircleUser,
   Images,
-  Moon,
+  Lock,
   Sparkles,
-  Sun,
+  UserRound,
   Video,
+  Wand2,
 } from "lucide-react";
-import { useTheme } from "@/components/theme-provider";
-import { createClient } from "@/lib/supabase/client";
+import SiteFooter from "@/components/marketing/site-footer";
+import SiteHeader from "@/components/marketing/site-header";
+import { useSignedIn } from "@/components/marketing/use-signed-in";
+import { FREE_TRIAL_POINTS, POINT_COSTS, formatVND } from "@/lib/point-pricing";
+import { FILM_POINTS_RANGE, pointsToVnd } from "@/lib/pricing-examples";
 
-const formats = [
-  { icon: CircleUser, label: "Nhân vật 3D", note: "Duyệt ảnh chuẩn trước khi dùng" },
-  { icon: Images, label: "Tạo ảnh", note: "Ý tưởng, nhân vật và tỷ lệ" },
-  { icon: Video, label: "Tạo video", note: "Một clip nhanh từ mô tả hoặc ảnh" },
-  { icon: Clapperboard, label: "Tạo phim ngắn", note: "AI viết, dựng cảnh, lồng tiếng và ghép phim" },
+// Hai giá trị này được trang chính trong app đọc lại từ nháp, nên giữ nguyên
+// chữ dù nhãn hiển thị là "Phim ngắn" / "Meme".
+const OUTPUTS = [
+  { value: "Tạo phim ngắn", label: "Phim ngắn" },
+  { value: "Tạo ảnh", label: "Meme" },
+] as const;
+
+const EXAMPLE_IDEAS = [
+  "Mẹ than lương con về ba ngày đã hết",
+  "Mèo văn phòng và sáng thứ Hai",
+  "Quán cà phê nhỏ kể chuyện khách quen",
 ];
 
-const steps = [
-  ["01", "Chọn nhân vật", "Khoá diện mạo, cá tính và giọng nói để dùng lại mỗi ngày."],
-  ["02", "Nói ý tưởng", "AIDA hỗ trợ viết mở đầu, chú thích và hướng dẫn dựng cảnh bằng tiếng Việt."],
-  ["03", "Tạo và duyệt", "Tạo ảnh, video hoặc phim hoàn chỉnh, sau đó duyệt trước khi tải."],
+const FILM_RANGE = `${FILM_POINTS_RANGE.min}–${FILM_POINTS_RANGE.max}`;
+
+const OFFERINGS = [
+  {
+    icon: Images,
+    title: "Meme",
+    body: "Ảnh có chữ, đúng nhân vật, đúng giọng kênh. AI nghĩ câu đùa, bạn tải về là đăng.",
+    price: `khoảng ${POINT_COSTS.meme} điểm một tấm`,
+  },
+  {
+    icon: Video,
+    title: "Video ngắn",
+    body: "Một clip từ vài dòng mô tả. Muốn đúng sản phẩm, đúng người thì đưa ảnh của bạn làm mẫu.",
+    price: "Báo giá hiện trước khi làm",
+  },
+  {
+    icon: Clapperboard,
+    title: "Phim ngắn",
+    body: "AI viết chuyện, dựng từng cảnh, lồng tiếng rồi ghép thành phim. Chỉ hỏi bạn khi thật sự cần.",
+    price: `${FILM_RANGE} điểm một phim ~${FILM_POINTS_RANGE.seconds} giây`,
+  },
+  {
+    icon: CalendarClock,
+    title: "Tự làm mỗi ngày",
+    body: "Chọn mỗi ngày bao nhiêu phim, bao nhiêu meme. AI tự nghĩ ý tưởng theo hồ sơ kênh và làm đều đặn.",
+    price: "Bật, tắt lúc nào cũng được",
+    featured: true,
+  },
 ];
+
+const PRICE_ROWS = [
+  { label: "Một meme", points: POINT_COSTS.meme },
+  { label: "Một ảnh nhân vật", points: POINT_COSTS.character },
+  { label: `Một phim ngắn ~${FILM_POINTS_RANGE.seconds} giây`, points: FILM_POINTS_RANGE },
+];
+
+function formatPoints(points: number | { min: number; max: number }) {
+  return typeof points === "number" ? `${points} điểm` : `${points.min}–${points.max} điểm`;
+}
+
+function formatPrice(points: number | { min: number; max: number }) {
+  return typeof points === "number"
+    ? formatVND(pointsToVnd(points))
+    : `${formatVND(pointsToVnd(points.min))} – ${formatVND(pointsToVnd(points.max))}`;
+}
 
 export default function Home() {
-  const { theme, toggleTheme } = useTheme();
-  const [user, setUser] = useState<{ email?: string } | null>(null);
-  const [authReady, setAuthReady] = useState(false);
+  const { appHref } = useSignedIn();
   const [idea, setIdea] = useState("");
-  const [output, setOutput] = useState("Tạo phim ngắn");
+  const [output, setOutput] = useState<string>(OUTPUTS[0].value);
   const promptRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const supabase = createClient();
-
-    const syncSession = (session: Session | null) => {
-      setUser(session?.user ?? null);
-      setAuthReady(true);
-    };
-
-    const readSession = async () => {
-      try {
-        const result: { data: { session: Session | null } } = await supabase.auth.getSession();
-        syncSession(result.data.session);
-      } catch {
-        setUser(null);
-        setAuthReady(true);
-      }
-    };
-
-    void readSession();
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
-      syncSession(session);
-    });
-
-    const refreshOnFocus = () => {
-      void readSession();
-    };
-    window.addEventListener("focus", refreshOnFocus);
-
-    return () => {
-      listener.subscription.unsubscribe();
-      window.removeEventListener("focus", refreshOnFocus);
-    };
-  }, []);
-
-  const appHref = authReady && user ? "/projects" : "/login";
 
   function focusComposer() {
     promptRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -89,170 +99,285 @@ export default function Home() {
     window.location.href = appHref;
   }
 
-  return (
-    <div className="media-home min-h-screen overflow-x-hidden">
-      <nav className="media-nav sticky top-0 z-50">
-        <div className="mx-auto flex h-[78px] max-w-[1420px] items-center justify-between px-5 sm:px-8 lg:px-12">
-          <Link href="/" className="group flex items-center gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:th-ring-accent">
-            <span className="media-logo flex h-10 w-10 items-center justify-center rounded-[13px] text-white">
-              <Sparkles size={21} fill="currentColor" />
-            </span>
-            <span className="text-[23px] font-extrabold tracking-[-0.025em]">AIDA</span>
-            <span className="media-studio-label hidden text-[11px] font-semibold uppercase tracking-[0.21em] sm:inline">Media Studio</span>
-          </Link>
+  const outputLabel = OUTPUTS.find((item) => item.value === output)?.label ?? OUTPUTS[0].label;
 
-          <div className="flex items-center gap-1 sm:gap-3">
-            <a href="#how" className="media-nav-link hidden rounded-full px-4 py-2.5 text-sm font-medium lg:inline-flex">Cách hoạt động</a>
-            <Link href="/pricing" className="media-nav-link hidden rounded-full px-4 py-2.5 text-sm font-medium md:inline-flex">Bảng giá</Link>
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="media-nav-link inline-flex h-10 w-10 items-center justify-center rounded-full"
-              aria-label={theme === "light" ? "Chuyển sang giao diện tối" : "Chuyển sang giao diện sáng"}
-            >
-              {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
-            </button>
-            {authReady && !user && <Link href="/login" className="media-nav-link hidden rounded-full px-4 py-2.5 text-sm font-medium md:inline-flex">Đăng nhập</Link>}
-            <Link href={appHref} className="media-primary-button ml-1 inline-flex h-11 items-center gap-2 rounded-[11px] px-4 text-sm font-semibold text-white sm:px-5">
-              <span className="hidden sm:inline">{authReady && user ? "Mở Studio" : authReady ? "Bắt đầu miễn phí" : "Đang mở…"}</span>
-              <span className="sm:hidden">{authReady && user ? "Dự án" : "Bắt đầu"}</span>
-              <ArrowRight size={17} strokeWidth={2.5} />
-            </Link>
-          </div>
-        </div>
-      </nav>
+  return (
+    <div className="media-home min-h-screen overflow-x-clip">
+      <SiteHeader />
 
       <main>
+        {/* Mở đầu */}
         <section className="media-hero">
-          <div className="mx-auto max-w-[1420px] px-5 pb-8 pt-8 sm:px-8 lg:px-12 lg:pb-12 lg:pt-10">
-            <div className="grid items-center gap-5 lg:min-h-[610px] lg:grid-cols-[0.82fr_1.18fr] lg:gap-0">
-              <div className="relative z-10 max-w-[590px] py-8 lg:py-0">
-                <p className="media-hand-note mb-2 ml-auto hidden w-fit rotate-[-4deg] text-[25px] text-[#f05a32] md:block">cùng một nhân vật</p>
-                <h1 className="media-display text-[50px] font-extrabold leading-[1] tracking-[-0.045em] sm:text-[64px] lg:text-[76px] xl:text-[84px]">
-                  Một ý tưởng.
-                  <br />
-                  Đủ content
-                  <br />
-                  để đăng.
-                </h1>
-                <p className="media-copy mt-6 max-w-[500px] text-[16px] leading-[1.72] sm:text-[18px]">
-                  Xây nhân vật một lần, rồi dùng cùng phiên bản đã duyệt cho ảnh, video và cả phim ngắn có lời thoại của dự án.
-                </p>
-                <div className="mt-8 flex flex-wrap items-center gap-4">
-                  <button type="button" onClick={focusComposer} className="media-primary-button inline-flex h-[54px] items-center gap-3 rounded-xl px-6 text-[16px] font-semibold text-white">
-                    Tạo content ngay <ArrowRight size={20} strokeWidth={2.5} />
-                  </button>
-                  <a href="#formats" className="media-text-link inline-flex items-center gap-2 px-2 py-3 text-sm font-semibold">
-                    Xem cách hoạt động <ArrowRight size={16} strokeWidth={2.5} />
-                  </a>
-                </div>
-              </div>
-
-              <div className="media-collage relative -mr-5 min-h-[430px] sm:-mr-8 sm:min-h-[560px] lg:-mr-12 lg:min-h-[650px]">
-                <Image
-                  src="/media-studio/foxy-media-collage.png"
-                  alt="Foxy là nhân vật minh hoạ cho cách AIDA giữ nhân vật nhất quán"
-                  fill
-                  priority
-                  sizes="(max-width: 1024px) 100vw, 62vw"
-                  className="object-contain object-center"
-                />
-              </div>
+          <div className="mx-auto max-w-[1200px] px-4 pb-16 pt-14 sm:px-6 sm:pb-20 sm:pt-20 lg:px-8 lg:pb-24 lg:pt-24">
+            <div className="mx-auto max-w-[820px] text-center">
+              <span className="media-pill inline-flex max-w-full items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-medium">
+                <Sparkles size={14} className="shrink-0" />
+                <span className="truncate">Nội dung AI cho fanpage, TikTok…</span>
+              </span>
+              <h1 className="mt-6 text-balance text-[40px] font-extrabold leading-[1.04] tracking-[-0.04em] sm:text-[60px] lg:text-[72px]">
+                Kênh của bạn,
+                <br />
+                <span className="th-text-gradient">ngày nào cũng có bài mới.</span>
+              </h1>
+              <p className="mx-auto mt-6 max-w-[620px] text-[16px] leading-[1.7] th-text-secondary sm:text-[18px]">
+                AIDA lo phần sản xuất: dựng hồ sơ kênh, giữ đúng gương mặt nhân vật, rồi làm meme, video và phim
+                ngắn — từng bài khi bạn cần, hoặc tự làm đều đặn mỗi ngày.
+              </p>
             </div>
 
-            <form onSubmit={submitIdea} className="media-composer relative z-20 mx-auto mt-1 max-w-[1260px] rounded-[24px] p-3 sm:p-4">
-              <label htmlFor="media-idea" className="media-hand-note absolute -top-12 left-4 hidden -rotate-2 text-[26px] md:block">Ý tưởng hôm nay là gì?</label>
-              <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <form onSubmit={submitIdea} className="media-composer mx-auto mt-10 max-w-[860px] rounded-[22px] p-2.5 sm:p-3">
+              <label htmlFor="media-idea" className="sr-only">Ý tưởng hoặc vài câu mô tả kênh</label>
+              <div className="flex flex-col gap-2.5 md:flex-row md:items-center">
                 <input
                   ref={promptRef}
                   id="media-idea"
                   value={idea}
                   onChange={(event) => setIdea(event.target.value)}
-                  className="media-idea-input min-w-0 flex-1 rounded-[15px] px-4 py-3.5 text-[15px] outline-none"
-                  placeholder="Ví dụ: Bé than lương của mẹ về ba ngày đã hết..."
-                  aria-label="Ý tưởng nội dung"
+                  className="media-idea-input min-w-0 flex-1 rounded-[14px] px-4 text-[16px] outline-none"
+                  placeholder="Ý tưởng, hoặc vài câu về kênh…"
                 />
-                <label className="media-select flex min-w-[178px] cursor-pointer items-center gap-2 rounded-[15px] px-3 py-2">
-                  <span className="media-select-icon">AI</span>
-                  <span className="min-w-0 flex-1"><small>AI làm</small><strong>{output === "Tạo phim ngắn" ? "Phim ngắn" : "Meme"}</strong></span>
-                  <select aria-label="Chọn loại nội dung" value={output} onChange={(event) => setOutput(event.target.value)}><option value="Tạo phim ngắn">Phim ngắn</option><option value="Tạo ảnh">Meme</option></select>
-                  <ChevronDown size={14} />
-                </label>
-                <button type="submit" className="media-submit flex h-14 w-full items-center justify-center rounded-2xl text-white xl:w-14" aria-label="Tạo nội dung">
-                  <ArrowRight size={22} strokeWidth={2.5} />
-                </button>
+                <div className="flex gap-2.5">
+                  <label className="media-select flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-[14px] px-3 md:w-[164px] md:flex-none">
+                    <Wand2 size={18} className="shrink-0 th-text-accent" />
+                    <span className="min-w-0 flex-1">
+                      <small>AI làm</small>
+                      <strong>{outputLabel}</strong>
+                    </span>
+                    <select aria-label="Chọn loại nội dung" value={output} onChange={(event) => setOutput(event.target.value)}>
+                      {OUTPUTS.map((item) => (
+                        <option key={item.value} value={item.value}>{item.label}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={15} className="shrink-0 th-text-tertiary" />
+                  </label>
+                  <button
+                    type="submit"
+                    className="media-submit inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-[14px] px-5 text-[15px] font-semibold"
+                  >
+                    <span>Bắt đầu</span>
+                    <ArrowRight size={18} strokeWidth={2.5} />
+                  </button>
+                </div>
               </div>
             </form>
+
+            <div className="mx-auto mt-4 flex max-w-[860px] flex-wrap items-center justify-center gap-2">
+              <span className="text-[13px] th-text-tertiary">Thử:</span>
+              {EXAMPLE_IDEAS.map((example) => (
+                <button
+                  key={example}
+                  type="button"
+                  onClick={() => {
+                    setIdea(example);
+                    promptRef.current?.focus();
+                  }}
+                  className="media-chip max-w-full truncate rounded-full px-3 py-1.5 text-[13px]"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
+
+            <ul className="mx-auto mt-8 flex max-w-[860px] flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[14px] th-text-secondary">
+              {[`Tặng ${FREE_TRIAL_POINTS} điểm khi đăng ký`, "Không thuê bao", "Luôn thấy giá trước khi làm"].map((item) => (
+                <li key={item} className="inline-flex items-center gap-1.5">
+                  <Check size={15} strokeWidth={2.5} className="th-text-accent" />
+                  {item}
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
-        <section id="formats" className="media-formats mx-auto max-w-[1320px] px-5 py-24 sm:px-8 lg:px-12 lg:py-28">
-          <div className="grid gap-7 lg:grid-cols-[.7fr_1.3fr] lg:items-end lg:gap-10">
-            <div>
-              <span className="media-kicker">Một project. Một nguồn sự thật.</span>
-              <h2 className="mt-4 max-w-[520px] text-[36px] font-bold leading-[1.08] tracking-[-0.03em] sm:text-[50px]">Nhân vật, ảnh, video và phim ngắn đi cùng nhau.</h2>
+        {/* Ba bước */}
+        <section id="how" className="media-section-alt scroll-mt-16">
+          <div className="mx-auto max-w-[1200px] px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
+            <div className="max-w-[640px]">
+              <span className="media-kicker">Cách làm</span>
+              <h2 className="mt-3 text-[32px] font-bold leading-[1.1] tracking-[-0.03em] sm:text-[44px]">
+                Ba bước, rồi kênh tự có bài.
+              </h2>
+              <p className="mt-4 text-[16px] leading-7 th-text-secondary">
+                Hai bước đầu làm một lần. Từ bước ba, mỗi bài chỉ là một ô nhập — hoặc chẳng cần gõ gì.
+              </p>
             </div>
-            <p className="media-copy max-w-[590px] text-[16px] leading-7 lg:ml-auto">Foxy chỉ là ví dụ minh hoạ. Mỗi project dùng nhân vật và thương hiệu riêng mà bạn đã duyệt.</p>
+
+            <div className="mt-12 grid gap-5 lg:grid-cols-3">
+              <article className="media-card flex flex-col rounded-[20px] p-6">
+                <span className="media-step-number">BƯỚC 01</span>
+                <h3 className="mt-3 text-[21px] font-bold">Tạo kênh</h3>
+                <p className="mt-2 text-[15px] leading-6 th-text-secondary">
+                  Viết vài câu: kênh nói về gì, cho ai xem, giọng ra sao. AI điền đủ hồ sơ kênh để mọi bài sau đúng chất.
+                </p>
+                <div className="media-mini mt-6 rounded-[14px] p-4 text-[13px]">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <span className="font-semibold">Hồ sơ kênh</span>
+                    <span className="media-pill inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold">
+                      <Sparkles size={11} /> AI điền
+                    </span>
+                  </div>
+                  <dl className="space-y-2">
+                    {[
+                      ["Tên kênh", "Mèo Văn Phòng"],
+                      ["Người xem", "Dân văn phòng 22–30 tuổi"],
+                      ["Giọng kể", "Hài, châm nhẹ"],
+                    ].map(([term, value]) => (
+                      <div key={term} className="flex justify-between gap-3">
+                        <dt className="shrink-0 th-text-tertiary">{term}</dt>
+                        <dd className="truncate text-right font-medium">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              </article>
+
+              <article className="media-card flex flex-col rounded-[20px] p-6">
+                <span className="media-step-number">BƯỚC 02</span>
+                <h3 className="mt-3 text-[21px] font-bold">Dựng nhân vật</h3>
+                <p className="mt-2 text-[15px] leading-6 th-text-secondary">
+                  AI vẽ nhân vật, hoặc dùng ảnh của bạn. Khoá bộ ảnh chuẩn một lần để mọi bài giữ đúng một gương mặt.
+                </p>
+                <div className="media-mini mt-6 rounded-[14px] p-4 text-[13px]">
+                  <div className="grid grid-cols-4 gap-2">
+                    {["Ảnh gốc", "Cận mặt", "Toàn thân", "Sau lưng"].map((pose) => (
+                      <div key={pose} className="flex min-w-0 flex-col items-center gap-1.5">
+                        <span className="media-avatar flex aspect-square w-full items-center justify-center rounded-[12px]">
+                          <UserRound size={22} />
+                        </span>
+                        <span className="w-full truncate text-center text-[11px] th-text-tertiary">{pose}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 inline-flex items-center gap-1.5 font-medium th-text-success">
+                    <Lock size={13} /> Đã khoá bộ ảnh chuẩn
+                  </p>
+                </div>
+              </article>
+
+              <article className="media-card flex flex-col rounded-[20px] p-6">
+                <span className="media-step-number">BƯỚC 03</span>
+                <h3 className="mt-3 text-[21px] font-bold">Làm nội dung</h3>
+                <p className="mt-2 text-[15px] leading-6 th-text-secondary">
+                  Mỗi meme, video hay phim ngắn bắt đầu từ một ô nhập. Hoặc bật tự làm mỗi ngày để AI đều đặn ra bài.
+                </p>
+                <ul className="media-mini mt-6 space-y-2.5 rounded-[14px] p-4 text-[13px]">
+                  {[
+                    { icon: Images, label: "Meme · Sáng thứ Hai", status: "Xong" },
+                    { icon: Clapperboard, label: "Phim ngắn · 30 giây", status: "Đang dựng" },
+                    { icon: CalendarClock, label: "Mai 8:00 · 2 meme", status: "Đã hẹn" },
+                  ].map((row) => (
+                    <li key={row.label} className="flex items-center gap-2.5">
+                      <span className="media-icon flex h-7 w-7 shrink-0 items-center justify-center rounded-lg">
+                        <row.icon size={14} />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate font-medium">{row.label}</span>
+                      <span className="shrink-0 th-text-tertiary">{row.status}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            </div>
           </div>
-          <div className="mt-10 grid grid-cols-2 gap-px overflow-hidden rounded-[22px] border lg:mt-12 lg:grid-cols-4 lg:rounded-[25px]">
-            {formats.map((format) => (
-              <article key={format.label} className="media-format-item min-h-[150px] p-4 sm:p-5 lg:min-h-[180px] lg:p-6">
-                <format.icon size={27} className="th-text-accent" />
-                <h3 className="mt-7 text-[16px] font-bold tracking-[-0.01em] sm:text-[17px] lg:mt-10 lg:text-[18px]">{format.label}</h3>
-                <p className="media-copy mt-1 text-sm">{format.note}</p>
+        </section>
+
+        {/* Làm được gì */}
+        <section id="what" className="mx-auto max-w-[1200px] scroll-mt-16 px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
+          <div className="max-w-[640px]">
+            <span className="media-kicker">Bạn nhận được gì</span>
+            <h2 className="mt-3 text-[32px] font-bold leading-[1.1] tracking-[-0.03em] sm:text-[44px]">
+              Đủ loại nội dung một kênh cần.
+            </h2>
+            <p className="mt-4 text-[16px] leading-7 th-text-secondary">
+              Cùng một nhân vật, cùng một giọng kênh — từ tấm meme buổi sáng tới tập phim cuối tuần.
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {OFFERINGS.map((item) => (
+              <article
+                key={item.title}
+                className={`media-card flex flex-col rounded-[20px] p-6 ${item.featured ? "media-card-feature" : ""}`}
+              >
+                <span className="media-icon flex h-11 w-11 items-center justify-center rounded-xl">
+                  <item.icon size={21} />
+                </span>
+                <h3 className="mt-5 text-[19px] font-bold">{item.title}</h3>
+                <p className="mt-2 flex-1 text-[15px] leading-6 th-text-secondary">{item.body}</p>
+                <p className="mt-5 border-t pt-4 text-[13px] font-medium th-border th-text-tertiary">{item.price}</p>
               </article>
             ))}
           </div>
         </section>
 
-        <section id="how" className="media-how">
-          <div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-8 sm:py-20 lg:px-12 lg:py-24">
-            <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
-              <div>
-                <span className="media-kicker">Từ nhân vật đến nội dung đã duyệt</span>
-                <h2 className="mt-4 max-w-[680px] text-[36px] font-bold leading-[1.08] tracking-[-0.03em] sm:text-[50px]">Làm nội dung như có cả đội ngũ media bên cạnh.</h2>
-              </div>
-              <Link href={appHref} className="media-text-link inline-flex items-center gap-2 py-3 text-sm font-semibold">Khám phá Studio <ArrowRight size={17} strokeWidth={2.5} /></Link>
+        {/* Giá */}
+        <section className="media-section-alt">
+          <div className="mx-auto grid max-w-[1200px] gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[1fr_1.1fr] lg:items-center lg:gap-16 lg:px-8 lg:py-24">
+            <div>
+              <span className="media-kicker">Bảng giá</span>
+              <h2 className="mt-3 text-[32px] font-bold leading-[1.1] tracking-[-0.03em] sm:text-[44px]">
+                Trả theo bài, không thuê bao.
+              </h2>
+              <p className="mt-4 max-w-[480px] text-[16px] leading-7 th-text-secondary">
+                1 điểm = {formatVND(pointsToVnd(1))}. Nạp bao nhiêu dùng bấy nhiêu, điểm không hết hạn, làm hỏng thì
+                được hoàn điểm tự động.
+              </p>
+              <Link
+                href="/pricing"
+                className="media-secondary-button mt-7 inline-flex h-12 items-center gap-2 rounded-xl px-5 text-[15px] font-semibold"
+              >
+                Xem bảng giá <ArrowRight size={17} strokeWidth={2.5} />
+              </Link>
             </div>
-            <div className="mt-10 grid gap-7 md:mt-12 md:grid-cols-3 md:gap-12">
-              {steps.map(([number, title, description]) => (
-                <article key={number} className="media-step border-t pt-5">
-                  <span className="media-step-number">{number}</span>
-                  <h3 className="mt-6 text-[21px] font-bold tracking-[-0.015em] md:mt-8">{title}</h3>
-                  <p className="media-copy mt-3 max-w-[340px] text-[15px] leading-6">{description}</p>
-                </article>
-              ))}
+
+            <div className="media-card rounded-[20px] p-2">
+              <ul>
+                {PRICE_ROWS.map((row) => (
+                  <li key={row.label} className="flex items-center justify-between gap-4 rounded-[14px] px-4 py-4">
+                    <span className="min-w-0 font-medium">{row.label}</span>
+                    <span className="shrink-0 text-right">
+                      <span className="block font-semibold">{formatPoints(row.points)}</span>
+                      <span className="block text-[13px] th-text-tertiary">{formatPrice(row.points)}</span>
+                    </span>
+                  </li>
+                ))}
+                <li className="th-bg-accent-light flex items-center justify-between gap-4 rounded-[14px] px-4 py-4">
+                  <span className="min-w-0 font-medium">Tặng khi đăng ký</span>
+                  <span className="shrink-0 font-semibold th-text-accent">{FREE_TRIAL_POINTS} điểm</span>
+                </li>
+              </ul>
             </div>
           </div>
         </section>
 
-        <section className="mx-auto max-w-[1320px] px-5 py-16 sm:px-8 sm:py-20 lg:px-12">
-          <div className="media-final-cta relative grid overflow-hidden rounded-[28px] px-6 py-10 sm:px-10 sm:py-12 lg:grid-cols-[1fr_300px] lg:items-center lg:px-14 lg:py-10">
-            <div className="relative z-10 text-center lg:text-left">
-              <span className="media-hand-note text-[24px] text-[#f05a32] sm:text-[26px]">nội dung đều hơn, thương hiệu có chất hơn</span>
-              <h2 className="mt-3 max-w-[720px] text-[38px] font-extrabold leading-[1.05] tracking-[-0.035em] sm:text-[54px]">Một nhân vật. Từ tấm ảnh tới bộ phim ngắn.</h2>
-              <p className="mx-auto mt-4 max-w-[590px] text-[15px] leading-6 text-black/65 lg:mx-0">Bắt đầu bằng một ý tưởng hoặc tạo nhân vật đầu tiên cho project của bạn.</p>
-              <button type="button" onClick={focusComposer} className="media-primary-button mt-7 inline-flex h-[52px] items-center gap-3 rounded-xl px-6 text-[15px] font-semibold text-white">Bắt đầu tạo <ArrowRight size={19} strokeWidth={2.5} /></button>
-            </div>
-            <div className="relative mx-auto mt-6 h-[170px] w-[170px] rotate-[2deg] overflow-hidden rounded-[24px] border-[7px] border-white/75 bg-white/70 shadow-[0_18px_50px_rgba(86,56,3,.18)] sm:h-[210px] sm:w-[210px] lg:mt-0 lg:h-[280px] lg:w-[280px] lg:rounded-[30px]">
-              <Image src="/media-studio/foxy-master.png" alt="Nhân vật Foxy của AIDA" fill sizes="280px" className="object-cover" />
+        {/* Kêu gọi cuối */}
+        <section className="mx-auto max-w-[1200px] px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
+          <div className="media-cta rounded-[28px] px-6 py-14 text-center sm:px-12 sm:py-16">
+            <h2 className="mx-auto max-w-[680px] text-[30px] font-extrabold leading-[1.1] tracking-[-0.035em] sm:text-[46px]">
+              Kênh đầu tiên chỉ cần <span className="th-text-gradient">vài câu mô tả.</span>
+            </h2>
+            <p className="mx-auto mt-4 max-w-[540px] text-[16px] leading-7 th-text-secondary">
+              Gõ ý tưởng, AI dựng kênh và nhân vật để bạn duyệt. Tặng {FREE_TRIAL_POINTS} điểm để làm thử ngay hôm nay.
+            </p>
+            <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+              <button
+                type="button"
+                onClick={focusComposer}
+                className="media-primary-button inline-flex h-12 items-center justify-center gap-2 rounded-xl px-6 text-[15px] font-semibold"
+              >
+                Bắt đầu miễn phí <ArrowRight size={17} strokeWidth={2.5} />
+              </button>
+              <Link
+                href="/pricing"
+                className="media-secondary-button inline-flex h-12 items-center justify-center rounded-xl px-6 text-[15px] font-semibold"
+              >
+                Xem bảng giá
+              </Link>
             </div>
           </div>
         </section>
       </main>
 
-      <footer className="media-footer border-t">
-        <div className="mx-auto flex max-w-[1320px] flex-col gap-4 px-5 py-7 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">
-          <div className="flex items-center gap-2 font-bold"><Sparkles size={16} fill="currentColor" className="th-text-accent" /> AIDA Media Studio</div>
-          <p className="media-copy">Một nhân vật. Mọi nội dung.</p>
-          <nav className="flex items-center gap-4">
-            <Link href="/pricing" className="media-copy underline-offset-4 hover:underline">Bảng giá</Link>
-            <Link href="/help" className="media-copy underline-offset-4 hover:underline">Hỗ trợ</Link>
-            <Link href="/terms" className="media-copy underline-offset-4 hover:underline">Điều khoản sử dụng</Link>
-            <Link href="/privacy" className="media-copy underline-offset-4 hover:underline">Chính sách bảo mật</Link>
-          </nav>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

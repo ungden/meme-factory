@@ -23,8 +23,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fbf6e9" },
-    { media: "(prefers-color-scheme: dark)", color: "#121310" },
+    { media: "(prefers-color-scheme: light)", color: "#fafafa" },
+    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
   ],
 };
 
@@ -32,16 +32,16 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "AIDA — Media Studio cho fanpage có chất riêng",
+    default: "AIDA — Nội dung AI đều đặn cho kênh của bạn",
     template: "%s | AIDA",
   },
-  description: "Từ một nhân vật và một ý tưởng, tạo trọn bộ meme, TikTok, quảng cáo và bài đăng fanpage nhất quán.",
+  description: "Tạo kênh, dựng nhân vật, rồi để AI làm meme, video và phim ngắn cho fanpage, TikTok… — từng bài hoặc tự làm mỗi ngày.",
   keywords: ["AIDA", "AI media studio", "fanpage", "character consistency", "content creation", "TikTok", "quảng cáo", "meme", "Việt Nam"],
   authors: [{ name: "AIDA" }],
   creator: "AIDA",
   openGraph: {
-    title: "AIDA — Một ý tưởng, đủ content để đăng",
-    description: "Giữ nguyên nhân vật, đổi format linh hoạt — từ meme đến TikTok, quảng cáo và bài viết mỗi ngày.",
+    title: "AIDA — Kênh của bạn, ngày nào cũng có bài mới",
+    description: "Meme, video và phim ngắn với đúng một nhân vật — từng bài hoặc tự làm mỗi ngày.",
     type: "website",
     locale: "vi_VN",
     siteName: "AIDA",
@@ -58,8 +58,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "AIDA — Một ý tưởng, đủ content để đăng",
-    description: "Tạo meme, TikTok, quảng cáo và bài viết với nhân vật nhất quán.",
+    title: "AIDA — Kênh của bạn, ngày nào cũng có bài mới",
+    description: "Meme, video và phim ngắn với đúng một nhân vật — từng bài hoặc tự làm mỗi ngày.",
     images: ["/og-image.png"],
   },
   icons: {

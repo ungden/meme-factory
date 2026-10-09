@@ -20,7 +20,7 @@ export type PricingExample = {
 };
 
 export const PRICING_EXAMPLES: PricingExample[] = [
-  { label: "Một ảnh cho bài đăng", points: POINT_COSTS.meme },
+  { label: "Một meme cho bài đăng", points: POINT_COSTS.meme },
   { label: "Một ảnh nhân vật mới", points: POINT_COSTS.character },
   { label: "Một ảnh nền / bìa", points: POINT_COSTS.background },
   {
@@ -28,8 +28,26 @@ export const PRICING_EXAMPLES: PricingExample[] = [
     points: { min: FILM_POINTS_RANGE.min, max: FILM_POINTS_RANGE.max },
     note: "Tuỳ số cảnh, độ dài, lồng tiếng và kiểm tra; báo giá chính xác cùng trần chi hiện trước khi bắt đầu.",
   },
-  { label: "Viết nội dung, caption", points: 0, note: "Miễn phí" },
+  { label: "Viết lời cho bài đăng", points: 0 },
 ];
+
+/**
+ * Chi phí một ngày "tự làm mỗi ngày" — ví dụ trên trang giá.
+ *
+ * Tính từ đúng giá meme và khoảng giá phim ở trên, nên đổi giá ở một chỗ thì
+ * ví dụ đổi theo. Phim không có giá cố định nên kết quả là một khoảng.
+ */
+export function autopilotDayEstimate(plan: { films: number; memes: number }) {
+  const films = Math.max(0, Math.floor(plan.films));
+  const memes = Math.max(0, Math.floor(plan.memes));
+  const memePoints = memes * POINT_COSTS.meme;
+  return {
+    films,
+    memes,
+    min: films * FILM_POINTS_RANGE.min + memePoints,
+    max: films * FILM_POINTS_RANGE.max + memePoints,
+  };
+}
 
 /** Số ảnh làm được bằng điểm tặng — câu trả lời cho "miễn phí thì được gì?". */
 export function trialImageCount(): number {

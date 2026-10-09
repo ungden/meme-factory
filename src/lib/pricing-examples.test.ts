@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { POINT_COSTS, FREE_TRIAL_POINTS } from "./point-pricing";
-import { PRICING_EXAMPLES, pointsToVnd, trialImageCount } from "./pricing-examples";
+import { FILM_POINTS_RANGE, PRICING_EXAMPLES, autopilotDayEstimate, pointsToVnd, trialImageCount } from "./pricing-examples";
 
 describe("PRICING_EXAMPLES", () => {
   it("lấy giá ảnh từ đúng bảng dùng khi trừ điểm", () => {
@@ -40,5 +40,23 @@ describe("suggestPackage", () => {
   it("trả gói lớn nhất khi thiếu nhiều hơn mọi gói", async () => {
     const { suggestPackage } = await import("./pricing-examples");
     expect(suggestPackage(99999).points).toBe(1000);
+  });
+});
+
+describe("autopilotDayEstimate", () => {
+  it("cộng giá phim (một khoảng) với giá meme cố định", () => {
+    const day = autopilotDayEstimate({ films: 1, memes: 3 });
+    expect(day.min).toBe(FILM_POINTS_RANGE.min + 3 * POINT_COSTS.meme);
+    expect(day.max).toBe(FILM_POINTS_RANGE.max + 3 * POINT_COSTS.meme);
+  });
+
+  it("chỉ meme thì không có khoảng", () => {
+    const day = autopilotDayEstimate({ films: 0, memes: 2 });
+    expect(day.min).toBe(day.max);
+    expect(day.min).toBe(2 * POINT_COSTS.meme);
+  });
+
+  it("không nhận số âm hay số lẻ", () => {
+    expect(autopilotDayEstimate({ films: -1, memes: 1.7 })).toMatchObject({ films: 0, memes: 1, min: POINT_COSTS.meme });
   });
 });
