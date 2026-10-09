@@ -10,12 +10,12 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className = "", variant = "primary", size = "md", loading, children, disabled, ...props }, ref) => {
     // focus-visible, không phải focus: vòng sáng chỉ nên xuất hiện khi người
     // dùng đi bằng bàn phím, chứ không sau mỗi cú bấm chuột.
-    const base = "inline-flex min-h-10 items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer";
+    const base = "inline-flex min-h-10 items-center justify-center rounded-xl font-medium tracking-[-0.01em] transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 cursor-pointer";
 
     const variants = {
-      primary: "text-white th-ring-accent th-shadow-sm hover:opacity-90",
+      primary: "text-white th-ring-accent hover:brightness-110",
       secondary: "th-bg-tertiary th-text-primary hover:opacity-80 th-ring-accent",
-      outline: "border th-border-secondary th-text-secondary th-bg-card hover:th-bg-hover th-ring-accent",
+      outline: "border th-border th-text-primary th-bg-card th-shadow-sm th-bg-hover th-ring-accent",
       ghost: "th-text-tertiary hover:th-text-primary th-bg-hover th-ring-accent",
       danger: "th-bg-danger text-white hover:opacity-90 th-ring-danger",
     };
@@ -30,7 +30,14 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
-        style={variant === "primary" ? { backgroundColor: "var(--accent)" } : undefined}
+        style={
+          variant === "primary"
+            ? {
+                backgroundImage: "var(--accent-gradient)",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.22), 0 8px 22px -10px var(--accent-shadow)",
+              }
+            : undefined
+        }
         disabled={disabled || loading}
         {...props}
       >

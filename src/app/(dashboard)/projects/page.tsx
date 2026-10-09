@@ -92,7 +92,7 @@ export default function ProjectsPage() {
   return (
     <div className="flex">
       <Sidebar />
-      <main className="ml-0 min-h-screen flex-1 p-4 pt-16 lg:ml-56 md:p-8 lg:p-10">
+      <main className="ml-0 min-h-screen flex-1 overflow-x-hidden p-4 pt-16 lg:ml-56 md:p-8 lg:p-10">
         <div className="mx-auto max-w-7xl">
           {IS_MOCK_MODE && (
             <div className="mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 th-border-accent th-bg-accent-light">
@@ -103,8 +103,11 @@ export default function ProjectsPage() {
 
           <AnnouncementBanner />
 
-          <div className="mx-auto mb-10 max-w-3xl pt-2 sm:pt-6">
-            {loading ? <div className="h-56 animate-pulse rounded-2xl th-bg-card" /> : <HomeComposer projects={projects} onStarted={loadFeed} preset={preset} />}
+          <div className="relative mx-auto mb-14 max-w-3xl pt-4 sm:pt-12">
+            <div aria-hidden className="pointer-events-none absolute inset-x-[-30%] -top-24 h-[420px] th-glow" />
+            <div className="relative">
+              {loading ? <div className="h-56 animate-pulse rounded-3xl th-bg-card" /> : <HomeComposer projects={projects} onStarted={loadFeed} preset={preset} />}
+            </div>
           </div>
 
           {projects.length > 0 && (
@@ -120,7 +123,7 @@ export default function ProjectsPage() {
 
           <section aria-labelledby="channels-title">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 id="channels-title" className="text-lg font-semibold th-text-primary">Kênh của bạn</h2>
+              <h2 id="channels-title" className="text-[15px] font-semibold th-text-primary">Kênh của bạn</h2>
               {projects.length > 0 && (
                 <Button variant="outline" size="sm" onClick={() => router.push("/projects/new")}>
                   <Plus size={15} /> Kênh mới
@@ -146,15 +149,14 @@ export default function ProjectsPage() {
                 return (
                 <article
                   key={project.id}
-                  className="relative flex items-start gap-3 rounded-xl border p-4 transition hover:th-border-accent"
-                  style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
+                  className="group relative flex items-start gap-3 rounded-2xl border p-4 transition-all th-border th-bg-card hover:-translate-y-0.5 hover:th-shadow-md"
                 >
                   <button
                     onClick={() => { const query = searchParams.toString(); const destination = requestedDestination(); router.push(`/projects/${projectRef}${destination ? `/${destination}` : ""}${query ? `?${query}` : ""}`); }}
                     className="flex min-w-0 flex-1 items-start gap-3 text-left"
                     aria-label={`Mở kênh ${project.name}`}
                   >
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold th-bg-accent-light th-text-accent">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-semibold text-white" style={{ backgroundImage: "var(--accent-gradient)" }}>
                       {project.name.trim().slice(0, 2).toLocaleUpperCase("vi")}
                     </span>
                     <span className="min-w-0 flex-1">

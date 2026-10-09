@@ -152,13 +152,13 @@ export default function HomeComposer({
   return (
     <form onSubmit={submit} className="flex flex-col gap-3" aria-labelledby="home-title">
       <div className="text-center">
-        <h1 id="home-title" className="text-2xl font-bold tracking-[-0.02em] th-text-primary sm:text-3xl">
-          Hôm nay kênh của bạn đăng gì?
+        <h1 id="home-title" className="text-[28px] font-semibold leading-tight tracking-[-0.035em] th-text-primary sm:text-[40px]">
+          Hôm nay kênh của bạn <span className="th-text-gradient">đăng gì?</span>
         </h1>
-        <p className="mt-2 text-sm th-text-secondary">Gõ ý tưởng hoặc để trống. AI tự nghĩ, dựng, quay và gửi kết quả về đây.</p>
+        <p className="mx-auto mt-3 max-w-xl text-[15px] th-text-secondary">Gõ ý tưởng hoặc để trống. AI tự nghĩ, dựng, quay và gửi kết quả về đây.</p>
       </div>
 
-      <div className="rounded-2xl border th-border th-bg-card p-3 shadow-sm focus-within:th-border-accent sm:p-4">
+      <div className="mt-2 rounded-[22px] border th-border th-bg-elevated p-2.5 th-shadow-lg transition-shadow focus-within:shadow-[0_0_0_1px_var(--accent-border),0_24px_70px_-24px_var(--accent-shadow)] sm:p-3">
         <textarea
           ref={box}
           value={idea}
@@ -177,10 +177,10 @@ export default function HomeComposer({
               ? "Kể một chuyện nhỏ cho tập phim, hoặc để trống cho AI tự nghĩ…"
               : "Ví dụ: Thứ Hai đi làm mà lương chưa về… hoặc để trống cho AI tự nghĩ"
           }
-          className="w-full resize-none bg-transparent px-1 py-1 text-base th-text-primary outline-none"
+          className="w-full resize-none bg-transparent px-2 py-2 text-[15px] leading-relaxed th-text-primary outline-none placeholder:th-text-muted"
         />
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <div role="radiogroup" aria-label="Loại nội dung" className="flex rounded-full border th-border p-0.5">
+          <div role="radiogroup" aria-label="Loại nội dung" className="flex rounded-full p-0.5 th-bg-tertiary">
             {([
               ["film", "Phim ngắn", Clapperboard],
               ["meme", "Meme", Images],
@@ -191,13 +191,13 @@ export default function HomeComposer({
                 role="radio"
                 aria-checked={kind === value}
                 onClick={() => setKind(value)}
-                className={`flex min-h-9 items-center gap-1.5 rounded-full px-3 text-sm font-medium ${kind === value ? "th-bg-accent-light th-text-accent" : "th-text-secondary"}`}
+                className={`flex min-h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition-colors ${kind === value ? "th-bg-card th-text-primary th-shadow-sm" : "th-text-tertiary hover:th-text-primary"}`}
               >
                 <Icon size={15} aria-hidden /> {label}
               </button>
             ))}
           </div>
-          <label className="flex min-h-9 min-w-0 max-w-full items-center gap-1.5 rounded-full border th-border px-3 text-sm th-text-secondary">
+          <label className="flex min-h-9 min-w-0 max-w-full items-center gap-1.5 rounded-full border th-border px-3 text-[13px] th-text-tertiary th-bg-hover">
             <span className="shrink-0">Kênh</span>
             <select
               value={channelId}
@@ -210,7 +210,7 @@ export default function HomeComposer({
               <option value={NEW_CHANNEL}>+ Tạo kênh mới</option>
             </select>
           </label>
-          <Button type="submit" loading={busy} disabled={tooShort} className="ml-auto rounded-full" aria-label={written ? "Bắt đầu làm" : "Để AI tự nghĩ và làm"}>
+          <Button type="submit" loading={busy} disabled={tooShort} className="ml-auto rounded-full px-4" aria-label={written ? "Bắt đầu làm" : "Để AI tự nghĩ và làm"}>
             {written ? <ArrowUp size={17} aria-hidden /> : <Sparkles size={17} aria-hidden />}
             {newChannel ? "Tạo kênh" : written ? (kind === "film" ? "Làm phim" : "Làm meme") : "AI tự nghĩ"}
           </Button>
@@ -227,7 +227,7 @@ export default function HomeComposer({
               aria-checked={format === choice.value}
               title={choice.description}
               onClick={() => setFormat(choice.value)}
-              className={`min-h-8 rounded-full border px-3 text-xs ${format === choice.value ? "th-border-accent th-bg-accent-light th-text-accent" : "th-border th-bg-card th-text-secondary hover:th-bg-hover"}`}
+              className={`min-h-8 rounded-full border px-3 text-xs transition-colors ${format === choice.value ? "th-border-accent th-bg-accent-light th-text-accent" : "th-border th-text-tertiary th-bg-hover"}`}
             >
               {choice.label}
             </button>
@@ -235,7 +235,7 @@ export default function HomeComposer({
         </div>
       )}
 
-      <p className="text-center text-xs th-text-secondary">
+      <p className="text-center text-xs th-text-muted">
         {stage
           ? stage
           : tooShort

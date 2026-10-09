@@ -4,89 +4,100 @@
    Theme CSS Variables
    ============================================ */
 
+/* Bộ màu v2: nền trung tính (zinc), một màu nhấn tím chuyển hồng cho hành động
+   chính. Viền mảnh, bóng nhẹ: nội dung (ảnh, phim) là thứ nổi bật, không phải
+   khung giao diện. Đổi ở đây là đổi cả app vì mọi màn dùng token th-*. */
 :root,
 .light {
   color-scheme: light;
-  --bg-primary: #f6f8fa;
-  --bg-secondary: #f1f4f6;
-  --bg-tertiary: #eef2f5;
+  --bg-primary: #fafafa;
+  --bg-secondary: #f4f4f5;
+  --bg-tertiary: #f1f1f3;
   --bg-card: #ffffff;
-  --bg-sidebar: #fbfcfd;
+  --bg-elevated: #ffffff;
+  --bg-sidebar: #f7f7f8;
   --bg-input: #ffffff;
-  --bg-hover: #e6f4f1;
-  --bg-overlay: rgba(0, 0, 0, 0.4);
+  --bg-hover: rgba(24, 24, 27, 0.045);
+  --bg-overlay: rgba(9, 9, 11, 0.45);
 
-  --border-primary: #d9e1e7;
-  --border-secondary: #c7d3dc;
-  --border-active: rgba(15, 118, 110, 0.42);
+  --border-primary: #e7e7ea;
+  --border-secondary: #d9d9de;
+  --border-active: rgba(124, 58, 237, 0.45);
 
-  --text-primary: #17212b;
-  --text-secondary: #526170;
-  --text-tertiary: #718091;
-  --text-muted: #9aa7b4;
+  --text-primary: #0a0a0c;
+  --text-secondary: #52525b;
+  --text-tertiary: #71717a;
+  --text-muted: #a1a1aa;
   --text-on-primary: #ffffff;
 
-  --accent: #0f766e;
+  --accent: #7c3aed;
+  --accent-2: #db2777;
+  --accent-gradient: linear-gradient(135deg, #7c3aed 0%, #a21caf 55%, #db2777 100%);
   --text-on-accent: #ffffff;
-  --accent-light: #e6f4f1;
-  --accent-border: rgba(15, 118, 110, 0.3);
-  --accent-shadow: rgba(15, 118, 110, 0.18);
+  --accent-light: #f3efff;
+  --accent-border: rgba(124, 58, 237, 0.32);
+  --accent-shadow: rgba(124, 58, 237, 0.22);
+  --glow: radial-gradient(60% 50% at 50% 0%, rgba(124, 58, 237, 0.10) 0%, rgba(219, 39, 119, 0.05) 45%, transparent 75%);
 
-  --danger: #e03131;
-  --danger-light: rgba(224, 49, 49, 0.08);
-  --success: #2f9e44;
-  --success-light: rgba(47, 158, 68, 0.08);
-  --warning: #e67700;
-  --warning-light: rgba(230, 119, 0, 0.08);
+  --danger: #dc2626;
+  --danger-light: rgba(220, 38, 38, 0.08);
+  --success: #16a34a;
+  --success-light: rgba(22, 163, 74, 0.09);
+  --warning: #d97706;
+  --warning-light: rgba(217, 119, 6, 0.1);
 
-  --shadow-sm: 0 1px 2px rgba(23, 33, 43, 0.05);
-  --shadow-md: 0 8px 24px rgba(23, 33, 43, 0.08);
-  --shadow-lg: 0 18px 50px rgba(23, 33, 43, 0.12);
+  --shadow-sm: 0 1px 2px rgba(9, 9, 11, 0.05);
+  --shadow-md: 0 1px 2px rgba(9, 9, 11, 0.04), 0 8px 24px -8px rgba(9, 9, 11, 0.10);
+  --shadow-lg: 0 2px 4px rgba(9, 9, 11, 0.04), 0 24px 48px -12px rgba(9, 9, 11, 0.18);
 
-  --scrollbar-thumb: #d0d5dc;
-  --scrollbar-hover: #adb5bd;
+  --scrollbar-thumb: #d4d4d8;
+  --scrollbar-hover: #a1a1aa;
 }
 
 .dark {
   color-scheme: dark;
-  --bg-primary: #111827;
-  --bg-secondary: #17202c;
-  --bg-tertiary: #1e2936;
-  --bg-card: #18212d;
-  --bg-sidebar: #111827;
-  --bg-input: #1d2936;
-  --bg-hover: #223140;
-  --bg-overlay: rgba(0, 0, 0, 0.6);
+  --bg-primary: #09090b;
+  --bg-secondary: #0f0f12;
+  --bg-tertiary: #18181c;
+  --bg-card: #111114;
+  --bg-elevated: #17171b;
+  --bg-sidebar: #0b0b0e;
+  --bg-input: #141418;
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --bg-overlay: rgba(0, 0, 0, 0.65);
 
-  --border-primary: #314154;
-  --border-secondary: #405166;
-  --border-active: rgba(45, 212, 191, 0.52);
+  --border-primary: rgba(255, 255, 255, 0.08);
+  --border-secondary: rgba(255, 255, 255, 0.13);
+  --border-active: rgba(167, 139, 250, 0.55);
 
-  --text-primary: #f3f7f8;
-  --text-secondary: #c1ced4;
-  --text-tertiary: #94a3b0;
-  --text-muted: #718092;
+  --text-primary: #fafafa;
+  --text-secondary: #b4b4bc;
+  --text-tertiary: #8b8b94;
+  --text-muted: #63636c;
   --text-on-primary: #ffffff;
 
-  --accent: #2dd4bf;
-  --text-on-accent: #102b2a;
-  --accent-light: rgba(45, 212, 191, 0.14);
-  --accent-border: rgba(45, 212, 191, 0.34);
-  --accent-shadow: rgba(45, 212, 191, 0.22);
+  --accent: #a78bfa;
+  --accent-2: #f472b6;
+  --accent-gradient: linear-gradient(135deg, #8b5cf6 0%, #c026d3 55%, #ec4899 100%);
+  --text-on-accent: #ffffff;
+  --accent-light: rgba(167, 139, 250, 0.13);
+  --accent-border: rgba(167, 139, 250, 0.38);
+  --accent-shadow: rgba(139, 92, 246, 0.35);
+  --glow: radial-gradient(60% 50% at 50% 0%, rgba(139, 92, 246, 0.22) 0%, rgba(236, 72, 153, 0.08) 45%, transparent 75%);
 
-  --danger: #f03e3e;
-  --danger-light: rgba(240, 62, 62, 0.1);
-  --success: #40c057;
-  --success-light: rgba(64, 192, 87, 0.1);
-  --warning: #fab005;
-  --warning-light: rgba(250, 176, 5, 0.1);
+  --danger: #f87171;
+  --danger-light: rgba(248, 113, 113, 0.12);
+  --success: #4ade80;
+  --success-light: rgba(74, 222, 128, 0.12);
+  --warning: #fbbf24;
+  --warning-light: rgba(251, 191, 36, 0.12);
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 24px -8px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 24px 60px -12px rgba(0, 0, 0, 0.75);
 
-  --scrollbar-thumb: #34362e;
-  --scrollbar-hover: #4a4d42;
+  --scrollbar-thumb: #2a2a30;
+  --scrollbar-hover: #3f3f46;
 }
 
 @theme inline {
@@ -106,8 +117,13 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-inter), system-ui, sans-serif;
+  font-feature-settings: "cv11", "ss01";
   transition: background-color 0.2s, color 0.2s;
 }
+
+h1, h2, h3 { letter-spacing: -0.02em; }
+
+::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
 
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -142,7 +158,7 @@ body {
 @utility th-bg-overlay { background-color: var(--bg-overlay); }
 
 @utility th-text-accent { color: var(--accent); }
-@utility th-bg-accent { background-color: var(--accent); }
+@utility th-bg-accent { background-color: var(--accent); background-image: var(--accent-gradient); }
 @utility th-bg-accent-light { background-color: var(--accent-light); }
 @utility th-border-accent { border-color: var(--accent-border); }
 
@@ -154,6 +170,11 @@ body {
 @utility th-bg-accent-soft { background-color: color-mix(in srgb, var(--accent) 20%, transparent); }
 @utility th-bg-accent-medium { background-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 @utility th-shadow-accent { box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 20%, transparent); }
+@utility th-bg-elevated { background-color: var(--bg-elevated); }
+/* Nút và điểm nhấn chính: dải tím → hồng, có viền sáng mảnh phía trên. */
+@utility th-bg-gradient { background-image: var(--accent-gradient); }
+@utility th-glow { background-image: var(--glow); }
+@utility th-text-gradient { background-image: var(--accent-gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
 /* accent-color cho checkbox/radio gốc của trình duyệt. */
 @utility th-accent-control { accent-color: var(--accent); }
 
