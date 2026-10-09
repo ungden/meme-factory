@@ -1,15 +1,14 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowRight,
-  Clapperboard,
+  CalendarClock,
   Edit2,
   Images,
   MoreVertical,
   Plus,
-  Sparkles,
   Trash2,
   Users,
   Zap,
@@ -17,20 +16,17 @@ import {
 import { useProjects, IS_MOCK_MODE } from "@/lib/use-store";
 import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
-import Modal from "@/components/ui/modal";
 import ConfirmModal from "@/components/ui/confirm-modal";
-import Input from "@/components/ui/input";
-import Textarea from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import AnnouncementBanner from "@/components/ui/announcement-banner";
 import { getProjectRouteRef } from "@/lib/project-visuals";
 import { fetchJsonCached, invalidateClientCache } from "@/lib/client-fetch";
+import { feedIsBusy, type FeedItem } from "@/lib/home-feed";
+import HomeComposer from "./_components/home-composer";
+import HomeFeedList from "./_components/home-feed-list";
 
 export default function ProjectsPage() {
-  const { projects, loading, create, remove } = useProjects();
-  const [showCreate, setShowCreate] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [newProject, setNewProject] = useState({ name: "", description: "", style_prompt: "" });
+  const { projects, loading, remove } = useProjects();
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const router = useRouter();
@@ -57,33 +53,37 @@ export default function ProjectsPage() {
     return () => { active = false; };
   }, [projects.length]);
 
-  const handleCreate = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setCreating(true);
-    const project = await create({
-      name: newProject.name,
-      description: newProject.description || undefined,
-      style_prompt: newProject.style_prompt || undefined,
-    });
-    if (project) {
-      invalidateClientCache("/api/projects/summaries");
-      setShowCreate(false);
-      setNewProject({ name: "", description: "", style_prompt: "" });
-      toast.success(`Đã tạo dự án "${project.name}"`);
-      const query = searchParams.toString();
-      const destination = requestedDestination();
-      router.push(`/projects/${project.slug}${destination ? `/${destination}` : ""}${query ? `?${query}` : ""}`);
-    } else {
-      toast.error("Không thể tạo dự án. Vui lòng thử lại.");
+  const [feed, setFeed] = useState<{ items: FeedItem[]; autopilot: Record<string, string> }>({ items: [], autopilot: {} });
+  const [feedLoading, setFeedLoading] = useState(true);
+  const [feedFailed, setFeedFailed] = useState(false);
+  const loadFeed = useCallback(async () => {
+    if (IS_MOCK_MODE) return setFeedLoading(false);
+    try {
+      const response = await fetch("/api/home", { cache: "no-store" });
+      if (!response.ok) throw new Error(String(response.status));
+      setFeed(await response.json());
+      setFeedFailed(false);
+    } catch {
+      setFeedFailed(true);
+    } finally {
+      setFeedLoading(false);
     }
-    setCreating(false);
-  };
+  }, []);
+  const busy = feedIsBusy(feed.items);
+  // Có việc đang chạy thì cập nhật nhanh để người dùng thấy kết quả về ngay.
+  useEffect(() => {
+    void loadFeed();
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void loadFeed();
+    }, busy ? 5000 : 60000);
+    return () => clearInterval(timer);
+  }, [loadFeed, busy]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
     await remove(deleteTarget);
     invalidateClientCache("/api/projects/summaries");
-    toast.success("Đã xoá dự án");
+    toast.success("Đã xoá kênh");
     setDeleteTarget(null);
     setMenuOpen(null);
   };
@@ -102,108 +102,99 @@ export default function ProjectsPage() {
 
           <AnnouncementBanner />
 
-          <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] th-text-accent">
-                <Sparkles size={14} /> AIDA Media Studio
-              </div>
-              <h1 className="text-3xl font-bold tracking-[-0.025em] th-text-primary">Không gian nội dung của bạn</h1>
-              <p className="mt-2 max-w-2xl th-text-tertiary">Mỗi dự án lưu nhân vật, tài nguyên và giọng thương hiệu — để làm nội dung nhất quán cho mọi kênh.</p>
-            </div>
-            <Button onClick={() => setShowCreate(true)} size="lg" className="shrink-0 th-bg-accent th-shadow-accent hover:th-bg-accent">
-              <Plus size={18} /> Tạo dự án
-            </Button>
+          <div className="mx-auto mb-10 max-w-3xl pt-2 sm:pt-6">
+            {loading ? <div className="h-56 animate-pulse rounded-2xl th-bg-card" /> : <HomeComposer projects={projects} onStarted={loadFeed} />}
           </div>
 
+          {projects.length > 0 && (
+            <div className="mb-10">
+              <HomeFeedList items={feed.items} loading={feedLoading} failed={feedFailed} />
+            </div>
+          )}
+
+          <section aria-labelledby="channels-title">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 id="channels-title" className="text-lg font-semibold th-text-primary">Kênh của bạn</h2>
+              {projects.length > 0 && (
+                <Button variant="outline" size="sm" onClick={() => router.push("/onboarding")}>
+                  <Plus size={15} /> Kênh mới
+                </Button>
+              )}
+            </div>
           {loading ? (
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
-              {[1, 2, 3].map((item) => <div key={item} className="h-80 animate-pulse rounded-2xl th-bg-card" />)}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {[1, 2, 3].map((item) => <div key={item} className="h-28 animate-pulse rounded-xl th-bg-card" />)}
             </div>
           ) : projects.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-3xl border py-24 text-center" style={{ borderColor: "var(--border-primary)", background: "var(--bg-card)" }}>
-              <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl th-bg-accent-light th-text-accent"><Clapperboard size={28} /></span>
-              <h2 className="text-xl font-semibold th-text-primary">Tạo fanpage đầu tiên của bạn</h2>
-              <p className="mt-2 max-w-md th-text-tertiary">Bắt đầu bằng mục tiêu, nhân vật và giọng điệu. AIDA sẽ giúp bạn phát triển cả hệ nội dung sau đó.</p>
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed px-4 py-10 text-center th-border">
+              <p className="max-w-md text-sm th-text-secondary">Mỗi kênh có nhân vật riêng. AI dùng họ để làm phim và meme cho bạn mỗi ngày.</p>
               {/* Người chưa có dự án nào đi qua luồng 3 bước: đặt tên, chọn nhân
                   vật AI gợi ý, rồi tạo ảnh đầu tiên bằng điểm tặng. Modal trống
                   ở đây từng bắt họ tự nghĩ ra "giọng nói & phong cách hình ảnh"
                   trước khi thấy sản phẩm làm được gì. */}
-              <Button onClick={() => router.push("/onboarding")} className="mt-6"><Plus size={17} /> Tạo dự án đầu tiên</Button>
+              <Button onClick={() => router.push("/onboarding")} className="mt-4"><Plus size={17} /> Tạo kênh đầu tiên</Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {projects.map((project) => {
                 const projectRef = getProjectRouteRef(project);
                 const summary = summaries[project.id];
+                const autopilot = feed.autopilot[project.id];
                 return (
                 <article
                   key={project.id}
-                  className="group overflow-hidden rounded-2xl border transition hover:-translate-y-1 hover:shadow-2xl"
+                  className="relative flex items-start gap-3 rounded-xl border p-4 transition hover:th-border-accent"
                   style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
                 >
-                  <button onClick={() => { const query = searchParams.toString(); const destination = requestedDestination(); router.push(`/projects/${projectRef}${destination ? `/${destination}` : ""}${query ? `?${query}` : ""}`); }} className="block w-full text-left" aria-label={`Mở dự án ${project.name}`}>
-                    <div className="relative aspect-[16/8.6] overflow-hidden" style={{ background: "linear-gradient(135deg, var(--bg-tertiary), color-mix(in srgb, var(--accent-primary) 16%, var(--bg-tertiary)))" }}>
-                      {/* Ảnh bìa là một asset workspace rõ ràng và hiện chưa có; luôn dùng chữ cái đầu. */}
-                      <div className="absolute inset-0 flex items-center justify-center"><span className="rounded-2xl border px-4 py-3 text-center text-2xl font-bold th-text-primary" style={{ borderColor: "var(--border-primary)", background: "color-mix(in srgb, var(--bg-card) 82%, transparent)" }}>{project.name.trim().slice(0, 2).toLocaleUpperCase("vi")}<small className="mt-1 block text-xs font-normal th-text-tertiary">{summary ? `${summary.characterCount} nhân vật · ${summary.outputCount} đầu ra` : summariesFailed ? "Chưa tải được số liệu" : "Đang tải số liệu"}</small></span></div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
-                      <div className="absolute bottom-3 left-3 flex gap-2">
-                        <span className="rounded-full border border-white/25 bg-black/45 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-md">FANPAGE</span>
-                        <span className="rounded-full border border-white/25 bg-black/45 px-2.5 py-1 text-[10px] text-white/85 backdrop-blur-md">NHÂN VẬT NHẤT QUÁN</span>
-                      </div>
-                    </div>
+                  <button
+                    onClick={() => { const query = searchParams.toString(); const destination = requestedDestination(); router.push(`/projects/${projectRef}${destination ? `/${destination}` : ""}${query ? `?${query}` : ""}`); }}
+                    className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                    aria-label={`Mở kênh ${project.name}`}
+                  >
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold th-bg-accent-light th-text-accent">
+                      {project.name.trim().slice(0, 2).toLocaleUpperCase("vi")}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold th-text-primary">{project.name}</span>
+                      <span className="mt-0.5 flex items-center gap-1 truncate text-xs th-text-secondary">
+                        {autopilot ? (<><CalendarClock size={12} className="shrink-0 th-text-accent" /> {autopilot}</>) : "Chưa bật tự làm hằng ngày"}
+                      </span>
+                      <span className="mt-2 flex gap-3 text-xs th-text-muted">
+                        {summary ? (<><span className="flex items-center gap-1"><Users size={12} /> {summary.characterCount} nhân vật</span><span className="flex items-center gap-1"><Images size={12} /> {summary.outputCount} đã làm</span></>) : (<span>{summariesFailed ? "Chưa tải được số liệu" : "Đang tải số liệu"}</span>)}
+                      </span>
+                      {summary && summary.draftCount > 0 && <span className="mt-1 block text-xs font-medium th-text-warning">{summary.draftCount} bộ nội dung đang làm dở</span>}
+                    </span>
                   </button>
-
-                  <div className="p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h2 className="truncate text-lg font-semibold th-text-primary">{project.name}</h2>
-                        <p className="mt-1 line-clamp-2 min-h-10 text-sm leading-5 th-text-tertiary">{project.description || "Chưa có mô tả dự án"}</p>
+                  <div className="relative">
+                    <button
+                      aria-label="Tuỳ chọn kênh"
+                      onClick={() => setMenuOpen(menuOpen === project.id ? null : project.id)}
+                      className="rounded-lg p-2 th-text-muted th-bg-hover"
+                    >
+                      <MoreVertical size={17} />
+                    </button>
+                    {menuOpen === project.id && (
+                      <div className="absolute right-0 top-10 z-10 w-40 rounded-xl border py-1 shadow-xl" style={{ background: "var(--bg-tertiary)", borderColor: "var(--border-primary)" }}>
+                        <button onClick={() => { router.push(`/projects/${projectRef}`); setMenuOpen(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-sm th-text-secondary th-bg-hover"><Edit2 size={14} /> Mở kênh</button>
+                        <button onClick={() => { router.push(`/projects/${projectRef}/short-films`); setMenuOpen(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-sm th-text-secondary th-bg-hover"><ArrowRight size={14} /> Studio phim</button>
+                        <button onClick={() => setDeleteTarget(project.id)} className="flex w-full items-center gap-2 px-3 py-2 text-sm th-bg-hover" style={{ color: "var(--danger)" }}><Trash2 size={14} /> Xoá</button>
                       </div>
-                      <div className="relative">
-                        <button
-                          aria-label="Tuỳ chọn dự án"
-                          onClick={() => setMenuOpen(menuOpen === project.id ? null : project.id)}
-                          className="rounded-lg p-2 th-text-muted th-bg-hover"
-                        >
-                          <MoreVertical size={17} />
-                        </button>
-                        {menuOpen === project.id && (
-                          <div className="absolute right-0 top-10 z-10 w-40 rounded-xl border py-1 shadow-xl" style={{ background: "var(--bg-tertiary)", borderColor: "var(--border-primary)" }}>
-                            <button onClick={() => { router.push(`/projects/${projectRef}`); setMenuOpen(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-sm th-text-secondary th-bg-hover"><Edit2 size={14} /> Mở dự án</button>
-                            <button onClick={() => setDeleteTarget(project.id)} className="flex w-full items-center gap-2 px-3 py-2 text-sm th-bg-hover" style={{ color: "var(--danger)" }}><Trash2 size={14} /> Xoá</button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="mt-5 flex items-center justify-between border-t pt-4 text-xs th-text-muted" style={{ borderColor: "var(--border-primary)" }}>
-                      <div className="flex gap-4">{summary ? (<><span className="flex items-center gap-1.5"><Users size={13} /> {summary.characterCount} nhân vật</span><span className="flex items-center gap-1.5"><Images size={13} /> {summary.outputCount} đầu ra</span></>) : (<span>{summariesFailed ? "Chưa tải được số liệu" : "Đang tải số liệu"}</span>)}</div>
-                      <button onClick={() => router.push(`/projects/${projectRef}`)} className="flex items-center gap-1.5 font-semibold th-text-accent">Mở dự án <ArrowRight size={13} /></button>
-                    </div>
-                    {summary && summary.draftCount > 0 && <button onClick={() => router.push(`/projects/${projectRef}/generate`)} className="mt-3 text-xs font-medium text-amber-600">{summary.draftCount} bộ nội dung đang làm dở · Tiếp tục</button>}
+                    )}
                   </div>
                 </article>
               );})}
             </div>
           )}
+          </section>
         </div>
-
-        <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Tạo không gian media" size="md">
-          <form onSubmit={handleCreate} className="space-y-4">
-            <Input id="project-name" label="Tên fanpage / thương hiệu" placeholder='VD: "Foxy Coffee", "Bò & Gấu Finance"' value={newProject.name} onChange={(event) => setNewProject((project) => ({ ...project, name: event.target.value }))} required />
-            <Textarea id="project-desc" label="Mục tiêu nội dung" placeholder="Bạn muốn nói với ai, về điều gì và đăng trên kênh nào?" value={newProject.description} onChange={(event) => setNewProject((project) => ({ ...project, description: event.target.value }))} rows={2} />
-            <Textarea id="project-style" label="Giọng nói & phong cách hình ảnh" placeholder='VD: "Thân thiện, dí dỏm; màu kem, xanh cobalt; nhân vật cute nhưng sang."' value={newProject.style_prompt} onChange={(event) => setNewProject((project) => ({ ...project, style_prompt: event.target.value }))} rows={3} />
-            <div className="flex justify-end gap-3 pt-2"><Button variant="ghost" type="button" onClick={() => setShowCreate(false)}>Huỷ</Button><Button type="submit" loading={creating}>Tạo dự án</Button></div>
-          </form>
-        </Modal>
 
         <ConfirmModal
           isOpen={!!deleteTarget}
           onClose={() => setDeleteTarget(null)}
           onConfirm={handleDelete}
-          title="Xoá dự án?"
-          message="Toàn bộ tài nguyên, đầu ra và lịch sử tạo ảnh trong dự án sẽ bị xoá vĩnh viễn."
-          confirmText="Xoá dự án"
+          title="Xoá kênh?"
+          message="Toàn bộ nhân vật, phim, meme và lịch sử tạo trong kênh sẽ bị xoá vĩnh viễn."
+          confirmText="Xoá kênh"
           variant="danger"
         />
       </main>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
-  FolderOpen,
+  House,
   Sparkles,
   Users,
   Image,
@@ -151,7 +151,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
   };
 
   const mainNav = [
-    { href: "/projects", label: "Tất cả dự án", icon: FolderOpen },
+    { href: "/projects", label: "Trang chính", icon: House },
     { href: "/wallet", label: "Ví tiền", icon: Wallet },
   ];
 
@@ -291,7 +291,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
               className="flex min-h-11 items-center gap-2 px-3 py-2 text-sm th-text-muted transition-colors th-bg-hover rounded-xl lg:min-h-10"
             >
               <ChevronLeft size={16} />
-              Tất cả dự án
+              Trang chính
             </Link>
             <div className="px-3 py-2">
               <p className="text-xs th-text-muted uppercase tracking-wider">

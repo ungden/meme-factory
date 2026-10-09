@@ -36,9 +36,7 @@ export default function Home() {
   const [user, setUser] = useState<{ email?: string } | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [idea, setIdea] = useState("");
-  const [character, setCharacter] = useState("Foxy");
-  const [voice, setVoice] = useState("Thân thiện, dí dỏm");
-  const [output, setOutput] = useState("Tạo ảnh");
+  const [output, setOutput] = useState("Tạo phim ngắn");
   const promptRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -85,10 +83,10 @@ export default function Home() {
 
   function submitIdea(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const draft = { idea: idea.trim(), character, voice, output };
-    window.sessionStorage.setItem("aida:landing-draft", JSON.stringify(draft));
-    const query = `?${new URLSearchParams(draft).toString()}`;
-    window.location.href = `${appHref}${query}`;
+    // Ý tưởng đi qua đăng nhập bằng sessionStorage, không nằm trên URL; trang
+    // chính trong app đọc lại và điền sẵn vào ô nhập.
+    window.sessionStorage.setItem("aida:landing-draft", JSON.stringify({ idea: idea.trim(), output }));
+    window.location.href = appHref;
   }
 
   return (
@@ -171,29 +169,15 @@ export default function Home() {
                   value={idea}
                   onChange={(event) => setIdea(event.target.value)}
                   className="media-idea-input min-w-0 flex-1 rounded-[15px] px-4 py-3.5 text-[15px] outline-none"
-                  placeholder="Ví dụ: Content cà phê sáng cho dân văn phòng..."
+                  placeholder="Ví dụ: Bé than lương của mẹ về ba ngày đã hết..."
                   aria-label="Ý tưởng nội dung"
                 />
-                <div className="grid gap-2 sm:grid-cols-2 xl:flex">
-                  <label className="media-select flex min-w-[168px] cursor-pointer items-center gap-2 rounded-[15px] px-3 py-2">
-                    <Image src="/media-studio/foxy-master.png" alt="Foxy" width={38} height={38} className="h-9 w-9 rounded-full object-cover" />
-                    <span className="min-w-0 flex-1"><small>Nhân vật</small><strong>{character}</strong></span>
-                    <select aria-label="Chọn nhân vật" value={character} onChange={(event) => setCharacter(event.target.value)}><option>Foxy</option><option>Thêm nhân vật mới</option></select>
-                    <ChevronDown size={14} />
-                  </label>
-                  <label className="media-select flex min-w-[190px] cursor-pointer items-center gap-2 rounded-[15px] px-3 py-2">
-                    <span className="media-select-icon">Aa</span>
-                    <span className="min-w-0 flex-1"><small>Giọng nói</small><strong>{voice}</strong></span>
-                    <select aria-label="Chọn giọng nói" value={voice} onChange={(event) => setVoice(event.target.value)}><option>Thân thiện, dí dỏm</option><option>Sang, tối giản</option><option>Năng động Gen Z</option><option>Chuyên gia đáng tin</option></select>
-                    <ChevronDown size={14} />
-                  </label>
-                  <label className="media-select flex min-w-[178px] cursor-pointer items-center gap-2 rounded-[15px] px-3 py-2">
-                    <span className="media-select-icon">AI</span>
-                    <span className="min-w-0 flex-1"><small>Công cụ</small><strong>{output}</strong></span>
-                    <select aria-label="Chọn công cụ" value={output} onChange={(event) => setOutput(event.target.value)}><option>Tạo ảnh</option><option>Tạo video</option><option>Tạo phim ngắn</option></select>
-                    <ChevronDown size={14} />
-                  </label>
-                </div>
+                <label className="media-select flex min-w-[178px] cursor-pointer items-center gap-2 rounded-[15px] px-3 py-2">
+                  <span className="media-select-icon">AI</span>
+                  <span className="min-w-0 flex-1"><small>AI làm</small><strong>{output === "Tạo phim ngắn" ? "Phim ngắn" : "Meme"}</strong></span>
+                  <select aria-label="Chọn loại nội dung" value={output} onChange={(event) => setOutput(event.target.value)}><option value="Tạo phim ngắn">Phim ngắn</option><option value="Tạo ảnh">Meme</option></select>
+                  <ChevronDown size={14} />
+                </label>
                 <button type="submit" className="media-submit flex h-14 w-full items-center justify-center rounded-2xl text-white xl:w-14" aria-label="Tạo nội dung">
                   <ArrowRight size={22} strokeWidth={2.5} />
                 </button>
