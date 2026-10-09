@@ -233,6 +233,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   MEME_REFERENCE_FETCH_FAILED: "Không đọc được ảnh nhân vật để làm meme. Hệ thống sẽ tự thử lại.",
   MEME_COPY_EMPTY: "AI chưa viết được chữ cho meme này. Hệ thống sẽ tự thử lại.",
   MEME_CHARGE_FAILED: "Chưa trừ được điểm cho meme. Hệ thống sẽ tự thử lại.",
+  MEME_RUN_GAVE_UP: "AI đã thử ba lần mà chưa làm được meme này. Hãy làm lại, có thể với ý tưởng khác.",
   FILM_PACK_INVALID: "Bộ ảnh chuẩn của nhân vật không hợp lệ. Hãy tạo lại.",
   FILM_PACK_INCOMPLETE: "Bộ ảnh chuẩn cần ít nhất ảnh cận mặt và ảnh toàn thân.",
   CHARACTER_NOT_FOUND: "Không tìm thấy nhân vật trong kênh này.",

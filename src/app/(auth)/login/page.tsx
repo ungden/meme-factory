@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { loginWithGoogleAction } from "@/app/(auth)/auth/actions";
 import { IS_MOCK_MODE } from "@/lib/use-store";
+import { FREE_TRIAL_POINTS } from "@/lib/point-pricing";
 import Button from "@/components/ui/button";
 import Input from "@/components/ui/input";
 import { Sparkles, Mail, Lock, AlertTriangle, Zap } from "lucide-react";
@@ -149,15 +151,19 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "var(--bg-primary)" }}>
+    <div className="min-h-screen flex items-center justify-center p-4 th-bg-primary th-glow">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 th-bg-accent rounded-2xl mb-4 shadow-lg th-shadow-accent">
-            <Sparkles size={28} className="text-white" />
-          </div>
-          <h1 className="text-2xl font-bold th-text-primary">AIDA</h1>
-          <p className="th-text-tertiary mt-1">Media Studio cho fanpage có nhân vật nhất quán</p>
+          <Link href="/" className="inline-flex items-center justify-center w-14 h-14 th-bg-gradient rounded-2xl mb-4 th-shadow-accent" aria-label="AIDA — trang chủ">
+            <Sparkles size={26} fill="currentColor" className="text-white" />
+          </Link>
+          <h1 className="text-[28px] font-extrabold tracking-[-0.03em] th-text-primary">
+            {mode === "reset" ? "Đặt lại mật khẩu" : isSignUp ? "Tạo tài khoản AIDA" : "Chào mừng trở lại"}
+          </h1>
+          <p className="th-text-secondary mt-2 leading-6">
+            Nội dung AI đều đặn cho kênh của bạn: meme, video và phim ngắn với đúng một nhân vật.
+          </p>
         </div>
 
         {/* Dev mode - skip login */}
@@ -192,7 +198,7 @@ export default function LoginPage() {
         )}
 
         {/* Form */}
-        <div className="rounded-2xl p-6" style={{ background: "var(--bg-card)", border: "1px solid var(--border-primary)" }}>
+        <div className="rounded-2xl border p-6 th-bg-card th-border th-shadow-lg">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="relative">
               <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 th-text-tertiary pointer-events-none mt-3" />
@@ -335,6 +341,11 @@ export default function LoginPage() {
             </button>
           </p>
         </div>
+
+        <p className="mt-6 text-center text-sm th-text-tertiary">
+          Tài khoản mới được tặng {FREE_TRIAL_POINTS} điểm để làm thử.{" "}
+          <Link href="/" className="th-text-secondary underline underline-offset-4">Về trang chủ</Link>
+        </p>
       </div>
     </div>
   );
