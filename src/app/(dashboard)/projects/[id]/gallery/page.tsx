@@ -544,7 +544,7 @@ export default function GalleryPage() {
               <p className="th-text-muted mt-1">Ảnh và phim bạn tạo sẽ xuất hiện ở đây</p>
             </div>
           ) : (
-            // Dự án chỉ có phim vẫn là dự án có nội dung; đừng nói "chưa có gì".
+            // Kênh chỉ có phim vẫn là kênh có nội dung; đừng nói "chưa có gì".
             <div className="flex flex-col items-center justify-center py-12">
               <h3 className="text-lg font-medium th-text-secondary">Chưa có ảnh nào</h3>
               <p className="th-text-muted mt-1">Phim của bạn đang ở phần phía trên.</p>
@@ -583,7 +583,7 @@ export default function GalleryPage() {
                       {isSelected ? (
                         <div
                           className="w-6 h-6 rounded-md flex items-center justify-center"
-                          style={{ background: "var(--accent)" }}
+                          style={{ background: "var(--accent-gradient)" }}
                         >
                           <CheckCircle size={16} className="text-white" />
                         </div>

@@ -241,7 +241,7 @@ export default function WalletPage() {
                       {pkg.popular && (
                         <span
                           className="absolute -top-2.5 left-4 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
-                          style={{ background: "var(--accent)" }}
+                          style={{ background: "var(--accent-gradient)" }}
                         >
                           Phổ biến nhất
                         </span>

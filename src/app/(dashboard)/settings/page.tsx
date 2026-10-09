@@ -148,7 +148,7 @@ export default function SettingsPage() {
             <p className="mt-2 th-text-tertiary">{loaded ? email : "Đang tải…"}</p>
           </header>
 
-          <Section title="Tên hiển thị" description="Tên này xuất hiện khi bạn làm việc cùng người khác trong một dự án." icon={UserIcon}>
+          <Section title="Tên hiển thị" description="Tên này xuất hiện khi bạn làm việc cùng người khác trong một kênh." icon={UserIcon}>
             <Input id="display-name" label="Tên hiển thị" value={name} onChange={(event) => setName(event.target.value)} placeholder="Tên của bạn" />
             <Button onClick={saveName} loading={busy === "name"}>Lưu</Button>
           </Section>
@@ -163,13 +163,13 @@ export default function SettingsPage() {
             <Button onClick={changePassword} loading={busy === "password"} disabled={!password}>Đổi mật khẩu</Button>
           </Section>
 
-          <Section title="Dữ liệu của bạn" description="Tải về tệp JSON gồm dự án, nhân vật, nội dung và lịch sử giao dịch." icon={Download}>
+          <Section title="Dữ liệu của bạn" description="Tải về tệp JSON gồm kênh, nhân vật, nội dung và lịch sử giao dịch." icon={Download}>
             <Button variant="outline" onClick={downloadData}>Tải dữ liệu</Button>
           </Section>
 
           <Section
             title="Xoá tài khoản"
-            description="Xoá vĩnh viễn tài khoản, mọi dự án bạn sở hữu và toàn bộ ảnh, video, phim bên trong. Điểm còn lại không được hoàn tiền. Không thể khôi phục."
+            description="Xoá vĩnh viễn tài khoản, mọi kênh bạn sở hữu và toàn bộ ảnh, video, phim bên trong. Điểm còn lại không được hoàn tiền. Không thể khôi phục."
             icon={Trash2}
           >
             <Input

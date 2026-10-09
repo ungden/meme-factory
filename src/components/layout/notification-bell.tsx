@@ -13,8 +13,8 @@ const POLL_MS = 60_000;
  * Chuông "có gì đang đợi tôi không?".
  *
  * Phim chạy 30–45 phút và dừng khi cần một quyết định của người dùng. Trước đây
- * chỉ có đúng một cách biết: tự mở từng dự án ra xem. Chuông này gom mọi việc
- * đang chờ trên tất cả dự án vào một chỗ.
+ * chỉ có đúng một cách biết: tự mở từng kênh ra xem. Chuông này gom mọi việc
+ * đang chờ trên tất cả kênh vào một chỗ.
  */
 export default function NotificationBell() {
   const [items, setItems] = useState<NotificationItem[]>([]);

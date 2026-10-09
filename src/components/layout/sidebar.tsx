@@ -21,6 +21,8 @@ import {
   ChevronDown,
   HelpCircle,
   Settings,
+  Film,
+  LayoutDashboard,
   LayoutTemplate,} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -41,7 +43,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
   const { theme, toggleTheme } = useTheme();
   const { points, isLoading: walletLoading } = useWallet();
   const [projectPoints, setProjectPoints] = useState<number | null>(null);
-  // App shell dựng Sidebar từ layout nên không có sẵn tên dự án; lấy kèm số dư.
+  // App shell dựng Sidebar từ layout nên không có sẵn tên kênh; lấy kèm số dư.
   const [fetchedName, setFetchedName] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -157,14 +159,21 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
 
   // Grouped so the free paths read first and the paid ones are visibly separate.
   const projectPrimaryNav = projectId
-    ? [{ href: `/projects/${projectId}`, label: "Tổng quan", icon: Sparkles }]
+    ? [{ href: `/projects/${projectId}`, label: "Tổng quan kênh", icon: LayoutDashboard }]
     : [];
 
+  // Thứ tự theo đúng cách một kênh làm việc: làm nội dung từ kho nhân vật.
   const projectCreateNav = projectId
     ? [
         {
+          href: `/projects/${projectId}/short-films`,
+          label: "Phim ngắn",
+          icon: Clapperboard,
+          aliases: [`/projects/${projectId}/video/multiscene`],
+        },
+        {
           href: `/projects/${projectId}/generate`,
-          label: "Tạo ảnh",
+          label: "Meme",
           icon: Sparkles,
           aliases: [
             `/projects/${projectId}/studio`,
@@ -173,15 +182,11 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           ],
         },
         {
+          // Chỉ đúng trang video lẻ: /video/multiscene thuộc Phim ngắn.
           href: `/projects/${projectId}/video`,
-          label: "Tạo video",
-          icon: Clapperboard,
-        },
-        {
-          href: `/projects/${projectId}/short-films`,
-          label: "Tạo phim ngắn",
-          icon: Clapperboard,
-          aliases: [`/projects/${projectId}/video/multiscene`],
+          label: "Video từ ảnh",
+          icon: Film,
+          exact: true,
         },
       ]
     : [];
@@ -189,21 +194,19 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
   const projectLibraryNav = projectId
     ? [
         {
-          href: `/projects/${projectId}/gallery`,
-          label: "Nội dung đã lưu",
-          icon: Image,
-        },
-        {
           href: `/projects/${projectId}/characters`,
           label: "Nhân vật",
           icon: Users,
           aliases: [`/projects/${projectId}/mascots`],
         },
         {
-          // Trang mẫu tồn tại từ lâu nhưng không có mục nào dẫn tới, nên trong
-          // thực tế nó không tồn tại với người dùng.
+          href: `/projects/${projectId}/gallery`,
+          label: "Thư viện",
+          icon: Image,
+        },
+        {
           href: `/projects/${projectId}/templates`,
-          label: "Mẫu có sẵn",
+          label: "Mẫu ghép chữ",
           icon: LayoutTemplate,
         },
       ]
@@ -213,7 +216,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
     ? [
         {
           href: `/projects/${projectId}/brand`,
-          label: "Thương hiệu",
+          label: "Hồ sơ kênh",
           icon: Palette,
         },
         {
@@ -223,7 +226,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         },
         {
           href: `/projects/${projectId}/wallet`,
-          label: "Điểm dự án",
+          label: "Điểm của kênh",
           icon: Coins,
         },
       ]
@@ -256,7 +259,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           <Coins size={15} className="th-text-accent" />
           Điểm
         </span>
-        {/* Một số dư duy nhất. Ví dự án và ví cá nhân vẫn là hai sổ phía sau,
+        {/* Một số dư duy nhất. Ví kênh và ví cá nhân vẫn là hai sổ phía sau,
             nhưng hệ thống tự chuyển khi tạo nội dung, nên hiện hai con số chỉ
             khiến người dùng tưởng mình hết điểm trong khi tài khoản còn tiền. */}
         <span className="text-[13px] font-semibold tabular-nums th-text-primary">
@@ -317,7 +320,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         {projectId && (
           <>
             <div className="px-3 pb-1 pt-4 text-[11px] font-medium th-text-muted">
-              Tạo
+              Làm nội dung
             </div>
             {projectCreateNav.map((item) => (
               <NavItem
@@ -325,12 +328,12 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
                 href={item.href}
                 label={item.label}
                 icon={item.icon}
-                active={isNavActive(pathname, item.href, item.aliases)}
+                active={"exact" in item && item.exact ? pathname === item.href : isNavActive(pathname, item.href, item.aliases)}
               />
             ))}
 
             <div className="px-3 pb-1 pt-4 text-[11px] font-medium th-text-muted">
-              Thư viện
+              Kho của kênh
             </div>
             {projectLibraryNav.map((item) => (
               <NavItem

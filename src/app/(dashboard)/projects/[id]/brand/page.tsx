@@ -56,7 +56,7 @@ export default function BrandSettingsPage() {
   const uploadLogo = async (file: File) => {
     setUploading(true);
     try {
-      if (!project) throw new Error("Dự án chưa tải xong");
+      if (!project) throw new Error("Kênh chưa tải xong");
       if (!["image/png", "image/webp"].includes(file.type))
         throw new Error("Chọn PNG hoặc WebP có nền trong suốt. Không nhận JPG hoặc SVG.");
       if (file.size > 3 * 1024 * 1024) throw new Error("Watermark tối đa 3 MB.");
@@ -102,7 +102,7 @@ export default function BrandSettingsPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold th-text-primary">Thương hiệu</h1>
           <p className="th-text-tertiary mt-1">
-            Watermark và phong cách dùng chung cho ảnh, video và phim ngắn của dự án.
+            Watermark và phong cách dùng chung cho ảnh, video và phim ngắn của kênh.
           </p>
         </div>
 
@@ -202,7 +202,7 @@ export default function BrandSettingsPage() {
                     onChange={(event) => setHandle(event.target.value)}
                   />
                   <p className="text-xs th-text-tertiary">
-                    Dùng làm watermark chữ mặc định khi dự án chưa có logo.
+                    Dùng làm watermark chữ mặc định khi kênh chưa có logo.
                   </p>
                 </CardContent>
               </Card>

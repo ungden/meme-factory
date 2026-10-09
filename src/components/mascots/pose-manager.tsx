@@ -450,7 +450,7 @@ export default function PoseManager({
                       )}
                       {/* Avatar badge */}
                       {isAvatar && (
-                        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-lg text-[10px] font-medium flex items-center gap-1" style={{ background: "var(--accent)", color: "white" }}>
+                        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-lg text-[10px] font-medium flex items-center gap-1" style={{ background: "var(--accent-gradient)", color: "white" }}>
                           <Star size={10} /> Ảnh đại diện
                         </div>
                       )}
@@ -632,7 +632,7 @@ export default function PoseManager({
             {!aiPoseImage && !aiPoseGenerating && (
               <Button className="w-full" size="lg" onClick={handleAiPoseGenerate}>
                 <Wand2 size={18} />
-                Tạo nhân vật 3D bằng AI
+                AI vẽ ảnh nhân vật
               </Button>
             )}
 

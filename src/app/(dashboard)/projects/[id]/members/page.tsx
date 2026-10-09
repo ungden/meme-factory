@@ -140,7 +140,7 @@ export default function ProjectMembersPage() {
     <div className="flex">
       <main className="flex-1 p-4 pt-16 md:p-8">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold th-text-primary">Thành viên dự án</h1>
+          <h1 className="text-2xl font-bold th-text-primary">Thành viên kênh</h1>
           <p className="th-text-tertiary mt-1">Mời thành viên và quản lý quyền truy cập</p>
         </div>
 
@@ -172,14 +172,14 @@ export default function ProjectMembersPage() {
                 <div key={m.user_id} className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: "var(--bg-tertiary)" }}>
                   <div>
                     <p className="text-sm th-text-primary">{m.email}</p>
-                    <p className="text-xs th-text-muted">{m.is_owner ? "Chủ dự án" : "Thành viên"}</p>
+                    <p className="text-xs th-text-muted">{m.is_owner ? "Chủ kênh" : "Thành viên"}</p>
                   </div>
                   {isOwner && !m.is_owner && (
                     <button
                       onClick={() =>
                         setConfirm({
                           title: "Xoá thành viên?",
-                          message: `${m.email} sẽ mất quyền truy cập dự án này.`,
+                          message: `${m.email} sẽ mất quyền truy cập kênh này.`,
                           confirmText: "Xoá thành viên",
                           action: () => removeMember(m.user_id),
                         })

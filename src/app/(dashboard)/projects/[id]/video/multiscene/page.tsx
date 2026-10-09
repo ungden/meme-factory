@@ -117,7 +117,7 @@ export default function ShortFilmPage() {
   const lock = useRef(false),
     edited = useRef(false),
     generation = useRef(0);
-  // Cờ nằm trong hồ sơ kênh, không phải tên dự án: đổi tên dự án không được
+  // Cờ nằm trong hồ sơ kênh, không phải tên kênh: đổi tên kênh không được
   // làm đổi hành vi, và khách khác cũng bật được cái này.
   const familyVoicesLocked = voicesLocked(channel);
   const requestKeys = useRef<Record<string, string>>({});
@@ -616,7 +616,7 @@ export default function ShortFilmPage() {
   async function readAssist(jobId: string): Promise<Draft> {
     const g = generation.current;
     for (let n = 0; n < 110; n++) {
-      if (g !== generation.current) throw new Error("Đã chuyển dự án.");
+      if (g !== generation.current) throw new Error("Đã chuyển kênh.");
       const j = await api(`${base}/creative-assists/${jobId}`);
       if (j.job.status === "failed")
         throw new Error(
@@ -624,7 +624,7 @@ export default function ShortFilmPage() {
             "AI chưa tìm được bản đủ tốt hoặc chưa hoàn tất lượt soạn. Bản trước vẫn được giữ.",
         );
       if (j.job.status === "completed") {
-        if (g !== generation.current) throw new Error("Đã chuyển dự án.");
+        if (g !== generation.current) throw new Error("Đã chuyển kênh.");
         const generated = {
           ...draft,
           title: j.job.result.title || draft.title,
@@ -660,7 +660,7 @@ export default function ShortFilmPage() {
   }
   async function write(): Promise<Draft> {
     if (!draft.brief.trim())
-      throw new Error("Chọn Gợi ý cho dự án hoặc nhập một ý tưởng.");
+      throw new Error("Chọn Gợi ý cho kênh hoặc nhập một ý tưởng.");
     const start = await api(`${base}/creative-assists`, {
       kind: "video_plan",
       intent: draft.brief,
@@ -689,7 +689,7 @@ export default function ShortFilmPage() {
     });
     const g = generation.current;
     for (let n = 0; n < 110; n++) {
-      if (g !== generation.current) throw new Error("Đã chuyển dự án.");
+      if (g !== generation.current) throw new Error("Đã chuyển kênh.");
       const j = await api(`${base}/creative-assists/${start.jobId}`);
       if (j.job.status === "failed")
         throw new Error(
@@ -1117,11 +1117,10 @@ export default function ShortFilmPage() {
               Tạo phim ngắn
             </h1>
             <p className="mt-1 text-sm th-text-secondary">
-              Seedance tạo chuyển động; Gemini lồng tiếng theo từng nhân vật.
-              AIDA đối chiếu audio thực tế; phụ đề dùng lời TTS đã khóa và mốc
-              thời gian của từng lượt thoại.
+              Chỉnh chi tiết từng cảnh: lời thoại, giọng từng nhân vật, khung hình.
+              Phụ đề khớp theo đúng lời và thời điểm từng nhân vật nói.
             </p>
-            <Link href={`/projects/${ref}/brand`} className="mt-2 inline-flex min-h-10 items-center text-sm th-text-accent hover:underline">Watermark của dự án ↗</Link>
+            <Link href={`/projects/${ref}/brand`} className="mt-2 inline-flex min-h-10 items-center text-sm th-text-accent hover:underline">Watermark của kênh ↗</Link>
           </header>
           <div className="mb-4 flex min-w-0 flex-wrap items-end gap-2">
             <div className="relative min-w-0 flex-1 text-sm th-text-secondary">
@@ -1257,7 +1256,7 @@ export default function ShortFilmPage() {
             </button>
             <button
               className="min-h-11 rounded-lg px-3 text-sm font-semibold text-[var(--text-on-accent)] disabled:opacity-60"
-              style={{ background: "var(--accent)" }}
+              style={{ background: "var(--accent-gradient)" }}
               disabled={
                 !!busy ||
                 !ready ||
@@ -1595,7 +1594,7 @@ export default function ShortFilmPage() {
                   disabled={!!busy}
                   onClick={() => act("Gợi ý", suggest)}
                 >
-                  Gợi ý cho dự án
+                  Gợi ý cho kênh
                 </button>
                 {ideas.map((idea, i) => (
                   <button
@@ -1660,7 +1659,7 @@ export default function ShortFilmPage() {
                         {other.length > 0 && (
                           <details className="w-full">
                             <summary className="cursor-pointer py-1 text-xs th-text-muted">
-                              Nhân vật dùng một lần trong dự án ({other.length})
+                              Nhân vật dùng một lần trong kênh ({other.length})
                             </summary>
                             <div className="mt-2 flex flex-wrap gap-2">
                               {other.map(chip)}
@@ -1762,7 +1761,7 @@ export default function ShortFilmPage() {
                     seedanceMaxDuration(draft.videoModel),
                 ) && (
                   <p className="mt-2 text-sm th-text-warning">
-                    Storyboard hiện có đoạn dài hơn giới hạn model. Bấm AI viết
+                    Có đoạn dài hơn mức một cảnh quay được. Bấm AI viết
                     phim để chia lại, nội dung và điểm kết vẫn được giữ.
                   </p>
                 )}
@@ -1807,7 +1806,7 @@ export default function ShortFilmPage() {
                         <option value="native">Nhân vật tự nói (chất lượng cao)</option>
                       )}
                       <option value="dubbed">
-                        Lồng tiếng Gemini theo từng nhân vật
+                        Lồng tiếng theo giọng từng nhân vật
                       </option>
                       <option
                         value="fixed"
@@ -1849,21 +1848,21 @@ export default function ShortFilmPage() {
                   {draft.audioMode === "dubbed" && (
                     <p className="mt-3 text-xs th-text-secondary">
                       Mỗi lượt nói dùng đúng giọng đã duyệt của nhân vật.
-                      Seedance tạo hình im tiếng; AIDA lồng tiếng và chép audio
-                      thực để làm phụ đề. Khớp môi cần xem lại trên thành phẩm.
+                      AI quay hình không tiếng, sau đó lồng giọng từng nhân vật
+                      và làm phụ đề. Khẩu hình có thể chưa khớp từng chữ.
                     </p>
                   )}
                   {!familyVoicesLocked &&
                     draft.audioMode === "fixed" &&
                     !enabled && (
                     <p className="mt-3 text-xs th-text-secondary">
-                      Có thể nghe và duyệt mẫu Gemini; nhánh lồng tiếng và
-                      lip-sync chỉ mở sau bài kiểm chứng.
+                      Có thể nghe và duyệt giọng mẫu; kiểu một giọng đọc cả
+                      phim chỉ mở sau khi kiểm chứng.
                     </p>
                   )}
                   {familyVoicesLocked ? (
                     <div className="col-span-2 mt-3 rounded-lg border th-border bg-[var(--surface-muted)] px-3 py-2 text-sm th-text-secondary">
-                      Giọng Bánh Bao, Đậu Đỏ, Bố và Mẹ đã được chốt cho dự án
+                      Giọng Bánh Bao, Đậu Đỏ, Bố và Mẹ đã được chốt cho kênh
                       này. Tất cả cảnh sẽ dùng đúng phiên bản đã duyệt; không có
                       lựa chọn giọng thử hoặc giọng chờ duyệt.
                     </div>
@@ -1924,9 +1923,8 @@ export default function ShortFilmPage() {
                             ))}
                           </select>
                           <p className="mt-1 text-xs th-text-secondary">
-                            Gemini không có preset “trẻ em” chính thức. AIDA
-                            điều khiển tuổi và giới tính bằng chỉ dẫn; cần nghe
-                            rồi duyệt.
+                            Giọng trẻ em được tạo bằng chỉ dẫn tuổi và giới
+                            tính; hãy nghe rồi duyệt.
                           </p>
                         </div>
                       ))}
@@ -1999,9 +1997,9 @@ export default function ShortFilmPage() {
                   )}
                 {draft.scenes.some((s) => s.storyboard) && (
                   <p className="mt-4 text-sm th-text-secondary">
-                    Storyboard · {draft.scenes.length} đoạn ·{" "}
+                    Kịch bản hình · {draft.scenes.length} đoạn ·{" "}
                     {draft.scenes.reduce((n, s) => n + s.durationSeconds, 0)}{" "}
-                    giây clip gốc. Mỗi đoạn có bộ Reference Images riêng và
+                    giây. Mỗi đoạn có bộ ảnh tham chiếu riêng và
                     nhiều nhịp đối đáp.
                   </p>
                 )}
@@ -2356,7 +2354,7 @@ export default function ShortFilmPage() {
                       })
                     }
                     className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-3 font-semibold text-[var(--text-on-accent)] disabled:opacity-60"
-                    style={{ background: "var(--accent)" }}
+                    style={{ background: "var(--accent-gradient)" }}
                   >
                     {busy ? (
                       <LoaderCircle className="animate-spin" size={17} />
@@ -2403,7 +2401,7 @@ export default function ShortFilmPage() {
                   </div>
                   <div className="rounded-lg th-bg-secondary p-3">
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide th-text-secondary">
-                      Ảnh 1 · Storyboard tổng
+                      Ảnh 1 · Kịch bản hình tổng
                     </p>
                     <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
                       {directorReferenceTasks.map((task, index) => (
@@ -2414,7 +2412,7 @@ export default function ShortFilmPage() {
                               width={480}
                               height={270}
                               src={task.url}
-                              alt={`Storyboard cảnh ${index + 1}`}
+                              alt={`Kịch bản hình cảnh ${index + 1}`}
                               className="aspect-video w-full rounded-md object-cover"
                             />
                           ) : (

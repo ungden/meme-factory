@@ -33,8 +33,8 @@ export default function ProjectsPage() {
   const searchParams = useSearchParams();
   const toast = useToast();
   const [summaries, setSummaries] = useState<Record<string, { characterCount: number; outputCount: number; draftCount: number }>>({});
-  // Tách "chưa tải xong" khỏi "tải hỏng": gộp hai trạng thái khiến một dự án
-  // lâu năm bị gắn nhãn "Dự án mới" chỉ vì một lần gọi API thất bại.
+  // Tách "chưa tải xong" khỏi "tải hỏng": gộp hai trạng thái khiến một kênh
+  // lâu năm bị gắn nhãn "Kênh mới" chỉ vì một lần gọi API thất bại.
   const [summariesFailed, setSummariesFailed] = useState(false);
   const requestedDestination = () => {
     const output = searchParams.get("output");

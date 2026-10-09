@@ -236,7 +236,7 @@ export default function MascotsPage() {
           <div>
             <h1 className="text-2xl font-bold th-text-primary">Mascot</h1>
             <p className="th-text-tertiary mt-1">
-              Thư viện nhân vật của dự án và bộ biểu cảm dùng để ghép chữ.
+              Thư viện nhân vật của kênh và bộ biểu cảm dùng để ghép chữ.
             </p>
           </div>
           <Button onClick={() => setShowCreate(true)}>

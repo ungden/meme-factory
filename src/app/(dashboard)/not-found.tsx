@@ -16,7 +16,7 @@ export default function DashboardNotFound() {
           href="/projects"
           className="inline-flex items-center gap-2 px-6 py-3 th-bg-accent text-white font-semibold rounded-xl th-bg-accent-hover transition-all shadow-lg th-shadow-accent"
         >
-          Về trang dự án
+          Về trang kênh
         </Link>
       </div>
     </div>

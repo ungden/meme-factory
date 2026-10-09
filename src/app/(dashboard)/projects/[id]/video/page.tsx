@@ -12,8 +12,13 @@ import {
   RefreshCw,
   Volume2,
   Wand2,
-  Download,} from "lucide-react";
+  Download,
+  X,
+} from "lucide-react";
 import { useCharacters, useMemes, useProject } from "@/lib/use-store";
+import { takeVideoHandoff } from "@/lib/home-handoff";
+import { createClient } from "@/lib/supabase/client";
+import { stripImageMetadataFromFile } from "@/lib/image-metadata";
 import {
   SEEDANCE_VARIANTS,
   seedanceMaxDuration,
@@ -215,7 +220,7 @@ export default function VideoStudioPage() {
             selectedCharacterIds,
             imageMode: mode,
             sourceImageDescription: image
-              ? "Người dùng đã chọn ảnh đầu trong dự án."
+              ? "Người dùng đã chọn ảnh đầu trong kênh."
               : undefined,
           }),
         },
@@ -284,6 +289,47 @@ export default function VideoStudioPage() {
         setReferences((current) => (current.length ? current : [imageUrl]));
     }
   }, [characters, query]);
+
+  // Video gửi từ ô nhập trang chính: mô tả và bộ ảnh của nhân vật được gắn.
+  // Video kênh mặc định dọc; lồng tiếng để người dùng tự bật vì cần lời thoại.
+  useEffect(() => {
+    const handoff = takeVideoHandoff(projectRef);
+    if (!handoff) return;
+    editedBeforeRestoreRef.current = true;
+    setMode("text");
+    setModel("seedance-2.5");
+    setPrompt(handoff.prompt);
+    setReferences(handoff.references);
+    setAspect("9:16");
+    setAudio(false);
+  }, [projectRef]);
+
+  const [uploading, setUploading] = useState(false);
+  /** Ảnh của người dùng làm tham chiếu: tải vào kho của kênh rồi đưa vào danh sách. */
+  async function uploadReference(file: File) {
+    if (!project) return;
+    setError("");
+    if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) return setError("Chọn ảnh PNG, JPG hoặc WEBP.");
+    if (file.size > 10 * 1024 * 1024) return setError("Ảnh lớn quá 10 MB.");
+    if (references.length >= 9) return setError("Tối đa 9 ảnh tham chiếu.");
+    setUploading(true);
+    try {
+      const supabase = createClient();
+      const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+      const path = `${project.id}/references/${requestId()}.${ext}`;
+      // Kho công khai: gỡ GPS và dấu vết máy chụp trước khi tải lên.
+      const clean = await stripImageMetadataFromFile(file);
+      const { error: uploadError } = await supabase.storage.from("memes").upload(path, clean, { contentType: file.type });
+      if (uploadError) throw new Error("Chưa tải được ảnh lên. Hãy thử lại.");
+      const url = supabase.storage.from("memes").getPublicUrl(path).data.publicUrl;
+      markEdited();
+      setReferences((current) => [...current, url]);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Chưa tải được ảnh lên.");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   useEffect(() => {
     const stored = window.sessionStorage.getItem(
@@ -473,7 +519,7 @@ export default function VideoStudioPage() {
   });
 
   async function createOutput() {
-    if (!project) throw new Error("Không tìm thấy dự án.");
+    if (!project) throw new Error("Không tìm thấy kênh.");
     const setResponse = await fetch("/api/content-sets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -593,12 +639,12 @@ export default function VideoStudioPage() {
         <div className="mx-auto max-w-7xl">
           <header className="mb-6">
             <h1 className="text-2xl font-semibold tracking-tight th-text-primary">
-              Tạo video
+              Video từ ảnh tham chiếu
             </h1>
             <p className="mt-1 text-sm th-text-tertiary">
-              Tạo một clip ngắn từ mô tả hoặc ảnh trong dự án.
+              Tả cảnh và chọn ảnh tham chiếu: nhân vật của kênh hoặc ảnh của bạn. AI giữ đúng gương mặt, trang phục trong ảnh.
             </p>
-            <Link href={`/projects/${projectRef}/brand`} className="mt-2 inline-flex min-h-10 items-center text-sm th-text-accent hover:underline">Watermark của dự án ↗</Link>
+            <Link href={`/projects/${projectRef}/brand`} className="mt-2 inline-flex min-h-10 items-center text-sm th-text-accent hover:underline">Dấu bản quyền của kênh ↗</Link>
           </header>
           <div className="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(360px,1.08fr)]">
             <section
@@ -614,8 +660,8 @@ export default function VideoStudioPage() {
               >
                 {(
                   [
-                    ["text", "Từ mô tả"],
-                    ["image", "Từ ảnh"],
+                    ["text", "Ảnh tham chiếu"],
+                    ["image", "Ảnh làm khung hình đầu"],
                   ] as const
                 ).map(([value, label]) => (
                   <button
@@ -627,7 +673,7 @@ export default function VideoStudioPage() {
                     className={`rounded-lg px-3 py-2.5 text-sm font-semibold ${mode === value ? "text-white shadow-sm" : "th-text-muted th-bg-hover"}`}
                     style={
                       mode === value
-                        ? { background: "var(--accent)" }
+                        ? { background: "var(--accent-gradient)" }
                         : undefined
                     }
                   >
@@ -636,7 +682,7 @@ export default function VideoStudioPage() {
                 ))}
               </div>
               <div className="mb-5">
-                <p className="text-sm font-semibold th-text-primary">Model</p>
+                <p className="text-sm font-semibold th-text-primary">Chất lượng</p>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   {SEEDANCE_VARIANTS.map((item) => (
                     <button
@@ -736,12 +782,12 @@ export default function VideoStudioPage() {
                   </div>
                   {memesLoading ? (
                     <p className="mt-3 text-sm th-text-tertiary">
-                      Đang tải ảnh của dự án…
+                      Đang tải ảnh của kênh…
                     </p>
                   ) : (
                     candidateImages.length === 0 && (
                       <p className="mt-3 rounded-xl border border-dashed p-4 text-sm th-text-tertiary">
-                        Chưa có ảnh trong dự án. Tạo ảnh trước hoặc tải ảnh lên
+                        Chưa có ảnh trong kênh. Tạo ảnh trước hoặc tải ảnh lên
                         trong phiên bản tiếp theo.
                       </p>
                     )
@@ -750,11 +796,49 @@ export default function VideoStudioPage() {
               ) : (
                 <div className="mt-5">
                   <p className="text-sm font-semibold th-text-primary">
-                    Nhân vật tham chiếu{" "}
+                    Ảnh tham chiếu{" "}
                     <span className="font-normal th-text-tertiary">
-                      (tuỳ chọn)
+                      (tối đa 9)
                     </span>
                   </p>
+                  <p className="mt-1 text-xs th-text-tertiary">
+                    Gắn nhân vật của kênh hoặc thêm ảnh của bạn. Ảnh không phải khung hình đầu: AI dựng cảnh mới và giữ đúng người, đồ vật trong ảnh.
+                  </p>
+                  {references.length > 0 && (
+                    <ul className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
+                      {references.map((url) => (
+                        <li key={url} className="relative aspect-square overflow-hidden rounded-lg border th-border th-bg-tertiary">
+                          {/* eslint-disable-next-line @next/next/no-img-element -- ảnh nằm ở kho lưu trữ của app */}
+                          <img src={url} alt="Ảnh tham chiếu" className="h-full w-full object-cover" />
+                          <button
+                            type="button"
+                            aria-label="Bỏ ảnh này"
+                            onClick={() => {
+                              markEdited();
+                              setReferences(references.filter((value) => value !== url));
+                            }}
+                            className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white"
+                          >
+                            <X size={13} aria-hidden />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <label className={`mt-3 inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-full border px-3 text-xs font-medium th-border th-text-secondary th-bg-hover ${uploading || references.length >= 9 ? "pointer-events-none opacity-50" : ""}`}>
+                    {uploading ? <LoaderCircle size={14} className="animate-spin" aria-hidden /> : <ImagePlus size={14} aria-hidden />}
+                    {uploading ? "Đang tải ảnh…" : "Thêm ảnh của bạn"}
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        event.target.value = "";
+                        if (file) void uploadReference(file);
+                      }}
+                    />
+                  </label>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {characters.map((character) => {
                       const url =
@@ -920,7 +1004,7 @@ export default function VideoStudioPage() {
                   disabled={busy || loading}
                   onClick={quote ? generate : getQuote}
                   className="flex h-12 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold text-white disabled:opacity-60"
-                  style={{ background: "var(--accent)" }}
+                  style={{ background: "var(--accent-gradient)" }}
                 >
                   {busy ? (
                     <LoaderCircle className="animate-spin" size={17} />
@@ -955,7 +1039,7 @@ export default function VideoStudioPage() {
                     Kết quả
                   </p>
                   <h2 className="mt-1 text-lg font-semibold th-text-primary">
-                    Video của dự án
+                    Video của kênh
                   </h2>
                 </div>
                 <RefreshCw size={18} className="th-text-muted" />
@@ -983,7 +1067,7 @@ export default function VideoStudioPage() {
                     Kết quả sẽ xuất hiện ở đây
                   </strong>
                   <p className="mt-2 max-w-xs text-sm th-text-tertiary">
-                    Bạn có thể rời trang. Trạng thái job và video hoàn tất được
+                    Bạn có thể rời trang. Tiến độ và video hoàn tất được
                     giữ trong thư viện.
                   </p>
                 </div>

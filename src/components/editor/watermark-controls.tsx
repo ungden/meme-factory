@@ -51,7 +51,7 @@ export default function WatermarkControls({
           value={mode}
           onChange={setMode}
           options={[
-            { value: "project", label: "Logo dự án", title: projectWatermarkUrl ? "Dùng logo đã lưu của dự án" : "Dự án chưa có logo" },
+            { value: "project", label: "Logo kênh", title: projectWatermarkUrl ? "Dùng logo đã lưu của kênh" : "Kênh chưa có logo" },
             { value: "text", label: "Chữ" },
             { value: "custom", label: "Tải lên" },
             { value: "off", label: "Tắt" },

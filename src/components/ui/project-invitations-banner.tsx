@@ -62,7 +62,7 @@ export default function ProjectInvitationsBanner() {
           style={{ borderColor: "var(--border-primary)", background: "var(--bg-card)" }}
         >
           <p className="text-sm th-text-primary">
-            <strong>{inv.invited_by_email}</strong> mời bạn tham gia dự án <strong>{inv.project_name}</strong>
+            <strong>{inv.invited_by_email}</strong> mời bạn tham gia kênh <strong>{inv.project_name}</strong>
           </p>
           <div className="flex gap-2">
             <Button

@@ -44,7 +44,7 @@ export default function BaseImagePicker({
   if (baseImages.length === 0) {
     return (
       <p className="text-sm th-text-tertiary">
-        Dự án chưa có ảnh mascot nào. Vào Tài nguyên để thêm pose hoặc tạo bộ biểu cảm trước.
+        Kênh chưa có ảnh mascot nào. Vào Tài nguyên để thêm pose hoặc tạo bộ biểu cảm trước.
       </p>
     );
   }

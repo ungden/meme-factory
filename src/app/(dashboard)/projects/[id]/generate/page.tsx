@@ -999,7 +999,7 @@ export default function GeneratePage() {
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight th-text-primary">Tạo ảnh</h1>
-            <p className="mt-1 text-sm th-text-tertiary">Ý tưởng, nhân vật và ảnh tham khảo của dự án này.</p>
+            <p className="mt-1 text-sm th-text-tertiary">Ý tưởng, nhân vật và ảnh tham khảo của kênh này.</p>
           </div>
           {step > 1 && (
             <Button variant="outline" onClick={handleReset}>
@@ -1023,7 +1023,7 @@ export default function GeneratePage() {
 
         {fromMemeId && fromMode === "regenerate" && (
           <div className="mb-4 p-3 rounded-xl border th-border-accent th-bg-accent-light">
-            <p className="text-sm th-text-accent">Đang tạo biến thể từ đầu ra đã lưu. Bạn có thể chỉnh prompt rồi bấm &ldquo;Tạo ảnh bằng AI&rdquo;.</p>
+            <p className="text-sm th-text-accent">Đang tạo biến thể từ đầu ra đã lưu. Bạn có thể chỉnh mô tả ảnh rồi bấm &ldquo;Tạo ảnh bằng AI&rdquo;.</p>
           </div>
         )}
 
@@ -1200,7 +1200,7 @@ export default function GeneratePage() {
                                   }}
                                   className="ml-auto text-[10px] px-2 py-1 rounded-md th-bg-card th-text-secondary"
                                 >
-                                  {selected ? "đã chọn" : "chọn cast"}
+                                  {selected ? "đã chọn" : "chọn"}
                                 </span>
                               </button>
                             );
@@ -1271,7 +1271,7 @@ export default function GeneratePage() {
                   </Button>
                   <Button size="lg" variant="outline" className="w-full" onClick={handleDirectFlow} disabled={!idea.trim()}>
                     <Wand2 size={18} />
-                    Tự viết prompt
+                    Tự viết mô tả ảnh
                   </Button>
                 </div>
               </CardContent>
@@ -1366,10 +1366,10 @@ export default function GeneratePage() {
                         </div>
                         <Button size="lg" onClick={handleAiGenerate}>
                           <Wand2 size={18} />
-                          Tạo ảnh bằng AI ({POINT_COSTS.meme} pts)
+                          Tạo ảnh bằng AI ({POINT_COSTS.meme} điểm)
                         </Button>
                         <p className="text-xs th-text-muted">
-                          Ví dự án còn <strong>{projectPoints}</strong> điểm
+                          Ví kênh còn <strong>{projectPoints}</strong> điểm
                         </p>
                       </div>
                     )}
@@ -1396,7 +1396,7 @@ export default function GeneratePage() {
                         </div>
                         <div className="flex justify-center">
                           <Button onClick={handleAiGenerate}>
-                            <RotateCcw size={16} /> Thử lại ({POINT_COSTS.meme} pts)
+                            <RotateCcw size={16} /> Thử lại ({POINT_COSTS.meme} điểm)
                           </Button>
                         </div>
                       </div>
@@ -1420,12 +1420,12 @@ export default function GeneratePage() {
                             <Download size={14} /> Tải xuống
                           </Button>
                           <Button variant="outline" size="sm" onClick={handleAiGenerate}>
-                            <RotateCcw size={14} /> Tạo lại ({POINT_COSTS.meme} pts)
+                            <RotateCcw size={14} /> Tạo lại ({POINT_COSTS.meme} điểm)
                           </Button>
                           <Button variant="outline" size="sm" onClick={() => router.push(`/projects/${projectId}/video?image=${encodeURIComponent(imageSourceUrl || "")}`)} disabled={!imageSourceUrl} title={!imageSourceUrl ? "Tạo ảnh trước khi dùng ảnh làm khung hình đầu" : undefined}>
                             <Clapperboard size={14} /> Dùng ảnh này tạo video
                           </Button>
-                          <span className="text-xs th-text-muted">Ví dự án: {projectPoints} pts</span>
+                          <span className="text-xs th-text-muted">Ví kênh: {projectPoints} điểm</span>
                         </div>
                       </div>
                     )}
@@ -1544,7 +1544,7 @@ export default function GeneratePage() {
 
               {/* AI reference and prompt controls */}
                 <Card>
-                  <CardHeader><h3 className="text-sm font-semibold th-text-primary">Ref ảnh + Prompt AI</h3></CardHeader>
+                  <CardHeader><h3 className="text-sm font-semibold th-text-primary">Ảnh tham chiếu và mô tả cho AI</h3></CardHeader>
                   <CardContent className="space-y-3">
                     <div>
                       <p className="text-xs font-medium th-text-secondary mb-2 flex items-center gap-1.5">
@@ -1625,7 +1625,7 @@ export default function GeneratePage() {
                     )}
 
                     <div>
-                      <p className="text-xs font-medium th-text-secondary mb-1.5">Prompt bổ sung</p>
+                      <p className="text-xs font-medium th-text-secondary mb-1.5">Mô tả thêm</p>
                       <Textarea
                         id="ai-custom-prompt"
                         placeholder="VD: Bám bố cục ảnh ref số 1, headline đặt giữa, tone châm biếm nhẹ, nhân vật bên trái nhìn vào chart đỏ..."
@@ -1723,13 +1723,13 @@ export default function GeneratePage() {
             />
             <div className="flex justify-end gap-2">
               <Button variant="ghost" type="button" onClick={() => setShowQuickCharacterModal(false)}>Huỷ</Button>
-              <Button type="submit" loading={quickCharacterSaving}>Tạo và chọn cast</Button>
+              <Button type="submit" loading={quickCharacterSaving}>Tạo và chọn</Button>
             </div>
           </form>
         </Modal>
         <Modal isOpen={showVideoModal} onClose={() => setShowVideoModal(false)} title="Tạo video từ ảnh đầu">
           <div className="space-y-4">
-            <p className="text-sm th-text-tertiary">Seedance 2.5 dùng đúng ảnh đầu đã lưu. Video dọc 9:16, âm thanh tiếng Việt được bật mặc định.</p>
+            <p className="text-sm th-text-tertiary">Video dùng đúng ảnh này làm khung hình đầu. Video dọc 9:16, âm thanh tiếng Việt được bật mặc định.</p>
             <Textarea id="video-script" label="Kịch bản video" value={videoScript} onChange={(event) => { setVideoScript(event.target.value); setVideoQuote(null); }} rows={5} placeholder="Mô tả chuyển động, lời thoại và âm thanh bằng tiếng Việt" />
             <div className="grid grid-cols-2 gap-2">
               {[15, 30].map((seconds) => <button key={seconds} type="button" onClick={() => { setVideoDuration(seconds as 15 | 30); setVideoQuote(null); }} className={`rounded-xl border px-3 py-2 text-sm ${videoDuration === seconds ? "th-border-accent th-bg-accent-light th-text-accent" : "th-border"}`}>{seconds} giây</button>)}
