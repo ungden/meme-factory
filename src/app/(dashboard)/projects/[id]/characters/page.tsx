@@ -1,11 +1,12 @@
-import { redirect } from "next/navigation";
+import { Suspense } from "react";
+import CharacterStage from "./_components/character-stage";
 
-/** Retired route: the mascot library is now the single place mascots live. */
-export default async function LegacyCharactersRedirect({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  redirect(`/projects/${id}/mascots`);
+// Bước 2 của kênh: dựng kho nhân vật có bộ ảnh chuẩn. Trang thư viện biểu cảm
+// cũ vẫn ở /mascots cho từng nhân vật.
+export default function CharactersPage() {
+  return (
+    <Suspense>
+      <CharacterStage />
+    </Suspense>
+  );
 }

@@ -25,25 +25,22 @@ export const NEW_CHANNEL = "new";
 type Channel = { id: string; slug?: string | null; name: string; workspace_version?: number | null };
 
 const LAST_CHANNEL = "aida:home-channel";
-// Hồ sơ kênh mặc định cho kênh AI vừa dựng; chủ kênh sửa sau trong Studio phim.
-const DEFAULT_TONE = "Hài tự nhiên và cảm động có nguyên nhân";
+
 const LANDING_DRAFT = "aida:landing-draft";
 
 /**
  * Lối vào chính của AIDA: gõ ý tưởng (hoặc để trống), chọn kênh và loại nội
- * dung, AI làm phần còn lại. Chưa có kênh thì AI dựng kênh từ chính ý tưởng đó,
- * không qua bước khởi tạo nào. Phim chuyển sang Studio phim của kênh vì có thể
+ * dung, AI làm phần còn lại. Chưa có kênh thì ý tưởng thành mô tả cho bước tạo
+ * kênh (hồ sơ kênh → nhân vật). Phim chuyển sang Studio phim của kênh vì có thể
  * cần hỏi người dùng giữa chừng; meme làm ngay và hiện kết quả ở trang này.
  */
 export default function HomeComposer({
   projects,
   onStarted,
-  onChannelCreated,
   preset,
 }: {
   projects: Project[];
   onStarted: () => void;
-  onChannelCreated: () => void;
   preset: ComposerPreset | null;
 }) {
   const router = useRouter();
@@ -56,9 +53,6 @@ export default function HomeComposer({
   const [stage, setStage] = useState("");
   const [error, setError] = useState("");
   const box = useRef<HTMLTextAreaElement>(null);
-  // Kênh vừa dựng chưa có trong danh sách cho tới khi trang tải lại danh sách;
-  // trong lúc đó không được tự nhảy sang kênh khác.
-  const justCreated = useRef<string | null>(null);
 
   // Ý tưởng để trống: AI tự nghĩ chuyện mới, chỉ giữ kiểu của bài người dùng thích.
   useEffect(() => {
@@ -84,7 +78,6 @@ export default function HomeComposer({
   }, []);
 
   useEffect(() => {
-    if (justCreated.current === channelId && !projects.some((project) => project.id === channelId)) return;
     if (channelId === NEW_CHANNEL || projects.some((project) => project.id === channelId)) return;
     if (!projects.length) return setChannelId(NEW_CHANNEL);
     let remembered = "";
@@ -99,50 +92,27 @@ export default function HomeComposer({
   const channel = projects.find((project) => project.id === channelId) || null;
   const newChannel = channelId === NEW_CHANNEL;
   const written = idea.trim();
-  // Kênh mới cần một ý tưởng thật: AI dựng tên, người xem và nhân vật từ nó.
-  const tooShort = (written.length > 0 || newChannel) && written.length < 10;
+  const tooShort = !newChannel && written.length > 0 && written.length < 10;
   const film = QUALITY_OPTIONS[0];
-
-  /** Dựng kênh từ ý tưởng; với phim, đặt luôn hồ sơ kênh để Studio không hỏi lại. */
-  async function createChannel(): Promise<Channel> {
-    setStage("AI đang dựng kênh và nhân vật từ ý tưởng của bạn…");
-    const response = await fetch("/api/channels", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idea: written }),
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || !payload.project) throw new Error(payload.error || "Chưa dựng được kênh. Hãy thử lại.");
-    const created = payload.project as Channel;
-    if (kind === "film")
-      // Hỏng ở đây thì Studio hiện lại mẫu hồ sơ kênh; không đáng chặn cả lượt.
-      await fetch(`/api/projects/${created.id}/channel-profile`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          audience: payload.audience || "Người xem video ngắn ở Việt Nam",
-          tone: DEFAULT_TONE,
-          positioning: written,
-          speechRegister: "natural",
-          genres: ["comedy", "emotion"],
-          characterIds: payload.characterIds || [],
-        }),
-      }).catch(() => undefined);
-    justCreated.current = created.id;
-    setChannelId(created.id);
-    onChannelCreated();
-    toast.success(`Đã dựng kênh "${created.name}". Đổi tên hay nhân vật lúc nào cũng được.`);
-    return created;
-  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (tooShort || busy) return;
     setError("");
+    if (newChannel || !channel) {
+      // Kênh mới đi qua đủ hai bước: hồ sơ kênh rồi nhân vật. Ý tưởng được giữ
+      // làm mô tả kênh ban đầu.
+      try {
+        window.sessionStorage.setItem(LANDING_DRAFT, JSON.stringify({ idea: written, output: kind === "film" ? "Tạo phim ngắn" : "Tạo ảnh" }));
+      } catch {
+        // Mất nháp không chặn việc tạo kênh.
+      }
+      router.push("/projects/new");
+      return;
+    }
     setBusy(true);
     try {
-      const target: Channel | null = newChannel ? await createChannel() : channel;
-      if (!target) return;
+      const target: Channel = channel;
       try {
         window.localStorage.setItem(LAST_CHANNEL, target.id);
         window.sessionStorage.removeItem(LANDING_DRAFT);
@@ -237,12 +207,12 @@ export default function HomeComposer({
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>{project.name}</option>
               ))}
-              <option value={NEW_CHANNEL}>+ Kênh mới, AI tự dựng</option>
+              <option value={NEW_CHANNEL}>+ Tạo kênh mới</option>
             </select>
           </label>
           <Button type="submit" loading={busy} disabled={tooShort} className="ml-auto rounded-full" aria-label={written ? "Bắt đầu làm" : "Để AI tự nghĩ và làm"}>
             {written ? <ArrowUp size={17} aria-hidden /> : <Sparkles size={17} aria-hidden />}
-            {written || newChannel ? (kind === "film" ? "Làm phim" : "Làm meme") : "AI tự nghĩ"}
+            {newChannel ? "Tạo kênh" : written ? (kind === "film" ? "Làm phim" : "Làm meme") : "AI tự nghĩ"}
           </Button>
         </div>
       </div>
@@ -269,11 +239,9 @@ export default function HomeComposer({
         {stage
           ? stage
           : tooShort
-          ? newChannel
-            ? "Gõ ý tưởng đầu tiên (ít nhất vài chữ). AI dựng kênh, đặt tên và nghĩ nhân vật từ nó."
-            : "Viết thêm một chút, hoặc xoá hết để AI tự nghĩ."
+          ? "Viết thêm một chút, hoặc xoá hết để AI tự nghĩ."
           : newChannel
-            ? "AI dựng kênh mới từ ý tưởng này rồi làm luôn. Đổi tên hay nhân vật lúc nào cũng được."
+            ? "Kênh mới: AI điền hồ sơ kênh từ ý tưởng này, rồi dựng nhân vật. Xong mới làm nội dung."
             : kind === "film"
               ? `Khoảng ${film.estimatedPoints.toLocaleString("vi-VN")}–${QUALITY_OPTIONS[1].estimatedPoints.toLocaleString("vi-VN")} điểm · 5–10 phút · AI hỏi bạn trước khi vượt mức.`
               : "Một meme · khoảng 1 phút · có thể rời trang."}

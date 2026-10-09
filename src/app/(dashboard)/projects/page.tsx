@@ -22,11 +22,11 @@ import AnnouncementBanner from "@/components/ui/announcement-banner";
 import { getProjectRouteRef } from "@/lib/project-visuals";
 import { fetchJsonCached, invalidateClientCache } from "@/lib/client-fetch";
 import { feedIsBusy, type FeedItem } from "@/lib/home-feed";
-import HomeComposer, { NEW_CHANNEL, type ComposerPreset } from "./_components/home-composer";
+import HomeComposer, { type ComposerPreset } from "./_components/home-composer";
 import HomeFeedList from "./_components/home-feed-list";
 
 export default function ProjectsPage() {
-  const { projects, loading, remove, reload } = useProjects();
+  const { projects, loading, remove } = useProjects();
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const router = useRouter();
@@ -104,7 +104,7 @@ export default function ProjectsPage() {
           <AnnouncementBanner />
 
           <div className="mx-auto mb-10 max-w-3xl pt-2 sm:pt-6">
-            {loading ? <div className="h-56 animate-pulse rounded-2xl th-bg-card" /> : <HomeComposer projects={projects} onStarted={loadFeed} onChannelCreated={reload} preset={preset} />}
+            {loading ? <div className="h-56 animate-pulse rounded-2xl th-bg-card" /> : <HomeComposer projects={projects} onStarted={loadFeed} preset={preset} />}
           </div>
 
           {projects.length > 0 && (
@@ -122,7 +122,7 @@ export default function ProjectsPage() {
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 id="channels-title" className="text-lg font-semibold th-text-primary">Kênh của bạn</h2>
               {projects.length > 0 && (
-                <Button variant="outline" size="sm" onClick={() => setPreset({ projectId: NEW_CHANNEL, nonce: Date.now() })}>
+                <Button variant="outline" size="sm" onClick={() => router.push("/projects/new")}>
                   <Plus size={15} /> Kênh mới
                 </Button>
               )}
@@ -133,7 +133,9 @@ export default function ProjectsPage() {
             </div>
           ) : projects.length === 0 ? (
             <p className="rounded-2xl border border-dashed px-4 py-8 text-center text-sm th-border th-text-secondary">
-              Chưa có kênh nào. Gõ ý tưởng đầu tiên ở trên, AI dựng kênh, đặt tên và nghĩ nhân vật cho bạn.
+              Chưa có kênh nào.{" "}
+              <button type="button" onClick={() => router.push("/projects/new")} className="font-semibold th-text-accent underline-offset-2 hover:underline">Tạo kênh đầu tiên</button>
+              : tả kênh bằng vài câu, AI điền hồ sơ và dựng nhân vật.
             </p>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
