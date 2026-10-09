@@ -22,11 +22,11 @@ import AnnouncementBanner from "@/components/ui/announcement-banner";
 import { getProjectRouteRef } from "@/lib/project-visuals";
 import { fetchJsonCached, invalidateClientCache } from "@/lib/client-fetch";
 import { feedIsBusy, type FeedItem } from "@/lib/home-feed";
-import HomeComposer from "./_components/home-composer";
+import HomeComposer, { NEW_CHANNEL, type ComposerPreset } from "./_components/home-composer";
 import HomeFeedList from "./_components/home-feed-list";
 
 export default function ProjectsPage() {
-  const { projects, loading, remove } = useProjects();
+  const { projects, loading, remove, reload } = useProjects();
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const router = useRouter();
@@ -70,6 +70,7 @@ export default function ProjectsPage() {
     }
   }, []);
   const busy = feedIsBusy(feed.items);
+  const [preset, setPreset] = useState<ComposerPreset | null>(null);
   // Có việc đang chạy thì cập nhật nhanh để người dùng thấy kết quả về ngay.
   useEffect(() => {
     void loadFeed();
@@ -103,12 +104,17 @@ export default function ProjectsPage() {
           <AnnouncementBanner />
 
           <div className="mx-auto mb-10 max-w-3xl pt-2 sm:pt-6">
-            {loading ? <div className="h-56 animate-pulse rounded-2xl th-bg-card" /> : <HomeComposer projects={projects} onStarted={loadFeed} />}
+            {loading ? <div className="h-56 animate-pulse rounded-2xl th-bg-card" /> : <HomeComposer projects={projects} onStarted={loadFeed} onChannelCreated={reload} preset={preset} />}
           </div>
 
           {projects.length > 0 && (
             <div className="mb-10">
-              <HomeFeedList items={feed.items} loading={feedLoading} failed={feedFailed} />
+              <HomeFeedList
+                items={feed.items}
+                loading={feedLoading}
+                failed={feedFailed}
+                onRemix={(item) => setPreset({ kind: item.kind, projectId: item.projectId, format: item.format, nonce: Date.now() })}
+              />
             </div>
           )}
 
@@ -116,7 +122,7 @@ export default function ProjectsPage() {
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 id="channels-title" className="text-lg font-semibold th-text-primary">Kênh của bạn</h2>
               {projects.length > 0 && (
-                <Button variant="outline" size="sm" onClick={() => router.push("/onboarding")}>
+                <Button variant="outline" size="sm" onClick={() => setPreset({ projectId: NEW_CHANNEL, nonce: Date.now() })}>
                   <Plus size={15} /> Kênh mới
                 </Button>
               )}
@@ -126,14 +132,9 @@ export default function ProjectsPage() {
               {[1, 2, 3].map((item) => <div key={item} className="h-28 animate-pulse rounded-xl th-bg-card" />)}
             </div>
           ) : projects.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed px-4 py-10 text-center th-border">
-              <p className="max-w-md text-sm th-text-secondary">Mỗi kênh có nhân vật riêng. AI dùng họ để làm phim và meme cho bạn mỗi ngày.</p>
-              {/* Người chưa có dự án nào đi qua luồng 3 bước: đặt tên, chọn nhân
-                  vật AI gợi ý, rồi tạo ảnh đầu tiên bằng điểm tặng. Modal trống
-                  ở đây từng bắt họ tự nghĩ ra "giọng nói & phong cách hình ảnh"
-                  trước khi thấy sản phẩm làm được gì. */}
-              <Button onClick={() => router.push("/onboarding")} className="mt-4"><Plus size={17} /> Tạo kênh đầu tiên</Button>
-            </div>
+            <p className="rounded-2xl border border-dashed px-4 py-8 text-center text-sm th-border th-text-secondary">
+              Chưa có kênh nào. Gõ ý tưởng đầu tiên ở trên, AI dựng kênh, đặt tên và nghĩ nhân vật cho bạn.
+            </p>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {projects.map((project) => {

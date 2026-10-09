@@ -9,7 +9,7 @@ describe("trang chính", () => {
     const items = homeFeed(
       [project],
       [
-        { id: "f1", project_id: "p1", workspace_version: 2, plan_id: "plan1", intent: "[AIDA_GENRE=comedy] Bé than lương", status: "completed", source: "manual", updated_at: "2026-10-09T08:00:00Z", video_plans: { title: "Lương về ba ngày" } },
+        { id: "f1", project_id: "p1", workspace_version: 2, plan_id: "plan1", intent: "[AIDA_GENRE=comedy] [AIDA_FORMAT=talk_to_camera] Bé than lương", status: "completed", source: "manual", updated_at: "2026-10-09T08:00:00Z", video_plans: { title: "Lương về ba ngày" } },
         { id: "f2", project_id: "p1", workspace_version: 2, plan_id: null, intent: "", status: "needs_review", source: "scheduled", updated_at: "2026-10-09T07:00:00Z" },
         { id: "f3", project_id: "p1", workspace_version: 1, plan_id: null, intent: "cũ", status: "running", source: "manual", updated_at: "2026-10-09T09:00:00Z" },
       ],
@@ -20,7 +20,7 @@ describe("trang chính", () => {
     );
     expect(items.map((item) => item.id)).toEqual(["f2", "m1", "f1", "m2"]);
     expect(items[0]).toMatchObject({ title: "Tập do AI tự nghĩ", label: "Cần bạn xem", scheduled: true, href: "/projects/banh-bao/short-films?tap=f2" });
-    expect(items[2]).toMatchObject({ title: "Lương về ba ngày", href: "/projects/banh-bao/short-films?tap=plan1" });
+    expect(items[2]).toMatchObject({ title: "Lương về ba ngày", format: "talk_to_camera", href: "/projects/banh-bao/short-films?tap=plan1" });
     expect(items[3]).toMatchObject({ title: "Thứ Hai", imageUrl: "https://a/b.png", status: "ready" });
     expect(feedIsBusy(items)).toBe(true);
   });

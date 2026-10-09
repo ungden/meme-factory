@@ -1,14 +1,12 @@
 /**
- * Dữ liệu và phép biến đổi cho luồng khởi tạo 3 bước.
- *
- * Tách khỏi React để test được: phần dễ sai ở đây không phải giao diện mà là
- * những gì được ghép thành mô tả dự án và brief gửi cho AI.
+ * Dựng một kênh mới từ ý tưởng đầu tiên của người dùng: lĩnh vực, mô tả dự án
+ * và brief gửi cho AI gợi ý nhân vật. Tách khỏi route để test được: phần dễ sai
+ * không phải giao diện mà là những gì được ghép thành dữ liệu kênh.
  */
 
 export type ContentField = {
   id: string;
   label: string;
-  /** Gợi ý ý tưởng cho ảnh đầu tiên, viết như người dùng sẽ tự gõ. */
   ideas: string[];
   /** Giọng thương hiệu mặc định, người dùng sửa sau trong Thương hiệu. */
   voice: string;
@@ -106,6 +104,8 @@ export type OnboardingInput = {
   fieldId: string;
   /** Câu trả lời cho "Bạn muốn nói với ai?" — không bắt buộc. */
   audience?: string;
+  /** Ý tưởng người dùng gõ trước khi có kênh; nhân vật gợi ý phải hợp với nó. */
+  idea?: string;
 };
 
 /**
@@ -136,10 +136,12 @@ export function projectDraft(input: OnboardingInput): {
 export function fanpageBrief(input: OnboardingInput): string {
   const field = fieldById(input.fieldId);
   const audience = (input.audience || "").trim();
+  const idea = (input.idea || "").trim().slice(0, 500);
   return [
     `Fanpage "${input.name.trim()}" trong lĩnh vực ${field.label}.`,
     audience ? `Khán giả: ${audience}.` : "",
     `Giọng mong muốn: ${field.voice}.`,
+    idea ? `Nội dung đầu tiên chủ kênh muốn làm: "${idea}". Nhân vật phải diễn được nội dung này.` : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -171,21 +173,37 @@ export function characterFromSuggestion(suggestion: CharacterSuggestion): {
   return { name, description, personality };
 }
 
-/** Có dấu tiếng Việt = thông điệp đã viết cho người dùng, không phải cho log. */
-const VIETNAMESE = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/iu;
-
 /**
- * Câu báo lỗi cho bước gợi ý nhân vật.
- *
- * Route trả cả thông điệp kỹ thuật ("Unauthorized", "RPC error: …"). Ném thẳng
- * ra màn hình thì người dùng đọc một câu tiếng Anh giữa một luồng tiếng Việt và
- * không biết phải làm gì tiếp.
+ * Chuẩn hoá gợi ý kênh từ AI. Lĩnh vực lạ rơi về "Lĩnh vực khác"; tên rỗng thì
+ * trả null để người dùng tự gõ thay vì nhận một ô tên trống đã "điền sẵn".
  */
-export function suggestionError(status: number, message?: string): string {
-  if (status === 401 || status === 403)
-    return "Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi quay lại bước này nhé.";
-  if (status === 429) return "Hệ thống AI đang bận. Thử lại sau vài phút, hoặc bỏ qua bước này.";
-  if (status === 503) return "Hệ thống AI chưa sẵn sàng. Bạn có thể bỏ qua và thêm nhân vật sau.";
-  const text = (message || "").trim();
-  return text && VIETNAMESE.test(text) ? text : "Chưa gợi ý được nhân vật lúc này.";
+export function channelFromSuggestion(raw: unknown): { name: string; fieldId: string; audience: string } | null {
+  const value = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const name = String(value.name ?? "").replace(/["“”]/g, "").replace(/\s+/g, " ").trim().slice(0, 60);
+  if (!name) return null;
+  return {
+    name,
+    fieldId: fieldById(String(value.fieldId ?? "")).id,
+    audience: String(value.audience ?? "").replace(/\s+/g, " ").trim().slice(0, 120),
+  };
+}
+
+/** Slug dự án: tên không dấu + 8 ký tự ngẫu nhiên để hai kênh trùng tên vẫn khác đường dẫn. */
+export function slugifyProjectName(name: string): string {
+  const base = name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+  return base || "du-an";
+}
+
+/** AI không đặt được tên thì lấy vài chữ đầu của ý tưởng; người dùng đổi sau. */
+export function fallbackChannelName(idea: string): string {
+  const words = idea.replace(/["“”.,!?:;]/g, " ").split(/\s+/).filter(Boolean).slice(0, 4).join(" ");
+  return words ? `Kênh ${words}` : "Kênh của tôi";
 }

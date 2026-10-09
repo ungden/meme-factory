@@ -250,6 +250,9 @@ export default function EpisodeStudio() {
     handoff.current = takeFilmHandoff(ref);
     if (!handoff.current) return;
     setIdea(handoff.current.idea);
+    // Kênh vừa tạo chưa có hồ sơ: lấy ý tưởng đầu tiên làm điểm tựa cho câu
+    // "kênh tập trung vào điều gì" để người dùng không đứng trước ô trống.
+    setProfilePositioning((current) => current || handoff.current!.idea);
     if (isFilmFormat(handoff.current.format)) setFormat(handoff.current.format);
   }, [ref]);
   useEffect(() => {

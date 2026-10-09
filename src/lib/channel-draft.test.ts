@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  channelFromSuggestion,
+  fallbackChannelName,
+  slugifyProjectName,
   characterFromSuggestion,
   fanpageBrief,
   fieldById,
   projectDraft,
   CONTENT_FIELDS,
-} from "./onboarding";
+} from "./channel-draft";
 
 describe("fieldById", () => {
   it("trả về lĩnh vực đúng id", () => {
@@ -60,18 +63,31 @@ describe("CONTENT_FIELDS", () => {
   });
 });
 
-describe("suggestionError", () => {
-  it("nói bằng tiếng Việt cho các mã lỗi thường gặp", async () => {
-    const { suggestionError } = await import("./onboarding");
-    expect(suggestionError(401)).toContain("Đăng nhập lại");
-    expect(suggestionError(429)).toContain("đang bận");
-    expect(suggestionError(503)).toContain("chưa sẵn sàng");
+describe("kênh gợi ý từ ý tưởng", () => {
+  it("giữ lĩnh vực hợp lệ, lĩnh vực lạ rơi về Lĩnh vực khác", () => {
+    expect(channelFromSuggestion({ name: ' "Nhà  Bánh Bao" ', fieldId: "me-va-be", audience: "bố mẹ trẻ" })).toEqual({
+      name: "Nhà Bánh Bao",
+      fieldId: "me-va-be",
+      audience: "bố mẹ trẻ",
+    });
+    expect(channelFromSuggestion({ name: "X", fieldId: "vu-tru" })?.fieldId).toBe("khac");
+    expect(channelFromSuggestion({ name: " " })).toBeNull();
+    expect(channelFromSuggestion("rác")).toBeNull();
   });
 
-  it("giữ thông điệp tiếng Việt từ server, bỏ thông điệp kỹ thuật", async () => {
-    const { suggestionError } = await import("./onboarding");
-    expect(suggestionError(500, "Hệ thống AI đang quá tải")).toBe("Hệ thống AI đang quá tải");
-    expect(suggestionError(500, "Unauthorized")).toBe("Chưa gợi ý được nhân vật lúc này.");
-    expect(suggestionError(0)).toBe("Chưa gợi ý được nhân vật lúc này.");
+  it("đưa ý tưởng đầu tiên vào brief gợi ý nhân vật", () => {
+    expect(fanpageBrief({ name: "A", fieldId: "khac", idea: "Bé than lương" })).toContain('"Bé than lương"');
+    expect(fanpageBrief({ name: "A", fieldId: "khac" })).not.toContain("Nội dung đầu tiên");
+  });
+});
+
+describe("tên và đường dẫn kênh", () => {
+  it("bỏ dấu tiếng Việt trong slug", () => {
+    expect(slugifyProjectName("Nhà Đậu Đỏ!")).toBe("nha-dau-do");
+    expect(slugifyProjectName("!!!")).toBe("du-an");
+  });
+  it("lấy vài chữ đầu của ý tưởng khi AI không đặt được tên", () => {
+    expect(fallbackChannelName("Bé than lương, của mẹ về ba ngày")).toBe("Kênh Bé than lương của");
+    expect(fallbackChannelName("  ")).toBe("Kênh của tôi");
   });
 });

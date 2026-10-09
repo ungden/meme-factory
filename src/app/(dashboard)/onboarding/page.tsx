@@ -1,15 +1,7 @@
-import { Suspense } from "react";
-import OnboardingFlow from "./_components/onboarding-flow";
+import { redirect } from "next/navigation";
 
-export const metadata = {
-  title: "Bắt đầu với AIDA",
-  description: "Ba bước để có nội dung đầu tiên cho fanpage của bạn.",
-};
-
+// Không còn bước khởi tạo riêng: người mới gõ ý tưởng ở trang chính và AI tự
+// dựng kênh. Giữ đường dẫn cũ để liên kết đã gửi đi không gãy.
 export default function OnboardingPage() {
-  return (
-    <Suspense fallback={<div className="mx-auto h-64 w-full max-w-2xl animate-pulse rounded-2xl th-bg-card" />}>
-      <OnboardingFlow />
-    </Suspense>
-  );
+  redirect("/projects");
 }

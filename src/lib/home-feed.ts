@@ -4,7 +4,7 @@
  * AI đang làm gì cho họ.
  */
 import { stripStoryGenreMarker } from "@/lib/story-genre";
-import { stripFilmFormatMarker } from "@/lib/film-camera-language";
+import { filmFormatFromIntent, stripFilmFormatMarker, type FilmFormat } from "@/lib/film-camera-language";
 
 export type FeedStatus = "working" | "attention" | "ready" | "stopped";
 
@@ -18,6 +18,8 @@ export type FeedItem = {
   label: string;
   href: string;
   imageUrl: string | null;
+  /** Cách quay của tập, để "Làm thêm kiểu này" giữ đúng kiểu. */
+  format: FilmFormat | null;
   scheduled: boolean;
   at: string;
 };
@@ -115,6 +117,7 @@ export function homeFeed(
       label: FILM_LABEL[status],
       href: `/projects/${projectRef(project)}/short-films?tap=${run.plan_id || run.id}`,
       imageUrl: null,
+      format: filmFormatFromIntent(run.intent),
       scheduled: run.source === "scheduled",
       at: run.updated_at,
     });
@@ -133,6 +136,7 @@ export function homeFeed(
       label: MEME_LABEL[status],
       href: `/projects/${projectRef(project)}/generate`,
       imageUrl: status === "ready" ? run.memes?.image_url || null : null,
+      format: null,
       scheduled: run.source === "scheduled",
       at: run.completed_at || run.created_at,
     });

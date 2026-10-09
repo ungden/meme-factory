@@ -172,6 +172,40 @@ Chỉ trả JSON array, không kèm văn bản khác.`;
   }
 }
 
+/**
+ * Người mới gõ ý tưởng trước khi có kênh: đoán tên kênh, lĩnh vực và người xem
+ * để AI dựng kênh mà không hỏi thêm câu nào. Trả thô; channel-draft tự chuẩn hoá.
+ */
+export async function suggestChannelFromIdea(params: {
+  idea: string;
+  fields: { id: string; label: string }[];
+}): Promise<unknown> {
+  const ai = await getClient();
+  const prompt = `Một người dùng Việt Nam muốn mở một kênh mạng xã hội và vừa gõ ý tưởng đầu tiên:
+"${params.idea}"
+
+Đoán kênh họ muốn làm:
+- name: tên kênh ngắn, dễ nhớ, tiếng Việt, không quá 4 từ, không dấu ngoặc.
+- fieldId: một trong ${params.fields.map((field) => `"${field.id}" (${field.label})`).join(", ")}.
+- audience: người xem chính, một cụm ngắn, ví dụ "bố mẹ trẻ 25–35 tuổi".
+
+Trả về đúng một JSON object {"name": "...", "fieldId": "...", "audience": "..."}, không kèm văn bản khác.`;
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: [{ text: prompt }],
+    config: {
+      httpOptions: { timeout: GEMINI_TEXT_TIMEOUT_MS },
+      responseMimeType: "application/json",
+      temperature: 0.6,
+    },
+  });
+  try {
+    return JSON.parse(response.text ?? "{}");
+  } catch {
+    return {};
+  }
+}
+
 export async function generateMemeContent(params: {
   idea: string;
   projectStyle?: string;

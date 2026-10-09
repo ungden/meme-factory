@@ -21,6 +21,7 @@ export type RateLimitResult = { allowed: boolean; remaining: number; resetIn: nu
 export const RATE_LIMITS = {
   generateImage: { action: "generate-image", limit: 30, windowSeconds: 60 },
   suggestCharacters: { action: "suggest-characters", limit: 10, windowSeconds: 60 },
+  createChannel: { action: "create-channel", limit: 5, windowSeconds: 600 },
   createTopup: { action: "create-topup", limit: 10, windowSeconds: 600 },
   buyPoints: { action: "buy-points", limit: 20, windowSeconds: 600 },
   generateContentMinute: { action: "generate-content", limit: 5, windowSeconds: 60 },
