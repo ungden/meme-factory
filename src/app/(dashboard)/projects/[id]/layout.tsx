@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import Sidebar from "@/components/layout/sidebar";
 
 /**
- * Khung chung cho mọi trang bên trong một dự án.
+ * Khung chung cho mọi trang bên trong một kênh.
  *
  * Trước đây từng trang tự import Sidebar, nên trang nào quên thì người dùng rơi
  * vào ngõ cụt — `/short-films`, lối vào chính của tính năng làm phim, là đúng

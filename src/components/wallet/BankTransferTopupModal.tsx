@@ -157,8 +157,8 @@ export default function BankTransferTopupModal({ open, onClose, info, requiredAm
               ) : isChecking ? (
                 <>
                   <span className="relative flex h-2.5 w-2.5 mr-1">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "var(--accent)" }} />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ background: "var(--accent)" }} />
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "var(--accent-gradient)" }} />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ background: "var(--accent-gradient)" }} />
                   </span>
                   Đang chờ tiền về ví...
                 </>

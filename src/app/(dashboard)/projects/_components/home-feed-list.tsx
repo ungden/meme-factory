@@ -25,7 +25,7 @@ export default function HomeFeedList({
 }) {
   return (
     <section aria-labelledby="feed-title" className="flex flex-col gap-3">
-      <h2 id="feed-title" className="text-lg font-semibold th-text-primary">Việc của AI</h2>
+      <h2 id="feed-title" className="text-[15px] font-semibold th-text-primary">Việc của AI</h2>
       {loading ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {[1, 2, 3, 4].map((item) => <div key={item} className="h-44 animate-pulse rounded-xl th-bg-card" />)}
@@ -33,18 +33,18 @@ export default function HomeFeedList({
       ) : failed && !items.length ? (
         <p className="text-sm th-text-secondary">Chưa tải được danh sách. Trang sẽ thử lại sau ít phút.</p>
       ) : !items.length ? (
-        <p className="rounded-xl border border-dashed th-border px-4 py-6 text-center text-sm th-text-secondary">
+        <p className="rounded-2xl border border-dashed th-border px-4 py-10 text-center text-sm th-text-tertiary">
           Chưa có gì. Gõ một ý tưởng ở trên, AI làm xong sẽ đưa kết quả về đây.
         </p>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {items.map((item) => (
-            <li key={`${item.kind}:${item.id}`} className="flex flex-col overflow-hidden rounded-xl border th-border th-bg-card transition hover:th-border-accent">
+            <li key={`${item.kind}:${item.id}`} className="group flex flex-col overflow-hidden rounded-2xl border th-border th-bg-card transition-all hover:-translate-y-0.5 hover:th-shadow-md">
               <Link href={item.href} className="flex flex-1 flex-col">
-                <div className="relative flex aspect-[4/3] items-center justify-center th-bg-tertiary">
+                <div className="relative flex aspect-[4/5] items-center justify-center overflow-hidden th-bg-tertiary">
                   {item.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element -- ảnh meme nằm ở kho lưu trữ, không qua tối ưu ảnh của Next
-                    <img src={item.imageUrl} alt={item.title} loading="lazy" className="h-full w-full object-cover" />
+                    <img src={item.imageUrl} alt={item.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
                   ) : item.status === "working" ? (
                     <Loader2 className="h-7 w-7 animate-spin th-text-accent" aria-hidden />
                   ) : item.kind === "film" ? (
@@ -52,7 +52,7 @@ export default function HomeFeedList({
                   ) : (
                     <Images className="h-7 w-7 th-text-muted" aria-hidden />
                   )}
-                  <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[item.status]}`}>
+                  <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[11px] font-medium backdrop-blur-md ${STATUS_STYLE[item.status]}`}>
                     {item.label}
                   </span>
                 </div>

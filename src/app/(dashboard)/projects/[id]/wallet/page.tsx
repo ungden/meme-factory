@@ -61,7 +61,7 @@ export default function ProjectWalletPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data?.error || "Không thể nạp điểm vào ví dự án");
+        toast.error(data?.error || "Không thể nạp điểm vào ví kênh");
       } else {
         trackEvent("project_points_deposit", {
           project_id: project?.id || projectId,
@@ -93,7 +93,7 @@ export default function ProjectWalletPage() {
     <div className="flex">
       <main className="flex-1 p-4 pt-16 md:p-8">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold th-text-primary">Ví dự án</h1>
+          <h1 className="text-2xl font-bold th-text-primary">Ví kênh</h1>
           <p className="th-text-tertiary mt-1">Nạp điểm từ ví cá nhân để cả nhóm dùng chung</p>
         </div>
 
@@ -126,7 +126,7 @@ export default function ProjectWalletPage() {
                   style={{ border: "1px solid var(--border-primary)" }}
                 />
                 <Button onClick={deposit} disabled={busy || !depositPoints || Number(depositPoints) <= 0}>
-                  Nạp điểm vào dự án
+                  Nạp điểm vào kênh
                 </Button>
               </div>
             </div>
@@ -135,7 +135,7 @@ export default function ProjectWalletPage() {
 
         <Card>
           <CardContent className="space-y-2">
-            <h2 className="text-lg font-semibold th-text-primary">Lịch sử ví dự án</h2>
+            <h2 className="text-lg font-semibold th-text-primary">Lịch sử ví kênh</h2>
             {projectTx.length === 0 && <p className="text-sm th-text-muted">Chưa có giao dịch.</p>}
             {projectTx.map((tx) => (
               <div key={tx.id} className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: "var(--bg-tertiary)" }}>

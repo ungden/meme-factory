@@ -19,7 +19,7 @@ export function FilmStoryboardEditor({
     });
   return (
     <section
-      aria-label={`Storyboard ${board.durationSeconds} giây`}
+      aria-label={`Kịch bản hình ${board.durationSeconds} giây`}
       className="space-y-3"
     >
       <p className="text-xs th-text-secondary">

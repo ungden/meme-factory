@@ -40,3 +40,40 @@ export function parseFilmHandoff(raw: string | null, now: number): FilmHandoff |
     at: value.at,
   };
 }
+
+/**
+ * Video lẻ từ trang chính: mô tả và ảnh tham chiếu (bộ ảnh nhân vật được gắn).
+ * Trang video còn phải báo giá trước khi làm nên không cần khoá chống trùng;
+ * chỉ cần không để một lần mở tab cũ điền đè lên việc người dùng đang làm.
+ */
+export type VideoHandoff = { prompt: string; references: string[]; at: number };
+
+const videoKey = (projectRef: string) => `aida:video-handoff:${projectRef}`;
+
+export function giveVideoHandoff(projectRef: string, handoff: Omit<VideoHandoff, "at">) {
+  try {
+    window.sessionStorage.setItem(videoKey(projectRef), JSON.stringify({ ...handoff, at: Date.now() }));
+  } catch {
+    // Không lưu được thì trang video mở trống.
+  }
+}
+
+export function takeVideoHandoff(projectRef: string, now = Date.now()): VideoHandoff | null {
+  try {
+    const raw = window.sessionStorage.getItem(videoKey(projectRef));
+    window.sessionStorage.removeItem(videoKey(projectRef));
+    return parseVideoHandoff(raw, now);
+  } catch {
+    return null;
+  }
+}
+
+export function parseVideoHandoff(raw: string | null, now: number): VideoHandoff | null {
+  if (!raw) return null;
+  const value = JSON.parse(raw) as Partial<VideoHandoff>;
+  if (typeof value.prompt !== "string" || typeof value.at !== "number" || now - value.at > FRESH_MS) return null;
+  const references = Array.isArray(value.references)
+    ? value.references.filter((url): url is string => typeof url === "string" && /^https:\/\//.test(url)).slice(0, 9)
+    : [];
+  return { prompt: value.prompt.slice(0, 2000), references, at: value.at };
+}

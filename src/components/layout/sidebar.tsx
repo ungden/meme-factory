@@ -21,6 +21,8 @@ import {
   ChevronDown,
   HelpCircle,
   Settings,
+  Film,
+  LayoutDashboard,
   LayoutTemplate,} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -41,7 +43,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
   const { theme, toggleTheme } = useTheme();
   const { points, isLoading: walletLoading } = useWallet();
   const [projectPoints, setProjectPoints] = useState<number | null>(null);
-  // App shell dựng Sidebar từ layout nên không có sẵn tên dự án; lấy kèm số dư.
+  // App shell dựng Sidebar từ layout nên không có sẵn tên kênh; lấy kèm số dư.
   const [fetchedName, setFetchedName] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -157,14 +159,21 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
 
   // Grouped so the free paths read first and the paid ones are visibly separate.
   const projectPrimaryNav = projectId
-    ? [{ href: `/projects/${projectId}`, label: "Tổng quan", icon: Sparkles }]
+    ? [{ href: `/projects/${projectId}`, label: "Tổng quan kênh", icon: LayoutDashboard }]
     : [];
 
+  // Thứ tự theo đúng cách một kênh làm việc: làm nội dung từ kho nhân vật.
   const projectCreateNav = projectId
     ? [
         {
+          href: `/projects/${projectId}/short-films`,
+          label: "Phim ngắn",
+          icon: Clapperboard,
+          aliases: [`/projects/${projectId}/video/multiscene`],
+        },
+        {
           href: `/projects/${projectId}/generate`,
-          label: "Tạo ảnh",
+          label: "Meme",
           icon: Sparkles,
           aliases: [
             `/projects/${projectId}/studio`,
@@ -173,15 +182,11 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           ],
         },
         {
+          // Chỉ đúng trang video lẻ: /video/multiscene thuộc Phim ngắn.
           href: `/projects/${projectId}/video`,
-          label: "Tạo video",
-          icon: Clapperboard,
-        },
-        {
-          href: `/projects/${projectId}/short-films`,
-          label: "Tạo phim ngắn",
-          icon: Clapperboard,
-          aliases: [`/projects/${projectId}/video/multiscene`],
+          label: "Video từ ảnh",
+          icon: Film,
+          exact: true,
         },
       ]
     : [];
@@ -189,21 +194,19 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
   const projectLibraryNav = projectId
     ? [
         {
-          href: `/projects/${projectId}/gallery`,
-          label: "Nội dung đã lưu",
-          icon: Image,
-        },
-        {
           href: `/projects/${projectId}/characters`,
           label: "Nhân vật",
           icon: Users,
           aliases: [`/projects/${projectId}/mascots`],
         },
         {
-          // Trang mẫu tồn tại từ lâu nhưng không có mục nào dẫn tới, nên trong
-          // thực tế nó không tồn tại với người dùng.
+          href: `/projects/${projectId}/gallery`,
+          label: "Thư viện",
+          icon: Image,
+        },
+        {
           href: `/projects/${projectId}/templates`,
-          label: "Mẫu có sẵn",
+          label: "Mẫu ghép chữ",
           icon: LayoutTemplate,
         },
       ]
@@ -213,7 +216,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
     ? [
         {
           href: `/projects/${projectId}/brand`,
-          label: "Thương hiệu",
+          label: "Hồ sơ kênh",
           icon: Palette,
         },
         {
@@ -223,7 +226,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         },
         {
           href: `/projects/${projectId}/wallet`,
-          label: "Điểm dự án",
+          label: "Điểm của kênh",
           icon: Coins,
         },
       ]
@@ -232,25 +235,15 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
   const sidebarContent = (
     <>
       {/* Logo */}
-      <div
-        className="flex items-center justify-between gap-2 border-b px-4 py-4"
-        style={{ borderColor: "var(--border-primary)" }}
-      >
+      <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-4">
         <Link href="/projects" className="flex min-h-11 items-center gap-2.5 lg:min-h-0">
           <div
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-white th-shadow-sm"
-            style={{ background: "var(--accent)" }}
+            className="flex h-8 w-8 items-center justify-center rounded-[10px] text-white"
+            style={{ backgroundImage: "var(--accent-gradient)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.25), 0 6px 16px -6px var(--accent-shadow)" }}
           >
-            <Sparkles size={18} className="text-white" />
+            <Sparkles size={16} className="text-white" />
           </div>
-          <div className="min-w-0">
-            <span className="block text-[18px] font-extrabold leading-none tracking-[-0.04em] th-text-primary">
-              AIDA
-            </span>
-            <span className="mt-1 block text-[8px] font-bold uppercase tracking-[0.2em] th-text-muted">
-              Media Studio
-            </span>
-          </div>
+          <span className="text-[17px] font-semibold tracking-[-0.03em] th-text-primary">AIDA</span>
         </Link>
         <span className="hidden lg:block">
           <NotificationBell />
@@ -260,28 +253,25 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
       {/* Point Balance */}
       <Link
         href={projectId ? `/projects/${projectId}/wallet` : "/wallet"}
-        className="mx-3 mt-3 flex items-center justify-between rounded-lg px-3 py-2 transition-colors th-bg-hover"
-        style={{ background: "var(--bg-secondary)" }}
+        className="mx-3 mt-2 flex items-center justify-between rounded-xl border px-3 py-2 transition-colors th-border th-bg-card th-bg-hover"
       >
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg th-bg-accent-light th-text-accent">
-            <Coins size={14} />
-          </div>
-          <span className="text-sm font-medium th-text-secondary">Điểm</span>
-        </div>
-        {/* Một số dư duy nhất. Ví dự án và ví cá nhân vẫn là hai sổ phía sau,
+        <span className="flex items-center gap-2 text-[13px] th-text-secondary">
+          <Coins size={15} className="th-text-accent" />
+          Điểm
+        </span>
+        {/* Một số dư duy nhất. Ví kênh và ví cá nhân vẫn là hai sổ phía sau,
             nhưng hệ thống tự chuyển khi tạo nội dung, nên hiện hai con số chỉ
             khiến người dùng tưởng mình hết điểm trong khi tài khoản còn tiền. */}
-        <span className="text-sm font-bold th-text-primary">
+        <span className="text-[13px] font-semibold tabular-nums th-text-primary">
           {walletLoading || (projectId && projectPoints === null)
-            ? "..."
+            ? "…"
             : (points + (projectId ? (projectPoints ?? 0) : 0)).toLocaleString("vi-VN")}
         </span>
       </Link>
 
       {/* Navigation */}
       <nav
-        className="flex-1 space-y-1 overflow-y-auto p-3"
+        className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3"
         aria-label="Điều hướng chính"
       >
         {projectId && (
@@ -294,8 +284,8 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
               Trang chính
             </Link>
             <div className="px-3 py-2">
-              <p className="text-xs th-text-muted uppercase tracking-wider">
-                Dự án
+              <p className="text-[11px] font-medium th-text-muted">
+                Kênh
               </p>
               <p className="text-sm font-medium th-text-primary truncate mt-0.5">
                 {projectName || fetchedName || "..."}
@@ -329,8 +319,8 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
 
         {projectId && (
           <>
-            <div className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] th-text-muted">
-              Tạo
+            <div className="px-3 pb-1 pt-4 text-[11px] font-medium th-text-muted">
+              Làm nội dung
             </div>
             {projectCreateNav.map((item) => (
               <NavItem
@@ -338,12 +328,12 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
                 href={item.href}
                 label={item.label}
                 icon={item.icon}
-                active={isNavActive(pathname, item.href, item.aliases)}
+                active={"exact" in item && item.exact ? pathname === item.href : isNavActive(pathname, item.href, item.aliases)}
               />
             ))}
 
-            <div className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] th-text-muted">
-              Thư viện
+            <div className="px-3 pb-1 pt-4 text-[11px] font-medium th-text-muted">
+              Kho của kênh
             </div>
             {projectLibraryNav.map((item) => (
               <NavItem
@@ -363,7 +353,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
               type="button"
               aria-expanded={managementOpen}
               onClick={() => setManagementOpen((open) => !open)}
-              className="mt-3 flex min-h-11 w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.16em] th-text-muted th-bg-hover lg:min-h-9"
+              className="mt-3 flex min-h-11 w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] font-medium th-text-muted th-bg-hover lg:min-h-9"
             >
               Quản lý{" "}
               <ChevronDown
@@ -408,30 +398,30 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
 
       {/* Footer */}
       <div
-        className="space-y-1 border-t p-3"
+        className="space-y-0.5 border-t px-3 py-3"
         style={{ borderColor: "var(--border-primary)" }}
       >
         {isAdmin && (
           <Link
             href="/admin"
-            className="w-full flex min-h-11 items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all th-text-danger th-bg-hover lg:min-h-10"
+            className="w-full flex min-h-11 items-center gap-3 px-3 py-2 text-[13px] rounded-lg transition-all th-text-danger th-bg-hover lg:min-h-9"
           >
-            <Shield size={18} />
+            <Shield size={16} />
             Quản trị
           </Link>
         )}
         <Link
           href="/settings"
-          className="w-full flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm th-text-secondary transition-all th-bg-hover lg:min-h-10"
+          className="w-full flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-[13px] th-text-secondary transition-all th-bg-hover lg:min-h-9"
         >
-          <Settings size={18} />
+          <Settings size={16} />
           Cài đặt
         </Link>
         <Link
           href="/help"
-          className="w-full flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm th-text-secondary transition-all th-bg-hover lg:min-h-10"
+          className="w-full flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-[13px] th-text-secondary transition-all th-bg-hover lg:min-h-9"
         >
-          <HelpCircle size={18} />
+          <HelpCircle size={16} />
           Hỗ trợ
         </Link>
         <button
@@ -439,9 +429,9 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           aria-label={
             theme === "light" ? "Chuyển giao diện tối" : "Chuyển giao diện sáng"
           }
-          className="w-full flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm th-text-secondary transition-all cursor-pointer th-bg-hover lg:min-h-10"
+          className="w-full flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-[13px] th-text-secondary transition-all cursor-pointer th-bg-hover lg:min-h-9"
         >
-          {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
+          {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
           {theme === "light" ? "Giao diện tối" : "Giao diện sáng"}
         </button>
 
@@ -449,9 +439,9 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
           onClick={handleSignOut}
           aria-label="Đăng xuất"
           disabled={signingOut}
-          className="w-full flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all cursor-pointer th-text-danger th-bg-hover lg:min-h-10"
+          className="w-full flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-[13px] transition-all cursor-pointer th-text-secondary th-bg-hover lg:min-h-9"
         >
-          <LogOut size={18} />
+          <LogOut size={16} />
           {signingOut ? "Đang đăng xuất..." : "Đăng xuất"}
         </button>
       </div>
@@ -468,7 +458,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
       <button
         onClick={() => setMobileOpen(true)}
         aria-label="Mở menu"
-        className="fixed top-4 left-4 z-50 rounded-lg p-2.5 lg:hidden transition-all"
+        className="fixed top-4 left-4 z-50 rounded-xl p-2.5 lg:hidden transition-all th-shadow-sm"
         style={{
           background: "var(--bg-card)",
           border: "1px solid var(--border-primary)",
@@ -480,7 +470,7 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm lg:hidden"
           onClick={() => setMobileOpen(false)}
           aria-hidden="true"
         />
@@ -549,13 +539,14 @@ function NavItem({
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all lg:min-h-10 ${
+      className={`relative flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-[13.5px] transition-colors lg:min-h-9 ${
         active
-          ? "font-medium th-bg-accent-light th-text-accent"
+          ? "font-medium th-text-primary"
           : "th-text-secondary th-bg-hover"
       }`}
+      style={active ? { background: "var(--bg-hover)", boxShadow: "inset 0 0 0 1px var(--border-primary)" } : undefined}
     >
-      <Icon size={18} className={active ? "th-text-accent" : ""} />
+      <Icon size={16} className={active ? "th-text-accent" : "th-text-tertiary"} />
       <span className="flex-1 truncate">{label}</span>
       {badge && (
         <span className="rounded-full px-1.5 py-0.5 text-[10px] th-bg-tertiary th-text-tertiary">

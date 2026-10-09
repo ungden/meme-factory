@@ -80,7 +80,7 @@ export default function EpisodeStudio() {
   const [suggesting, setSuggesting] = useState(false);
   const [quality, setQuality] = useState<QualityId>("saving");
   const [limit, setLimit] = useState<number>(QUALITY_OPTIONS[0].defaultLimit);
-  // Dự án tự nói tiếng Việt cần Seedance 2.5; chọn sẵn cho người dùng, trừ khi
+  // Kênh tự nói tiếng Việt cần Seedance 2.5; chọn sẵn cho người dùng, trừ khi
   // họ đã tự đổi ở mục tuỳ chọn.
   const qualityTouched = useRef(false);
   const [autopilot, setAutopilot] = useState<AutopilotSettings | null>(null);
@@ -157,7 +157,7 @@ export default function EpisodeStudio() {
         : null,
     );
     const automation = await api(`${base}/film-automation`).catch(() => null);
-    // Chỉ chủ kênh bật được lịch; người cùng dự án không thấy thẻ này.
+    // Chỉ chủ kênh bật được lịch; người cùng kênh không thấy thẻ này.
     setAutopilot(
       automation?.owner
         ? {

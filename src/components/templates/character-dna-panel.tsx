@@ -237,12 +237,12 @@ export default function CharacterDnaPanel({
               <span
                 key={cell}
                 className="th-bg-tertiary"
-                style={cell === watermarkPosition ? { background: "var(--accent)" } : undefined}
+                style={cell === watermarkPosition ? { background: "var(--accent-gradient)" } : undefined}
               />
             ))}
           </div>
           <p className="text-[11px] th-text-tertiary">
-            Ô tô đậm là nơi watermark của dự án rơi vào. Tránh đặt chi tiết quan trọng ở đó.
+            Ô tô đậm là nơi watermark của kênh rơi vào. Tránh đặt chi tiết quan trọng ở đó.
           </p>
         </div>
 

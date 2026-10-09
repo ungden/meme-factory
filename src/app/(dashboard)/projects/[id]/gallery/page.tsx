@@ -366,7 +366,7 @@ export default function GalleryPage() {
               {videoOutputs.map((output) => (
                 <Card key={output.id} className="overflow-hidden p-0">
                   {["completed", "approved", "rejected"].includes(output.status) ? <video controls preload="none" poster={output.poster_url ? `/api/content-outputs/${output.id}/media?artifact=poster` : undefined} className="w-full bg-black object-contain" style={{ aspectRatio: ["16:9", "9:16", "1:1", "4:5"].includes(output.format) ? output.format.replace(":", "/") : "16/9" }} src={`/api/content-outputs/${output.id}/media`} /> : <div className="flex aspect-[9/16] items-center justify-center p-5 text-center text-sm th-text-tertiary">{output.status === "failed" ? "Video chưa tạo được. Hãy tạo đầu ra mới để xem giá và thử lại." : "Video đang được xử lý. Bạn có thể rời trang và quay lại sau."}</div>}
-                  <div className="p-3"><p className="line-clamp-2 text-sm th-text-secondary">{output.caption || output.script || "Video AI"}</p><p className="mt-1 text-xs th-text-muted">{output.duration_seconds ? `${output.duration_seconds} giây` : ""} · {["completed", "approved", "rejected"].includes(output.status) ? (output.status === "approved" ? "Đã duyệt" : output.status === "rejected" ? "Cần chỉnh sửa" : "Sẵn sàng tải MP4") : VIDEO_STATUS_LABELS[output.status] || "Đang xử lý"}</p>{["completed", "approved", "rejected"].includes(output.status) && <div className="mt-2 flex flex-wrap items-center gap-3"><a className="inline-flex text-xs font-semibold th-text-accent" href={`/api/content-outputs/${output.id}/media?download=1`}>Tải MP4</a><SharePost caption={output.caption || output.script || ""} hashtags={postHashtags} />{output.status === "completed" && <><button onClick={() => reviewOutput(output.id, "approved")} className="text-xs font-semibold text-emerald-600">Duyệt</button><button onClick={() => reviewOutput(output.id, "rejected")} className="text-xs font-semibold text-amber-600">Cần chỉnh</button></>}</div>}</div>
+                  <div className="p-3"><p className="line-clamp-2 text-sm th-text-secondary">{output.caption || output.script || "Video AI"}</p><p className="mt-1 text-xs th-text-muted">{output.duration_seconds ? `${output.duration_seconds} giây` : ""} · {["completed", "approved", "rejected"].includes(output.status) ? (output.status === "approved" ? "Đã duyệt" : output.status === "rejected" ? "Cần chỉnh sửa" : "Sẵn sàng tải MP4") : VIDEO_STATUS_LABELS[output.status] || "Đang xử lý"}</p>{["completed", "approved", "rejected"].includes(output.status) && <div className="mt-2 flex flex-wrap items-center gap-3"><a className="inline-flex text-xs font-semibold th-text-accent" href={`/api/content-outputs/${output.id}/media?download=1`}>Tải MP4</a><SharePost caption={output.caption || output.script || ""} hashtags={postHashtags} />{output.status === "completed" && <><button onClick={() => reviewOutput(output.id, "approved")} className="text-xs font-semibold th-text-success">Duyệt</button><button onClick={() => reviewOutput(output.id, "rejected")} className="text-xs font-semibold th-text-warning">Cần chỉnh</button></>}</div>}</div>
                 </Card>
               ))}
             </div>
@@ -544,7 +544,7 @@ export default function GalleryPage() {
               <p className="th-text-muted mt-1">Ảnh và phim bạn tạo sẽ xuất hiện ở đây</p>
             </div>
           ) : (
-            // Dự án chỉ có phim vẫn là dự án có nội dung; đừng nói "chưa có gì".
+            // Kênh chỉ có phim vẫn là kênh có nội dung; đừng nói "chưa có gì".
             <div className="flex flex-col items-center justify-center py-12">
               <h3 className="text-lg font-medium th-text-secondary">Chưa có ảnh nào</h3>
               <p className="th-text-muted mt-1">Phim của bạn đang ở phần phía trên.</p>
@@ -583,7 +583,7 @@ export default function GalleryPage() {
                       {isSelected ? (
                         <div
                           className="w-6 h-6 rounded-md flex items-center justify-center"
-                          style={{ background: "var(--accent)" }}
+                          style={{ background: "var(--accent-gradient)" }}
                         >
                           <CheckCircle size={16} className="text-white" />
                         </div>

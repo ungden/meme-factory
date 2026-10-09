@@ -48,7 +48,7 @@ export default function ProjectOverviewPage() {
   } | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(true);
   // Trước đây mọi lỗi tải đều rơi về `null`, mà `null` lại không phân biệt được
-  // với "dự án trống" — nên chỉ cần một lần chập mạng là một dự án đang có
+  // với "kênh trống" — nên chỉ cần một lần chập mạng là một kênh đang có
   // nhân vật và đầu ra lại hiện thẻ onboarding "Bắt đầu với nhân vật đầu tiên".
   const [overviewFailed, setOverviewFailed] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
@@ -110,20 +110,20 @@ export default function ProjectOverviewPage() {
         className="flex min-h-screen items-center justify-center"
         style={{ background: "var(--bg-primary)" }}
       >
-        <p className="th-text-tertiary">Không tìm thấy dự án</p>
+        <p className="th-text-tertiary">Không tìm thấy kênh</p>
       </div>
     );
   }
 
   const stats = [
     {
-      label: "Tài nguyên nhân vật",
+      label: "nhân vật",
       value: overview?.characterCount ?? 0,
       icon: Users,
     },
-    { label: "Đầu ra đã lưu", value: overview?.outputCount ?? 0, icon: Images },
+    { label: "bài đã làm", value: overview?.outputCount ?? 0, icon: Images },
     {
-      label: "Tạo trong 7 ngày",
+      label: "bài trong 7 ngày",
       value: overview?.weeklyOutputCount ?? 0,
       icon: TrendingUp,
     },
@@ -147,28 +147,31 @@ export default function ProjectOverviewPage() {
               )}
             </div>
             <div className="flex flex-wrap gap-2">
+              {/* Làm nội dung đi qua ô nhập ở trang chính, đã chọn sẵn kênh này. */}
               <button
-                onClick={() => router.push(`/projects/${projectId}/generate`)}
-                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold text-white th-shadow-sm"
-                style={{ background: "var(--accent)" }}
+                onClick={() => {
+                  try {
+                    if (project?.id) window.localStorage.setItem("aida:home-channel", project.id);
+                  } catch {
+                    // Chỉ là ghi nhớ kênh cho ô nhập.
+                  }
+                  router.push("/projects");
+                }}
+                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white th-bg-accent th-shadow-accent"
               >
-                <Sparkles size={16} /> Tạo ảnh
+                <Sparkles size={16} /> Làm nội dung
               </button>
               <button
-                onClick={() => router.push(`/projects/${projectId}/video`)}
-                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold th-text-primary th-bg-card th-bg-hover"
-                style={{ borderColor: "var(--border-primary)" }}
+                onClick={() => router.push(`/projects/${projectId}/characters`)}
+                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold th-text-primary th-bg-card th-bg-hover th-border"
               >
-                <Clapperboard size={16} /> Tạo video
+                <Users size={16} /> Nhân vật
               </button>
               <button
-                onClick={() =>
-                  router.push(`/projects/${projectId}/short-films`)
-                }
-                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold th-text-primary th-bg-card th-bg-hover"
-                style={{ borderColor: "var(--border-primary)" }}
+                onClick={() => router.push(`/projects/${projectId}/short-films`)}
+                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold th-text-primary th-bg-card th-bg-hover th-border"
               >
-                <Clapperboard size={16} /> Tạo phim ngắn
+                <Clapperboard size={16} /> Studio phim
               </button>
             </div>
           </header>
@@ -186,7 +189,7 @@ export default function ProjectOverviewPage() {
                     : latestProduction.status === "needs_review"
                       ? "Phim cần bạn xem lại"
                       : latestProduction.status === "budget_blocked"
-                        ? "Lượt làm phim đang chờ ngân sách"
+                        ? "Lượt làm phim đang chờ thêm điểm"
                         : ["queued", "scripting", "running"].includes(
                               latestProduction.status,
                             )
@@ -208,7 +211,7 @@ export default function ProjectOverviewPage() {
           {overviewFailed && (
             <section className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border th-border-danger th-bg-danger-light p-4">
               <span className="text-sm th-text-danger">
-                Chưa tải được số liệu dự án. Nội dung của bạn vẫn an toàn.
+                Chưa tải được số liệu kênh. Nội dung của bạn vẫn an toàn.
               </span>
               <button
                 type="button"
@@ -236,26 +239,24 @@ export default function ProjectOverviewPage() {
                 <Users size={19} />
               </span>
               <h2 className="mt-5 text-xl font-semibold th-text-primary">
-                Bắt đầu với nhân vật đầu tiên
+                Dựng nhân vật cho kênh
               </h2>
               <p className="mt-2 max-w-xl text-sm leading-6 th-text-tertiary">
-                Tạo ảnh chuẩn 3D để dùng nhất quán cho ảnh và video. Bạn vẫn có
-                thể tạo nội dung ngay khi chưa cần nhân vật.
+                AI gợi ý nhân vật hợp với kênh và vẽ bộ ảnh chuẩn, hoặc bạn dùng ảnh của mình. Gắn nhân vật vào meme, video, phim để họ giữ đúng một gương mặt.
               </p>
               <div className="mt-5 flex flex-wrap gap-3">
                 <Link
-                  href={`/projects/${projectId}/mascots`}
-                  className="inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-semibold text-white th-shadow-sm"
-                  style={{ background: "var(--accent)" }}
+                  href={`/projects/${projectId}/characters`}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white th-bg-accent th-shadow-accent"
                 >
-                  <Users size={16} /> Tạo nhân vật đầu tiên
+                  <Users size={16} /> Dựng nhân vật
                 </Link>
                 <Link
                   href={`/projects/${projectId}/generate`}
                   className="inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-sm font-semibold th-text-primary th-bg-hover"
                   style={{ borderColor: "var(--border-primary)" }}
                 >
-                  <Sparkles size={16} /> Tạo nội dung không dùng nhân vật
+                  <Sparkles size={16} /> Làm meme không cần nhân vật
                 </Link>
               </div>
             </section>
@@ -284,7 +285,7 @@ export default function ProjectOverviewPage() {
                       Nhân vật
                     </h2>
                     <Link
-                      href={`/projects/${projectId}/mascots`}
+                      href={`/projects/${projectId}/characters`}
                       className="flex items-center gap-1 text-xs font-medium th-text-accent"
                     >
                       Xem tất cả <ArrowRight size={12} />
@@ -304,7 +305,7 @@ export default function ProjectOverviewPage() {
                         return (
                           <Link
                             key={character.id}
-                            href={`/projects/${projectId}/characters/${character.id}`}
+                            href={`/projects/${projectId}/mascots/${character.id}`}
                             className="flex items-center gap-3 rounded-xl p-2.5 th-bg-hover"
                           >
                             <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl th-bg-tertiary text-sm font-semibold th-text-muted">
@@ -338,10 +339,10 @@ export default function ProjectOverviewPage() {
                           Chưa có nhân vật.
                         </p>
                         <Link
-                          href={`/projects/${projectId}/mascots`}
+                          href={`/projects/${projectId}/characters`}
                           className="mt-2 inline-flex text-sm font-medium th-text-accent"
                         >
-                          Tạo nhân vật
+                          Dựng nhân vật
                         </Link>
                       </div>
                     )}
@@ -391,7 +392,7 @@ export default function ProjectOverviewPage() {
                             <strong className="line-clamp-2 text-sm leading-5 th-text-primary">
                               {output.generated_content.headline ||
                                 output.title ||
-                                "Đầu ra sáng tạo"}
+                                "Meme"}
                             </strong>
                             <small className="mt-2 line-clamp-2 text-xs leading-4 th-text-muted">
                               {output.original_idea}
@@ -418,7 +419,7 @@ export default function ProjectOverviewPage() {
                         }
                         className="mt-2 text-sm font-medium th-text-accent"
                       >
-                        Tạo ảnh
+                        Làm meme
                       </button>
                     </div>
                   )}
