@@ -6,6 +6,7 @@ import Modal from "@/components/ui/modal";
 import Button from "@/components/ui/button";
 import BankTransferTopupModal from "@/components/wallet/BankTransferTopupModal";
 import { useTopup } from "@/hooks/useTopup";
+import { formatPoints } from "@/lib/format";
 import { formatVND } from "@/lib/point-pricing";
 import { suggestPackage } from "@/lib/pricing-examples";
 
@@ -41,20 +42,20 @@ export default function OutOfPointsModal({ open, onClose, required, current, act
         <div className="space-y-4">
           <div className="flex items-start gap-3">
             <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl th-bg-accent-light th-text-accent">
-              <Coins size={18} />
+              <Coins size={20} />
             </span>
             <div className="min-w-0">
               <p className="th-text-primary">
                 {action ? `${action} cần ` : "Việc này cần "}
-                <strong>{required} điểm</strong>, bạn đang có <strong>{current} điểm</strong>.
+                <strong>{formatPoints(required)}</strong>, bạn đang có <strong>{formatPoints(current)}</strong>.
               </p>
-              <p className="mt-1 text-sm th-text-tertiary">Thiếu {shortfall} điểm.</p>
+              <p className="mt-1 text-sm th-text-tertiary">Còn thiếu {formatPoints(shortfall)}.</p>
             </div>
           </div>
 
           <div className="rounded-2xl border th-border th-bg-card p-4">
             <p className="font-semibold th-text-primary">
-              Gói {pkg.name} — {pkg.points} điểm
+              Gói {pkg.name} — {formatPoints(pkg.points)}
             </p>
             <p className="mt-1 text-sm th-text-tertiary">
               {formatVND(pkg.price)} · quét QR chuyển khoản, ngân hàng báo có là điểm vào ví và việc này tự làm tiếp.
@@ -78,7 +79,7 @@ export default function OutOfPointsModal({ open, onClose, required, current, act
                 );
               }}
             >
-              Nạp {formatVND(pkg.price)}
+              Mua gói · {formatVND(pkg.price)}
             </Button>
           </div>
         </div>

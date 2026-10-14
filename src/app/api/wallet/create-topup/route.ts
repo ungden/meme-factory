@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !user) {
-      return NextResponse.json({ error: "Phiên đăng nhập hết hạn" }, { status: 401 });
+      return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
     }
 
     const throttle = await checkRateLimit(supabaseAdmin, RATE_LIMITS.createTopup, user.id);
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     const paymentId = bankVA || bankAcc;
 
     if (!qrAccount) {
-      return NextResponse.json({ error: "Chưa cấu hình tài khoản ngân hàng" }, { status: 500 });
+      return NextResponse.json({ error: "Nạp tiền đang tạm dừng. Bạn thử lại sau nhé." }, { status: 500 });
     }
 
     // Create topup order

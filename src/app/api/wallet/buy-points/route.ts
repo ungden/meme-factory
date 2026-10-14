@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { POINT_PACKAGES, FREE_TRIAL_POINTS } from "@/lib/point-pricing";
+import { formatVND, POINT_PACKAGES, FREE_TRIAL_POINTS } from "@/lib/point-pricing";
 import { supabaseAdmin } from "@/lib/admin";
 import { RATE_LIMITS, checkRateLimit, rateLimitMessage } from "@/lib/rate-limit";
 
@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !user) {
-      return NextResponse.json({ error: "Phiên đăng nhập hết hạn" }, { status: 401 });
+      return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
     }
 
     const throttle = await checkRateLimit(supabaseAdmin, RATE_LIMITS.buyPoints, user.id);
@@ -28,13 +28,13 @@ export async function POST(req: Request) {
 
     const pkg = POINT_PACKAGES.find((p) => p.id === packageId);
     if (!pkg) {
-      return NextResponse.json({ error: "Gói không hợp lệ" }, { status: 400 });
+      return NextResponse.json({ error: "Gói này không còn bán. Mở lại trang Ví để chọn gói khác nhé." }, { status: 400 });
     }
     if (body.expectedPrice !== pkg.price || body.expectedPoints !== pkg.points) {
-      return NextResponse.json({ error: "Bảng giá đã thay đổi. Tải lại trang Ví tiền để xem và chọn lại gói.", code: "PRICE_CHANGED" }, { status: 409 });
+      return NextResponse.json({ error: "Bảng giá vừa đổi. Tải lại trang Ví rồi chọn lại gói nhé.", code: "PRICE_CHANGED" }, { status: 409 });
     }
     if (typeof idempotencyKey !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
-      return NextResponse.json({ error: "Thiếu mã xác nhận mua. Hãy chọn lại gói." }, { status: 400 });
+      return NextResponse.json({ error: "Chưa mua được. Bạn chọn lại gói nhé." }, { status: 400 });
     }
 
     // Atomic: deduct balance + add points + record transaction — all in one DB call
@@ -53,8 +53,9 @@ export async function POST(req: Request) {
 
     if (!result?.success) {
       const errMsg = result?.error === "Insufficient balance"
-        ? `Số dư không đủ. Cần ${pkg.price.toLocaleString("vi-VN")}đ, hiện có ${Number(result?.balance ?? 0).toLocaleString("vi-VN")}đ`
-        : result?.error || "Không thể mua points";
+        ? `Tiền trong ví chưa đủ: cần ${formatVND(pkg.price)}, đang có ${formatVND(Number(result?.balance ?? 0))}.`
+        : "Chưa mua được điểm. Bạn thử lại nhé.";
+      if (result?.error !== "Insufficient balance") console.error("Buy points refused:", result?.error);
 
       return NextResponse.json({
         error: errMsg,
@@ -74,7 +75,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("Buy points error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Lỗi server" },
+      { error: "Chưa mua được điểm. Bạn thử lại sau ít phút nhé." },
       { status: 500 }
     );
   }
@@ -90,7 +91,7 @@ export async function GET(req: Request) {
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !user) {
-      return NextResponse.json({ error: "Phiên đăng nhập hết hạn" }, { status: 401 });
+      return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
     }
 
     // Atomic: check free_trial_claimed flag + grant points — all in one DB call
@@ -106,7 +107,7 @@ export async function GET(req: Request) {
     if (!result?.success) {
       return NextResponse.json({
         success: false,
-        message: "Đã nhận free trial rồi",
+        message: "Bạn đã nhận điểm dùng thử rồi.",
         points: result?.points ?? 0,
       });
     }
@@ -119,7 +120,7 @@ export async function GET(req: Request) {
   } catch (error) {
     console.error("Claim free trial error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Lỗi server" },
+      { error: "Chưa nhận được điểm dùng thử. Bạn thử lại sau ít phút nhé." },
       { status: 500 }
     );
   }

@@ -1,338 +1,258 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
-import { useToast } from "@/components/ui/toast";
-import { Copy, X, Check, AlertCircle, RefreshCw } from "lucide-react";
-import { useWallet } from "@/contexts/WalletContext";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { Copy, Check, AlertCircle, RefreshCw } from "lucide-react";
+import Alert from "@/components/ui/alert";
+import Button from "@/components/ui/button";
+import Modal from "@/components/ui/modal";
+import { useToast } from "@/components/ui/toast";
+import { useWallet } from "@/contexts/WalletContext";
+import { formatPoints } from "@/lib/format";
+import { formatVND } from "@/lib/point-pricing";
 import type { TopupInfo } from "@/types/database";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   info: TopupInfo | null;
+  /** Số tiền ví cần có sau khi nạp (nạp tiền thường, không mua gói). */
   requiredAmount?: number;
   onSuccess?: () => void;
 }
 
+/** Sau 15 phút không thấy tiền về thì thôi hỏi máy chủ; người dùng bấm kiểm tra tay được. */
+const WAIT_MS = 15 * 60 * 1000;
+const POLL_MS = 3000;
+
+/**
+ * Hộp chuyển khoản: QR, số tài khoản, nội dung chuyển khoản, rồi tự hỏi ví cho
+ * tới khi giao dịch của đúng lần nạp này xuất hiện.
+ *
+ * Dò theo mã giao dịch (`topup_<orderId>`) chứ không so số dư: nạp để mua gói
+ * thì máy chủ đổi tiền ra điểm ngay lúc xác nhận nên tiền trong ví không tăng,
+ * và một số dư cũ trong bộ nhớ dễ bị nhầm là tiền vừa về.
+ */
 export default function BankTransferTopupModal({ open, onClose, info, requiredAmount, onSuccess }: Props) {
+  const title = info?.points ? `Chuyển khoản để nhận ${formatPoints(info.points)}` : "Chuyển khoản để nạp tiền";
+  return (
+    <Modal isOpen={open && !!info} onClose={onClose} title={title} size="xl">
+      {info && (
+        <TransferDetails key={info.orderId} info={info} requiredAmount={requiredAmount} onSuccess={onSuccess} onClose={onClose} />
+      )}
+    </Modal>
+  );
+}
+
+function TransferDetails({
+  info,
+  requiredAmount,
+  onSuccess,
+  onClose,
+}: {
+  info: TopupInfo;
+  requiredAmount?: number;
+  onSuccess?: () => void;
+  onClose: () => void;
+}) {
   const toast = useToast();
-  const { balance, refreshBalance } = useWallet();
-
-  const initialBalanceRef = useRef(balance);
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [isChecking, setIsChecking] = useState(false);
+  const { balance, transactions, refreshBalance } = useWallet();
   const [isTimedOut, setIsTimedOut] = useState(false);
-  const hasTriggeredSuccess = useRef(false);
+  const announced = useRef(false);
+  const packagePoints = info.points ?? null;
+  const received = transactions.some((tx) => tx.reference_id === `topup_${info.orderId}`);
+  const stillShort = !packagePoints && !!requiredAmount && balance < requiredAmount;
 
-  const handleSuccess = useCallback(() => {
-    if (hasTriggeredSuccess.current) return;
-    hasTriggeredSuccess.current = true;
-    setIsChecking(false);
-
-    toast.success("Nạp tiền thành công! Số dư đã cập nhật.");
-
-    if (requiredAmount) {
-      if (balance >= requiredAmount) {
-        if (onSuccess) {
-          toast.info("Đang tự động thanh toán...");
-          setTimeout(() => {
-            onSuccess();
-            onClose();
-          }, 1000);
-        } else {
-          setTimeout(() => onClose(), 1500);
-        }
-      } else {
-        toast.warning("Số dư vẫn chưa đủ thanh toán. Vui lòng nạp thêm.");
-        initialBalanceRef.current = balance;
-        hasTriggeredSuccess.current = false;
-      }
-    } else {
-      setTimeout(() => onClose(), 1500);
-    }
-  }, [balance, requiredAmount, onSuccess, onClose, toast]);
-
-  // Init when modal opens
   useEffect(() => {
-    if (open) {
-      initialBalanceRef.current = balance;
-      hasTriggeredSuccess.current = false;
-      setIsChecking(true);
-      setIsTimedOut(false);
-      refreshBalance();
-
-      // 15-minute timeout — stop polling after that
-      timeoutRef.current = setTimeout(() => {
-        setIsTimedOut(true);
-        setIsChecking(false);
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
-        }
-      }, 15 * 60 * 1000);
-    } else {
-      setIsChecking(false);
-      setIsTimedOut(false);
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  // Polling every 3 seconds
-  useEffect(() => {
-    if (open) {
-      pollingRef.current = setInterval(async () => {
-        await refreshBalance();
-      }, 3000);
-    } else {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-      }
-    }
+    void refreshBalance();
+    const poll = window.setInterval(() => void refreshBalance(), POLL_MS);
+    const stop = window.setTimeout(() => {
+      window.clearInterval(poll);
+      setIsTimedOut(true);
+    }, WAIT_MS);
     return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      window.clearInterval(poll);
+      window.clearTimeout(stop);
     };
-  }, [open, refreshBalance]);
+  }, [refreshBalance]);
 
-  // Detect balance increase
+  // Hộp cha thường truyền hàm mới mỗi lần render; giữ bản mới nhất trong ref để
+  // hẹn giờ đóng hộp không bị huỷ rồi tạo lại liên tục.
+  const callbacks = useRef({ onSuccess, onClose });
   useEffect(() => {
-    if (!open || hasTriggeredSuccess.current) return;
+    callbacks.current = { onSuccess, onClose };
+  });
+  const closeTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(closeTimer.current), []);
 
-    if (balance > initialBalanceRef.current) {
-      handleSuccess();
+  useEffect(() => {
+    if (!received || announced.current) return;
+    announced.current = true;
+    if (packagePoints) toast.success(`Đã nhận ${formatPoints(packagePoints)}`);
+    else toast.success("Đã nhận tiền, số dư đã cập nhật");
+    if (stillShort) {
+      toast.warning(`Ví vẫn còn thiếu ${formatVND(requiredAmount! - balance)}. Bạn nạp thêm nhé.`);
+      return;
     }
-  }, [balance, open, handleSuccess]);
+    closeTimer.current = window.setTimeout(() => {
+      callbacks.current.onSuccess?.();
+      callbacks.current.onClose();
+    }, 1200);
+  }, [received, packagePoints, stillShort, requiredAmount, balance, toast]);
 
   const handleManualCheck = async () => {
-    toast.info("Đang kiểm tra giao dịch...");
+    toast.info("Đang kiểm tra giao dịch…");
     await refreshBalance();
   };
-
-  if (!open || !info) return null;
 
   const handleCopy = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
       toast.success(`Đã sao chép ${label}`);
     } catch {
-      toast.error("Không thể sao chép tự động");
+      toast.error("Trình duyệt không cho sao chép. Bạn chép tay giúp nhé.");
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: "var(--bg-overlay)" }}>
-      <div
-        className="w-full max-w-5xl rounded-2xl overflow-hidden th-shadow-lg flex flex-col md:flex-row max-h-[90vh] border"
-        style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
-      >
-        {/* LEFT COLUMN: QR CODE */}
-        <div
-          className="w-full md:w-2/5 border-b md:border-b-0 md:border-r p-6 flex flex-col items-center justify-center text-center relative"
-          style={{ background: "var(--bg-secondary)", borderColor: "var(--border-primary)" }}
-        >
-          <h3 className="text-xl font-bold th-text-primary mb-1">Quét mã để nạp tiền</h3>
-          <p className="text-sm th-text-muted mb-6">Mở app ngân hàng và quét mã QR bên dưới</p>
+    <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      <div className="flex flex-col items-center text-center">
+        <p className="mb-4 text-sm th-text-tertiary">Mở app ngân hàng và quét mã QR bên dưới.</p>
+        {/* Nền trắng là để app ngân hàng quét được mã QR ở giao diện tối. */}
+        <div className="relative mb-4 aspect-square w-full max-w-[240px] rounded-2xl border bg-white p-3 th-border">
+          <Image src={info.qrUrl} alt="Mã QR chuyển khoản" fill className="rounded-xl object-contain p-2" priority unoptimized />
+        </div>
 
+        <div className="flex w-full max-w-[240px] flex-col gap-3">
           <div
-            className="relative bg-white p-3 rounded-2xl th-shadow-sm border mb-6 w-full max-w-[260px] aspect-square"
-            style={{ borderColor: "var(--border-primary)" }}
+            role="status"
+            className={`inline-flex items-center justify-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold ${
+              received ? "th-border-success th-bg-success-light th-text-success" : "th-border-accent th-bg-accent-light th-text-accent"
+            }`}
           >
-            <Image src={info.qrUrl} alt="Mã QR nạp tiền" fill className="object-contain p-2 rounded-xl" priority unoptimized />
-          </div>
-
-          <div className="flex flex-col gap-3 w-full max-w-[260px]">
-            <div className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full text-xs font-bold" style={{ background: "var(--accent-light)", color: "var(--accent)", border: "1px solid var(--accent)" }}>
-              {isTimedOut ? (
-                <>
-                  <AlertCircle size={14} />
-                  Hết thời gian chờ
-                </>
-              ) : isChecking ? (
-                <>
-                  <span className="relative flex h-2.5 w-2.5 mr-1">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "var(--accent-gradient)" }} />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ background: "var(--accent-gradient)" }} />
-                  </span>
-                  Đang chờ tiền về ví...
-                </>
-              ) : (
-                <>
-                  <Check size={14} />
-                  Đã nhận tiền
-                </>
-              )}
-            </div>
-
-            <button
-              onClick={handleManualCheck}
-              className="flex items-center justify-center gap-2 px-4 py-2 border rounded-xl text-sm font-bold transition-colors th-bg-hover"
-              style={{ borderColor: "var(--border-primary)", color: "var(--text-secondary)" }}
-            >
-              <RefreshCw size={14} /> Tôi đã chuyển khoản
-            </button>
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN: DETAILS */}
-        <div className="w-full md:w-3/5 flex flex-col h-full">
-          <div className="p-6 border-b flex justify-between items-center" style={{ borderColor: "var(--border-primary)" }}>
-            <div>
-              <h3 className="text-lg font-bold th-text-primary">Chi tiết giao dịch</h3>
-              {requiredAmount && (
-                <p className="text-xs font-bold mt-0.5" style={{ color: "var(--danger)" }}>
-                  Số dư không đủ. Cần nạp để thanh toán ngay.
-                </p>
-              )}
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-full th-bg-hover"
-              aria-label="Đóng"
-            >
-              <X size={24} className="th-text-muted" />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            {/* Calculation display when required amount is set */}
-            {requiredAmount && (
-              <div className="rounded-2xl p-4 border space-y-3" style={{ background: "var(--bg-secondary)", borderColor: "var(--border-primary)" }}>
-                <div className="flex justify-between text-sm">
-                  <span className="th-text-muted">Tổng đơn hàng</span>
-                  <span className="font-bold th-text-primary">{requiredAmount.toLocaleString("vi-VN")}đ</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="th-text-muted">Số dư hiện tại</span>
-                  <span className="font-bold th-text-primary">{balance.toLocaleString("vi-VN")}đ</span>
-                </div>
-                <div className="h-px" style={{ background: "var(--border-primary)" }} />
-                <div className="flex justify-between items-center text-sm">
-                  <span className="font-bold" style={{ color: "var(--danger)" }}>Cần nạp thêm</span>
-                  <span className="text-xl font-black" style={{ color: "var(--danger)" }}>
-                    {info.amount.toLocaleString("vi-VN")}đ
-                  </span>
-                </div>
-
-                <div className="mt-3 p-3 rounded-xl text-xs flex gap-2 items-start" style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
-                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                  <div>
-                    <strong>Lưu ý:</strong> Sau khi nạp thành công, hệ thống sẽ{" "}
-                    <strong>tự động thanh toán</strong> đơn hàng của bạn.
-                  </div>
-                </div>
-              </div>
+            {received ? (
+              <>
+                <Check size={14} /> {packagePoints ? "Đã nhận điểm" : "Đã nhận tiền"}
+              </>
+            ) : isTimedOut ? (
+              <>
+                <AlertCircle size={14} /> Chưa thấy tiền về
+              </>
+            ) : (
+              <>
+                <span className="relative mr-1 flex h-2.5 w-2.5" aria-hidden>
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 th-bg-accent" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full th-bg-accent" />
+                </span>
+                Đang chờ tiền về…
+              </>
             )}
+          </div>
 
-            <div className="space-y-4">
-              <DataField
-                label="Số tiền chuyển"
-                value={info.amount.toLocaleString("vi-VN")}
-                suffix="đ"
-                highlight="green"
-                onCopy={() => handleCopy(String(info.amount), "Số tiền")}
-              />
-              <DataField
-                label="Nội dung (Bắt buộc)"
-                value={info.description}
-                highlight="blue"
-                warning="Nhập chính xác nội dung này"
-                onCopy={() => handleCopy(info.description, "Nội dung")}
-              />
+          <Button variant="outline" onClick={handleManualCheck} disabled={received}>
+            <RefreshCw size={14} /> Tôi đã chuyển khoản
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {requiredAmount && !packagePoints ? (
+          <div className="space-y-3 rounded-2xl border p-4 th-border th-bg-secondary">
+            <div className="flex justify-between text-sm">
+              <span className="th-text-muted">Cần có trong ví</span>
+              <span className="font-bold th-text-primary">{formatVND(requiredAmount)}</span>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <DataField
-                label="Số tài khoản"
-                value={info.beneficiary}
-                onCopy={() => handleCopy(info.beneficiary, "STK")}
-              />
-              {info.accountName && (
-                <DataField
-                  label="Chủ tài khoản"
-                  value={info.accountName.toUpperCase()}
-                  onCopy={() => handleCopy(info.accountName!.toUpperCase(), "Tên TK")}
-                />
-              )}
+            <div className="flex justify-between text-sm">
+              <span className="th-text-muted">Ví đang có</span>
+              <span className="font-bold th-text-primary">{formatVND(balance)}</span>
             </div>
           </div>
+        ) : null}
+
+        {packagePoints ? (
+          <Alert tone="info">Ngân hàng báo có là {formatPoints(packagePoints)} vào ví ngay, không cần bấm mua thêm.</Alert>
+        ) : null}
+
+        <DataField
+          label="Số tiền chuyển"
+          value={formatVND(info.amount)}
+          highlight="success"
+          onCopy={() => handleCopy(String(info.amount), "số tiền")}
+        />
+        <DataField
+          label="Nội dung chuyển khoản (bắt buộc)"
+          value={info.description}
+          highlight="accent"
+          warning="Ghi đúng nội dung này để tiền tự vào ví"
+          onCopy={() => handleCopy(info.description, "nội dung")}
+        />
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <DataField
+            label="Số tài khoản"
+            value={info.beneficiary}
+            onCopy={() => handleCopy(info.beneficiary, "số tài khoản")}
+          />
+          {info.accountName && (
+            <DataField
+              label="Tên tài khoản"
+              value={info.accountName.toUpperCase()}
+              onCopy={() => handleCopy(info.accountName!.toUpperCase(), "tên tài khoản")}
+            />
+          )}
         </div>
+        {info.bankName && <p className="text-xs th-text-muted">Ngân hàng: {info.bankName}</p>}
       </div>
     </div>
   );
 }
 
-// ============================================
-// DataField sub-component
-// ============================================
-
 interface DataFieldProps {
   label: string;
-  value: string | number;
-  suffix?: string;
-  highlight?: "green" | "blue";
+  value: string;
+  highlight?: "success" | "accent";
   warning?: string;
   onCopy: () => void;
 }
 
-function DataField({ label, value, suffix, highlight, warning, onCopy }: DataFieldProps) {
-  const [copied, setCopied] = React.useState(false);
+const FIELD_TONES = {
+  success: { box: "th-border-success th-bg-success-light", text: "th-text-success" },
+  accent: { box: "th-border-accent th-bg-accent-light", text: "th-text-accent" },
+  plain: { box: "th-border th-bg-card", text: "th-text-primary" },
+} as const;
+
+function DataField({ label, value, highlight, warning, onCopy }: DataFieldProps) {
+  const [copied, setCopied] = useState(false);
+  const tone = FIELD_TONES[highlight ?? "plain"];
 
   const handleCopyClick = () => {
     onCopy();
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    window.setTimeout(() => setCopied(false), 2000);
   };
 
-  const bgStyle = highlight === "green"
-    ? { background: "var(--success-light)", borderColor: "var(--success)" }
-    : highlight === "blue"
-      ? { background: "var(--accent-light)", borderColor: "var(--accent)" }
-      : { background: "var(--bg-card)", borderColor: "var(--border-primary)" };
-
-  const textColor = highlight === "green"
-    ? "var(--success)"
-    : highlight === "blue"
-      ? "var(--accent)"
-      : "var(--text-primary)";
-
   return (
-    <div
+    <button
+      type="button"
       onClick={handleCopyClick}
-      className="group relative p-4 rounded-2xl border transition-all cursor-pointer select-none"
-      style={bgStyle}
+      aria-label={`Sao chép ${label.toLowerCase()}: ${value}`}
+      className={`group relative w-full rounded-2xl border p-4 text-left transition-colors focus:outline-none focus-visible:ring-2 th-ring-accent ${tone.box}`}
     >
-      <div className="flex justify-between items-start gap-4">
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-bold th-text-muted uppercase tracking-wider mb-1.5">{label}</p>
-          <div className="flex items-baseline gap-1">
-            <p className="text-xl font-black" style={{ color: textColor }}>
-              {value}
-              {suffix && <span className="text-lg th-text-muted ml-1">{suffix}</span>}
-            </p>
-          </div>
-          {warning && (
-            <p className="text-xs font-semibold mt-1" style={{ color: "var(--danger)" }}>
-              * {warning}
-            </p>
-          )}
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="mb-1.5 text-xs font-semibold th-text-muted">{label}</p>
+          <p className={`break-all text-xl font-bold ${tone.text}`}>{value}</p>
+          {warning && <p className="mt-1 text-xs font-medium th-text-danger">{warning}</p>}
         </div>
-        <div
-          className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{
-            background: copied ? "var(--success-light)" : "var(--bg-secondary)",
-            color: copied ? "var(--success)" : "var(--text-muted)",
-          }}
+        <span
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+            copied ? "th-bg-success-light th-text-success" : "th-bg-secondary th-text-muted"
+          }`}
+          aria-hidden
         >
           {copied ? <Check size={20} /> : <Copy size={20} />}
-        </div>
+        </span>
       </div>
-    </div>
+    </button>
   );
 }

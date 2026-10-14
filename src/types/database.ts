@@ -418,6 +418,8 @@ export interface TopupInfo {
   bankBin?: string;
   bankName?: string;
   accountName?: string;
+  /** Có khi lần nạp là để mua một gói: số điểm vào ví khi ngân hàng báo có. */
+  points?: number | null;
 }
 
 // ============================================

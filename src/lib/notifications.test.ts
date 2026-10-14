@@ -81,12 +81,24 @@ describe("tập phim dừng vì điểm", () => {
       runs: [{ id: "r1", project_id: "p1", plan_id: "plan-1", status: "budget_blocked", phase: "video", error, updated_at: "2026-09-18T10:00:00.000Z" }],
     })[0];
 
-  it("hết điểm trong ví thì bảo nạp thêm, không bảo nâng giới hạn", () => {
+  it("hết điểm thì bảo mua thêm điểm ở Ví, không bảo nâng mức chi", () => {
     const item = blocked("INSUFFICIENT_POINTS");
     expect(item.kind).toBe("points");
-    expect(item.title).toBe("Kênh hết điểm — nạp thêm để làm tiếp");
+    expect(item.title).toBe("Kênh hết điểm");
+    expect(item.detail).toBe("Foxy Coffee — tập phim đang dừng, mua thêm điểm để làm tiếp.");
     expect(item.href).toBe("/wallet");
     expect(item.detail).not.toMatch(/giới hạn|hạn mức|mức chi/);
+  });
+
+  it("thành viên được mời không chuyển được điểm vào kênh, nên được dẫn tới điểm của kênh", () => {
+    const [item] = buildNotifications({
+      projects: { p1: { slug: "foxy-coffee", name: "Foxy Coffee", owned: false } },
+      films: [],
+      runs: [{ id: "r1", project_id: "p1", status: "budget_blocked", phase: "video", error: "INSUFFICIENT_POINTS", updated_at: "2026-09-18T10:00:00.000Z" }],
+    });
+    expect(item.kind).toBe("points");
+    expect(item.href).toBe("/projects/foxy-coffee/wallet");
+    expect(item.detail).toContain("nhờ chủ kênh");
   });
 
   it("chạm giới hạn tự đặt thì mở đúng tập để nâng giới hạn", () => {
@@ -147,7 +159,7 @@ describe("meme", () => {
   it("meme hỏng vì hết điểm dẫn tới ví", () => {
     const [item] = build([meme({ error: "Không đủ điểm: mỗi meme cần 20 điểm, ví đang có 3 điểm." })]);
     expect(item).toMatchObject({ kind: "points", title: "Meme chưa làm được", href: "/wallet" });
-    expect(item.detail).toBe("Foxy Coffee hết điểm — nạp thêm để làm tiếp.");
+    expect(item.detail).toBe("Foxy Coffee hết điểm — mua thêm điểm để làm tiếp.");
   });
 
   it("meme bỏ cuộc sau ba lần thử, và lỗi khác, dẫn về trang làm meme", () => {
