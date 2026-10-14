@@ -1,9 +1,13 @@
 import { ReactNode } from "react";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
+import AdminSidebar from "@/components/admin/admin-sidebar";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: { absolute: "Quản trị | AIDA" } };
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   // Check authentication
@@ -31,8 +35,11 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--bg-primary)" }}>
-      {children}
+    // Thanh bên dựng một lần ở đây như AppShell của phần chủ kênh: mỗi trang tự
+    // dựng thì lệch lề và chớp lại mỗi lần chuyển trang.
+    <div className="min-h-screen th-bg-primary">
+      <AdminSidebar />
+      <div className="min-h-screen lg:pl-60">{children}</div>
     </div>
   );
 }

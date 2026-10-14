@@ -23,11 +23,15 @@ const adminNav = [
   { href: "/admin", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/admin/users", label: "Người dùng", icon: Users },
   { href: "/admin/transactions", label: "Giao dịch", icon: Receipt },
-  { href: "/admin/projects", label: "Dự án", icon: FolderOpen },
-  { href: "/admin/ai-logs", label: "AI Logs", icon: Sparkles },
+  { href: "/admin/projects", label: "Kênh", icon: FolderOpen },
+  { href: "/admin/ai-logs", label: "Lượt gọi AI", icon: Sparkles },
   { href: "/admin/settings", label: "Cấu hình", icon: Settings },
 ];
 
+/**
+ * Cùng mốc `lg` và bề rộng `w-60` với thanh bên của chủ kênh, để PageContainer
+ * (chừa chỗ cho nút menu tới tận `lg`) dùng được nguyên cho trang quản trị.
+ */
 export default function AdminSidebar() {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
@@ -54,58 +58,54 @@ export default function AdminSidebar() {
 
   const sidebarContent = (
     <>
-      {/* Logo */}
-      <div className="p-5 border-b" style={{ borderColor: "var(--border-primary)" }}>
+      <div className="border-b p-5 th-border">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-gradient-to-br from-red-500 to-orange-600 rounded-xl flex items-center justify-center">
-            <Shield size={18} className="text-white" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl th-btn-primary">
+            <Shield size={16} />
           </div>
           <div>
             <span className="text-lg font-bold th-text-primary">AIDA</span>
-            <span className="ml-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}>
-              Admin
+            <span className="ml-1.5 rounded-md px-2 py-0.5 text-xs font-semibold th-bg-danger-light th-text-danger">
+              Quản trị
             </span>
           </div>
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto" aria-label="Admin navigation">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Menu quản trị">
         {adminNav.map((item) => (
           <Link
             key={item.href}
             href={item.href}
             onClick={() => setMobileOpenPath(null)}
             aria-current={isActive(item.href) ? "page" : undefined}
-            className={`flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl transition-all ${
+            className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all lg:min-h-9 ${
               isActive(item.href)
                 ? "font-medium th-bg-accent-light th-text-accent"
                 : "th-text-secondary th-bg-hover"
             }`}
           >
-            <item.icon size={18} className={isActive(item.href) ? "th-text-accent" : ""} />
+            <item.icon size={16} />
             {item.label}
           </Link>
         ))}
       </nav>
 
-      {/* Footer */}
-      <div className="p-3 border-t space-y-1" style={{ borderColor: "var(--border-primary)" }}>
+      <div className="space-y-1 border-t p-3 th-border">
         <Link
           href="/projects"
           onClick={() => setMobileOpenPath(null)}
-          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm th-text-secondary rounded-xl transition-all th-bg-hover"
+          className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-sm th-text-secondary transition-all th-bg-hover lg:min-h-9"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size={16} />
           Về trang chính
         </Link>
         <button
           onClick={toggleTheme}
-          aria-label={theme === "light" ? "Chuyển giao diện tối" : "Chuyển giao diện sáng"}
-          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm th-text-secondary rounded-xl transition-all cursor-pointer th-bg-hover"
+          className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm th-text-secondary transition-all th-bg-hover lg:min-h-9"
         >
-          {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
-          {theme === "light" ? "Giao diện tối" : "Giao diện sáng"}
+          {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+          {theme === "light" ? "Nền tối" : "Nền sáng"}
         </button>
       </div>
     </>
@@ -113,44 +113,37 @@ export default function AdminSidebar() {
 
   return (
     <>
-      {/* Mobile hamburger */}
       <button
         onClick={() => setMobileOpenPath(pathname)}
-        aria-label="Mở menu admin"
-        className="fixed top-4 left-4 z-50 p-2.5 rounded-xl md:hidden transition-all"
-        style={{ background: "var(--bg-card)", border: "1px solid var(--border-primary)" }}
+        aria-label="Mở menu"
+        className="fixed left-4 top-4 z-50 rounded-xl border p-2.5 transition-all th-bg-card th-border th-shadow-sm lg:hidden"
       >
         <Menu size={20} className="th-text-primary" />
       </button>
 
-      {/* Mobile overlay */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 md:hidden" onClick={() => setMobileOpenPath(null)} aria-hidden="true" />
+        <div className="fixed inset-0 z-50 th-bg-overlay backdrop-blur-sm lg:hidden" onClick={() => setMobileOpenPath(null)} aria-hidden="true" />
       )}
 
-      {/* Mobile sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-72 border-r flex flex-col z-50 transition-transform duration-300 md:hidden ${
+        className={`fixed left-0 top-0 z-50 flex h-[100dvh] w-72 flex-col border-r transition-transform duration-300 th-bg-sidebar th-border lg:hidden ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
-        style={{ background: "var(--bg-sidebar)", borderColor: "var(--border-primary)" }}
-        aria-label="Admin menu"
+        aria-label="Menu quản trị"
       >
         <button
           onClick={() => setMobileOpenPath(null)}
           aria-label="Đóng menu"
-          className="absolute top-4 right-4 p-1.5 rounded-lg th-bg-hover th-text-muted"
+          className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-lg th-bg-hover th-text-muted"
         >
-          <X size={18} />
+          <X size={16} />
         </button>
         {sidebarContent}
       </aside>
 
-      {/* Desktop sidebar */}
       <aside
-        className="hidden md:flex fixed left-0 top-0 h-screen w-64 border-r flex-col z-40 transition-colors duration-200"
-        style={{ background: "var(--bg-sidebar)", borderColor: "var(--border-primary)" }}
-        aria-label="Admin menu"
+        className="fixed left-0 top-0 z-40 hidden h-[100dvh] w-60 flex-col border-r transition-colors duration-200 th-bg-sidebar th-border lg:flex"
+        aria-label="Menu quản trị"
       >
         {sidebarContent}
       </aside>

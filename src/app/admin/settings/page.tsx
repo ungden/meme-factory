@@ -1,11 +1,18 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import AdminSidebar from "@/components/admin/admin-sidebar";
-import { createClient } from "@/lib/supabase/client";
+import { Save, Send, Trash2, Eye, EyeOff, Bell, Coins } from "lucide-react";
+import Alert from "@/components/ui/alert";
 import Button from "@/components/ui/button";
+import Card from "@/components/ui/card";
+import Chip from "@/components/ui/chip";
+import ConfirmModal from "@/components/ui/confirm-modal";
+import EmptyState from "@/components/ui/empty-state";
+import Input from "@/components/ui/input";
+import Textarea from "@/components/ui/textarea";
+import { PageContainer, PageHeader, Skeleton } from "@/components/ui/page";
 import { useToast } from "@/components/ui/toast";
-import { Save, Plus, Trash2, Eye, EyeOff, Bell, Coins } from "lucide-react";
+import { formatDateTime, formatNumber, formatPoints } from "@/lib/format";
 import { POINT_COSTS, POINT_PACKAGES, checkMargin } from "@/lib/point-pricing";
 import {
   AI_PRICE_MARKUP_PERCENT,
@@ -14,6 +21,8 @@ import {
   AI_PRICING_SOURCES,
   estimateImageGenerationPrice,
 } from "@/lib/ai-pricing";
+import type { BadgeTone } from "@/components/admin/admin-labels";
+import { Badge, adminFetch, readError } from "@/components/admin/admin-ui";
 
 interface Announcement {
   id: string;
@@ -24,11 +33,19 @@ interface Announcement {
   created_at: string;
 }
 
-const ANNOUNCEMENT_TYPES = [
-  { value: "info", label: "Thông tin", color: "#3b82f6" },
-  { value: "warning", label: "Cảnh báo", color: "#f59e0b" },
-  { value: "success", label: "Thành công", color: "#22c55e" },
-  { value: "promo", label: "Khuyến mãi", color: "#ec4899" },
+// Tông màu khớp với AnnouncementBanner mà người dùng sẽ thấy.
+const ANNOUNCEMENT_TYPES: { value: string; label: string; tone: BadgeTone }[] = [
+  { value: "info", label: "Thông tin", tone: "accent" },
+  { value: "warning", label: "Cảnh báo", tone: "warning" },
+  { value: "success", label: "Tin vui", tone: "success" },
+  { value: "promo", label: "Khuyến mãi", tone: "accent" },
+];
+
+const PRICED_ACTIONS = [
+  { key: "content" as const, label: "Viết chữ", current: POINT_COSTS.content },
+  { key: "character" as const, label: "Vẽ ảnh nhân vật (1K)", current: POINT_COSTS.character },
+  { key: "background" as const, label: "Vẽ ảnh nền (2K)", current: POINT_COSTS.background },
+  { key: "meme" as const, label: "Vẽ ảnh meme / góc máy (1K)", current: POINT_COSTS.meme },
 ];
 
 const PROVIDER_PRICE_ROWS = AI_PRICING_CATALOG.map((item) => ({
@@ -43,7 +60,6 @@ const PROVIDER_PRICE_ROWS = AI_PRICING_CATALOG.map((item) => ({
 export default function AdminSettingsPage() {
   const toast = useToast();
 
-  // Point pricing
   const [pointCosts, setPointCosts] = useState({
     content: POINT_COSTS.content,
     character: POINT_COSTS.character,
@@ -52,43 +68,36 @@ export default function AdminSettingsPage() {
   });
   const [savingPricing, setSavingPricing] = useState(false);
 
-  // Announcements
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [newType, setNewType] = useState("info");
   const [creatingAnn, setCreatingAnn] = useState(false);
   const [loadingAnn, setLoadingAnn] = useState(true);
-
-  const getToken = async () => {
-    const supabase = createClient();
-    const { data: session } = await supabase.auth.getSession();
-    return session.session?.access_token ?? "";
-  };
+  const [annError, setAnnError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Announcement | null>(null);
 
   const fetchSettings = useCallback(async () => {
     try {
-      const token = await getToken();
-      const res = await fetch("/api/admin/settings", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await adminFetch("/api/admin/settings");
       const data = await res.json();
       if (data.settings?.point_costs) {
         setPointCosts(data.settings.point_costs);
       }
-    } catch { /* ignore */ }
+    } catch { /* giữ giá mặc định trong code */ }
   }, []);
 
   const fetchAnnouncements = useCallback(async () => {
     setLoadingAnn(true);
+    setAnnError(null);
     try {
-      const token = await getToken();
-      const res = await fetch("/api/admin/announcements", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await adminFetch("/api/admin/announcements");
+      if (!res.ok) throw new Error(await readError(res, "Chưa tải được danh sách thông báo."));
       const data = await res.json();
       setAnnouncements(data.announcements ?? []);
-    } catch { /* ignore */ }
+    } catch (err) {
+      setAnnError(err instanceof Error ? err.message : "Chưa tải được danh sách thông báo.");
+    }
     setLoadingAnn(false);
   }, []);
 
@@ -100,16 +109,15 @@ export default function AdminSettingsPage() {
   const savePricing = async () => {
     setSavingPricing(true);
     try {
-      const token = await getToken();
-      const res = await fetch("/api/admin/settings", {
+      const res = await adminFetch("/api/admin/settings", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: "point_costs", value: pointCosts }),
       });
-      if (!res.ok) throw new Error();
-      toast.success("Đã lưu cấu hình giá points");
-    } catch {
-      toast.error("Lưu thất bại");
+      if (!res.ok) throw new Error(await readError(res, "Chưa lưu được giá. Thử lại nhé."));
+      toast.success("Đã lưu giá điểm");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Chưa lưu được giá. Thử lại nhé.");
     }
     setSavingPricing(false);
   };
@@ -118,271 +126,272 @@ export default function AdminSettingsPage() {
     if (!newTitle.trim()) return;
     setCreatingAnn(true);
     try {
-      const token = await getToken();
-      const res = await fetch("/api/admin/announcements", {
+      const res = await adminFetch("/api/admin/announcements", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: newTitle.trim(), content: newContent.trim(), type: newType }),
       });
-      if (!res.ok) throw new Error();
-      toast.success("Đã tạo thông báo");
+      if (!res.ok) throw new Error(await readError(res, "Chưa đăng được thông báo. Thử lại nhé."));
+      toast.success("Đã đăng thông báo");
       setNewTitle("");
       setNewContent("");
       fetchAnnouncements();
-    } catch {
-      toast.error("Tạo thông báo thất bại");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Chưa đăng được thông báo. Thử lại nhé.");
     }
     setCreatingAnn(false);
   };
 
   const toggleAnnouncement = async (id: string, is_active: boolean) => {
     try {
-      const token = await getToken();
-      await fetch("/api/admin/announcements", {
+      const res = await adminFetch("/api/admin/announcements", {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, is_active }),
       });
+      if (!res.ok) throw new Error(await readError(res, "Chưa đổi được thông báo. Thử lại nhé."));
       fetchAnnouncements();
-    } catch { /* ignore */ }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Chưa đổi được thông báo. Thử lại nhé.");
+    }
   };
 
   const deleteAnnouncement = async (id: string) => {
     try {
-      const token = await getToken();
-      await fetch(`/api/admin/announcements?id=${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await adminFetch(`/api/admin/announcements?id=${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(await readError(res, "Chưa xoá được thông báo. Thử lại nhé."));
+      toast.success("Đã xoá thông báo");
       fetchAnnouncements();
-    } catch { /* ignore */ }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Chưa xoá được thông báo. Thử lại nhé.");
+    }
   };
 
   return (
-    <div className="flex">
-      <AdminSidebar />
-      <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
-        <h1 className="text-2xl font-bold th-text-primary mb-2">Cấu hình hệ thống</h1>
-        <p className="th-text-tertiary mb-8">Quản lý giá points và thông báo</p>
+    <PageContainer width="wide">
+      <PageHeader title="Cấu hình" description="Giá điểm theo tính năng và thông báo cho người dùng." />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Point Pricing */}
-          <div className="p-6 rounded-2xl border" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
-            <h2 className="text-sm font-semibold th-text-primary flex items-center gap-2 mb-5">
-              <Coins size={16} style={{ color: "#f59e0b" }} />
-              Giá point theo tính năng
-            </h2>
-            <div className="space-y-4">
-              {[
-                { key: "content" as const, label: "Tạo nội dung AI (text)", current: POINT_COSTS.content },
-                { key: "character" as const, label: "Tạo ảnh nhân vật (1K)", current: POINT_COSTS.character },
-                { key: "background" as const, label: "Tạo background AI (2K)", current: POINT_COSTS.background },
-                { key: "meme" as const, label: "Tạo ảnh meme / cú máy AI (1K)", current: POINT_COSTS.meme },
-              ].map((item) => (
-                <div key={item.key} className="flex items-center justify-between">
-                  <div className="flex-1 pr-3">
-                    <p className="text-sm th-text-primary">{item.label}</p>
-                    <p className="text-xs th-text-muted">Mặc định: {item.current} pts</p>
-                    {(() => {
-                      const margin = checkMargin(item.key, pointCosts[item.key]);
-                      if (item.key === "content") return null;
-                      return (
-                        <p className={`text-[11px] ${margin.coversCost ? "th-text-muted" : "th-text-danger"}`}>
-                          Chi phí xấu nhất {margin.worstCostVnd.toLocaleString("vi-VN")}đ · biên{" "}
-                          {margin.marginMultiplier.toFixed(2)}x
-                          {margin.coversCost
-                            ? margin.meetsTarget
-                              ? ""
-                              : ` · dưới mục tiêu +${AI_PRICE_MARKUP_PERCENT}%, nên từ ${margin.minimumPoints} pts`
-                            : ` · LỖ, tối thiểu ${margin.minimumPoints} pts`}
-                        </p>
-                      );
-                    })()}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="p-6">
+          <h2 className="mb-5 flex items-center gap-2 text-sm font-semibold th-text-primary">
+            <Coins size={16} className="th-text-warning" />
+            Giá điểm theo tính năng
+          </h2>
+          <div className="space-y-4">
+            {PRICED_ACTIONS.map((item) => {
+              const margin = item.key === "content" ? null : checkMargin(item.key, pointCosts[item.key]);
+              return (
+                <div key={item.key} className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <label htmlFor={`price-${item.key}`} className="text-sm th-text-primary">
+                      {item.label}
+                    </label>
+                    <p className="text-xs th-text-muted">Mặc định: {formatPoints(item.current)}</p>
+                    {margin && (
+                      <p className={`text-xs ${margin.coversCost ? "th-text-muted" : "th-text-danger"}`}>
+                        Chi phí xấu nhất {formatNumber(margin.worstCostVnd)}đ · biên {margin.marginMultiplier.toFixed(2)}x
+                        {margin.coversCost
+                          ? margin.meetsTarget
+                            ? ""
+                            : ` · dưới mục tiêu +${AI_PRICE_MARKUP_PERCENT}%, nên từ ${formatPoints(margin.minimumPoints)}`
+                          : ` · lỗ, tối thiểu ${formatPoints(margin.minimumPoints)}`}
+                      </p>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={0}
-                      value={pointCosts[item.key]}
-                      onChange={(e) => setPointCosts((prev) => ({ ...prev, [item.key]: parseInt(e.target.value) || 0 }))}
-                      className="w-20 px-3 py-2 rounded-lg text-sm text-center th-bg-tertiary th-text-primary"
-                      style={{ border: "1px solid var(--border-primary)" }}
-                    />
-                    <span className="text-xs th-text-muted">pts</span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="w-24">
+                      <Input
+                        id={`price-${item.key}`}
+                        type="number"
+                        min={0}
+                        value={pointCosts[item.key]}
+                        onChange={(e) => setPointCosts((prev) => ({ ...prev, [item.key]: parseInt(e.target.value) || 0 }))}
+                        className="text-center text-sm"
+                      />
+                    </div>
+                    <span className="text-xs th-text-muted">điểm</span>
                   </div>
                 </div>
-              ))}
+              );
+            })}
 
-              <div className="pt-3 border-t" style={{ borderColor: "var(--border-primary)" }}>
-                <Button onClick={savePricing} loading={savingPricing} className="w-full">
-                  <Save size={16} /> Lưu cấu hình giá
-                </Button>
-                <p className="text-[10px] th-text-muted mt-2 text-center">
-                  Giá lưu ở đây có hiệu lực ngay, không cần deploy. Server từ chối mức giá thấp hơn chi phí
-                  thực tế xấu nhất của hành động đó.
-                </p>
-              </div>
-            </div>
-
-            {/* Current packages reference */}
-            <div className="mt-6 pt-4 border-t" style={{ borderColor: "var(--border-primary)" }}>
-              <h3 className="text-xs font-semibold th-text-muted uppercase tracking-wider mb-3">Gói nạp hiện tại</h3>
-              <div className="space-y-2">
-                {POINT_PACKAGES.map((pkg) => (
-                  <div key={pkg.id} className="flex items-center justify-between text-xs">
-                    <span className="th-text-secondary">
-                      {pkg.name} {pkg.popular ? "⭐" : ""}
-                    </span>
-                    <span className="th-text-primary font-medium">
-                      {pkg.points} pts / {pkg.price.toLocaleString("vi-VN")}đ
-                      {pkg.bonus && <span className="th-text-muted ml-1">({pkg.bonus})</span>}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-6 pt-4 border-t" style={{ borderColor: "var(--border-primary)" }}>
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div>
-                  <h3 className="text-xs font-semibold th-text-muted uppercase tracking-wider">Giá provider chuẩn</h3>
-                  <p className="text-[10px] th-text-muted mt-1">
-                    Standard API · cập nhật {AI_PRICING_EFFECTIVE_DATE} · thu giá vốn +{AI_PRICE_MARKUP_PERCENT}%
-                  </p>
-                </div>
-                <div className="flex gap-2 text-[10px]">
-                  <a className="th-text-accent" href={AI_PRICING_SOURCES.google} target="_blank" rel="noreferrer">Google</a>
-                  <a className="th-text-accent" href={AI_PRICING_SOURCES.openai} target="_blank" rel="noreferrer">OpenAI</a>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {PROVIDER_PRICE_ROWS.map((item) => (
-                  <div key={item.label} className="flex items-center justify-between gap-4 text-xs">
-                    <span className="th-text-secondary">{item.label}</span>
-                    <span className="th-text-primary font-medium whitespace-nowrap">
-                      ${item.quote.outputCostUsd.toFixed(4)} → từ {item.quote.customerPoints} pts
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-[10px] th-text-muted mt-3">
-                Giá “từ” chưa gồm ảnh tham chiếu và prompt. Mức phí hành động phía trên đã dự phòng input tối đa của workflow hiện tại.
+            <div className="border-t pt-3 th-border">
+              <Button onClick={savePricing} loading={savingPricing} className="w-full">
+                <Save size={16} /> Lưu giá
+              </Button>
+              <p className="mt-2 text-center text-xs th-text-muted">
+                Giá lưu ở đây có hiệu lực ngay. Hệ thống từ chối mức giá thấp hơn chi phí thật xấu nhất của hành động đó.
               </p>
             </div>
           </div>
 
-          {/* Announcements */}
-          <div className="space-y-6">
-            {/* Create new */}
-            <div className="p-6 rounded-2xl border" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
-              <h2 className="text-sm font-semibold th-text-primary flex items-center gap-2 mb-5">
-                <Bell size={16} style={{ color: "#6366f1" }} />
-                Tạo thông báo mới
-              </h2>
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  placeholder="Tiêu đề thông báo..."
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm th-bg-tertiary th-text-primary"
-                  style={{ border: "1px solid var(--border-primary)" }}
-                />
-                <textarea
-                  placeholder="Nội dung chi tiết (tuỳ chọn)..."
-                  value={newContent}
-                  onChange={(e) => setNewContent(e.target.value)}
-                  rows={2}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm th-bg-tertiary th-text-primary"
-                  style={{ border: "1px solid var(--border-primary)" }}
-                />
-                <div className="flex gap-2">
-                  {ANNOUNCEMENT_TYPES.map((t) => (
-                    <button
-                      key={t.value}
-                      onClick={() => setNewType(t.value)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                        newType === t.value ? "ring-2" : "opacity-60"
-                      }`}
-                      style={{
-                        background: `${t.color}20`,
-                        color: t.color,
-                        ...(newType === t.value ? { boxShadow: `0 0 0 2px ${t.color}40` } : {}),
-                      }}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
+          <div className="mt-6 border-t pt-4 th-border">
+            <h3 className="mb-3 text-xs font-semibold th-text-muted">Gói nạp hiện tại</h3>
+            <div className="space-y-2">
+              {POINT_PACKAGES.map((pkg) => (
+                <div key={pkg.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+                  <span className="flex items-center gap-1.5 th-text-secondary">
+                    {pkg.name}
+                    {pkg.popular && <Badge tone="accent">Phổ biến</Badge>}
+                  </span>
+                  <span className="font-medium th-text-primary">
+                    {formatPoints(pkg.points)} / {formatNumber(pkg.price)}đ
+                    {pkg.bonus && <span className="ml-1 th-text-muted">({pkg.bonus})</span>}
+                  </span>
                 </div>
-                <Button onClick={createAnnouncement} loading={creatingAnn} disabled={!newTitle.trim()} className="w-full">
-                  <Plus size={16} /> Tạo thông báo
-                </Button>
-              </div>
-            </div>
-
-            {/* List */}
-            <div className="p-6 rounded-2xl border" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
-              <h2 className="text-sm font-semibold th-text-primary mb-4">Danh sách thông báo</h2>
-              {loadingAnn ? (
-                <div className="space-y-3">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="h-16 th-bg-tertiary rounded-xl animate-pulse" />
-                  ))}
-                </div>
-              ) : announcements.length === 0 ? (
-                <p className="text-sm th-text-muted text-center py-8">Chưa có thông báo</p>
-              ) : (
-                <div className="space-y-3">
-                  {announcements.map((ann) => {
-                    const typeStyle = ANNOUNCEMENT_TYPES.find((t) => t.value === ann.type) || ANNOUNCEMENT_TYPES[0];
-                    return (
-                      <div
-                        key={ann.id}
-                        className={`p-4 rounded-xl border transition-all ${ann.is_active ? "" : "opacity-50"}`}
-                        style={{ borderColor: "var(--border-primary)" }}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: `${typeStyle.color}20`, color: typeStyle.color }}>
-                                {typeStyle.label}
-                              </span>
-                              <span className={`text-[10px] ${ann.is_active ? "th-text-accent" : "th-text-muted"}`}>
-                                {ann.is_active ? "Đang hiển thị" : "Đã ẩn"}
-                              </span>
-                            </div>
-                            <p className="text-sm font-medium th-text-primary">{ann.title}</p>
-                            {ann.content && <p className="text-xs th-text-secondary mt-0.5">{ann.content}</p>}
-                            <p className="text-[10px] th-text-muted mt-1">
-                              {new Date(ann.created_at).toLocaleString("vi-VN")}
-                            </p>
-                          </div>
-                          <div className="flex gap-1.5">
-                            <button
-                              onClick={() => toggleAnnouncement(ann.id, !ann.is_active)}
-                              className="p-1.5 rounded-lg th-bg-hover transition-all"
-                              title={ann.is_active ? "Ẩn" : "Hiển thị"}
-                            >
-                              {ann.is_active ? <EyeOff size={14} className="th-text-muted" /> : <Eye size={14} className="th-text-accent" />}
-                            </button>
-                            <button
-                              onClick={() => deleteAnnouncement(ann.id)}
-                              className="p-1.5 rounded-lg th-bg-hover transition-all"
-                              title="Xoá"
-                            >
-                              <Trash2 size={14} style={{ color: "#ef4444" }} />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              ))}
             </div>
           </div>
+
+          <div className="mt-6 border-t pt-4 th-border">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-xs font-semibold th-text-muted">Giá gốc của provider</h3>
+                <p className="mt-1 text-xs th-text-muted">
+                  Standard API · cập nhật {AI_PRICING_EFFECTIVE_DATE} · thu giá vốn +{AI_PRICE_MARKUP_PERCENT}%
+                </p>
+              </div>
+              <div className="flex gap-2 text-xs">
+                <a className="th-text-accent" href={AI_PRICING_SOURCES.google} target="_blank" rel="noreferrer">Google</a>
+                <a className="th-text-accent" href={AI_PRICING_SOURCES.openai} target="_blank" rel="noreferrer">OpenAI</a>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {PROVIDER_PRICE_ROWS.map((item) => (
+                <div key={item.label} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs">
+                  <span className="th-text-secondary">{item.label}</span>
+                  <span className="whitespace-nowrap font-medium th-text-primary">
+                    ${item.quote.outputCostUsd.toFixed(4)} → từ {formatPoints(item.quote.customerPoints)}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-xs th-text-muted">
+              Giá “từ” chưa gồm ảnh mẫu và prompt. Mức giá theo tính năng phía trên đã tính dư cho phần đầu vào lớn nhất
+              của cách làm hiện tại.
+            </p>
+          </div>
+        </Card>
+
+        <div className="space-y-6">
+          <Card className="p-6">
+            <h2 className="mb-5 flex items-center gap-2 text-sm font-semibold th-text-primary">
+              <Bell size={16} className="th-text-accent" />
+              Thông báo mới
+            </h2>
+            <div className="space-y-3">
+              <Input
+                aria-label="Tiêu đề thông báo"
+                placeholder="Tiêu đề thông báo…"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                className="text-sm"
+              />
+              <Textarea
+                aria-label="Nội dung thông báo"
+                placeholder="Nội dung chi tiết (không bắt buộc)…"
+                value={newContent}
+                onChange={(e) => setNewContent(e.target.value)}
+                rows={2}
+                className="text-sm"
+              />
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Loại thông báo">
+                {ANNOUNCEMENT_TYPES.map((t) => (
+                  <Chip key={t.value} role="radio" selected={newType === t.value} onClick={() => setNewType(t.value)}>
+                    {t.label}
+                  </Chip>
+                ))}
+              </div>
+              <Button onClick={createAnnouncement} loading={creatingAnn} disabled={!newTitle.trim()} className="w-full">
+                <Send size={16} /> Đăng thông báo
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <h2 className="mb-4 text-sm font-semibold th-text-primary">Danh sách thông báo</h2>
+            {loadingAnn ? (
+              <div className="space-y-3" role="status" aria-label="Đang tải">
+                {[1, 2].map((i) => (
+                  <Skeleton key={i} className="h-16 rounded-xl" />
+                ))}
+              </div>
+            ) : annError ? (
+              <Alert
+                action={
+                  <Button size="sm" variant="outline" onClick={fetchAnnouncements}>
+                    Thử lại
+                  </Button>
+                }
+              >
+                {annError}
+              </Alert>
+            ) : announcements.length === 0 ? (
+              <EmptyState icon={Bell} title="Chưa có thông báo" hint="Thông báo đăng ở trên sẽ hiện cho mọi người dùng." />
+            ) : (
+              <div className="space-y-3">
+                {announcements.map((ann) => {
+                  const typeStyle = ANNOUNCEMENT_TYPES.find((t) => t.value === ann.type) || ANNOUNCEMENT_TYPES[0];
+                  return (
+                    <div
+                      key={ann.id}
+                      className={`rounded-xl border p-4 transition-all th-border ${ann.is_active ? "" : "opacity-50"}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-1 flex items-center gap-2">
+                            <Badge tone={typeStyle.tone}>{typeStyle.label}</Badge>
+                            <span className={`text-xs ${ann.is_active ? "th-text-accent" : "th-text-muted"}`}>
+                              {ann.is_active ? "Đang hiện" : "Đã ẩn"}
+                            </span>
+                          </div>
+                          <p className="text-sm font-medium th-text-primary">{ann.title}</p>
+                          {ann.content && <p className="mt-0.5 text-xs th-text-secondary">{ann.content}</p>}
+                          <p className="mt-1 text-xs th-text-muted">{formatDateTime(ann.created_at)}</p>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleAnnouncement(ann.id, !ann.is_active)}
+                            aria-label={ann.is_active ? "Ẩn thông báo" : "Hiện thông báo"}
+                            title={ann.is_active ? "Ẩn" : "Hiện"}
+                          >
+                            {ann.is_active ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteTarget(ann)}
+                            aria-label="Xoá thông báo"
+                            title="Xoá"
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
         </div>
-      </main>
-    </div>
+      </div>
+
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          const target = deleteTarget;
+          setDeleteTarget(null);
+          if (target) void deleteAnnouncement(target.id);
+        }}
+        title="Xoá thông báo này?"
+        message={`Thông báo “${deleteTarget?.title ?? ""}” sẽ mất hẳn, không lấy lại được. Muốn tạm tắt thì bấm Ẩn.`}
+        confirmText="Xoá thông báo"
+        variant="danger"
+      />
+    </PageContainer>
   );
 }

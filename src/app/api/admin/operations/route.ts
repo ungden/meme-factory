@@ -57,6 +57,6 @@ export async function GET(req: Request) {
   } catch (error) {
     if (error instanceof AdminError)
       return NextResponse.json({ error: error.message }, { status: error.status });
-    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
+    return NextResponse.json({ error: "Có lỗi phía hệ thống. Thử lại sau nhé." }, { status: 500 });
   }
 }

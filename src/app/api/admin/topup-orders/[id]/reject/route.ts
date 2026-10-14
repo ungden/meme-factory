@@ -16,11 +16,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .maybeSingle();
 
     if (error) {
-      return NextResponse.json({ error: "Từ chối thất bại: " + error.message }, { status: 500 });
+      return NextResponse.json({ error: "Chưa từ chối được đơn: " + error.message }, { status: 500 });
     }
 
     if (!order) {
-      return NextResponse.json({ error: "Đơn nạp tiền không tồn tại hoặc đã được xử lý" }, { status: 400 });
+      return NextResponse.json({ error: "Đơn nạp này không còn hoặc đã được xử lý." }, { status: 400 });
     }
 
     // Record rejection in transactions for audit
@@ -39,6 +39,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
     console.error("Admin reject topup error:", error);
-    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
+    return NextResponse.json({ error: "Có lỗi phía hệ thống. Thử lại sau nhé." }, { status: 500 });
   }
 }

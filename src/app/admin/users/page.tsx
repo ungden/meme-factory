@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import AdminSidebar from "@/components/admin/admin-sidebar";
-import { createClient } from "@/lib/supabase/client";
-import { Search, ChevronLeft, ChevronRight, Shield, User, UserCog } from "lucide-react";
 import Link from "next/link";
+import { Search, Shield, User, UserCog } from "lucide-react";
+import Alert from "@/components/ui/alert";
+import Button from "@/components/ui/button";
+import Input from "@/components/ui/input";
+import { PageContainer, PageHeader } from "@/components/ui/page";
+import { formatDate, formatNumber } from "@/lib/format";
+import { roleLabel } from "@/components/admin/admin-labels";
+import { Badge, EmptyRow, Pagination, SkeletonRows, TableCard, TableHead, Th, adminFetch, readError } from "@/components/admin/admin-ui";
 
 interface UserRow {
   user_id: string;
@@ -17,16 +22,6 @@ interface UserRow {
   created_at: string;
 }
 
-function formatVND(amount: number) {
-  return amount.toLocaleString("vi-VN") + "đ";
-}
-
-const ROLE_STYLES: Record<string, { bg: string; color: string; label: string }> = {
-  admin: { bg: "rgba(239,68,68,0.15)", color: "#ef4444", label: "Admin" },
-  moderator: { bg: "rgba(245,158,11,0.15)", color: "#f59e0b", label: "Mod" },
-  user: { bg: "rgba(107,114,128,0.15)", color: "#6b7280", label: "User" },
-};
-
 const ROLE_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
   admin: Shield,
   moderator: UserCog,
@@ -36,6 +31,7 @@ const ROLE_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -43,22 +39,18 @@ export default function AdminUsersPage() {
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const supabase = createClient();
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
       const params = new URLSearchParams({ page: String(page) });
       if (search) params.set("search", search);
-      const res = await fetch(`/api/admin/users?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error();
+      const res = await adminFetch(`/api/admin/users?${params}`);
+      if (!res.ok) throw new Error(await readError(res, "Chưa tải được danh sách người dùng."));
       const data = await res.json();
       setUsers(data.users);
       setTotalPages(data.totalPages);
       setTotal(data.total);
-    } catch {
-      /* ignore */
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Chưa tải được danh sách người dùng.");
     } finally {
       setLoading(false);
     }
@@ -75,117 +67,77 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="flex">
-      <AdminSidebar />
-      <main className="ml-0 md:ml-64 flex-1 p-4 pt-16 md:p-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold th-text-primary">Quản lý người dùng</h1>
-            <p className="th-text-tertiary mt-1">{total} người dùng</p>
-          </div>
-        </div>
+    <PageContainer width="wide">
+      <PageHeader title="Người dùng" description={`${formatNumber(total)} người dùng.`} />
 
-        {/* Search */}
-        <form onSubmit={handleSearch} className="mb-6">
-          <div className="relative max-w-md">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 th-text-muted" />
-            <input
-              type="text"
-              placeholder="Tìm theo email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm th-bg-card th-text-primary th-border"
-              style={{ border: "1px solid var(--border-primary)" }}
-            />
-          </div>
-        </form>
+      <form onSubmit={handleSearch} className="relative mb-6 max-w-md" role="search">
+        <Search size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 th-text-muted" />
+        <Input
+          type="search"
+          aria-label="Tìm người dùng"
+          placeholder="Tìm theo email…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-10 text-sm"
+        />
+      </form>
 
-        {/* Table */}
-        <div className="rounded-2xl border overflow-hidden" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ background: "var(--bg-tertiary)" }}>
-                  <th className="text-left py-3 px-4 text-xs font-medium th-text-muted uppercase tracking-wider">Email</th>
-                  <th className="text-left py-3 px-4 text-xs font-medium th-text-muted uppercase tracking-wider">Role</th>
-                  <th className="text-right py-3 px-4 text-xs font-medium th-text-muted uppercase tracking-wider">Points</th>
-                  <th className="text-right py-3 px-4 text-xs font-medium th-text-muted uppercase tracking-wider">Số dư</th>
-                  <th className="text-right py-3 px-4 text-xs font-medium th-text-muted uppercase tracking-wider">Dự án</th>
-                  <th className="text-right py-3 px-4 text-xs font-medium th-text-muted uppercase tracking-wider">Memes</th>
-                  <th className="text-left py-3 px-4 text-xs font-medium th-text-muted uppercase tracking-wider">Ngày tạo</th>
+      {error && (
+        <Alert
+          className="mb-4"
+          action={
+            <Button size="sm" variant="outline" onClick={fetchUsers}>
+              Thử lại
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+      )}
+
+      <TableCard footer={<Pagination page={page} totalPages={totalPages} onChange={setPage} />}>
+        <TableHead>
+          <Th>Email</Th>
+          <Th>Quyền</Th>
+          <Th align="right">Điểm</Th>
+          <Th align="right">Số dư</Th>
+          <Th align="right">Kênh</Th>
+          <Th align="right">Meme</Th>
+          <Th>Ngày tạo</Th>
+        </TableHead>
+        <tbody>
+          {loading ? (
+            <SkeletonRows cols={7} />
+          ) : users.length === 0 ? (
+            <EmptyRow cols={7}>{search ? "Không có ai khớp email này." : "Chưa có người dùng."}</EmptyRow>
+          ) : (
+            users.map((u) => {
+              const role = roleLabel(u.role);
+              const RoleIcon = ROLE_ICONS[u.role] || User;
+              return (
+                <tr key={u.user_id} className="border-t th-border th-bg-hover">
+                  <td className="px-4 py-3">
+                    <Link href={`/admin/users/${u.user_id}`} className="font-medium th-text-accent hover:underline">
+                      {u.email}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge tone={role.tone}>
+                      <RoleIcon size={12} />
+                      {role.label}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium th-text-primary">{formatNumber(u.points)}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-right th-text-secondary">{formatNumber(u.balance)}đ</td>
+                  <td className="px-4 py-3 text-right th-text-secondary">{formatNumber(u.projects_count)}</td>
+                  <td className="px-4 py-3 text-right th-text-secondary">{formatNumber(u.memes_count)}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-xs th-text-muted">{formatDate(u.created_at)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i}>
-                      <td colSpan={7} className="py-4 px-4">
-                        <div className="h-5 th-bg-tertiary rounded animate-pulse" />
-                      </td>
-                    </tr>
-                  ))
-                ) : users.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center th-text-muted">
-                      Không tìm thấy người dùng
-                    </td>
-                  </tr>
-                ) : (
-                  users.map((u) => {
-                    const roleStyle = ROLE_STYLES[u.role] || ROLE_STYLES.user;
-                    const RoleIcon = ROLE_ICONS[u.role] || User;
-                    return (
-                      <tr key={u.user_id} className="border-t th-bg-hover" style={{ borderColor: "var(--border-primary)" }}>
-                        <td className="py-3 px-4">
-                          <Link href={`/admin/users/${u.user_id}`} className="th-text-accent hover:underline font-medium">
-                            {u.email}
-                          </Link>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium" style={{ background: roleStyle.bg, color: roleStyle.color }}>
-                            <RoleIcon size={12} />
-                            {roleStyle.label}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right font-medium th-text-primary">{u.points}</td>
-                        <td className="py-3 px-4 text-right th-text-secondary">{formatVND(u.balance)}</td>
-                        <td className="py-3 px-4 text-right th-text-secondary">{u.projects_count}</td>
-                        <td className="py-3 px-4 text-right th-text-secondary">{u.memes_count}</td>
-                        <td className="py-3 px-4 th-text-muted text-xs">
-                          {new Date(u.created_at).toLocaleDateString("vi-VN")}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t" style={{ borderColor: "var(--border-primary)" }}>
-              <span className="text-xs th-text-muted">Trang {page}/{totalPages}</span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="p-2 rounded-lg th-bg-hover disabled:opacity-30"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="p-2 rounded-lg th-bg-hover disabled:opacity-30"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
+              );
+            })
           )}
-        </div>
-      </main>
-    </div>
+        </tbody>
+      </TableCard>
+    </PageContainer>
   );
 }

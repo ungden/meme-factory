@@ -53,6 +53,6 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
     console.error("Admin projects error:", error);
-    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
+    return NextResponse.json({ error: "Có lỗi phía hệ thống. Thử lại sau nhé." }, { status: 500 });
   }
 }
