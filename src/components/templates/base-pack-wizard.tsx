@@ -95,6 +95,9 @@ export default function BasePackWizard({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(pending.map((recipe) => recipe.id)));
   const [stopRequested, setStopRequested] = useState(false);
   const stopRef = useRef(false);
+  // Mỗi lượt vẽ là một khoản trừ điểm; bấm hai lần trước khi màn kịp đổi sẽ
+  // chạy hai lượt song song.
+  const runningRef = useRef(false);
   const [aspectRatio, setAspectRatio] = useState<MemeFormat>("1:1");
   const [artDirection, setArtDirection] = useState<ArtDirectionId>(initialArtDirection ?? DEFAULT_ART_DIRECTION);
   const [anchor, setAnchor] = useState<DrawnItem | null>(null);
@@ -119,6 +122,8 @@ export default function BasePackWizard({
   );
 
   const runAnchor = async () => {
+    if (runningRef.current) return;
+    runningRef.current = true;
     setBusy(true);
     setStep("anchor");
     const replaces = anchor?.baseImage?.id;
@@ -135,12 +140,14 @@ export default function BasePackWizard({
       setAnchor({ recipe: anchorRecipe, error: result.error, baseImage: anchor?.baseImage });
       if (result.shortfall) setShortfall({ ...result.shortfall, resume: "anchor" });
     }
+    runningRef.current = false;
     setBusy(false);
   };
 
   const runBatch = async () => {
     const anchorId = anchor?.baseImage?.id;
-    if (!anchorId) return;
+    if (!anchorId || runningRef.current) return;
+    runningRef.current = true;
     setBusy(true);
     setStep("batch");
     setStopRequested(false);
@@ -159,6 +166,7 @@ export default function BasePackWizard({
       setItems(drawn);
     }
 
+    runningRef.current = false;
     setBusy(false);
     setStep("review");
     onSaved?.();
