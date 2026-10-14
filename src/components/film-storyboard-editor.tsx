@@ -19,22 +19,22 @@ export function FilmStoryboardEditor({
     });
   return (
     <section
-      aria-label={`Kịch bản hình ${board.durationSeconds} giây`}
+      aria-label={`Các lượt trong cảnh ${board.durationSeconds} giây`}
       className="space-y-3"
     >
       <p className="text-xs th-text-secondary">
-        Các nhịp dưới đây được tạo trong cùng một clip nguồn {board.durationSeconds} giây.
-        Nội dung kết ở {board.contentEndSeconds ?? board.durationSeconds} giây;
-        phụ đề và điểm cắt cuối lấy từ tiếng thực tế.
+        Các lượt dưới đây quay chung trong một cảnh {board.durationSeconds} giây, nội dung
+        kết ở giây {board.contentEndSeconds ?? board.durationSeconds}. Phụ đề và chỗ cắt cuối
+        theo đúng lời đã nói.
       </p>
       {board.beats.map((beat, i) => (
         <div key={i} className="space-y-2 border-l-2 th-border pl-3">
           <div className="flex items-center gap-2">
             <span className="shrink-0 text-xs font-semibold th-text-accent">
-              {beat.startSeconds.toFixed(1)}–{beat.endSeconds.toFixed(1)}s
+              {beat.startSeconds.toFixed(1)}–{beat.endSeconds.toFixed(1)} giây
             </span>
             <select
-              aria-label={`Người nói nhịp ${i + 1}`}
+              aria-label={`Người nói lượt ${i + 1}`}
               className={control}
               value={beat.speakerCharacterId || ""}
               onChange={(e) =>
@@ -50,10 +50,10 @@ export function FilmStoryboardEditor({
             </select>
           </div>
           <textarea
-            aria-label={`Lời thoại nhịp ${i + 1}`}
+            aria-label={`Lời thoại lượt ${i + 1}`}
             className={`${control} min-h-16`}
             value={beat.dialogue}
-            placeholder="Không thoại: để trống"
+            placeholder="Để trống nếu lượt này không có lời"
             onChange={(e) => edit(i, { dialogue: e.target.value })}
           />
           <label className="block text-xs th-text-secondary">
@@ -65,7 +65,7 @@ export function FilmStoryboardEditor({
             />
           </label>
           <details className="text-xs th-text-secondary">
-            <summary>Góc máy và chuyển động</summary>
+            <summary className="cursor-pointer">Góc máy và chuyển động</summary>
             <label className="mt-2 block">
               Góc máy
               <input

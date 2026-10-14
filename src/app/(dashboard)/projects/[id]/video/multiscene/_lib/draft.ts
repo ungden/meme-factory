@@ -141,12 +141,12 @@ export const fromPlan = (p: FilmPlan, nativeAllowed = false): Draft => ({
   scenes: p.video_plan_scenes.map(fromScene),
 });
 export const labels: Record<string, string> = {
-  image: "Ảnh tham chiếu",
-  frame: "Khung nối tiếp",
-  voice_design: "Thiết kế giọng",
+  image: "Ảnh mẫu",
+  frame: "Khung nối cảnh",
+  voice_design: "Giọng nhân vật",
   tts: "Giọng nói",
-  video: "Chuyển động",
-  lip_sync: "Đồng bộ môi",
+  video: "Đoạn phim",
+  lip_sync: "Khớp môi",
   dub: "Lồng tiếng",
   transcribe: "Kiểm tra lời",
   render: "Phim hoàn chỉnh",
@@ -155,8 +155,8 @@ export const phaseLabels: Record<string, string> = {
   script: "Viết kịch bản",
   script_check: "Kiểm tra kịch bản",
   prepare: "Chuẩn bị hình và tiếng",
-  frame: "Lấy khung nối tiếp",
-  video: "Tạo chuyển động",
+  frame: "Lấy khung nối cảnh",
+  video: "Quay các cảnh",
   finish: "Lồng tiếng và hoàn thiện cảnh",
   transcript: "Kiểm tra lời",
   clip_check: "Kiểm tra cảnh",
@@ -165,15 +165,15 @@ export const phaseLabels: Record<string, string> = {
   // Các pha kiểm tra phải khai báo thẳng. Suy ra bằng `"Kiểm tra " + labels[kind]`
   // hỏng khi nhãn gốc đã là một cụm động từ: transcribe = "Kiểm tra lời" cho ra
   // "Kiểm tra kiểm tra lời".
-  image_check: "Kiểm tra ảnh tham chiếu",
+  image_check: "Kiểm tra ảnh mẫu",
   tts_check: "Kiểm tra giọng nói",
-  video_check: "Kiểm tra chuyển động",
+  video_check: "Kiểm tra đoạn phim",
   dub_check: "Kiểm tra lồng tiếng",
-  lip_sync_check: "Kiểm tra đồng bộ môi",
+  lip_sync_check: "Kiểm tra khớp môi",
   transcribe_check: "Kiểm tra lời thoại",
   render_check: "Kiểm tra bản ghép",
-  voice_design_check: "Kiểm tra giọng thiết kế",
-  frame_check: "Kiểm tra khung nối tiếp",
+  voice_design_check: "Kiểm tra giọng nhân vật",
+  frame_check: "Kiểm tra khung nối cảnh",
 };
 export function displayPhase(phase: string) {
   return phaseLabels[phase] || "Đang hoàn thiện";
@@ -181,16 +181,16 @@ export function displayPhase(phase: string) {
 export const statusLabels: Record<string, string> = {
   queued: "Đã nhận",
   // Thiếu mục này thì header lượt chạy nói "Đang xử lý" trong khi thẻ công đoạn
-  // của cùng trạng thái lại nói "Đang đối soát".
-  reconciling: "Đang đối soát",
+  // của cùng trạng thái lại nói "Đang kiểm tra".
+  reconciling: "Đang kiểm tra",
   scripting: "Đang viết kịch bản",
-  running: "Đang sản xuất",
+  running: "Đang làm",
   paused: "Đã tạm dừng",
-  budget_blocked: "Cần cập nhật hạn mức",
+  budget_blocked: "Chạm mức chi",
   needs_review: "Cần xem lại",
   completed: "Hoàn tất",
-  failed: "Lỗi",
-  cancelled: "Đã hủy",
+  failed: "Chưa xong",
+  cancelled: "Đã huỷ",
 };
 export type EpisodePickerStatus = "draft" | "running" | "ready" | "failed";
 export function episodePickerStatus(plan: FilmPlan): EpisodePickerStatus {
@@ -221,7 +221,7 @@ export function episodeHasHistory(plan: FilmPlan) {
 }
 export const episodePickerLabels: Record<EpisodePickerStatus, string> = {
   draft: "Chưa có video",
-  running: "Đang sản xuất",
+  running: "Đang làm",
   ready: "Đã có video",
   failed: "Cần xem lại",
 };
@@ -245,6 +245,10 @@ export async function api(url: string, body?: unknown, method = "POST") {
   const raw = await r.text();
   const j = raw ? JSON.parse(raw) : {};
   if (!r.ok)
-    throw new Error(j.error || "Không kết nối được. Nội dung vẫn được giữ.");
+    // Giữ mã lỗi để trang mở được hộp Cần thêm điểm thay vì chỉ hiện chữ.
+    throw Object.assign(new Error(j.error || "Không kết nối được. Nội dung vẫn được giữ."), {
+      code: typeof j.code === "string" ? j.code : undefined,
+      required: typeof j.required === "number" ? j.required : undefined,
+    });
   return j;
 }
