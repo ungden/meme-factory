@@ -44,10 +44,13 @@ export default function HomeComposer({
   projects,
   onStarted,
   preset,
+  lockChannel = false,
 }: {
   projects: Project[];
   onStarted: () => void;
   preset: ComposerPreset | null;
+  /** Ở trang một kênh: chỉ làm cho kênh đó, không cho chọn kênh khác. */
+  lockChannel?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -194,10 +197,10 @@ export default function HomeComposer({
     <form onSubmit={submit} className="flex flex-col gap-3" aria-labelledby="home-title">
       <div className="text-center">
         <h1 id="home-title" className="text-[28px] font-semibold leading-tight tracking-[-0.035em] th-text-primary sm:text-[40px]">
-          Hôm nay kênh của bạn <span className="th-text-gradient">đăng gì?</span>
+          Hôm nay {lockChannel && channel ? channel.name : "kênh của bạn"} <span className="th-text-gradient">đăng gì?</span>
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-[15px] th-text-secondary">
-          Gõ ý tưởng, gắn nhân vật nếu muốn. AI tự viết, dựng, quay và gửi kết quả về đây.
+          Viết một ý tưởng, hoặc để trống cho AIDA tự nghĩ. Làm xong sẽ hiện ngay bên dưới.
         </p>
       </div>
 
@@ -270,6 +273,7 @@ export default function HomeComposer({
               </button>
             ))}
           </div>
+          {!lockChannel && (
           <label className="flex min-h-9 min-w-0 max-w-full items-center gap-1.5 rounded-full border th-border px-3 text-[13px] th-text-tertiary th-bg-hover">
             <span className="shrink-0">Kênh</span>
             <select
@@ -283,6 +287,7 @@ export default function HomeComposer({
               <option value={NEW_CHANNEL}>+ Tạo kênh mới</option>
             </select>
           </label>
+          )}
           <Button type="submit" loading={busy} disabled={tooShort} className="ml-auto rounded-full px-4" aria-label={written ? "Bắt đầu làm" : "Để AI tự nghĩ và làm"}>
             {written ? <ArrowUp size={17} aria-hidden /> : <Sparkles size={17} aria-hidden />}
             {newChannel

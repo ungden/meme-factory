@@ -2,112 +2,133 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
-  House,
-  Sparkles,
-  Users,
-  Image,
-  LogOut,
-  ChevronLeft,
-  Sun,
-  Moon,
-  Menu,
-  X,
-  Wallet,
-  UserPlus,
-  Palette,
   Clapperboard,
-  ChevronDown,
-  HelpCircle,
-  Settings,
+  Coins,
   Film,
+  HelpCircle,
+  House,
+  Image,
   LayoutDashboard,
-  LayoutTemplate,} from "lucide-react";
+  LogOut,
+  Menu,
+  Moon,
+  Plus,
+  Settings,
+  Settings2,
+  Shield,
+  Sparkles,
+  Sun,
+  Users,
+  X,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-
 import { useTheme } from "@/components/theme-provider";
-import { IS_MOCK_MODE } from "@/lib/use-store";
+import { IS_MOCK_MODE, useProjects } from "@/lib/use-store";
 import NotificationBell from "@/components/layout/notification-bell";
 import { useWallet } from "@/contexts/WalletContext";
-import { Coins, Shield } from "lucide-react";
 import { clearClientCache, fetchJsonCached } from "@/lib/client-fetch";
+import { getProjectRouteRef } from "@/lib/project-visuals";
 
-interface SidebarProps {
-  projectId?: string;
-  projectName?: string;
+type NavLink = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  /** Trang con khác đường dẫn nhưng thuộc cùng mục. */
+  aliases?: string[];
+  exact?: boolean;
+};
+
+/** Các mục của một kênh, theo đúng thứ tự làm việc: làm nội dung, rồi tới kho. */
+export function channelNav(ref: string): NavLink[] {
+  const base = `/projects/${ref}`;
+  return [
+    { href: base, label: "Tổng quan", icon: LayoutDashboard, exact: true },
+    { href: `${base}/short-films`, label: "Phim ngắn", icon: Clapperboard, aliases: [`${base}/video/multiscene`] },
+    {
+      href: `${base}/generate`,
+      label: "Meme",
+      icon: Sparkles,
+      aliases: [`${base}/studio`, `${base}/editor`, `${base}/ai-meme`, `${base}/templates`],
+    },
+    // Chỉ đúng trang video lẻ: /video/multiscene thuộc Phim ngắn.
+    { href: `${base}/video`, label: "Video", icon: Film, exact: true },
+    { href: `${base}/characters`, label: "Nhân vật", icon: Users, aliases: [`${base}/mascots`] },
+    { href: `${base}/gallery`, label: "Thư viện", icon: Image },
+    {
+      href: `${base}/brand`,
+      label: "Cài đặt kênh",
+      icon: Settings2,
+      aliases: [`${base}/members`, `${base}/wallet`],
+    },
+  ];
 }
 
-export default function Sidebar({ projectId, projectName }: SidebarProps) {
+/**
+ * Một thanh bên cho mọi trang sau đăng nhập.
+ *
+ * Trước đây trang chính có hai mục, còn vào một kênh thì thanh bên đổi hẳn sang
+ * mười hai mục chia bốn nhóm — người dùng tưởng mình vừa sang một app khác. Giờ
+ * khung luôn giống nhau: Trang chính, danh sách kênh, và kênh đang mở xổ ra các
+ * mục của nó ngay dưới tên kênh.
+ */
+export default function Sidebar({ projectId }: { projectId?: string }) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
   const { points, isLoading: walletLoading } = useWallet();
+  const { projects, loading: projectsLoading, reload } = useProjects();
   const [projectPoints, setProjectPoints] = useState<number | null>(null);
-  // App shell dựng Sidebar từ layout nên không có sẵn tên kênh; lấy kèm số dư.
-  const [fetchedName, setFetchedName] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  // Mở sẵn: đóng mặc định giấu mất Thương hiệu và Thành viên sau một cú bấm mà
-  // không có gì gợi ý là chúng ở đó.
-  const [managementOpen, setManagementOpen] = useState(true);
 
-  // Check admin role
+  const current = projectId
+    ? projects.find((project) => project.id === projectId || getProjectRouteRef(project) === projectId)
+    : undefined;
+
+  // Thanh bên sống ở khung chung nên không tải lại khi đổi trang; kênh vừa tạo
+  // chưa có trong danh sách thì tải lại một lần.
+  useEffect(() => {
+    if (projectId && !projectsLoading && !current) void reload();
+  }, [projectId, projectsLoading, current, reload]);
+
   useEffect(() => {
     if (IS_MOCK_MODE) return;
     const checkAdmin = async () => {
       try {
         const supabase = createClient();
         const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) return;
-        const { data } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", user.id)
-          .maybeSingle();
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session?.user) return;
+        const { data } = await supabase.from("user_roles").select("role").eq("user_id", session.user.id).maybeSingle();
         setIsAdmin(data?.role === "admin");
       } catch {
         /* ignore */
       }
     };
-    checkAdmin();
+    void checkAdmin();
   }, []);
 
-  // Close sidebar on route change
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
 
-  // Load project wallet points when inside a project
   useEffect(() => {
     let active = true;
     const fetchProjectPoints = async () => {
-      if (!projectId) {
-        setProjectPoints(null);
-        return;
-      }
-      if (IS_MOCK_MODE) {
-        setProjectPoints(0);
-        return;
-      }
+      if (!projectId) return setProjectPoints(null);
+      if (IS_MOCK_MODE) return setProjectPoints(0);
       try {
-        const data = await fetchJsonCached<{ points?: number; project_name?: string }>(
-          `/api/projects/${projectId}/wallet`,
-          15_000,
-        );
-        if (!active) return;
-        setProjectPoints(Number(data.points || 0));
-        if (data.project_name) setFetchedName(String(data.project_name));
+        const data = await fetchJsonCached<{ points?: number }>(`/api/projects/${projectId}/wallet`, 15_000);
+        if (active) setProjectPoints(Number(data.points || 0));
       } catch {
-        // ignore
+        // Không có số dư kênh thì vẫn hiện số dư tài khoản.
       }
     };
     void fetchProjectPoints();
-    const changed = () => {
-      void fetchProjectPoints();
-    };
+    const changed = () => void fetchProjectPoints();
     window.addEventListener("aida:project-balance-changed", changed);
     return () => {
       active = false;
@@ -115,22 +136,16 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
     };
   }, [projectId]);
 
-  // Close sidebar on escape key
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMobileOpen(false);
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
     };
     document.addEventListener("keydown", handleEsc);
     return () => document.removeEventListener("keydown", handleEsc);
   }, []);
 
-  // Prevent body scroll when mobile sidebar is open
   useEffect(() => {
-    if (mobileOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
@@ -140,101 +155,18 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
     setSigningOut(true);
     try {
       if (!IS_MOCK_MODE) {
-        const supabase = createClient();
-        await supabase.auth.signOut();
+        await createClient().auth.signOut();
         clearClientCache();
       }
     } catch {
-      // Ignore and force navigation to login
+      // Lỗi gì cũng về trang đăng nhập.
     } finally {
-      // Hard navigation clears all client state and lets middleware handle clean redirect
       window.location.href = "/login";
     }
   };
 
-  const mainNav = [
-    { href: "/projects", label: "Trang chính", icon: House },
-    { href: "/wallet", label: "Ví tiền", icon: Wallet },
-  ];
-
-  // Grouped so the free paths read first and the paid ones are visibly separate.
-  const projectPrimaryNav = projectId
-    ? [{ href: `/projects/${projectId}`, label: "Tổng quan kênh", icon: LayoutDashboard }]
-    : [];
-
-  // Thứ tự theo đúng cách một kênh làm việc: làm nội dung từ kho nhân vật.
-  const projectCreateNav = projectId
-    ? [
-        {
-          href: `/projects/${projectId}/short-films`,
-          label: "Phim ngắn",
-          icon: Clapperboard,
-          aliases: [`/projects/${projectId}/video/multiscene`],
-        },
-        {
-          href: `/projects/${projectId}/generate`,
-          label: "Meme",
-          icon: Sparkles,
-          aliases: [
-            `/projects/${projectId}/studio`,
-            `/projects/${projectId}/editor`,
-            `/projects/${projectId}/ai-meme`,
-          ],
-        },
-        {
-          // Chỉ đúng trang video lẻ: /video/multiscene thuộc Phim ngắn.
-          href: `/projects/${projectId}/video`,
-          label: "Video từ ảnh",
-          icon: Film,
-          exact: true,
-        },
-      ]
-    : [];
-
-  const projectLibraryNav = projectId
-    ? [
-        {
-          href: `/projects/${projectId}/characters`,
-          label: "Nhân vật",
-          icon: Users,
-          aliases: [`/projects/${projectId}/mascots`],
-        },
-        {
-          href: `/projects/${projectId}/gallery`,
-          label: "Thư viện",
-          icon: Image,
-        },
-        {
-          href: `/projects/${projectId}/templates`,
-          label: "Mẫu ghép chữ",
-          icon: LayoutTemplate,
-        },
-      ]
-    : [];
-
-  const projectManagementNav = projectId
-    ? [
-        {
-          href: `/projects/${projectId}/brand`,
-          label: "Hồ sơ kênh",
-          icon: Palette,
-        },
-        {
-          href: `/projects/${projectId}/members`,
-          label: "Thành viên",
-          icon: UserPlus,
-        },
-        {
-          href: `/projects/${projectId}/wallet`,
-          label: "Điểm của kênh",
-          icon: Coins,
-        },
-      ]
-    : [];
-
   const sidebarContent = (
     <>
-      {/* Logo */}
       <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-4">
         <Link href="/projects" className="flex min-h-11 items-center gap-2.5 lg:min-h-0">
           <div
@@ -250,9 +182,8 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         </span>
       </div>
 
-      {/* Point Balance */}
       <Link
-        href={projectId ? `/projects/${projectId}/wallet` : "/wallet"}
+        href="/wallet"
         className="mx-3 mt-2 flex items-center justify-between rounded-xl border px-3 py-2 transition-colors th-border th-bg-card th-bg-hover"
       >
         <span className="flex items-center gap-2 text-[13px] th-text-secondary">
@@ -269,180 +200,84 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
         </span>
       </Link>
 
-      {/* Navigation */}
-      <nav
-        className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3"
-        aria-label="Điều hướng chính"
-      >
-        {projectId && (
-          <>
-            <Link
-              href="/projects"
-              className="flex min-h-11 items-center gap-2 px-3 py-2 text-sm th-text-muted transition-colors th-bg-hover rounded-xl lg:min-h-10"
-            >
-              <ChevronLeft size={16} />
-              Trang chính
-            </Link>
-            <div className="px-3 py-2">
-              <p className="text-[11px] font-medium th-text-muted">
-                Kênh
-              </p>
-              <p className="text-sm font-medium th-text-primary truncate mt-0.5">
-                {projectName || fetchedName || "..."}
-              </p>
-            </div>
-            <div
-              className="h-px my-2"
-              style={{ background: "var(--border-primary)" }}
-            />
-          </>
-        )}
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3" aria-label="Điều hướng chính">
+        <NavItem href="/projects" label="Trang chính" icon={House} active={pathname === "/projects"} />
 
-        {!projectId &&
-          mainNav.map((item) => (
-            <NavItem
-              key={item.href}
-              {...item}
-              active={pathname === item.href}
-            />
-          ))}
+        <div className="flex items-center justify-between px-3 pb-1 pt-5">
+          <span className="text-[11px] font-medium th-text-muted">Kênh</span>
+          <Link
+            href="/projects/new"
+            aria-label="Tạo kênh mới"
+            className="-mr-1.5 flex h-7 w-7 items-center justify-center rounded-md th-text-muted th-bg-hover"
+          >
+            <Plus size={14} />
+          </Link>
+        </div>
 
-        {projectPrimaryNav.map((item) => (
-          <NavItem
-            key={item.href}
-            href={item.href}
-            label={item.label}
-            icon={item.icon}
-            active={pathname === item.href}
-          />
-        ))}
-
-        {projectId && (
-          <>
-            <div className="px-3 pb-1 pt-4 text-[11px] font-medium th-text-muted">
-              Làm nội dung
-            </div>
-            {projectCreateNav.map((item) => (
-              <NavItem
-                key={item.href}
-                href={item.href}
-                label={item.label}
-                icon={item.icon}
-                active={"exact" in item && item.exact ? pathname === item.href : isNavActive(pathname, item.href, item.aliases)}
-              />
+        {projectsLoading && !projects.length ? (
+          <div className="space-y-1 px-3 py-1" aria-hidden>
+            {[1, 2].map((item) => (
+              <div key={item} className="h-7 animate-pulse rounded-md th-bg-tertiary" />
             ))}
-
-            <div className="px-3 pb-1 pt-4 text-[11px] font-medium th-text-muted">
-              Kho của kênh
-            </div>
-            {projectLibraryNav.map((item) => (
-              <NavItem
-                key={item.href}
-                href={item.href}
-                label={item.label}
-                icon={item.icon}
-                active={isNavActive(pathname, item.href, item.aliases)}
-              />
-            ))}
-          </>
-        )}
-
-        {projectId && (
-          <>
-            <button
-              type="button"
-              aria-expanded={managementOpen}
-              onClick={() => setManagementOpen((open) => !open)}
-              className="mt-3 flex min-h-11 w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] font-medium th-text-muted th-bg-hover lg:min-h-9"
-            >
-              Quản lý{" "}
-              <ChevronDown
-                size={14}
-                className={
-                  managementOpen
-                    ? "rotate-180 transition-transform"
-                    : "transition-transform"
-                }
-              />
-            </button>
-            {managementOpen &&
-              projectManagementNav.map((item) => (
-                <NavItem
-                  key={item.href}
-                  {...item}
-                  active={
-                    pathname === item.href ||
-                    pathname.startsWith(`${item.href}/`)
-                  }
-                />
-              ))}
-          </>
-        )}
-
-        {/* Ví tiền — luôn hiển thị */}
-        {projectId && (
-          <>
-            <div
-              className="h-px my-2"
-              style={{ background: "var(--border-primary)" }}
-            />
-            <NavItem
-              href="/wallet"
-              label="Ví tiền"
-              icon={Wallet}
-              active={pathname === "/wallet"}
-            />
-          </>
+          </div>
+        ) : !projects.length ? (
+          <Link href="/projects/new" className="block rounded-lg px-3 py-2 text-[13px] th-text-accent th-bg-hover">
+            Tạo kênh đầu tiên
+          </Link>
+        ) : (
+          projects.map((project) => {
+            const ref = getProjectRouteRef(project);
+            const open = project === current;
+            return (
+              <div key={project.id}>
+                <Link
+                  href={`/projects/${ref}`}
+                  aria-current={open && pathname === `/projects/${ref}` ? "page" : undefined}
+                  className={`flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-[13.5px] transition-colors lg:min-h-9 ${
+                    open ? "font-medium th-text-primary" : "th-text-secondary th-bg-hover"
+                  }`}
+                >
+                  <ChannelBadge name={project.name} />
+                  <span className="flex-1 truncate">{project.name}</span>
+                </Link>
+                {open && (
+                  <div className="mb-2 ml-[22px] mt-0.5 space-y-0.5 border-l pl-2 th-border">
+                    {channelNav(projectId!).map((item) => (
+                      <NavItem
+                        key={item.href}
+                        href={item.href}
+                        label={item.label}
+                        icon={item.icon}
+                        active={item.exact ? pathname === item.href : isNavActive(pathname, item.href, item.aliases)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </nav>
 
-      {/* Footer */}
-      <div
-        className="space-y-0.5 border-t px-3 py-3"
-        style={{ borderColor: "var(--border-primary)" }}
-      >
-        {isAdmin && (
-          <Link
-            href="/admin"
-            className="w-full flex min-h-11 items-center gap-3 px-3 py-2 text-[13px] rounded-lg transition-all th-text-danger th-bg-hover lg:min-h-9"
-          >
-            <Shield size={16} />
-            Quản trị
-          </Link>
-        )}
-        <Link
-          href="/settings"
-          className="w-full flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-[13px] th-text-secondary transition-all th-bg-hover lg:min-h-9"
-        >
-          <Settings size={16} />
-          Cài đặt
-        </Link>
-        <Link
-          href="/help"
-          className="w-full flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-[13px] th-text-secondary transition-all th-bg-hover lg:min-h-9"
-        >
-          <HelpCircle size={16} />
-          Hỗ trợ
-        </Link>
+      <div className="space-y-0.5 border-t px-3 py-3" style={{ borderColor: "var(--border-primary)" }}>
+        {isAdmin && <FooterLink href="/admin" icon={Shield} label="Quản trị" danger />}
+        <FooterLink href="/settings" icon={Settings} label="Tài khoản" />
+        <FooterLink href="/help" icon={HelpCircle} label="Trợ giúp" />
         <button
           onClick={toggleTheme}
-          aria-label={
-            theme === "light" ? "Chuyển giao diện tối" : "Chuyển giao diện sáng"
-          }
-          className="w-full flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-[13px] th-text-secondary transition-all cursor-pointer th-bg-hover lg:min-h-9"
+          aria-label={theme === "light" ? "Chuyển giao diện tối" : "Chuyển giao diện sáng"}
+          className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-[13px] th-text-secondary transition-all th-bg-hover lg:min-h-9"
         >
           {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
-          {theme === "light" ? "Giao diện tối" : "Giao diện sáng"}
+          {theme === "light" ? "Nền tối" : "Nền sáng"}
         </button>
-
         <button
           onClick={handleSignOut}
-          aria-label="Đăng xuất"
           disabled={signingOut}
-          className="w-full flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-[13px] transition-all cursor-pointer th-text-secondary th-bg-hover lg:min-h-9"
+          className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-[13px] th-text-secondary transition-all th-bg-hover lg:min-h-9"
         >
           <LogOut size={16} />
-          {signingOut ? "Đang đăng xuất..." : "Đăng xuất"}
+          {signingOut ? "Đang đăng xuất…" : "Đăng xuất"}
         </button>
       </div>
     </>
@@ -450,61 +285,43 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile hamburger button */}
-      <div className="fixed top-4 right-4 z-50 lg:hidden">
+      <div className="fixed right-4 top-4 z-50 lg:hidden">
         <NotificationBell />
       </div>
 
       <button
         onClick={() => setMobileOpen(true)}
         aria-label="Mở menu"
-        className="fixed top-4 left-4 z-50 rounded-xl p-2.5 lg:hidden transition-all th-shadow-sm"
-        style={{
-          background: "var(--bg-card)",
-          border: "1px solid var(--border-primary)",
-        }}
+        className="fixed left-4 top-4 z-50 rounded-xl p-2.5 transition-all th-shadow-sm lg:hidden"
+        style={{ background: "var(--bg-card)", border: "1px solid var(--border-primary)" }}
       >
         <Menu size={20} className="th-text-primary" />
       </button>
 
-      {/* Mobile overlay */}
       {mobileOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm lg:hidden"
-          onClick={() => setMobileOpen(false)}
-          aria-hidden="true"
-        />
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm lg:hidden" onClick={() => setMobileOpen(false)} aria-hidden="true" />
       )}
 
-      {/* Mobile sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-[100dvh] w-72 border-r flex flex-col z-50 transition-transform duration-300 lg:hidden ${
+        className={`fixed left-0 top-0 z-50 flex h-[100dvh] w-72 flex-col border-r transition-transform duration-300 lg:hidden ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
-        style={{
-          background: "var(--bg-sidebar)",
-          borderColor: "var(--border-primary)",
-        }}
+        style={{ background: "var(--bg-sidebar)", borderColor: "var(--border-primary)" }}
         aria-label="Menu điều hướng"
       >
-        {/* Close button */}
         <button
           onClick={() => setMobileOpen(false)}
           aria-label="Đóng menu"
-          className="absolute top-3 right-3 flex h-11 w-11 items-center justify-center rounded-lg th-bg-hover th-text-muted"
+          className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-lg th-bg-hover th-text-muted"
         >
           <X size={18} />
         </button>
         {sidebarContent}
       </aside>
 
-      {/* Desktop sidebar */}
       <aside
-        className="fixed left-0 top-0 z-40 hidden h-[100dvh] w-56 flex-col border-r transition-colors duration-200 lg:flex"
-        style={{
-          background: "var(--bg-sidebar)",
-          borderColor: "var(--border-primary)",
-        }}
+        className="fixed left-0 top-0 z-40 hidden h-[100dvh] w-60 flex-col border-r transition-colors duration-200 lg:flex"
+        style={{ background: "var(--bg-sidebar)", borderColor: "var(--border-primary)" }}
         aria-label="Menu điều hướng"
       >
         {sidebarContent}
@@ -515,44 +332,59 @@ export default function Sidebar({ projectId, projectName }: SidebarProps) {
 
 function isNavActive(pathname: string, href: string, aliases?: string[]) {
   if (pathname === href || pathname.startsWith(`${href}/`)) return true;
+  return aliases?.some((alias) => pathname === alias || pathname.startsWith(`${alias}/`)) ?? false;
+}
+
+export function ChannelBadge({ name, size = "sm" }: { name: string; size?: "sm" | "lg" }) {
   return (
-    aliases?.some(
-      (alias) => pathname === alias || pathname.startsWith(`${alias}/`),
-    ) ?? false
+    <span
+      aria-hidden
+      className={`flex shrink-0 items-center justify-center font-semibold text-white ${
+        size === "lg" ? "h-11 w-11 rounded-xl text-sm" : "h-5 w-5 rounded-md text-[10px]"
+      }`}
+      style={{ backgroundImage: "var(--accent-gradient)" }}
+    >
+      {name.trim().slice(0, size === "lg" ? 2 : 1).toLocaleUpperCase("vi")}
+    </span>
   );
 }
 
-function NavItem({
+function FooterLink({
   href,
-  label,
   icon: Icon,
-  active,
-  badge,
+  label,
+  danger,
 }: {
   href: string;
+  icon: React.ComponentType<{ size?: number }>;
   label: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-  active: boolean;
-  badge?: string;
+  danger?: boolean;
 }) {
+  return (
+    <Link
+      href={href}
+      className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] transition-all th-bg-hover lg:min-h-9 ${
+        danger ? "th-text-danger" : "th-text-secondary"
+      }`}
+    >
+      <Icon size={16} />
+      {label}
+    </Link>
+  );
+}
+
+function NavItem({ href, label, icon: Icon, active }: Omit<NavLink, "aliases" | "exact"> & { active: boolean }) {
   return (
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
       className={`relative flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-[13.5px] transition-colors lg:min-h-9 ${
-        active
-          ? "font-medium th-text-primary"
-          : "th-text-secondary th-bg-hover"
+        active ? "font-medium th-text-primary" : "th-text-secondary th-bg-hover"
       }`}
       style={active ? { background: "var(--bg-hover)", boxShadow: "inset 0 0 0 1px var(--border-primary)" } : undefined}
     >
       <Icon size={16} className={active ? "th-text-accent" : "th-text-tertiary"} />
       <span className="flex-1 truncate">{label}</span>
-      {badge && (
-        <span className="rounded-full px-1.5 py-0.5 text-[10px] th-bg-tertiary th-text-tertiary">
-          {badge}
-        </span>
-      )}
     </Link>
   );
 }

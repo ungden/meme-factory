@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
-import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
 import ChannelStages from "@/components/ui/channel-stages";
 import { invalidateClientCache } from "@/lib/client-fetch";
@@ -81,8 +80,7 @@ export default function NewChannelPage() {
 
   return (
     <div className="flex">
-      <Sidebar />
-      <main className="ml-0 min-h-screen flex-1 px-4 pb-10 pt-16 lg:ml-56 md:px-8 lg:pt-10">
+      <main className="min-h-screen flex-1 px-4 pb-10 pt-16 md:px-8 lg:pt-10">
         <div className="mx-auto flex max-w-2xl flex-col gap-6">
           <ChannelStages current={0} />
           <header>

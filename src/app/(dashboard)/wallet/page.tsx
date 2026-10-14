@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Sidebar from "@/components/layout/sidebar";
 import Card from "@/components/ui/card";
 import Button from "@/components/ui/button";
 import ConfirmModal from "@/components/ui/confirm-modal";
@@ -129,8 +128,7 @@ export default function WalletPage() {
 
   return (
     <div className="flex">
-      <Sidebar />
-      <main className="ml-0 lg:ml-56 flex-1 p-4 pt-16 md:p-8">
+      <main className="flex-1 p-4 pt-16 md:p-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>

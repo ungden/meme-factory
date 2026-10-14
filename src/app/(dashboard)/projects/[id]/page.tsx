@@ -3,23 +3,19 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import {
-  ArrowRight,
-  Images,
-  Clapperboard,
-  Sparkles,
-  TrendingUp,
-  Users,
-} from "lucide-react";
+import { useParams } from "next/navigation";
+import { ArrowRight, CalendarClock, Users } from "lucide-react";
 import { useProject } from "@/lib/use-store";
-import { humanizeError } from "@/lib/error-messages";
+import HomeComposer, { type ComposerPreset } from "../_components/home-composer";
+import HomeFeedList from "../_components/home-feed-list";
+import { useHomeFeed } from "../_components/use-home-feed";
 
 export default function ProjectOverviewPage() {
   const params = useParams();
   const projectId = params.id as string;
-  const router = useRouter();
   const { project, loading: projectLoading } = useProject(projectId);
+  const feed = useHomeFeed();
+  const [preset, setPreset] = useState<ComposerPreset | null>(null);
   const [overview, setOverview] = useState<{
     characterCount: number;
     outputCount: number;
@@ -82,137 +78,63 @@ export default function ProjectOverviewPage() {
   }, [projectId, reloadToken]);
 
   const characters = overview?.characters ?? [];
-  const recentOutputs = overview?.recentOutputs ?? [];
-  const latestProduction = overview?.productionRuns?.[0];
   const loading = projectLoading || overviewLoading;
 
-  if (loading) {
+  if (projectLoading) {
     return (
-      <div className="flex">
-        <main className="min-h-screen flex-1 p-4 pt-16 md:p-8">
-          <div className="mx-auto max-w-7xl animate-pulse space-y-6">
-            <div className="h-9 w-72 rounded-lg th-bg-tertiary" />
-            <div className="h-72 rounded-3xl th-bg-card" />
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {[1, 2, 3, 4].map((item) => (
-                <div key={item} className="h-44 rounded-2xl th-bg-card" />
-              ))}
-            </div>
-          </div>
-        </main>
-      </div>
+      <main className="min-h-screen p-4 pt-16 md:p-8 lg:p-10">
+        <div className="mx-auto max-w-3xl animate-pulse space-y-4 pt-4 sm:pt-12">
+          <div className="mx-auto h-10 w-80 rounded-lg th-bg-tertiary" />
+          <div className="h-44 rounded-3xl th-bg-card" />
+        </div>
+      </main>
     );
   }
 
   if (!project) {
     return (
-      <div
-        className="flex min-h-screen items-center justify-center"
-        style={{ background: "var(--bg-primary)" }}
-      >
-        <p className="th-text-tertiary">Không tìm thấy kênh</p>
-      </div>
+      <main className="flex min-h-screen items-center justify-center p-4">
+        <p className="th-text-tertiary">Không tìm thấy kênh này.</p>
+      </main>
     );
   }
 
-  const stats = [
-    {
-      label: "nhân vật",
-      value: overview?.characterCount ?? 0,
-      icon: Users,
-    },
-    { label: "bài đã làm", value: overview?.outputCount ?? 0, icon: Images },
-    {
-      label: "bài trong 7 ngày",
-      value: overview?.weeklyOutputCount ?? 0,
-      icon: TrendingUp,
-    },
-  ];
-  // Chỉ được coi là trống khi đã tải ĐƯỢC dữ liệu và dữ liệu đó thực sự trống.
-  const isEmpty = !!overview && stats.every((stat) => stat.value === 0);
+  const channelItems = feed.items.filter((item) => item.projectId === project.id);
 
   return (
-    <div className="flex">
-      <main className="min-h-screen flex-1 p-4 pt-16 md:p-8 lg:p-10">
-        <div className="mx-auto max-w-7xl">
-          <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight th-text-primary">
-                {project.name}
-              </h1>
-              {project.description && (
-                <p className="mt-2 max-w-2xl text-sm th-text-tertiary">
-                  {project.description}
-                </p>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {/* Làm nội dung đi qua ô nhập ở trang chính, đã chọn sẵn kênh này. */}
-              <button
-                onClick={() => {
-                  try {
-                    if (project?.id) window.localStorage.setItem("aida:home-channel", project.id);
-                  } catch {
-                    // Chỉ là ghi nhớ kênh cho ô nhập.
-                  }
-                  router.push("/projects");
-                }}
-                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white th-bg-accent th-shadow-accent"
-              >
-                <Sparkles size={16} /> Làm nội dung
-              </button>
-              <button
-                onClick={() => router.push(`/projects/${projectId}/characters`)}
-                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold th-text-primary th-bg-card th-bg-hover th-border"
-              >
-                <Users size={16} /> Nhân vật
-              </button>
-              <button
-                onClick={() => router.push(`/projects/${projectId}/short-films`)}
-                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold th-text-primary th-bg-card th-bg-hover th-border"
-              >
-                <Clapperboard size={16} /> Studio phim
-              </button>
-            </div>
-          </header>
+    <main className="min-h-screen p-4 pt-16 md:p-8 lg:p-10">
+      <div className="mx-auto max-w-7xl">
+        <div className="relative mx-auto mb-14 max-w-3xl pt-4 sm:pt-12">
+          <div aria-hidden className="pointer-events-none absolute inset-x-[-30%] -top-24 h-[420px] th-glow" />
+          <div className="relative">
+            <HomeComposer projects={[project]} onStarted={feed.reload} preset={preset} lockChannel />
+            {feed.autopilot[project.id] && (
+              <p className="mt-3 flex items-center justify-center gap-1.5 text-xs th-text-tertiary">
+                <CalendarClock size={13} className="th-text-accent" /> {feed.autopilot[project.id]}
+              </p>
+            )}
+          </div>
+        </div>
 
-          {latestProduction && (
-            <Link
-              href={`/projects/${projectId}/short-films`}
-              className="mb-6 flex min-h-12 items-center justify-between gap-3 rounded-xl border px-4 py-3 th-bg-card th-bg-hover"
-              style={{ borderColor: "var(--border-primary)" }}
-            >
-              <span className="min-w-0">
-                <strong className="block text-sm th-text-primary">
-                  {latestProduction.status === "completed"
-                    ? "Phim đã sẵn sàng duyệt"
-                    : latestProduction.status === "needs_review"
-                      ? "Phim cần bạn xem lại"
-                      : latestProduction.status === "budget_blocked"
-                        ? "Lượt làm phim đang chờ thêm điểm"
-                        : ["queued", "scripting", "running"].includes(
-                              latestProduction.status,
-                            )
-                          ? "Phim đang được sản xuất"
-                          : "Lượt làm phim gần nhất"}
-                </strong>
-                <small className="mt-0.5 block truncate text-xs th-text-secondary">
-                  {latestProduction.error
-                    ? humanizeError(latestProduction.error)
-                    : latestProduction.source === "scheduled"
-                      ? "Tự sản xuất hằng ngày"
-                      : "Tạo phim một lần"}
-                </small>
-              </span>
-              <ArrowRight size={16} className="shrink-0 th-text-accent" />
+        <div className="mb-10">
+          <HomeFeedList
+            items={channelItems}
+            loading={feed.loading}
+            failed={feed.failed}
+            onRemix={(item) => setPreset({ kind: item.kind, projectId: item.projectId, format: item.format, nonce: Date.now() })}
+          />
+        </div>
+
+        <section aria-labelledby="cast-title">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 id="cast-title" className="text-[15px] font-semibold th-text-primary">Nhân vật</h2>
+            <Link href={`/projects/${projectId}/characters`} className="flex items-center gap-1 text-xs font-medium th-text-accent">
+              {characters.length ? "Quản lý nhân vật" : "Thêm nhân vật"} <ArrowRight size={12} />
             </Link>
-          )}
-
-          {overviewFailed && (
-            <section className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border th-border-danger th-bg-danger-light p-4">
-              <span className="text-sm th-text-danger">
-                Chưa tải được số liệu kênh. Nội dung của bạn vẫn an toàn.
-              </span>
+          </div>
+          {overviewFailed ? (
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border th-border px-4 py-4">
+              <span className="text-sm th-text-secondary">Chưa tải được danh sách nhân vật.</span>
               <button
                 type="button"
                 onClick={() => {
@@ -224,211 +146,50 @@ export default function ProjectOverviewPage() {
               >
                 Thử lại
               </button>
-            </section>
-          )}
-
-          {isEmpty ? (
-            <section
-              className="max-w-2xl rounded-xl border p-6 sm:p-8"
-              style={{
-                background: "var(--bg-card)",
-                borderColor: "var(--border-primary)",
-              }}
+            </div>
+          ) : loading ? (
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+              {[1, 2, 3].map((item) => <div key={item} className="aspect-square animate-pulse rounded-2xl th-bg-card" />)}
+            </div>
+          ) : characters.length === 0 ? (
+            <Link
+              href={`/projects/${projectId}/characters`}
+              className="flex items-center gap-4 rounded-2xl border border-dashed px-4 py-5 th-border th-bg-hover"
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl th-bg-accent-light th-text-accent">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl th-bg-accent-light th-text-accent">
                 <Users size={19} />
               </span>
-              <h2 className="mt-5 text-xl font-semibold th-text-primary">
-                Dựng nhân vật cho kênh
-              </h2>
-              <p className="mt-2 max-w-xl text-sm leading-6 th-text-tertiary">
-                AI gợi ý nhân vật hợp với kênh và vẽ bộ ảnh chuẩn, hoặc bạn dùng ảnh của mình. Gắn nhân vật vào meme, video, phim để họ giữ đúng một gương mặt.
-              </p>
-              <div className="mt-5 flex flex-wrap gap-3">
-                <Link
-                  href={`/projects/${projectId}/characters`}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white th-bg-accent th-shadow-accent"
-                >
-                  <Users size={16} /> Dựng nhân vật
-                </Link>
-                <Link
-                  href={`/projects/${projectId}/generate`}
-                  className="inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-sm font-semibold th-text-primary th-bg-hover"
-                  style={{ borderColor: "var(--border-primary)" }}
-                >
-                  <Sparkles size={16} /> Làm meme không cần nhân vật
-                </Link>
-              </div>
-            </section>
+              <span className="min-w-0 flex-1">
+                <strong className="block text-sm th-text-primary">Kênh chưa có nhân vật</strong>
+                <small className="mt-0.5 block text-xs th-text-tertiary">
+                  Có nhân vật thì meme, video và phim đều giữ đúng một gương mặt. AIDA vẽ giúp, hoặc bạn dùng ảnh của mình.
+                </small>
+              </span>
+              <ArrowRight size={16} className="shrink-0 th-text-accent" />
+            </Link>
           ) : (
-            <>
-              <section
-                className="mb-8 flex flex-wrap gap-x-6 gap-y-2 border-y py-3 text-sm"
-                style={{ borderColor: "var(--border-primary)" }}
-              >
-                {stats.map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="flex items-center gap-2 th-text-secondary"
-                  >
-                    <stat.icon size={16} className="th-text-accent" />
-                    <strong className="th-text-primary">{stat.value}</strong>
-                    <span>{stat.label}</span>
-                  </div>
-                ))}
-              </section>
-
-              <div className="grid gap-7 xl:grid-cols-[minmax(0,.8fr)_minmax(0,1.2fr)]">
-                <section>
-                  <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold th-text-primary">
-                      Nhân vật
-                    </h2>
-                    <Link
-                      href={`/projects/${projectId}/characters`}
-                      className="flex items-center gap-1 text-xs font-medium th-text-accent"
-                    >
-                      Xem tất cả <ArrowRight size={12} />
+            <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+              {characters.map((character) => {
+                const image = character.avatar_url || character.poses[0]?.image_url;
+                return (
+                  <li key={character.id}>
+                    <Link href={`/projects/${projectId}/mascots/${character.id}`} className="group block">
+                      <span className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border th-border th-bg-tertiary text-lg font-semibold th-text-muted">
+                        {image && !image.startsWith("/mock/") ? (
+                          <Image src={image} alt="" fill sizes="160px" className="object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+                        ) : (
+                          character.name.slice(0, 1).toUpperCase()
+                        )}
+                      </span>
+                      <span className="mt-1.5 block truncate text-center text-sm font-medium th-text-primary">{character.name}</span>
                     </Link>
-                  </div>
-                  <div
-                    className="rounded-xl border p-2"
-                    style={{
-                      background: "var(--bg-card)",
-                      borderColor: "var(--border-primary)",
-                    }}
-                  >
-                    {characters.length > 0 ? (
-                      characters.slice(0, 4).map((character) => {
-                        const image =
-                          character.avatar_url || character.poses[0]?.image_url;
-                        return (
-                          <Link
-                            key={character.id}
-                            href={`/projects/${projectId}/mascots/${character.id}`}
-                            className="flex items-center gap-3 rounded-xl p-2.5 th-bg-hover"
-                          >
-                            <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl th-bg-tertiary text-sm font-semibold th-text-muted">
-                              {image && !image.startsWith("/mock/") ? (
-                                <Image
-                                  src={image}
-                                  alt={character.name}
-                                  fill
-                                  sizes="44px"
-                                  className="object-cover"
-                                />
-                              ) : (
-                                character.name.slice(0, 1).toUpperCase()
-                              )}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <strong className="block truncate text-sm th-text-primary">
-                                {character.name}
-                              </strong>
-                              <small className="mt-0.5 block text-xs th-text-muted">
-                                {character.poses.length} ảnh tham chiếu
-                              </small>
-                            </span>
-                            <ArrowRight size={14} className="th-text-muted" />
-                          </Link>
-                        );
-                      })
-                    ) : (
-                      <div className="py-7 text-center">
-                        <p className="text-sm th-text-tertiary">
-                          Chưa có nhân vật.
-                        </p>
-                        <Link
-                          href={`/projects/${projectId}/characters`}
-                          className="mt-2 inline-flex text-sm font-medium th-text-accent"
-                        >
-                          Dựng nhân vật
-                        </Link>
-                      </div>
-                    )}
-                  </div>
-                </section>
-
-                <section>
-                  <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold th-text-primary">
-                      Kết quả gần đây
-                    </h2>
-                    <Link
-                      href={`/projects/${projectId}/gallery`}
-                      className="flex items-center gap-1 text-xs font-medium th-text-accent"
-                    >
-                      Mở thư viện <ArrowRight size={12} />
-                    </Link>
-                  </div>
-                  {recentOutputs.length > 0 ? (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {recentOutputs.map((output) => (
-                        <button
-                          key={output.id}
-                          onClick={() =>
-                            router.push(`/projects/${projectId}/gallery`)
-                          }
-                          className="group flex min-h-28 overflow-hidden rounded-xl border text-left"
-                          style={{
-                            background: "var(--bg-card)",
-                            borderColor: "var(--border-primary)",
-                          }}
-                        >
-                          <span className="relative flex w-28 shrink-0 items-center justify-center overflow-hidden th-bg-tertiary">
-                            {output.image_url ? (
-                              <Image
-                                src={output.image_url}
-                                alt=""
-                                fill
-                                sizes="112px"
-                                className="object-cover transition group-hover:scale-105"
-                              />
-                            ) : (
-                              <Images size={20} className="th-text-muted" />
-                            )}
-                          </span>
-                          <span className="min-w-0 p-3">
-                            <strong className="line-clamp-2 text-sm leading-5 th-text-primary">
-                              {output.generated_content.headline ||
-                                output.title ||
-                                "Meme"}
-                            </strong>
-                            <small className="mt-2 line-clamp-2 text-xs leading-4 th-text-muted">
-                              {output.original_idea}
-                            </small>
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div
-                      className="flex min-h-44 flex-col items-center justify-center rounded-xl border text-center"
-                      style={{
-                        background: "var(--bg-card)",
-                        borderColor: "var(--border-primary)",
-                      }}
-                    >
-                      <Images size={22} className="th-text-muted" />
-                      <p className="mt-3 text-sm th-text-tertiary">
-                        Kết quả đầu tiên sẽ xuất hiện ở đây.
-                      </p>
-                      <button
-                        onClick={() =>
-                          router.push(`/projects/${projectId}/generate`)
-                        }
-                        className="mt-2 text-sm font-medium th-text-accent"
-                      >
-                        Làm meme
-                      </button>
-                    </div>
-                  )}
-                </section>
-              </div>
-            </>
+                  </li>
+                );
+              })}
+            </ul>
           )}
-        </div>
-      </main>
-    </div>
+        </section>
+      </div>
+    </main>
   );
 }

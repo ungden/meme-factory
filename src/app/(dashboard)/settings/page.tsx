@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Download, KeyRound, Mail, Trash2, User as UserIcon } from "lucide-react";
-import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
 import Input from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
@@ -140,8 +139,7 @@ export default function SettingsPage() {
 
   return (
     <div className="flex">
-      <Sidebar />
-      <main className="ml-0 min-h-screen flex-1 p-4 pt-16 lg:ml-56 md:p-8 lg:p-10">
+      <main className="min-h-screen flex-1 p-4 pt-16 md:p-8 lg:p-10">
         <div className="mx-auto max-w-2xl space-y-5">
           <header>
             <h1 className="text-2xl font-bold th-text-primary">Cài đặt tài khoản</h1>

@@ -14,6 +14,7 @@ import WatermarkAi from "@/components/brand/watermark-ai";
 import WatermarkGrid from "@/components/editor/watermark-grid";
 import { useProject } from "@/lib/use-store";
 import { FORMAT_DIMENSIONS, type MemeFormat, type WatermarkPosition } from "@/types/database";
+import ChannelSettingsHeader from "@/components/layout/channel-settings-tabs";
 
 const FORMAT_LABELS: Record<MemeFormat, string> = {
   "1:1": "Bài đăng vuông",
@@ -59,13 +60,13 @@ export default function BrandSettingsPage() {
       if (!project) throw new Error("Kênh chưa tải xong");
       if (!["image/png", "image/webp"].includes(file.type))
         throw new Error("Chọn PNG hoặc WebP có nền trong suốt. Không nhận JPG hoặc SVG.");
-      if (file.size > 3 * 1024 * 1024) throw new Error("Watermark tối đa 3 MB.");
+      if (file.size > 3 * 1024 * 1024) throw new Error("Logo tối đa 3 MB.");
       const form = new FormData();
       form.append("file", file);
       form.append("workspaceVersion", String(project.workspace_version ?? 1));
       const response = await fetch(`/api/projects/${project.id}/watermark`, { method: "POST", body: form });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Tải watermark thất bại");
+      if (!response.ok) throw new Error(result.error || "Chưa tải được logo");
       setWatermarkUrl(result.url);
       toast.success("Đã tải logo lên, nhớ bấm Lưu");
     } catch (error) {
@@ -99,12 +100,7 @@ export default function BrandSettingsPage() {
   return (
     <div className="flex">
       <main className="min-w-0 flex-1 p-4 pt-16 md:p-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold th-text-primary">Thương hiệu</h1>
-          <p className="th-text-tertiary mt-1">
-            Watermark và phong cách dùng chung cho ảnh, video và phim ngắn của kênh.
-          </p>
-        </div>
+        <ChannelSettingsHeader description="Logo đóng lên mọi ảnh, video và phim của kênh." />
 
         {loading ? (
           <p className="th-text-tertiary">Đang tải…</p>
@@ -112,7 +108,7 @@ export default function BrandSettingsPage() {
           <div className="grid min-w-0 max-w-4xl grid-cols-1 gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
-                <span className="text-sm font-semibold th-text-primary">Watermark mặc định</span>
+                <span className="text-sm font-semibold th-text-primary">Logo của kênh</span>
               </CardHeader>
               <CardContent className="space-y-4">
                 <input
@@ -130,9 +126,9 @@ export default function BrandSettingsPage() {
                 {watermarkUrl ? (
                   <div className="flex items-center gap-3 rounded-xl border th-border-secondary p-3">
                     <div className="relative h-16 w-36 shrink-0 rounded-lg bg-slate-700">
-                      <Image src={watermarkUrl} alt="Watermark" fill className="object-contain" unoptimized />
+                      <Image src={watermarkUrl} alt="Logo" fill className="object-contain" unoptimized />
                     </div>
-                    <span className="flex-1 truncate text-xs th-text-tertiary">Watermark đang chọn</span>
+                    <span className="flex-1 truncate text-xs th-text-tertiary">Logo đang dùng</span>
                     <Button size="sm" variant="ghost" aria-label="Bỏ logo" onClick={() => setWatermarkUrl(null)}>
                       <Trash2 size={14} />
                     </Button>
@@ -145,20 +141,20 @@ export default function BrandSettingsPage() {
                     className="flex w-full flex-col items-center gap-1 rounded-xl border border-dashed th-border-secondary p-5 th-text-tertiary th-bg-hover"
                   >
                     <Upload size={18} />
-                    <span className="text-xs">{uploading ? "Đang tải…" : "Tải watermark PNG / WebP trong suốt"}</span>
+                    <span className="text-xs">{uploading ? "Đang tải…" : "Tải logo nền trong suốt (PNG, WebP)"}</span>
                   </button>
                 )}
 
                 {watermarkUrl && (
                   <Button size="sm" variant="secondary" loading={uploading} onClick={() => fileRef.current?.click()}>
-                    <Upload size={14} /> Thay watermark
+                    <Upload size={14} /> Đổi logo
                   </Button>
                 )}
                 <p className="text-xs th-text-tertiary">
                   PNG hoặc WebP không có nền, tối đa 3 MB. Ảnh nền trắng hoặc nền caro sẽ bị từ chối.
                 </p>
                 {project && <WatermarkAi key={`${project.id}:${project.workspace_version}`} projectId={project.id} ownerId={project.user_id} workspaceVersion={project.workspace_version ?? 1} projectName={project.name} onApply={setWatermarkUrl} />}
-                <div aria-label="Xem trước watermark trên video" className="relative aspect-video overflow-hidden rounded-lg bg-slate-800">
+                <div aria-label="Xem trước logo trên video" className="relative aspect-video overflow-hidden rounded-lg bg-slate-800">
                   <span className="absolute left-3 top-3 text-xs text-slate-300">Xem trước 16:9</span>
                   {watermarkUrl && <div className="absolute" style={{
                     width: "24%", height: "16%", opacity,
@@ -175,7 +171,7 @@ export default function BrandSettingsPage() {
 
                 <ControlRow label="Độ mờ" value={`${Math.round(opacity * 100)}%`}>
                   <Slider
-                    ariaLabel="Độ mờ watermark"
+                    ariaLabel="Độ mờ của logo"
                     min={10}
                     max={100}
                     value={opacity * 100}
@@ -184,7 +180,7 @@ export default function BrandSettingsPage() {
                 </ControlRow>
 
                 <p className="text-xs th-text-tertiary">
-                  Bấm Lưu để áp dụng cho các lượt tạo tiếp theo. Video và ảnh đã hoàn tất vẫn giữ watermark cũ.
+                  Bấm Lưu để áp dụng cho các lượt tạo tiếp theo. Video và ảnh đã hoàn tất vẫn giữ logo cũ.
                 </p>
               </CardContent>
             </Card>
@@ -202,7 +198,7 @@ export default function BrandSettingsPage() {
                     onChange={(event) => setHandle(event.target.value)}
                   />
                   <p className="text-xs th-text-tertiary">
-                    Dùng làm watermark chữ mặc định khi kênh chưa có logo.
+                    Kênh chưa có logo thì đóng dòng chữ này lên ảnh.
                   </p>
                 </CardContent>
               </Card>

@@ -54,7 +54,7 @@ export default function ProjectInvitationsBanner() {
   if (invitations.length === 0) return null;
 
   return (
-    <div className="space-y-2 mb-4">
+    <div className="space-y-2 px-4 pt-16 md:px-8 lg:pt-4">
       {invitations.map((inv) => (
         <div
           key={inv.id}

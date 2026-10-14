@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   CalendarClock,
@@ -14,16 +14,15 @@ import {
   Zap,
 } from "lucide-react";
 import { useProjects, IS_MOCK_MODE } from "@/lib/use-store";
-import Sidebar from "@/components/layout/sidebar";
 import Button from "@/components/ui/button";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { useToast } from "@/components/ui/toast";
 import AnnouncementBanner from "@/components/ui/announcement-banner";
 import { getProjectRouteRef } from "@/lib/project-visuals";
 import { fetchJsonCached, invalidateClientCache } from "@/lib/client-fetch";
-import { feedIsBusy, type FeedItem } from "@/lib/home-feed";
 import HomeComposer, { type ComposerPreset } from "./_components/home-composer";
 import HomeFeedList from "./_components/home-feed-list";
+import { useHomeFeed } from "./_components/use-home-feed";
 
 export default function ProjectsPage() {
   const { projects, loading, remove } = useProjects();
@@ -53,32 +52,8 @@ export default function ProjectsPage() {
     return () => { active = false; };
   }, [projects.length]);
 
-  const [feed, setFeed] = useState<{ items: FeedItem[]; autopilot: Record<string, string> }>({ items: [], autopilot: {} });
-  const [feedLoading, setFeedLoading] = useState(true);
-  const [feedFailed, setFeedFailed] = useState(false);
-  const loadFeed = useCallback(async () => {
-    if (IS_MOCK_MODE) return setFeedLoading(false);
-    try {
-      const response = await fetch("/api/home", { cache: "no-store" });
-      if (!response.ok) throw new Error(String(response.status));
-      setFeed(await response.json());
-      setFeedFailed(false);
-    } catch {
-      setFeedFailed(true);
-    } finally {
-      setFeedLoading(false);
-    }
-  }, []);
-  const busy = feedIsBusy(feed.items);
+  const feed = useHomeFeed();
   const [preset, setPreset] = useState<ComposerPreset | null>(null);
-  // Có việc đang chạy thì cập nhật nhanh để người dùng thấy kết quả về ngay.
-  useEffect(() => {
-    void loadFeed();
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible") void loadFeed();
-    }, busy ? 5000 : 60000);
-    return () => clearInterval(timer);
-  }, [loadFeed, busy]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -91,8 +66,7 @@ export default function ProjectsPage() {
 
   return (
     <div className="flex">
-      <Sidebar />
-      <main className="ml-0 min-h-screen flex-1 overflow-x-hidden p-4 pt-16 lg:ml-56 md:p-8 lg:p-10">
+      <main className="min-h-screen flex-1 overflow-x-hidden p-4 pt-16 md:p-8 lg:p-10">
         <div className="mx-auto max-w-7xl">
           {IS_MOCK_MODE && (
             <div className="mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 th-border-accent th-bg-accent-light">
@@ -106,7 +80,7 @@ export default function ProjectsPage() {
           <div className="relative mx-auto mb-14 max-w-3xl pt-4 sm:pt-12">
             <div aria-hidden className="pointer-events-none absolute inset-x-[-30%] -top-24 h-[420px] th-glow" />
             <div className="relative">
-              {loading ? <div className="h-56 animate-pulse rounded-3xl th-bg-card" /> : <HomeComposer projects={projects} onStarted={loadFeed} preset={preset} />}
+              {loading ? <div className="h-56 animate-pulse rounded-3xl th-bg-card" /> : <HomeComposer projects={projects} onStarted={feed.reload} preset={preset} />}
             </div>
           </div>
 
@@ -114,8 +88,8 @@ export default function ProjectsPage() {
             <div className="mb-10">
               <HomeFeedList
                 items={feed.items}
-                loading={feedLoading}
-                failed={feedFailed}
+                loading={feed.loading}
+                failed={feed.failed}
                 onRemix={(item) => setPreset({ kind: item.kind, projectId: item.projectId, format: item.format, nonce: Date.now() })}
               />
             </div>

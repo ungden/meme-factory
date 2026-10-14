@@ -9,6 +9,7 @@ import Button from "@/components/ui/button";
 import { UserPlus, Trash2 } from "lucide-react";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { useToast } from "@/components/ui/toast";
+import ChannelSettingsHeader from "@/components/layout/channel-settings-tabs";
 
 interface ProjectMember {
   user_id: string;
@@ -139,10 +140,7 @@ export default function ProjectMembersPage() {
   return (
     <div className="flex">
       <main className="flex-1 p-4 pt-16 md:p-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold th-text-primary">Thành viên kênh</h1>
-          <p className="th-text-tertiary mt-1">Mời thành viên và quản lý quyền truy cập</p>
-        </div>
+        <ChannelSettingsHeader description="Mời người khác cùng làm kênh này." />
 
         <Card>
           <CardContent className="space-y-4">

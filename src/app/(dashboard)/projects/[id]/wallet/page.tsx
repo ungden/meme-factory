@@ -11,6 +11,7 @@ import Button from "@/components/ui/button";
 import { invalidateClientCache } from "@/lib/client-fetch";
 import { transactionLabel } from "@/lib/point-pricing";
 import { useToast } from "@/components/ui/toast";
+import ChannelSettingsHeader from "@/components/layout/channel-settings-tabs";
 
 interface ProjectWalletTransaction {
   id: string;
@@ -92,10 +93,7 @@ export default function ProjectWalletPage() {
   return (
     <div className="flex">
       <main className="flex-1 p-4 pt-16 md:p-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold th-text-primary">Ví kênh</h1>
-          <p className="th-text-tertiary mt-1">Nạp điểm từ ví cá nhân để cả nhóm dùng chung</p>
-        </div>
+        <ChannelSettingsHeader description="Chuyển điểm từ tài khoản của bạn vào kênh để cả nhóm dùng chung." />
 
         <Card className="mb-6">
           <CardContent className="space-y-4">
