@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin, supabaseAdmin, AdminError } from "@/lib/admin";
+import { formatPoints } from "@/lib/format";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -9,10 +10,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { amount, reason } = body as { amount: number; reason: string };
 
     if (!amount || amount === 0) {
-      return NextResponse.json({ error: "Số points phải khác 0" }, { status: 400 });
+      return NextResponse.json({ error: "Số điểm phải khác 0." }, { status: 400 });
     }
     if (!reason?.trim()) {
-      return NextResponse.json({ error: "Vui lòng nhập lý do" }, { status: 400 });
+      return NextResponse.json({ error: "Nhập lý do chỉnh điểm nhé." }, { status: 400 });
     }
 
     // Một RPC làm cả ba việc trong một giao dịch: khoá ví, đổi số dư, ghi sổ.
@@ -24,18 +25,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       _admin_email: admin.email ?? null,
     });
     if (error) {
-      return NextResponse.json({ error: "Cập nhật ví thất bại" }, { status: 500 });
+      return NextResponse.json({ error: "Chưa chỉnh được ví. Thử lại nhé." }, { status: 500 });
     }
     if (!result?.success) {
       const messages: Record<string, string> = {
-        WALLET_NOT_FOUND: "Không tìm thấy ví của người dùng",
-        INSUFFICIENT_POINTS: `Không thể trừ ${Math.abs(amount)} points. Số dư hiện tại: ${result?.points ?? 0} points`,
-        AMOUNT_REQUIRED: "Số points phải khác 0",
-        REASON_REQUIRED: "Vui lòng nhập lý do",
+        WALLET_NOT_FOUND: "Không tìm thấy ví của người dùng này.",
+        INSUFFICIENT_POINTS: `Không trừ được ${formatPoints(Math.abs(amount))}: ví chỉ còn ${formatPoints(Number(result?.points ?? 0))}.`,
+        AMOUNT_REQUIRED: "Số điểm phải khác 0.",
+        REASON_REQUIRED: "Nhập lý do chỉnh điểm nhé.",
       };
       const code = String(result?.error || "");
       return NextResponse.json(
-        { error: messages[code] || "Cập nhật ví thất bại" },
+        { error: messages[code] || "Chưa chỉnh được ví. Thử lại nhé." },
         { status: code === "WALLET_NOT_FOUND" ? 404 : 400 },
       );
     }
@@ -44,13 +45,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({
       success: true,
       newPoints,
-      message: `Đã ${amount > 0 ? "cộng" : "trừ"} ${Math.abs(amount)} points`,
+      message: `Đã ${amount > 0 ? "cộng" : "trừ"} ${formatPoints(Math.abs(amount))}`,
     });
   } catch (error) {
     if (error instanceof AdminError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
     console.error("Admin adjust points error:", error);
-    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
+    return NextResponse.json({ error: "Có lỗi phía hệ thống. Thử lại sau nhé." }, { status: 500 });
   }
 }

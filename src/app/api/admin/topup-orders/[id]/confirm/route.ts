@@ -12,13 +12,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
 
     if (error) {
-      return NextResponse.json({ error: "Xác nhận thất bại: " + error.message }, { status: 500 });
+      return NextResponse.json({ error: "Chưa xác nhận được đơn: " + error.message }, { status: 500 });
     }
 
     const result = data as { success?: boolean; error?: string; already_confirmed?: boolean };
 
     if (result?.error) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+      // RPC trả câu tiếng Anh cố định; dịch ở biên thay vì sửa hàm tiền.
+      const message = result.error === "Order not found" ? "Không tìm thấy đơn nạp này." : result.error;
+      return NextResponse.json({ error: message }, { status: 400 });
     }
 
     if (result?.already_confirmed) {
@@ -31,12 +33,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .update({ description: `Nạp tiền (xác nhận thủ công bởi ${admin.email})` })
       .eq("reference_id", `topup_${orderId}`);
 
-    return NextResponse.json({ success: true, message: "Đã xác nhận đơn nạp tiền thành công" });
+    return NextResponse.json({ success: true, message: "Đã xác nhận đơn nạp tiền" });
   } catch (error) {
     if (error instanceof AdminError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
     console.error("Admin confirm topup error:", error);
-    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
+    return NextResponse.json({ error: "Có lỗi phía hệ thống. Thử lại sau nhé." }, { status: 500 });
   }
 }

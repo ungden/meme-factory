@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     if (error instanceof AdminError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
+    return NextResponse.json({ error: "Có lỗi phía hệ thống. Thử lại sau nhé." }, { status: 500 });
   }
 }
 
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const { title, content, type } = body as { title: string; content: string; type: string };
 
     if (!title?.trim()) {
-      return NextResponse.json({ error: "Thiếu tiêu đề" }, { status: 400 });
+      return NextResponse.json({ error: "Thiếu tiêu đề thông báo." }, { status: 400 });
     }
 
     const { data, error } = await supabaseAdmin
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: "Tạo thông báo thất bại" }, { status: 500 });
+      return NextResponse.json({ error: "Chưa đăng được thông báo. Thử lại nhé." }, { status: 500 });
     }
 
     return NextResponse.json({ announcement: data });
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     if (error instanceof AdminError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
+    return NextResponse.json({ error: "Có lỗi phía hệ thống. Thử lại sau nhé." }, { status: 500 });
   }
 }
 
@@ -55,7 +55,7 @@ export async function PATCH(req: Request) {
     const { id, is_active } = body as { id: string; is_active: boolean };
 
     if (!id) {
-      return NextResponse.json({ error: "Thiếu ID" }, { status: 400 });
+      return NextResponse.json({ error: "Thiếu mã thông báo." }, { status: 400 });
     }
 
     const { error } = await supabaseAdmin
@@ -64,7 +64,7 @@ export async function PATCH(req: Request) {
       .eq("id", id);
 
     if (error) {
-      return NextResponse.json({ error: "Cập nhật thất bại" }, { status: 500 });
+      return NextResponse.json({ error: "Chưa đổi được thông báo. Thử lại nhé." }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
@@ -72,7 +72,7 @@ export async function PATCH(req: Request) {
     if (error instanceof AdminError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
+    return NextResponse.json({ error: "Có lỗi phía hệ thống. Thử lại sau nhé." }, { status: 500 });
   }
 }
 
@@ -83,7 +83,7 @@ export async function DELETE(req: Request) {
     const id = url.searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json({ error: "Thiếu ID" }, { status: 400 });
+      return NextResponse.json({ error: "Thiếu mã thông báo." }, { status: 400 });
     }
 
     const { error } = await supabaseAdmin
@@ -92,7 +92,7 @@ export async function DELETE(req: Request) {
       .eq("id", id);
 
     if (error) {
-      return NextResponse.json({ error: "Xoá thất bại" }, { status: 500 });
+      return NextResponse.json({ error: "Chưa xoá được thông báo. Thử lại nhé." }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
@@ -100,6 +100,6 @@ export async function DELETE(req: Request) {
     if (error instanceof AdminError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
+    return NextResponse.json({ error: "Có lỗi phía hệ thống. Thử lại sau nhé." }, { status: 500 });
   }
 }

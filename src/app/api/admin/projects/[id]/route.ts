@@ -7,7 +7,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
     const { id } = await params;
     if (!id) {
-      return NextResponse.json({ error: "Thiếu project id" }, { status: 400 });
+      return NextResponse.json({ error: "Thiếu mã kênh." }, { status: 400 });
     }
 
     const { error } = await supabaseAdmin
@@ -16,7 +16,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       .eq("id", id);
 
     if (error) {
-      return NextResponse.json({ error: "Xoá dự án thất bại" }, { status: 500 });
+      return NextResponse.json({ error: "Chưa xoá được kênh. Thử lại nhé." }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
@@ -24,6 +24,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     if (error instanceof AdminError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
+    return NextResponse.json({ error: "Có lỗi phía hệ thống. Thử lại sau nhé." }, { status: 500 });
   }
 }
