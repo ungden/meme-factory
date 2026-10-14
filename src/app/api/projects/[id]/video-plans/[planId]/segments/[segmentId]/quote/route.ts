@@ -16,7 +16,7 @@ export async function POST(
     const plan = await readPlan(auth, planId);
     const body = (await request.json()) as Record<string, unknown>;
     if (Number(body.workspaceVersion) !== auth.project.workspace_version)
-      throw new FilmError("Workspace đã thay đổi. Hãy tải lại trước khi báo giá.", 409);
+      throw new FilmError("Kênh vừa thay đổi. Tải lại trang rồi xem giá nhé.", 409);
     return NextResponse.json({
       quote: await quoteFilmSegment(
         auth,

@@ -23,6 +23,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   if (typeof body.content_output_id === "string") patch.content_output_id = body.content_output_id;
   const { data, error } = await supabase.from("workspace_drafts").update(patch).eq("id", draftId).eq("created_by", user.id).eq("version", expectedVersion).select().maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data) return NextResponse.json({ error: "Bản nháp đã thay đổi ở nơi khác. Hãy tải lại." }, { status: 409 });
+  if (!data) return NextResponse.json({ error: "Bản nháp vừa được sửa ở nơi khác. Tải lại trang nhé." }, { status: 409 });
   return NextResponse.json({ draft: data });
 }

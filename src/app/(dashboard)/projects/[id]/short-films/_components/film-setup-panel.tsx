@@ -2,8 +2,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Check, Sparkles } from "lucide-react";
-import Button from "@/components/ui/button";
+import { Check, Sparkles, Users } from "lucide-react";
+import Alert from "@/components/ui/alert";
+import Button, { buttonClasses } from "@/components/ui/button";
+import EmptyState from "@/components/ui/empty-state";
+import PriceLine from "@/components/ui/price-line";
+import OutOfPointsModal from "@/components/wallet/out-of-points-modal";
 
 export type SetupCharacter = {
   id: string;
@@ -25,7 +29,7 @@ const VIEW_LABEL: Record<(typeof VIEWS)[number], string> = {
 
 /**
  * Bước còn lại trước khi kênh làm được phim: mỗi nhân vật cần một bộ ảnh chuẩn
- * (cận mặt, toàn thân, sau lưng). Một nút cho AI tạo hết; người dùng chỉ cần
+ * (cận mặt, toàn thân, sau lưng). Một nút vẽ hết; người dùng chỉ cần
  * chọn ai được lên phim nếu không muốn dùng tất cả.
  */
 export function FilmSetupPanel({
@@ -34,8 +38,9 @@ export function FilmSetupPanel({
   characters,
   castIds,
   pointsPerImage,
+  available,
   owner,
-  mascotsHref,
+  charactersHref,
   onSaveCast,
   onDone,
 }: {
@@ -44,8 +49,10 @@ export function FilmSetupPanel({
   characters: SetupCharacter[];
   castIds: string[];
   pointsPerImage: number;
+  /** Điểm kênh đang có, kể cả phần tự chuyển từ ví. */
+  available: number | null;
   owner: boolean;
-  mascotsHref: string;
+  charactersHref: string;
   onSaveCast: (ids: string[]) => Promise<void>;
   onDone: () => Promise<void>;
 }) {
@@ -53,6 +60,7 @@ export function FilmSetupPanel({
   const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
   const [running, setRunning] = useState(false);
+  const [needPoints, setNeedPoints] = useState(false);
   // Nhân vật đã lên phim được nhưng chưa có đủ ba góc vẫn nên được nâng cấp.
   const pending = characters.filter((c) => selected.includes(c.id) && !(c.packComplete ?? c.ready));
   const cost =
@@ -66,7 +74,8 @@ export function FilmSetupPanel({
       body: JSON.stringify({ workspaceVersion: workspace, ...body }),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "Chưa vẽ được ảnh. Bạn thử lại nhé.");
+    if (!response.ok)
+      throw Object.assign(new Error(data.error || "Chưa vẽ được ảnh. Bạn thử lại nhé."), { code: data.code as string | undefined });
     return data;
   }
 
@@ -92,8 +101,9 @@ export function FilmSetupPanel({
             const made = await call({ action: "generate", characterId: character.id, view, facePath: paths.face });
             paths[view] = made.path;
           } catch (cause) {
-            // Ảnh lưng chỉ là thêm: thiếu nó vẫn khoá được bộ mặt + thân.
-            if (view !== "back") throw cause;
+            // Ảnh lưng chỉ là thêm: thiếu nó vẫn khoá được bộ mặt + thân. Hết
+            // điểm thì dừng hẳn để hỏi nạp, không bỏ qua.
+            if (view !== "back" || (cause as { code?: string }).code === "INSUFFICIENT_POINTS") throw cause;
           }
         }
         setProgress(`Đang lưu bộ ảnh của ${character.name}`);
@@ -102,7 +112,8 @@ export function FilmSetupPanel({
       setProgress("");
       await onDone();
     } catch (cause) {
-      setError((cause as Error).message);
+      if ((cause as { code?: string }).code === "INSUFFICIENT_POINTS") setNeedPoints(true);
+      else setError((cause as Error).message);
     } finally {
       setRunning(false);
     }
@@ -110,11 +121,16 @@ export function FilmSetupPanel({
 
   if (!characters.length)
     return (
-      <section className="flex max-w-2xl flex-col gap-3 rounded-xl border th-border th-bg-card p-4">
-        <h2 className="text-lg font-semibold th-text-primary">Kênh chưa có nhân vật</h2>
-        <p className="text-sm th-text-secondary">Phim xoay quanh các nhân vật của kênh. Tạo ít nhất một nhân vật trước.</p>
-        <Link href={mascotsHref} className="w-fit text-sm font-semibold th-text-accent underline">Tạo nhân vật</Link>
-      </section>
+      <EmptyState
+        icon={Users}
+        title="Kênh chưa có nhân vật"
+        hint="Phim xoay quanh các nhân vật của kênh. Tạo ít nhất một nhân vật trước nhé."
+        action={
+          <Link href={charactersHref} className={buttonClasses("primary", "md")}>
+            Tạo nhân vật
+          </Link>
+        }
+      />
     );
 
   return (
@@ -131,7 +147,7 @@ export function FilmSetupPanel({
           const image = character.references.identity_face || character.avatarUrl;
           return (
             <li key={character.id}>
-              <label className={`flex cursor-pointer flex-col overflow-hidden rounded-lg border ${chosen ? "th-border-accent" : "th-border"} th-bg-card`}>
+              <label className={`flex cursor-pointer flex-col overflow-hidden rounded-xl border ${chosen ? "th-border-accent" : "th-border"} th-bg-card`}>
                 <div className="flex aspect-square items-center justify-center th-bg-tertiary">
                   {image ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -155,7 +171,7 @@ export function FilmSetupPanel({
                 </span>
                 <span className={`px-2.5 pb-2 text-xs ${(character.packComplete ?? character.ready) ? "th-text-success" : "th-text-secondary"}`}>
                   {(character.packComplete ?? character.ready) ? (
-                    <span className="inline-flex items-center gap-1"><Check className="h-3 w-3" aria-hidden /> Bộ ảnh đầy đủ</span>
+                    <span className="inline-flex items-center gap-1"><Check size={12} aria-hidden /> Bộ ảnh đầy đủ</span>
                   ) : !chosen ? "Không dùng trong phim" : character.ready ? "Dùng được · nên thêm ảnh" : "Còn thiếu ảnh"}
                 </span>
               </label>
@@ -163,24 +179,35 @@ export function FilmSetupPanel({
           );
         })}
       </ul>
-      {error && <p role="alert" className="text-sm th-text-danger">{error}</p>}
+      {error && <Alert>{error}</Alert>}
       {owner ? (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Button size="lg" onClick={run} loading={running} disabled={!selected.length}>
-            <Sparkles className="h-5 w-5" aria-hidden />
+        <div className="flex flex-col gap-2">
+          {running && progress ? (
+            <p role="status" className="text-xs th-text-secondary">{progress}</p>
+          ) : pending.length ? (
+            <PriceLine points={cost} available={available} note={`${pending.length} nhân vật · vài phút`} />
+          ) : (
+            <p className="text-xs th-text-secondary">Các nhân vật đã chọn đều sẵn sàng.</p>
+          )}
+          <Button size="lg" className="w-fit" onClick={run} loading={running} disabled={!selected.length}>
+            <Sparkles size={20} aria-hidden />
             {pending.length ? "Vẽ ảnh còn thiếu" : "Dùng các nhân vật này"}
           </Button>
-          <span className="text-xs th-text-secondary">
-            {running && progress
-              ? progress
-              : pending.length
-                ? `${pending.length} nhân vật · khoảng ${cost.toLocaleString("vi-VN")} điểm · vài phút`
-                : "Các nhân vật đã chọn đều sẵn sàng."}
-          </span>
         </div>
       ) : (
         <p className="text-sm th-text-secondary">Chủ kênh cần chọn nhân vật trước khi làm phim.</p>
       )}
+      <OutOfPointsModal
+        open={needPoints}
+        onClose={() => setNeedPoints(false)}
+        required={Math.max(1, cost)}
+        current={available ?? 0}
+        action="Vẽ ảnh nhân vật"
+        onFunded={() => {
+          setNeedPoints(false);
+          void run();
+        }}
+      />
     </section>
   );
 }

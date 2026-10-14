@@ -9,6 +9,8 @@ import {
 } from "@/lib/video-models";
 import { stripStoryGenreMarker } from "@/lib/story-genre";
 import type { FilmFormat } from "@/lib/film-camera-language";
+import { humanizeError } from "@/lib/error-messages";
+import { filmBudgetCause } from "@/lib/short-film/budget-cause";
 
 export type StudioRun = {
   id: string;
@@ -40,6 +42,8 @@ export type StudioTask = {
   approved_at: string | null;
   auto_accepted_at?: string | null;
   production_run_id?: string | null;
+  /** Điểm đã hoàn vào kênh khi bước này hỏng (máy chủ tính sẵn). */
+  refunded_points?: number;
   url?: string;
   posterUrl?: string;
   srtUrl?: string;
@@ -127,7 +131,14 @@ export function runHeadline(run: StudioRun) {
 
 export type Attention =
   | { kind: "none" }
-  | { kind: "budget"; used: number; limit: number; suggested: number }
+  | {
+      kind: "budget";
+      /** "wallet": kênh hết điểm, phải nạp. "cap": chạm mức chi bạn đặt, nâng mức là chạy. */
+      cause: "wallet" | "cap";
+      used: number;
+      limit: number;
+      suggested: number;
+    }
   | { kind: "script"; issues: string[]; summary?: string }
   | {
       kind: "task";
@@ -195,6 +206,7 @@ export function attentionFor(
     const limit = run.max_points_per_film;
     return {
       kind: "budget",
+      cause: filmBudgetCause(run.error),
       used: run.points_committed,
       limit,
       suggested: Math.ceil((Math.max(limit, run.points_committed) * 1.5) / 50) * 50,
@@ -207,7 +219,7 @@ export function attentionFor(
       issues: run.snapshot?.scriptEvidence?.issues?.length
         ? run.snapshot.scriptEvidence.issues
         : run.error
-          ? [run.error]
+          ? [humanizeError(run.error)]
           : [],
       summary: run.snapshot?.scriptEvidence?.summary,
     };
@@ -229,13 +241,13 @@ export function attentionFor(
         : task.error
           ? [readableFailure(task.error)]
           : run.error
-            ? [run.error]
+            ? [humanizeError(run.error)]
             : [],
     };
   }
   return {
     kind: "generic",
-    message: run.error || "Cần bạn kiểm tra trước khi làm tiếp.",
+    message: run.error ? humanizeError(run.error) : "Cần bạn kiểm tra trước khi làm tiếp.",
   };
 }
 
@@ -356,6 +368,13 @@ export function shortTitle(intent: string | null | undefined, max = 48) {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 }
 
+/** Tổng điểm đã hoàn cho các bước hỏng của một tập; 0 khi chưa hoàn gì. */
+export function runRefundedPoints(run: Pick<StudioRun, "id">, tasks: StudioTask[]) {
+  return tasks
+    .filter((task) => task.production_run_id === run.id)
+    .reduce((sum, task) => sum + Math.max(0, Number(task.refunded_points || 0)), 0);
+}
+
 /** Bản phim ghép mới nhất của kịch bản (ưu tiên bản đã duyệt). */
 export function latestFilm(tasks: StudioTask[]) {
   return [...tasks]
@@ -373,5 +392,5 @@ export const FORMAT_CHOICES: Array<{ value: FilmFormat | null; label: string; de
   { value: "talk_to_camera", label: "Nói với người xem", description: "Nhân vật nhìn thẳng vào máy kể chuyện, đổi nơi liên tục.", comedyOnly: true },
   { value: "cooking_show", label: "Vào bếp", description: "Nhân vật chỉ cách làm một món thật, kết bằng màn nếm thử.", comedyOnly: true },
   { value: "phone_vlog", label: "Đi chơi / tiểu phẩm", description: "Quay như vlog điện thoại, cắt nhanh, ít lời." },
-  { value: "family_scene", label: "Cả nhà đối đáp", description: "Các thành viên nói chuyện với nhau trong một bối cảnh." },
+  { value: "family_scene", label: "Các nhân vật đối đáp", description: "Các nhân vật nói chuyện với nhau trong một bối cảnh." },
 ];

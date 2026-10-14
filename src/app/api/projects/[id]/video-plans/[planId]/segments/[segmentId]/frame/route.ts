@@ -21,9 +21,9 @@ export async function POST(request: NextRequest, { params }: Context) {
     const plan = await readPlan(auth, planId);
     const form = await request.formData();
     if (Number(form.get("workspaceVersion")) !== auth.project.workspace_version)
-      throw new FilmError("Workspace đã thay đổi. Hãy tải lại trước khi chọn ảnh.", 409);
+      throw new FilmError("Kênh vừa thay đổi. Tải lại trang rồi chọn ảnh nhé.", 409);
     if (Number(form.get("expectedVersion")) !== plan.version)
-      throw new FilmError("Kịch bản đã đổi. Hãy tải lại trước khi chọn ảnh.", 409);
+      throw new FilmError("Kịch bản vừa đổi. Tải lại trang rồi chọn ảnh nhé.", 409);
     const segment = (await readFilmSegments(auth, plan)).find(
       (item) => item.segmentId === segmentId,
     );
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest, { params }: Context) {
       segment.revision < 1 ||
       Number(form.get("expectedRevision")) !== segment.revision
     )
-      throw new FilmError("Đoạn đã thay đổi. Hãy tải lại trước khi chọn ảnh.", 409);
+      throw new FilmError("Cảnh vừa đổi. Tải lại trang rồi chọn ảnh nhé.", 409);
 
     const file = form.get("file");
     if (!(file instanceof File) || file.size <= 0 || file.size > 10 * 1024 * 1024)

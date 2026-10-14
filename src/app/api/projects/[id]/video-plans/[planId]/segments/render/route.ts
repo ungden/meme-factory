@@ -12,9 +12,9 @@ export async function POST(
     const plan = await readPlan(auth, planId);
     const body = (await request.json()) as Record<string, unknown>;
     if (Number(body.workspaceVersion) !== auth.project.workspace_version)
-      throw new FilmError("Workspace đã thay đổi. Hãy tải lại trước khi ghép phim.", 409);
+      throw new FilmError("Kênh vừa thay đổi. Tải lại trang rồi ghép phim nhé.", 409);
     if (Number(body.expectedVersion) !== plan.version)
-      throw new FilmError("Kịch bản đã đổi. Hãy tải lại trước khi ghép phim.", 409);
+      throw new FilmError("Kịch bản vừa đổi. Tải lại trang rồi ghép phim nhé.", 409);
     return NextResponse.json({ quote: await quoteSegmentRender(auth, plan) });
   } catch (error) {
     return fail(error);

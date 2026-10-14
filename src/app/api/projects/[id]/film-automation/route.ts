@@ -34,7 +34,7 @@ export async function PUT(
   try {
     const a = await access(request, (await params).id);
     if (a.project.user_id !== a.user.id)
-      throw new FilmError("Chỉ chủ dự án được bật tự sản xuất.", 403);
+      throw new FilmError("Chỉ chủ kênh mới bật được Tự làm mỗi ngày.", 403);
     const body = await request.json();
     const maxFilm = Number(body.maxPointsPerFilm),
       maxDay = Number(body.maxPointsPerDay);
@@ -44,7 +44,7 @@ export async function PUT(
       maxFilm <= 0 ||
       maxDay < maxFilm
     )
-      throw new FilmError("Nhập trần điểm mỗi phim và mỗi ngày hợp lệ.");
+      throw new FilmError("Nhập mức chi mỗi phim và mỗi ngày bằng số dương nhé.");
     const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.localTime))
       ? `${body.localTime}:00`
       : "09:00:00";
@@ -72,7 +72,7 @@ export async function PUT(
         .eq("workspace_version", a.project.workspace_version)
         .in("id", ids);
       if (count !== ids.length)
-        throw new FilmError("Hàng đợi có kịch bản không thuộc dự án.");
+        throw new FilmError("Hàng đợi có kịch bản không thuộc kênh này. Tải lại trang nhé.");
       queuedPlans = data || [];
       if (
         queuedPlans.some(
@@ -80,7 +80,7 @@ export async function PUT(
         )
       )
         throw new FilmError(
-          "Lưu các kịch bản trong hàng đợi sang lồng tiếng trước khi bật lịch.",
+          "Đổi các tập trong hàng đợi sang lồng tiếng trước khi bật lịch nhé.",
           409,
         );
     }
@@ -90,7 +90,7 @@ export async function PUT(
         !fixedVoiceEnabled(a.project.id)
       )
         throw new FilmError(
-          "Hàng đợi có phim lồng tiếng chưa qua canary. Chọn lồng tiếng theo từng lượt trước.",
+          "Hàng đợi có tập dùng kiểu một giọng đọc, kiểu này chưa mở. Đổi sang lồng tiếng theo từng nhân vật nhé.",
           409,
         );
     }

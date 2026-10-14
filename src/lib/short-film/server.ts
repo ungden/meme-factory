@@ -1,4 +1,5 @@
 import "server-only";
+import { taskRefundedPoints } from "./refunds";
 import { isProjectMediaPath } from "@/lib/project-media-path";
 import { errorCode, humanizeError } from "@/lib/error-messages";
 import crypto from "node:crypto";
@@ -149,7 +150,7 @@ export async function access(request: NextRequest, ref: string) {
     UUID.test(ref) ? q.eq("id", ref) : q.eq("slug", ref)
   ).maybeSingle();
   if (error || !project)
-    throw new FilmError("Không tìm thấy dự án hoặc đã hết quyền.", 404);
+    throw new FilmError("Không tìm thấy kênh, hoặc bạn không còn quyền vào kênh này.", 404);
   return { supabase, admin: getSupabaseAdmin(), user, project };
 }
 export type Access = Awaited<ReturnType<typeof access>>;
@@ -165,7 +166,7 @@ export async function readPlan(a: Access, id: string) {
     .is("archived_at", null)
     .single();
   if (error || !data)
-    throw new FilmError("Không tìm thấy phim trong workspace hiện tại.", 404);
+    throw new FilmError("Không tìm thấy tập phim này trong kênh.", 404);
   return {
     ...data,
     script_review:
@@ -216,7 +217,7 @@ export function checkVersion(
 ) {
   if (Number(body.workspaceVersion) !== a.project.workspace_version)
     throw new FilmError(
-      "Workspace đã thay đổi. Hãy tải lại bản hiện tại.",
+      "Kênh vừa thay đổi. Tải lại trang nhé.",
       409,
     );
   if (plan && Number(body.expectedVersion) !== plan.version)
@@ -1047,6 +1048,7 @@ export async function publicTasks(a: Access, tasks: FilmTask[]) {
       auto_accepted_at: t.auto_accepted_at,
       production_run_id: t.production_run_id,
       points: t.points,
+      refunded_points: taskRefundedPoints(t),
       created_at: t.created_at,
       input: {
         imageTaskId: t.input.imageTaskId,
