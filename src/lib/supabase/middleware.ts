@@ -11,6 +11,12 @@ function isValidUrl(url: string | undefined): boolean {
   }
 }
 
+const PUBLIC_PREFIXES = ["/login", "/auth", "/privacy", "/terms", "/pricing", "/help"];
+
+function isPublicPath(pathname: string) {
+  return pathname === "/" || PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
 export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -31,6 +37,13 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Mọi route API tự gọi getUser (và tự ghi lại cookie khi phải làm mới phiên),
+  // nên gọi thêm ở đây là hai lượt tới Supabase Auth cho mỗi lời gọi API. Trang
+  // chính gọi năm sáu API lúc mở, mỗi lượt thừa cộng thẳng vào thời gian chờ.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -47,6 +60,18 @@ export async function updateSession(request: NextRequest) {
   }
 
   let supabaseResponse = NextResponse.next({ request });
+
+  // Không có cookie phiên thì chắc chắn chưa đăng nhập: khỏi hỏi Supabase. Khách
+  // vào trang giới thiệu từng phải chờ một lượt mạng chỉ để nhận câu trả lời này.
+  const hasSession = request.cookies.getAll().some(({ name }) => name.startsWith("sb-") && name.includes("-auth-token"));
+  if (!hasSession) {
+    if (isPublicPath(pathname)) return supabaseResponse;
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.search = "";
+    url.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
+    return NextResponse.redirect(url);
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -75,19 +100,10 @@ export async function updateSession(request: NextRequest) {
 
   // Redirect to login if not authenticated and trying to access dashboard
   // Skip redirect for API routes (they handle auth themselves via Bearer token or API key)
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth") &&
-    !request.nextUrl.pathname.startsWith("/api") &&
-    !request.nextUrl.pathname.startsWith("/privacy") &&
-    !request.nextUrl.pathname.startsWith("/terms") &&
-    !request.nextUrl.pathname.startsWith("/pricing") &&
-    !request.nextUrl.pathname.startsWith("/help") &&
-    request.nextUrl.pathname !== "/"
-  ) {
+  if (!user && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    url.search = "";
     const nextPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
     url.searchParams.set("next", nextPath);
     return NextResponse.redirect(url);
