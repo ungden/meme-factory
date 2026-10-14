@@ -4,10 +4,18 @@ import { access, fail, FilmError } from "@/lib/short-film/server";
 import { estimateImageGenerationPrice } from "@/lib/ai-pricing";
 import { compileCharacterPosePrompt, generateCharacterPose, IMAGE_MODEL, type GenerateCharacterPoseParams } from "@/lib/gemini-image";
 import { isArtDirectionId } from "@/lib/mascot-art-direction";
-import { chargedCharacterImage, InsufficientPointsError } from "@/lib/charged-image";
+import { chargedCharacterImage, DuplicateRequestError, InsufficientPointsError } from "@/lib/charged-image";
+import { isDrawRequestId } from "@/lib/meme-draw";
+import { decideExtraDrawReplay, extraDrawPath, readExtraDrawPrior } from "./replay";
 
 const BUCKET = "character-poses";
 const PUBLIC_MARKER = `/storage/v1/object/public/${BUCKET}/`;
+
+const busy = () =>
+  NextResponse.json(
+    { error: "Ảnh này vẫn đang vẽ. Lát nữa tải lại trang là thấy nhé.", code: "DRAW_IN_PROGRESS" },
+    { status: 409 },
+  );
 
 /**
  * Vẽ thêm một ảnh cho nhân vật và lưu ngay vào kho của nhân vật.
@@ -23,6 +31,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const a = await access(request, id);
     const body = await request.json().catch(() => ({}));
     const note = String(body?.note || "").replace(/\s+/g, " ").trim().slice(0, 300);
+    const requestId = isDrawRequestId(body?.request_id) ? body.request_id : null;
 
     const { data: character } = await a.admin
       .from("characters")
@@ -31,6 +40,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .eq("project_id", a.project.id)
       .maybeSingle();
     if (!character) throw new FilmError("Không tìm thấy nhân vật này trong kênh.", 404);
+    const path = extraDrawPath(a.project.id, character.id, requestId ?? crypto.randomUUID());
+
+    if (requestId) {
+      const prior = await readExtraDrawPrior(a.admin, {
+        characterId: character.id,
+        imageUrl: a.admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl,
+        requestId,
+      });
+      const decision = decideExtraDrawReplay(prior);
+      if (decision === "replay") return NextResponse.json({ pose: prior.pose, pointsUsed: 0, replayed: true });
+      if (decision === "busy") return busy();
+      if (decision === "used")
+        return NextResponse.json(
+          { error: "Lần vẽ trước đã dừng. Bạn bấm Thử lại để vẽ lần mới nhé.", code: "REQUEST_USED" },
+          { status: 409 },
+        );
+    }
+
     const { data: dna } = await a.admin
       .from("character_dna")
       .select("art_direction,summary")
@@ -42,8 +69,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const identity: Array<{ mimeType: string; base64: string }> = [];
     const avatar = typeof character.avatar_url === "string" ? character.avatar_url : "";
     if (avatar.includes(PUBLIC_MARKER)) {
-      const path = decodeURIComponent(avatar.split(PUBLIC_MARKER)[1].split("?")[0]);
-      const { data } = await a.admin.storage.from(BUCKET).download(path);
+      const avatarPath = decodeURIComponent(avatar.split(PUBLIC_MARKER)[1].split("?")[0]);
+      const { data } = await a.admin.storage.from(BUCKET).download(avatarPath);
       if (data) identity.push({ mimeType: data.type || "image/png", base64: Buffer.from(await data.arrayBuffer()).toString("base64") });
     }
 
@@ -58,8 +85,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       existingPoseImages: identity.length ? identity : undefined,
     };
     const prompt = compileCharacterPosePrompt(input);
-    const path = `${a.project.id}/${character.id}/extra-${crypto.randomUUID()}.png`;
-
     const { result, cost } = await chargedCharacterImage({
       project: a.project,
       actorUserId: a.user.id,
@@ -72,6 +97,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       estimate: estimateImageGenerationPrice({ model: IMAGE_MODEL, resolution: "1K", inputImageCount: identity.length, prompt }),
       requestedOutput: { characterId: character.id, note, path },
       sourceEntity: { type: "character", id: character.id },
+      requestId: requestId ?? undefined,
       generate: async () => {
         const image = await generateCharacterPose(input);
         const { error: uploadError } = await a.admin.storage
@@ -100,6 +126,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     return NextResponse.json({ pose: result.pose, pointsUsed: cost });
   } catch (error) {
+    if (error instanceof DuplicateRequestError) return busy();
     if (error instanceof InsufficientPointsError)
       return NextResponse.json(
         { error: error.message, code: "INSUFFICIENT_POINTS", required: error.required, current: error.available },

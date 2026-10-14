@@ -93,3 +93,20 @@ export function isInsufficientPoints(payload: { code?: unknown; error?: unknown 
   if (payload.code === "INSUFFICIENT_POINTS") return true;
   return typeof payload.error === "string" && /không đủ điểm/i.test(payload.error);
 }
+
+/**
+ * Vì sao một lần vẽ thêm ảnh không thành, để biết nút Thử lại có giữ mã cũ:
+ * - unknown: mạng rớt hoặc máy chủ quá giờ, không rõ đã vẽ chưa. Giữ mã: nếu
+ *   ảnh đã xong thì máy chủ trả lại đúng ảnh đó, không trừ thêm.
+ * - busy: lần gọi cùng mã vẫn đang vẽ. Giữ mã.
+ * - failed: máy chủ nói rõ là hỏng (đã hoàn điểm) hoặc mã đã dùng. Lần sau là
+ *   một lần vẽ mới, mã mới.
+ */
+export type DrawFailureKind = "unknown" | "busy" | "failed";
+
+export function drawFailureKind(payload: { code?: unknown; error?: unknown } | null | undefined): DrawFailureKind {
+  if (!payload) return "unknown";
+  if (payload.code === "DRAW_IN_PROGRESS") return "busy";
+  if (typeof payload.error !== "string" || !payload.error) return "unknown";
+  return "failed";
+}

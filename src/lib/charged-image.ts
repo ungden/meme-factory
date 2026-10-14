@@ -16,6 +16,17 @@ export class InsufficientPointsError extends Error {
 }
 
 /**
+ * Một lần gọi khác với cùng mã đã giữ lượt vẽ này. Không hoàn điểm, không đánh
+ * dấu job hỏng: khoản trừ và job là của lần gọi kia, đụng vào là hoàn mất tiền
+ * của một ảnh vẫn đang vẽ.
+ */
+export class DuplicateRequestError extends Error {
+  constructor() {
+    super("Ảnh này đang vẽ.");
+  }
+}
+
+/**
  * Một lần tạo ảnh nhân vật có tính tiền, theo đúng luật tiền của app: trừ qua
  * RPC có request_id, ghi job trước lời gọi AI để sweeper hoàn nếu tiến trình
  * chết, và hoàn ngay nếu lời gọi lỗi. Mọi chỗ tạo ảnh nhân vật ngoài route
@@ -34,12 +45,18 @@ export async function chargedCharacterImage<T extends { usage?: unknown }>(input
   estimate: ImagePriceEstimate;
   requestedOutput: Record<string, unknown>;
   sourceEntity?: { type: string; id: string };
+  /**
+   * Mã của một lần bấm, do trình duyệt tạo. Gửi lại cùng mã thì RPC trừ điểm
+   * coi là đã trừ (không trừ nữa) và job trùng khoá chặn lần vẽ thứ hai. Bỏ
+   * trống thì mỗi lần gọi là một lượt mới như trước.
+   */
+  requestId?: string;
   generate: () => Promise<T>;
 }): Promise<{ result: T; requestId: string; cost: number }> {
   const admin = getSupabaseAdmin();
   const cost = await getPointCost("character");
   if (cost > 0) await assertPriceCoversCost("character", cost);
-  const requestId = crypto.randomUUID();
+  const requestId = input.requestId ?? crypto.randomUUID();
   if (cost > 0) {
     const spent = await spendProjectPoints(async (name, args) => admin.rpc(name, args), {
       projectId: input.project.id,
@@ -75,7 +92,10 @@ export async function chargedCharacterImage<T extends { usage?: unknown }>(input
       created_by: input.actorUserId,
       started_at: new Date().toISOString(),
     });
-    if (jobError) throw jobError;
+    if (jobError) {
+      if (input.requestId && jobError.code === "23505") throw new DuplicateRequestError();
+      throw jobError;
+    }
     const result = await input.generate();
     await admin
       .from("generation_jobs")
@@ -83,6 +103,7 @@ export async function chargedCharacterImage<T extends { usage?: unknown }>(input
       .eq("id", requestId);
     return { result, requestId, cost };
   } catch (error) {
+    if (error instanceof DuplicateRequestError) throw error;
     if (cost > 0) {
       const { error: refundError } = await admin.rpc("atomic_refund_project_points", {
         _project_id: input.project.id,

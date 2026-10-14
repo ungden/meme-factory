@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { stripImageMetadataFromFile } from "@/lib/image-metadata";
 import {
@@ -56,6 +56,9 @@ export function useCharacterPack(ref: string) {
   const [work, setWork] = useState<PackWork | null>(null);
   const [failure, setFailure] = useState<PackFailure | null>(null);
   const [pointsNeeded, setPointsNeeded] = useState<PointsNeeded | null>(null);
+  // Hai cú bấm trong cùng một khung hình đều thấy `work` còn trống; ref chặn
+  // vòng vẽ thứ hai, nếu không mỗi góc bị vẽ và trừ điểm hai lần.
+  const drawing = useRef(false);
 
   const load = useCallback(async () => {
     const response = await fetch(`${base}/film-setup`, { cache: "no-store" });
@@ -106,7 +109,8 @@ export function useCharacterPack(ref: string) {
 
   const draw = useCallback(
     async (character: PackCharacter, mode: DrawMode): Promise<boolean> => {
-      if (!status) return false;
+      if (!status || drawing.current) return false;
+      drawing.current = true;
       setFailure(null);
       const say = (message: string) => setWork({ id: character.id, message });
       const plan = planDraw(character, mode);
@@ -145,6 +149,7 @@ export function useCharacterPack(ref: string) {
         }
         return false;
       } finally {
+        drawing.current = false;
         setWork(null);
         void refreshPoints();
       }

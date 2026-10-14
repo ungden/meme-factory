@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ImageIcon, ImagePlus, Sparkles, Star, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { ImageIcon, ImagePlus, RotateCcw, Sparkles, Star, Trash2 } from "lucide-react";
 import Button from "@/components/ui/button";
 import { BulkUploader } from "@/components/ui/bulk-uploader";
 import ConfirmModal from "@/components/ui/confirm-modal";
@@ -13,7 +13,7 @@ import Textarea from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { compressImageToFile } from "@/lib/image-utils";
 import type { CharacterPose, EmotionTag } from "@/types/database";
-import { isInsufficientPoints } from "./character-pack";
+import { drawFailureKind, isInsufficientPoints, type DrawFailureKind } from "./character-pack";
 import { ApiError, postJson } from "./use-character-pack";
 
 type AddPose = (
@@ -52,39 +52,62 @@ export default function CharacterImages({
   const [drawOpen, setDrawOpen] = useState(false);
   const [note, setNote] = useState("");
   const [drawing, setDrawing] = useState(false);
-  const [drawError, setDrawError] = useState("");
-  const [lastNote, setLastNote] = useState("");
+  const [drawError, setDrawError] = useState<{ kind: DrawFailureKind; message: string } | null>(null);
+  const [lastAttempt, setLastAttempt] = useState<{ note: string; requestId: string }>({ note: "", requestId: "" });
+  // State chưa kịp vẽ lại giữa hai cú bấm rất nhanh; ref chặn ngay trong cùng khung hình.
+  const inFlight = useRef(false);
   const [addOpen, setAddOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState<string | null>(null);
 
-  async function draw(text: string) {
+  /**
+   * Mỗi lần bấm Vẽ là một mã mới; Thử lại sau khi mạng rớt hoặc đang vẽ thì
+   * gửi lại đúng mã cũ, để máy chủ trả ảnh đã vẽ thay vì trừ điểm lần nữa.
+   */
+  async function draw(text: string, requestId: string = crypto.randomUUID()) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setDrawOpen(false);
     setDrawing(true);
-    setDrawError("");
-    setLastNote(text);
+    setDrawError(null);
+    setLastAttempt({ note: text, requestId });
     try {
       // Máy chủ lưu ảnh vào kho trước khi trả lời: đóng tab lúc này không mất ảnh đã trả điểm.
-      await postJson(`/api/projects/${projectRef}/characters/${character.id}/images`, { note: text });
+      const made = await postJson(`/api/projects/${projectRef}/characters/${character.id}/images`, {
+        note: text,
+        request_id: requestId,
+      });
       setNote("");
-      toast.success(`Đã vẽ thêm một ảnh cho ${character.name}`);
+      toast.success(made.replayed ? `Ảnh của ${character.name} đã vẽ xong` : `Đã vẽ thêm một ảnh cho ${character.name}`);
       await reload();
     } catch (cause) {
-      if (cause instanceof ApiError && isInsufficientPoints(cause.payload)) {
+      const payload = cause instanceof ApiError ? cause.payload : null;
+      if (isInsufficientPoints(payload)) {
         onOutOfPoints({
-          required: Number(cause.payload.required) || pointsPerImage || 0,
-          current: Number(cause.payload.current) || available || 0,
+          required: Number(payload?.required) || pointsPerImage || 0,
+          current: Number(payload?.current) || available || 0,
           retry: () => void draw(text),
         });
       } else {
-        setDrawError((cause as Error).message);
+        const kind = drawFailureKind(payload);
+        setDrawError({
+          kind,
+          message:
+            kind === "failed" || kind === "busy"
+              ? (cause as Error).message
+              : "Mạng vừa gián đoạn nên chưa rõ ảnh đã vẽ xong chưa. Bấm Thử lại: ảnh đã xong thì không bị tính thêm điểm.",
+        });
       }
     } finally {
+      inFlight.current = false;
       setDrawing(false);
       onSpent();
     }
   }
+
+  const retryDraw = () =>
+    void draw(lastAttempt.note, drawError && drawError.kind !== "failed" ? lastAttempt.requestId : undefined);
 
   async function addFile(file: File) {
     const name = file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ").trim();
@@ -129,12 +152,19 @@ export default function CharacterImages({
       </div>
 
       {drawing && <JobStatus state="working" title={`Đang vẽ thêm ảnh cho ${character.name}…`} detail="Thường mất 10–30 giây." leaveHint="Rời trang cũng được, ảnh xong sẽ nằm trong trang nhân vật này." />}
-      {!drawing && drawError && (
+      {!drawing && drawError?.kind === "busy" && (
+        <JobStatus state="working" title={`Ảnh của ${character.name} vẫn đang vẽ…`} detail={drawError.message} leaveHint={null}>
+          <Button size="sm" variant="outline" onClick={retryDraw}>
+            <RotateCcw size={14} aria-hidden /> Xem lại
+          </Button>
+        </JobStatus>
+      )}
+      {!drawing && drawError && drawError.kind !== "busy" && (
         <JobStatus
           state="failed"
           title="Chưa vẽ được ảnh"
-          detail={`${drawError} Lần hỏng này không bị tính điểm.`}
-          onRetry={() => void draw(lastNote)}
+          detail={drawError.kind === "failed" ? `${drawError.message} Lần hỏng này không bị tính điểm.` : drawError.message}
+          onRetry={retryDraw}
         />
       )}
 
