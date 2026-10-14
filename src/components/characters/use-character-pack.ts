@@ -174,10 +174,9 @@ export function useCharacterPack(ref: string) {
           ...(status.profile?.roles || []).map((role) => role.characterId),
           character.id,
         ]);
+        // Chỉ gửi dàn nhân vật: máy chủ tự lấy hồ sơ từ kênh. Gửi câu mặc định
+        // ở đây thì giờ nó bị ghi đè vào hồ sơ thật của kênh.
         await postJson(`${base}/channel-profile`, {
-          audience: status.channel.audience || "Người xem video ngắn ở Việt Nam",
-          tone: status.channel.tone || "Hài đời thường, ấm áp",
-          positioning: status.channel.positioning || "Những câu chuyện nhỏ của các nhân vật trong kênh.",
           characterIds: [...locked].filter((id) => status.characters.some((item) => item.id === id)),
         }).catch(() => undefined);
         await load();

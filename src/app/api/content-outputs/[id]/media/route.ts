@@ -15,7 +15,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // authorize admin signing of an object from another project's namespace.
   const parent = output.content_sets as unknown as { project_id: string };
   if (!isProjectMediaPath(parent.project_id, path))
-    return NextResponse.json({ error: "Media không thuộc dự án." }, { status: 403 });
+    return NextResponse.json({ error: "Tệp này không thuộc kênh của bạn." }, { status: 403 });
   const download = request.nextUrl.searchParams.get("download") === "1";
   const { data, error } = await getSupabaseAdmin().storage.from("content-media").createSignedUrl(path, 60, download ? { download: true } : undefined);
   if (error || !data?.signedUrl) return NextResponse.json({ error: error?.message || "Không tạo được URL phát video." }, { status: 500 });

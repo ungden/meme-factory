@@ -10,6 +10,7 @@
  * tác vụ, và một bảng nữa chỉ là một nguồn sự thật nữa có thể lệch.
  */
 import { errorCode, humanizeError } from "./error-messages";
+import { filmBudgetCause } from "./short-film/budget-cause";
 
 /**
  * - `points`: kênh hết điểm, mọi việc đứng yên cho tới khi có thêm điểm.
@@ -110,15 +111,8 @@ function shorten(text: string): string {
   return clean.length > MAX_DETAIL ? `${clean.slice(0, MAX_DETAIL - 1)}…` : clean;
 }
 
-/**
- * Lượt chạy đứng yên vì "budget_blocked" có hai nguyên nhân rất khác nhau: kênh
- * thật sự hết điểm (phải thêm điểm), hoặc tập chạm mức chi chính người dùng đặt
- * (phải nâng mức chi). Gộp làm một thì người hết điểm đi nâng mức chi mãi mà
- * phim vẫn không chạy.
- */
-export function filmBudgetCause(error: string | null): "wallet" | "cap" {
-  return errorCode(error) === "INSUFFICIENT_POINTS" ? "wallet" : "cap";
-}
+// Chuông báo và Studio phim phải hiểu "budget_blocked" giống hệt nhau.
+export { filmBudgetCause };
 
 /**
  * Meme hỏng lưu lý do dưới hai dạng: câu tiếng Việt viết sẵn ở máy chủ ("Không
