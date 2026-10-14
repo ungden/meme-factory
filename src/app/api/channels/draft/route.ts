@@ -16,13 +16,13 @@ export async function POST(request: NextRequest) {
   if (!throttle.allowed) return NextResponse.json({ error: rateLimitMessage(throttle) }, { status: 429 });
   const body = await request.json().catch(() => ({}));
   const idea = String(body?.description || "").trim().slice(0, 1000);
-  if (idea.length < 6) return NextResponse.json({ error: "Tả kênh dài hơn một chút để AI hiểu." }, { status: 400 });
+  if (idea.length < 6) return NextResponse.json({ error: "Tả kênh dài hơn một chút nhé." }, { status: 400 });
   try {
     const channel = channelFromSuggestion(await suggestChannelFromIdea({ idea }));
-    if (!channel) return NextResponse.json({ error: "AI chưa điền được. Hãy thử lại hoặc tự điền." }, { status: 502 });
+    if (!channel) return NextResponse.json({ error: "Chưa điền được. Bạn thử lại hoặc tự điền nhé." }, { status: 502 });
     return NextResponse.json({ channel });
   } catch (error) {
     console.error("Channel draft error:", error);
-    return NextResponse.json({ error: "AI chưa điền được. Hãy thử lại hoặc tự điền." }, { status: 502 });
+    return NextResponse.json({ error: "Chưa điền được. Bạn thử lại hoặc tự điền nhé." }, { status: 502 });
   }
 }

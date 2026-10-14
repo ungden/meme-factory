@@ -28,6 +28,6 @@ export async function POST(request: NextRequest) {
     })
     .select("id,slug,name,workspace_version")
     .single();
-  if (error || !project) return NextResponse.json({ error: "Chưa tạo được kênh. Hãy thử lại." }, { status: 500 });
+  if (error || !project) return NextResponse.json({ error: "Chưa tạo được kênh. Bạn thử lại nhé." }, { status: 500 });
   return NextResponse.json({ project, look: draft.look }, { status: 201 });
 }

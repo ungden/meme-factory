@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import Button from "@/components/ui/button";
+import Input from "@/components/ui/input";
 import Textarea from "@/components/ui/textarea";
 import type { CharacterDna, WatermarkPosition } from "@/types/database";
 
-/** Reads a jsonb column that may hold an array, {traits}, {notes} or nothing. */
+/** Cột jsonb có thể là mảng, {traits}, {notes} hoặc trống. */
 function toStringList(value: unknown): string[] {
   if (Array.isArray(value)) return value.filter((entry): entry is string => typeof entry === "string");
   if (value && typeof value === "object") {
@@ -61,7 +62,7 @@ function ChipList({
   return (
     <div className="space-y-1.5">
       <p className="text-xs font-medium th-text-tertiary">{label}</p>
-      {hint && <p className="text-[11px] th-text-tertiary">{hint}</p>}
+      {hint && <p className="text-xs th-text-tertiary">{hint}</p>}
       <div className="flex flex-wrap gap-1.5">
         {items.map((item) => (
           <span
@@ -81,9 +82,10 @@ function ChipList({
         ))}
       </div>
       <div className="flex gap-1.5">
-        <input
+        <Input
           value={draft}
-          placeholder={placeholder}
+          aria-label={label}
+          placeholder={`Ví dụ: ${placeholder}`}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
@@ -91,7 +93,7 @@ function ChipList({
               add();
             }
           }}
-          className="flex-1 rounded-lg border th-border-secondary th-bg-tertiary px-2.5 py-1.5 text-xs th-text-primary outline-none"
+          className="px-3 py-1.5 text-sm"
         />
         <Button size="sm" variant="ghost" aria-label={`Thêm ${label}`} onClick={add}>
           <Plus size={14} />
@@ -122,8 +124,8 @@ export default function CharacterDnaPanel({
   const [mustPreserve, setMustPreserve] = useState<string[]>([]);
   const [mayChange, setMayChange] = useState<string[]>([]);
 
-  // Sync from props during render rather than in an effect: an effect here would
-  // cascade a second render on every load and on every save round trip.
+  // Đồng bộ từ props ngay khi render thay vì trong effect: effect sẽ kéo thêm một
+  // lượt render sau mỗi lần tải và mỗi lần lưu.
   const version = dna ? `${dna.character_id}:${dna.updated_at}` : "empty";
   const [syncedVersion, setSyncedVersion] = useState<string | null>(null);
   if (syncedVersion !== version) {
@@ -156,12 +158,10 @@ export default function CharacterDnaPanel({
           <Textarea
             rows={4}
             value={summary}
-            placeholder="Bò vàng, sừng cong ngắn, mắt to tròn, luôn mặc hoodie xanh cobalt…"
+            placeholder="Ví dụ: bò vàng, sừng cong ngắn, mắt to tròn, luôn mặc hoodie xanh cobalt…"
             onChange={(event) => setSummary(event.target.value)}
           />
-          <p className="text-[11px] th-text-tertiary">
-            Nội dung này được ghép vào mô tả nhân vật mỗi khi sinh bộ biểu cảm mới.
-          </p>
+          <p className="text-xs th-text-tertiary">AIDA thêm phần này vào mô tả mỗi khi vẽ biểu cảm mới.</p>
         </div>
 
         <div className="space-y-1.5">
@@ -178,14 +178,14 @@ export default function CharacterDnaPanel({
                   type="button"
                   aria-label={`Bỏ màu ${color.hex}`}
                   onClick={() => setPalette(palette.filter((_, i) => i !== index))}
-                  className="absolute -right-1 -top-1 hidden rounded-full bg-black/70 p-0.5 text-white group-hover:block"
+                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border th-border th-bg-card th-text-primary sm:hidden sm:group-hover:flex"
                 >
-                  <X size={9} />
+                  <X size={12} />
                 </button>
               </span>
             ))}
             <label className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-dashed th-border-secondary th-text-tertiary">
-              <Plus size={13} />
+              <Plus size={14} />
               <input
                 type="color"
                 aria-label="Thêm màu"
@@ -214,7 +214,7 @@ export default function CharacterDnaPanel({
         />
         <ChipList
           label="Phải giữ nguyên"
-          hint="AI không được đổi những thứ này giữa các ảnh."
+          hint="Ảnh nào cũng phải giữ đúng những thứ này."
           items={mustPreserve}
           placeholder="loài, màu lông, sừng"
           onChange={setMustPreserve}
@@ -222,33 +222,27 @@ export default function CharacterDnaPanel({
         <ChipList
           label="Được phép đổi"
           items={mayChange}
-          placeholder="biểu cảm, tư thế, bối cảnh"
+          placeholder="biểu cảm, dáng đứng, bối cảnh"
           onChange={setMayChange}
         />
 
         <div className="space-y-1.5">
-          <p className="text-xs font-medium th-text-tertiary">Vùng an toàn watermark</p>
+          <p className="text-xs font-medium th-text-tertiary">Chỗ đặt logo</p>
           <div className="grid aspect-square w-32 grid-cols-3 grid-rows-3 gap-px overflow-hidden rounded-lg border th-border-secondary">
             {[
               "top-left", "top-center", "top-right",
               "center-left", "center", "center-right",
               "bottom-left", "bottom-center", "bottom-right",
             ].map((cell) => (
-              <span
-                key={cell}
-                className="th-bg-tertiary"
-                style={cell === watermarkPosition ? { background: "var(--accent-gradient)" } : undefined}
-              />
+              <span key={cell} className={cell === watermarkPosition ? "th-bg-accent" : "th-bg-tertiary"} />
             ))}
           </div>
-          <p className="text-[11px] th-text-tertiary">
-            Ô tô đậm là nơi watermark của kênh rơi vào. Tránh đặt chi tiết quan trọng ở đó.
-          </p>
+          <p className="text-xs th-text-tertiary">Ô tô đậm là chỗ logo của kênh nằm. Tránh để chi tiết quan trọng ở đó.</p>
         </div>
 
         <div className="flex justify-end">
           <Button loading={saving} onClick={save}>
-            Lưu Character DNA
+            Lưu đặc điểm
           </Button>
         </div>
       </div>

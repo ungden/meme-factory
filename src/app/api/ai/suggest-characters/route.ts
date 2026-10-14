@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     const { supabase, user } = await getRequestUser(request);
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn. Bạn đăng nhập lại nhé." }, { status: 401 });
     }
 
     const throttle = await checkRateLimit(getSupabaseAdmin(), RATE_LIMITS.suggestCharacters, user.id);
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const count = Number(body?.count || 4);
 
     if (!project_id || !fanpage_description) {
-      return NextResponse.json({ error: "Thiếu project_id hoặc mô tả fanpage" }, { status: 400 });
+      return NextResponse.json({ error: "Tả kênh của bạn vài câu để có gợi ý nhân vật." }, { status: 400 });
     }
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(project_id);
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       : await projectQuery.eq("slug", project_id).maybeSingle();
 
     if (!project) {
-      return NextResponse.json({ error: "Project không tồn tại hoặc bạn không có quyền" }, { status: 404 });
+      return NextResponse.json({ error: "Không tìm thấy kênh, hoặc bạn không còn quyền vào kênh này." }, { status: 404 });
     }
 
     const suggestions = await suggestCharactersForFanpage({
@@ -50,20 +50,17 @@ export async function POST(request: NextRequest) {
     const msg = error instanceof Error ? error.message : String(error);
     if (msg.includes("429") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("rate limit")) {
       return NextResponse.json(
-        { error: "Hệ thống AI đang quá tải (hết quota ngày). Vui lòng thử lại sau vài giờ." },
+        { error: "Hôm nay AIDA đã nhận quá nhiều yêu cầu. Bạn thử lại sau vài giờ nhé." },
         { status: 429 }
       );
     }
     if (msg.includes("AI_KEY_NOT_CONFIGURED") || msg.includes("not configured")) {
       return NextResponse.json(
-        { error: "Hệ thống AI chưa được cấu hình API key. Liên hệ admin." },
+        { error: "Tính năng gợi ý đang tạm nghỉ. Bạn thử lại sau nhé." },
         { status: 503 }
       );
     }
-    // Trả debug info tạm để xác định lỗi production
-    return NextResponse.json(
-      { error: "Không thể gợi ý nhân vật lúc này", debug: msg.substring(0, 300) },
-      { status: 500 }
-    );
+    // Chi tiết lỗi đã nằm trong log ở trên; không gửi nguyên văn lỗi máy cho người dùng.
+    return NextResponse.json({ error: "Chưa gợi ý được nhân vật. Bạn thử lại nhé." }, { status: 500 });
   }
 }
