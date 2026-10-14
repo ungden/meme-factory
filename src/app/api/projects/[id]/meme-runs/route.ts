@@ -12,20 +12,41 @@ export async function GET(r: NextRequest, { params }: { params: Promise<{ id: st
     const a = await access(r, (await params).id);
     const { data: runs, error } = await a.admin
       .from("meme_production_runs")
-      .select("id,source,intent,status,phase,error,created_at,completed_at,meme_id,memes(id,image_url,generated_content,format)")
+      .select("id,source,intent,options,status,phase,error,checkpoint,created_at,completed_at,meme_id,memes(id,image_url,generated_content,format)")
       .eq("project_id", a.project.id)
       .eq("workspace_version", a.project.workspace_version)
       .order("created_at", { ascending: false })
       .limit(24);
     if (error) throw error;
-    return NextResponse.json({ runs: runs || [] });
+    // Lượt hỏng sau lúc trừ điểm đã được hoàn theo mã của lần thử cuối; trả số
+    // đó để thẻ nói rõ "Đã hoàn N điểm" thay vì để người dùng tự đoán.
+    const failedCharges = (runs || [])
+      .filter((run) => run.status === "failed")
+      .map((run) => (run.checkpoint as { charge?: { requestId?: string } } | null)?.charge?.requestId)
+      .filter((id): id is string => typeof id === "string");
+    const refunds = new Map<string, number>();
+    if (failedCharges.length) {
+      const { data: rows } = await a.admin
+        .from("project_transactions")
+        .select("request_id,amount")
+        .eq("project_id", a.project.id)
+        .eq("type", "refund")
+        .in("request_id", failedCharges);
+      for (const row of rows || []) refunds.set(String(row.request_id), Math.abs(Number(row.amount) || 0));
+    }
+    return NextResponse.json({
+      runs: (runs || []).map(({ checkpoint, ...run }) => {
+        const requestId = (checkpoint as { charge?: { requestId?: string } } | null)?.charge?.requestId;
+        return { ...run, refunded_points: run.status === "failed" && requestId ? refunds.get(requestId) ?? null : null };
+      }),
+    });
   } catch (error) {
     return fail(error);
   }
 }
 
 /**
- * Bấm "AI làm meme": tạo 1–4 lượt rồi làm ngay sau khi trả lời. Đóng trình duyệt
+ * Bấm "Làm meme": tạo 1–4 lượt rồi làm ngay sau khi trả lời. Đóng trình duyệt
  * không sao — lượt chưa xong được cron làm tiếp.
  */
 export async function POST(r: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -33,7 +54,7 @@ export async function POST(r: NextRequest, { params }: { params: Promise<{ id: s
     const a = await access(r, (await params).id);
     const body = await r.json().catch(() => ({}));
     if (Number(body.workspaceVersion) !== a.project.workspace_version)
-      throw new FilmError("Dự án vừa thay đổi. Tải lại trang rồi thử lại.", 409);
+      throw new FilmError("Kênh vừa thay đổi. Bạn tải lại trang rồi thử lại nhé.", 409);
     const count = Math.min(4, Math.max(1, Number(body.count) || 1));
     const intent = String(body.intent || "").trim().slice(0, 2000);
     const options = normalizeMemeOptions(body.options);

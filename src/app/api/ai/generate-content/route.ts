@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const { supabase, user } = await getRequestUser(request);
     
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn. Bạn đăng nhập lại nhé." }, { status: 401 });
     }
     const [minute, day] = await Promise.all([
       checkRateLimit(getSupabaseAdmin(), RATE_LIMITS.generateContentMinute, user.id),
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!project) {
-      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      return NextResponse.json({ error: "Không tìm thấy kênh hoặc bạn không còn quyền với kênh này." }, { status: 404 });
     }
 
     // Get characters with their available poses/emotions (skip if noCharacters)
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       const { data: charRows } = await supabase.from("characters").select("*, character_poses(*)").eq("project_id", project_id).in("id", selectedIds);
 
       if (selectedIds.length && (charRows?.length ?? 0) !== selectedIds.length) {
-        return NextResponse.json({ error: "Nhân vật đã chọn không còn thuộc dự án." }, { status: 400 });
+        return NextResponse.json({ error: "Nhân vật đã chọn không còn thuộc kênh này." }, { status: 400 });
       }
 
       characters = charRows;
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     let editorialContext = project.style_prompt || "";
     if (body.content_set_id) {
       const { data: set } = await supabase.from("content_sets").select("brand_snapshot, selected_character_ids").eq("id", body.content_set_id).eq("project_id", project_id).maybeSingle();
-      if (!set) return NextResponse.json({ error: "Bộ nội dung không thuộc dự án này." }, { status: 400 });
+      if (!set) return NextResponse.json({ error: "Ý tưởng này không thuộc kênh hiện tại. Bạn tải lại trang nhé." }, { status: 400 });
       const brand = (set.brand_snapshot ?? {}) as Record<string, string>;
       editorialContext = [editorialContext, brand.voice && `Giọng viết: ${brand.voice}`, brand.audience && `Đối tượng đọc: ${brand.audience}`, brand.guidelines && `Hướng dẫn nội dung: ${brand.guidelines}`].filter(Boolean).join("\n");
     }
@@ -106,14 +106,14 @@ export async function POST(request: NextRequest) {
     const rawMessage = error instanceof Error ? error.message : "";
 
     // Sanitize: never leak model names or internal details to frontend
-    let userMessage = "Không thể tạo nội dung. Vui lòng thử lại.";
+    let userMessage = "Chưa viết được. Bạn thử lại nhé.";
 
     if (rawMessage.includes("not configured") || rawMessage.includes("AI_KEY_NOT_CONFIGURED")) {
-      userMessage = "Hệ thống AI chưa được cấu hình. Vui lòng liên hệ admin.";
+      userMessage = "Chức năng viết đang tạm dừng. Bạn quay lại sau nhé.";
     } else if (rawMessage.includes("SAFETY") || rawMessage.includes("blocked")) {
-      userMessage = "Nội dung bị từ chối bởi bộ lọc an toàn. Vui lòng thử ý tưởng khác.";
+      userMessage = "Nội dung này bị bộ lọc an toàn chặn. Bạn thử ý tưởng khác nhé.";
     } else if (rawMessage.includes("quota") || rawMessage.includes("rate limit") || rawMessage.includes("429")) {
-      userMessage = "Hệ thống đang quá tải. Vui lòng thử lại sau ít phút.";
+      userMessage = "Đang có quá nhiều người dùng cùng lúc. Bạn thử lại sau ít phút nhé.";
     }
 
     return NextResponse.json(

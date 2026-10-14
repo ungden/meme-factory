@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { notFound, useParams, useRouter, useSearchParams } from "next/navigation";
 import { MemeAutopilot } from "./_components/meme-autopilot";
-import { IS_MOCK_MODE, useProject, useCharacters, useMemes, generateContent, generateImage } from "@/lib/use-store";
+import { drawMeme } from "./_lib/draw-meme";
+import { IS_MOCK_MODE, useProject, useCharacters, useMemes, generateContent } from "@/lib/use-store";
 import {
   MAX_REF_IMAGES,
   MAX_REF_SIZE_MB,
@@ -11,15 +12,22 @@ import {
   isAcceptableReferenceFile,
   type ContentVariation,
 } from "./_lib/visual-prompt";
-import Button from "@/components/ui/button";
+import Button, { buttonClasses } from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
+import Chip from "@/components/ui/chip";
 import Input from "@/components/ui/input";
 import Textarea from "@/components/ui/textarea";
 import Modal from "@/components/ui/modal";
+import PriceLine from "@/components/ui/price-line";
+import JobStatus from "@/components/ui/job-status";
+import EmptyState from "@/components/ui/empty-state";
+import Alert from "@/components/ui/alert";
+import { PageContainer, Skeleton } from "@/components/ui/page";
+import MemeAreaHeader from "@/components/meme/meme-area-header";
 import Link from "next/link";
 import OutOfPointsModal from "@/components/wallet/out-of-points-modal";
 import { useToast } from "@/components/ui/toast";
-import { Zap, Sparkles, Download, Save, RotateCcw, ChevronRight, Wand2, ImageIcon, Loader2, Upload, X, Tags, Plus, Clapperboard } from "lucide-react";
+import { Zap, Sparkles, Download, Save, RotateCcw, ChevronRight, Wand2, ImageIcon, Upload, X, Tags, Plus, Clapperboard } from "lucide-react";
 import type { MemeContent, MemeFormat, SelectedCharacter, EmotionTag } from "@/types/database";
 import { FORMAT_DIMENSIONS } from "@/types/database";
 import { POINT_COSTS } from "@/lib/point-pricing";
@@ -43,8 +51,6 @@ export default function GeneratePage() {
 
   // Steps
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  // Ý tưởng truyền sẵn qua URL (từ onboarding) nghĩa là người dùng muốn tự chỉnh.
-  const [showManual, setShowManual] = useState(() => Boolean(searchParams.get("idea")));
   const [idea, setIdea] = useState("");
   const [generating, setGenerating] = useState(false);
   const [variations, setVariations] = useState<ContentVariation[]>([]);
@@ -56,20 +62,17 @@ export default function GeneratePage() {
   const [contentSetBrief, setContentSetBrief] = useState<string | null>(null);
   const [imageOutputId, setImageOutputId] = useState<string | null>(null);
   const [imageSourceUrl, setImageSourceUrl] = useState<string | null>(null);
-  const [videoOutputId, setVideoOutputId] = useState<string | null>(null);
-  const [showVideoModal, setShowVideoModal] = useState(false);
-  const [videoDuration, setVideoDuration] = useState<15 | 30>(15);
-  const [videoResolution, setVideoResolution] = useState<"720p" | "1080p">("720p");
-  const [videoAudio, setVideoAudio] = useState(true);
-  const [videoScript, setVideoScript] = useState("");
-  const [videoQuote, setVideoQuote] = useState<{ customerPoints: number; providerCostUsd: number } | null>(null);
-  const [videoLoading, setVideoLoading] = useState(false);
+  const [savedMemeId, setSavedMemeId] = useState<string | null>(null);
 
   // AI image generation
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiImageBase64, setAiImageBase64] = useState<string | null>(null);
   const [aiGenerationRequestId, setAiGenerationRequestId] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [aiRefunded, setAiRefunded] = useState(0);
+  // Mã của lần bấm "Vẽ meme". Giữ lại khi mất kết nối để bấm Thử lại không trừ
+  // điểm lần hai; đổi mã mới khi máy chủ đã trả lời là hỏng (điểm đã hoàn).
+  const drawRequestRef = useRef<string | null>(null);
   // Hết điểm không phải là một lỗi để đọc rồi thôi: nó là một việc cần làm tiếp.
   const [pointsNeeded, setPointsNeeded] = useState<{ required: number; current: number } | null>(null);
 
@@ -99,6 +102,9 @@ export default function GeneratePage() {
 
   const fromMemeId = searchParams.get("fromMeme");
   const fromMode = searchParams.get("mode");
+  // Ý tưởng truyền sẵn qua URL (từ onboarding) hay "Làm bản khác" từ Thư viện
+  // nghĩa là người dùng muốn tự chỉnh.
+  const showManual = searchParams.get("manual") === "1" || Boolean(searchParams.get("idea")) || Boolean(fromMemeId);
   const lineageSourceMemeId = fromMode === "regenerate" ? fromMemeId : null;
   const [prefillAppliedKey, setPrefillAppliedKey] = useState<string | null>(null);
   const resolvedWatermarkText = watermarkText ?? project?.name ?? "";
@@ -221,49 +227,6 @@ export default function GeneratePage() {
       setImageSourceUrl(meme.image_url);
     }
   }, [ensureContentSet, format]);
-
-  const getVideoQuote = useCallback(async () => {
-    if (!imageSourceUrl || !variations[selectedVariation]) throw new Error("Ảnh mở đầu chưa được lưu.");
-    if (format !== "9:16") throw new Error("Video dọc cần ảnh khổ 9:16. Vẽ lại meme khổ 9:16 trước nhé.");
-    setVideoLoading(true);
-    try {
-      const setId = await ensureContentSet();
-      let outputId = videoOutputId;
-      if (!outputId) {
-        const created = await fetch(`/api/content-sets/${setId}/outputs`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kind: "video", format: "9:16", poster_url: imageSourceUrl, script: videoScript.trim(), duration_seconds: videoDuration, source_snapshot: { image_output_id: imageOutputId, selected_character_ids: [...taggedCharacterIds] } }),
-        });
-        const createdPayload = await created.json().catch(() => ({}));
-        if (!created.ok || !createdPayload.output?.id) throw new Error(createdPayload.error || "Chưa làm được video. Bạn thử lại nhé.");
-        outputId = createdPayload.output.id;
-        setVideoOutputId(outputId);
-      }
-      const response = await fetch(`/api/content-outputs/${outputId}/video/quote`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: videoScript.trim(), image: imageSourceUrl, duration: videoDuration, resolution: videoResolution, generate_audio: videoAudio }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "Không lấy được báo giá video.");
-      setVideoQuote(payload.quote);
-    } finally { setVideoLoading(false); }
-  }, [imageSourceUrl, variations, selectedVariation, ensureContentSet, videoOutputId, videoDuration, videoResolution, videoAudio, videoScript, format, imageOutputId, taggedCharacterIds]);
-
-  const submitVideo = useCallback(async () => {
-    if (!videoOutputId || !imageSourceUrl || !variations[selectedVariation]) return;
-    setVideoLoading(true);
-    try {
-      const response = await fetch(`/api/content-outputs/${videoOutputId}/video`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: videoScript.trim(), image: imageSourceUrl, duration: videoDuration, resolution: videoResolution, generate_audio: videoAudio, request_id: crypto.randomUUID() }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "Không gửi được video.");
-      toast.success("Đang làm video. Rời trang cũng được — video xong sẽ nằm trong thư viện.");
-      setShowVideoModal(false);
-    } catch (error) { toast.error(error instanceof Error ? error.message : "Không gửi được video."); }
-    finally { setVideoLoading(false); }
-  }, [videoOutputId, imageSourceUrl, variations, selectedVariation, videoScript, videoDuration, videoResolution, videoAudio, toast]);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -614,7 +577,7 @@ export default function GeneratePage() {
         const job = await jobResponse.json();
         if (!jobResponse.ok) throw new Error(job.error || "Chưa đọc được gợi ý. Bạn thử lại nhé.");
         if (job.job.status === "completed") { result = job.job.result; break; }
-        if (job.job.status === "failed") throw new Error(job.job.error?.code || "Chưa gợi ý được. Bạn thử lại nhé.");
+        if (job.job.status === "failed") throw new Error(job.job.error?.message || "Chưa gợi ý được. Bạn thử lại nhé.");
         await new Promise((resolve) => window.setTimeout(resolve, 500));
       }
       if (!result) throw new Error("Gợi ý đang lâu hơn bình thường. Bạn thử lại sau nhé.");
@@ -716,8 +679,12 @@ export default function GeneratePage() {
 
     setAiGenerating(true);
     setAiError(null);
+    setAiRefunded(0);
     setAiImageBase64(null);
     setAiGenerationRequestId(null);
+    setImageSourceUrl(null);
+    setSavedMemeId(null);
+    setImageOutputId(null);
 
     try {
       const buildFullDescription = (desc?: string, personality?: string) =>
@@ -804,10 +771,17 @@ export default function GeneratePage() {
         }
       }
 
-      const result = await generateImage({
+      const usedCharacters: SelectedCharacter[] = sourceCharacters.map((character) => ({
+        character_id: character.characterId || "",
+        character_name: character.name,
+        pose_id: character.poseId || "",
+        pose_name: "",
+        emotion: character.emotion as EmotionTag,
+      }));
+      const params = {
         project_id: project?.id || projectId,
         source_meme_id: lineageSourceMemeId,
-        type: "meme",
+        type: "meme" as const,
         headline: v.headline,
         subtext: v.subtext,
         tone: v.tone,
@@ -826,69 +800,84 @@ export default function GeneratePage() {
         referenceImages: mergedRefImages.length > 0
           ? mergedRefImages.map((img) => ({ base64: img.base64, mimeType: img.mimeType }))
           : undefined,
-      });
+      };
+      const save = {
+        original_idea: idea,
+        generated_content: v.content,
+        selected_characters: usedCharacters,
+        has_watermark: enableWatermark,
+      };
+      if (!drawRequestRef.current) drawRequestRef.current = crypto.randomUUID();
+      let result = await drawMeme(params, drawRequestRef.current, save);
+      // Mã cũ đã dùng cho một lần vẽ hỏng (điểm đã hoàn): vẽ lại bằng mã mới.
+      if (!result.ok && result.code === "REQUEST_USED") {
+        drawRequestRef.current = crypto.randomUUID();
+        result = await drawMeme(params, drawRequestRef.current, save);
+      }
 
-      if (result.error) {
+      if (!result.ok) {
+        if (!result.network && result.code !== "DRAW_IN_PROGRESS") drawRequestRef.current = null;
         trackEvent("generate_image_failed", {
           action: "meme",
           project_id: project?.id || projectId,
-          reason: result.code || "api_error",
+          reason: result.code || (result.network ? "network" : "api_error"),
         });
         if (result.code === "INSUFFICIENT_POINTS" && typeof result.required === "number")
           setPointsNeeded({ required: result.required, current: result.current ?? 0 });
+        setAiRefunded(result.refundedPoints ?? 0);
         setAiError(result.error);
-      } else if (result.image) {
-        setAiImageBase64(result.image);
-        setAiGenerationRequestId(result.generation_request_id || null);
-        if (result.reference_manifest?.dropped.length) {
-          toast.warning(
-            `${result.reference_manifest.dropped.length} ảnh mẫu không dùng được vì quá số lượng cho phép.`
-          );
+      } else {
+        drawRequestRef.current = null;
+        setAiImageBase64(result.image || null);
+        setImageSourceUrl(result.imageUrl);
+        setAiGenerationRequestId(result.requestId);
+        if (result.droppedReferences) {
+          toast.warning(`${result.droppedReferences} ảnh mẫu không dùng được vì quá số lượng cho phép.`);
         }
         trackEvent("generate_image_success", {
           action: "meme",
           project_id: project?.id || projectId,
-          points_spent: result.pointsUsed ?? POINT_COSTS.meme,
-          request_id: result.generation_request_id || undefined,
+          points_spent: result.pointsUsed,
+          request_id: result.requestId || undefined,
         });
-        trackEvent("project_points_spent", {
-          action: "meme",
-          project_id: project?.id || projectId,
-          points: result.pointsUsed ?? POINT_COSTS.meme,
-        });
-        try {
-          const savedMeme = await saveMeme({
-            original_idea: idea,
-            generated_content: v.content,
-          selected_characters: sourceCharacters.map((character) => ({
-            character_id: character.characterId || "",
-            character_name: character.name,
-            pose_id: character.poseId || "",
-            pose_name: "",
-            emotion: character.emotion as EmotionTag,
-            suggested_emotion: character.emotion as EmotionTag,
-            reasoning: "Đã dùng trong lần tạo này",
-          })),
-            format,
-            has_watermark: enableWatermark,
-            image_base64: `data:image/png;base64,${result.image}`,
-            source_meme_id: lineageSourceMemeId,
-            generation_request_id: result.generation_request_id,
-          });
-          await recordImageOutput(savedMeme, v, sourceCharacters.flatMap((character) => character.characterId ? [character.characterId] : []));
-          trackEvent("save_meme_success", {
+        if (result.pointsUsed > 0)
+          trackEvent("project_points_spent", {
+            action: "meme",
             project_id: project?.id || projectId,
-            request_id: result.generation_request_id || undefined,
+            points: result.pointsUsed,
           });
-          toast.success("Đã lưu vào thư viện");
-        } catch (saveErr) {
-          trackEvent("save_meme_failed", {
-            project_id: project?.id || projectId,
-            request_id: result.generation_request_id || undefined,
-          });
-          toast.error(saveErr instanceof Error ? saveErr.message : "Đã vẽ xong nhưng chưa lưu được vào thư viện");
+        const characterIds = sourceCharacters.flatMap((character) => character.characterId ? [character.characterId] : []);
+        if (result.memeId && result.imageUrl) {
+          setSavedMemeId(result.memeId);
+          toast.success("Đã lưu vào Thư viện");
+          // Ghi vào ý tưởng gốc chỉ để gom bài; hỏng thì ảnh vẫn đã nằm trong Thư viện.
+          recordImageOutput({ id: result.memeId, image_url: result.imageUrl }, v, characterIds).catch(() => undefined);
+        } else if (result.image) {
+          // Máy chủ chưa lưu được: lưu từ trình duyệt như trước.
+          try {
+            const savedMeme = await saveMeme({
+              ...save,
+              format,
+              image_base64: `data:image/png;base64,${result.image}`,
+              source_meme_id: lineageSourceMemeId,
+              generation_request_id: result.requestId,
+            });
+            setSavedMemeId(savedMeme?.id ?? null);
+            setImageSourceUrl(savedMeme?.image_url ?? null);
+            await recordImageOutput(savedMeme, v, characterIds);
+            trackEvent("save_meme_success", {
+              project_id: project?.id || projectId,
+              request_id: result.requestId || undefined,
+            });
+            toast.success("Đã lưu vào Thư viện");
+          } catch (saveErr) {
+            trackEvent("save_meme_failed", {
+              project_id: project?.id || projectId,
+              request_id: result.requestId || undefined,
+            });
+            toast.error(saveErr instanceof Error ? saveErr.message : "Đã vẽ xong nhưng chưa lưu được vào Thư viện. Bấm Lưu để thử lại nhé.");
+          }
         }
-        // Refresh project wallet points
         fetchProjectPoints();
       }
     } catch (err) {
@@ -902,24 +891,26 @@ export default function GeneratePage() {
     setAiGenerating(false);
   };
 
+  const aiImageSrc = aiImageBase64 ? `data:image/png;base64,${aiImageBase64}` : imageSourceUrl;
+
   const handleExport = () => {
-    if (!aiImageBase64) return;
+    if (!aiImageSrc) return;
     const link = document.createElement("a");
-    link.download = `meme-ai-${Date.now()}.png`;
-    link.href = `data:image/png;base64,${aiImageBase64}`;
+    link.download = `meme-${Date.now()}.png`;
+    link.href = aiImageSrc;
     link.click();
   };
 
   const handleSave = async () => {
     if (!variations[selectedVariation]) return;
-    if (imageOutputId) {
-      toast.success("Ảnh này đã có trong thư viện.");
+    if (imageOutputId || savedMemeId) {
+      toast.success("Ảnh này đã có trong Thư viện.");
       return;
     }
     setSaving(true);
 
     if (!aiImageBase64) {
-      toast.error("Vẽ meme xong mới lưu được");
+      toast.error("Vẽ meme xong mới lưu được.");
       setSaving(false);
       return;
     }
@@ -937,8 +928,10 @@ export default function GeneratePage() {
         source_meme_id: lineageSourceMemeId,
         generation_request_id: aiGenerationRequestId,
       });
+      setSavedMemeId(savedMeme?.id ?? null);
+      setImageSourceUrl(savedMeme?.image_url ?? null);
       await recordImageOutput(savedMeme, v, [...taggedCharacterIds]);
-      toast.success("Đã lưu vào thư viện");
+      toast.success("Đã lưu vào Thư viện");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Chưa lưu được. Bạn thử lại nhé.");
     }
@@ -958,6 +951,11 @@ export default function GeneratePage() {
     setAiImageBase64(null);
     setAiGenerationRequestId(null);
     setAiError(null);
+    setAiRefunded(0);
+    setImageSourceUrl(null);
+    setSavedMemeId(null);
+    setImageOutputId(null);
+    drawRequestRef.current = null;
     setAiGenerating(false);
     setGenerating(false);
     setSaving(false);
@@ -967,564 +965,492 @@ export default function GeneratePage() {
     setNoCharacters(false);
   };
 
-  if (loading) {
-    return (
-      <div className="flex">
-        <main className="flex-1 p-4 pt-16 md:p-8">
-        <div
-          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3"
-          style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
-        >
-          <p className="text-sm th-text-tertiary">
-            Chỉ cần đổi chữ trên ảnh có sẵn? Dùng Ghép chữ, không tốn điểm.
-          </p>
-          <Button size="sm" variant="outline" onClick={() => router.push(`/projects/${projectId}/editor`)}>
-            Mở Ghép chữ
-          </Button>
-        </div>
+  if (!loading && !project) notFound();
 
-          <div className="animate-pulse h-96 th-bg-card rounded-2xl" />
-        </main>
-      </div>
-    );
-  }
+  const headerActions = showManual && step > 1 ? (
+    <Button variant="outline" onClick={handleReset}>
+      <RotateCcw size={16} /> Bắt đầu lại
+    </Button>
+  ) : undefined;
+  const formatChoices = Object.entries(FORMAT_DIMENSIONS) as [MemeFormat, { width: number; height: number; label: string }][];
+  const drawPrice = <PriceLine points={POINT_COSTS.meme} available={projectPoints} />;
 
   return (
-    <div className="flex">
-      <main className="flex-1 p-4 pt-16 md:p-8">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight th-text-primary">Meme</h1>
-          </div>
-          {step > 1 && (
-            <Button variant="outline" onClick={handleReset}>
-              <RotateCcw size={16} /> Làm lại
-            </Button>
-          )}
-        </div>
+    <PageContainer>
+      <MemeAreaHeader projectRef={projectId} mode={showManual ? "manual" : "ai"} actions={headerActions} />
 
-        {/* Luồng chính: AI làm trọn meme. Làm từng bước vẫn còn, mở khi cần. */}
-        {step === 1 && !showManual && !fromMemeId && (
-          <>
+      {loading ? (
+        <div role="status" aria-label="Đang tải" className="space-y-4">
+          <Skeleton className="h-56" />
+          <Skeleton className="h-40" />
+        </div>
+      ) : (
+        <>
+          {/* Luồng chính: AIDA làm trọn meme. Chỉnh tay là một chế độ trong thanh trên. */}
+          {!showManual && (
             <MemeAutopilot
               projectId={projectId}
               workspaceVersion={(project as { workspace_version?: number } | null)?.workspace_version ?? null}
+              availablePoints={IS_MOCK_MODE ? null : projectPoints}
+              onPointsChanged={fetchProjectPoints}
             />
-            <Button variant="outline" onClick={() => setShowManual(true)}>
-              Chỉnh tay từng bước
-            </Button>
-          </>
-        )}
+          )}
 
-        {fromMemeId && fromMode === "regenerate" && (
-          <div className="mb-4 p-3 rounded-xl border th-border-accent th-bg-accent-light">
-            <p className="text-sm th-text-accent">Đang làm bản khác từ meme này. Sửa mô tả nếu muốn rồi bấm &ldquo;Vẽ meme&rdquo;.</p>
-          </div>
-        )}
+          {fromMemeId && fromMode === "regenerate" && (
+            <Alert tone="info" className="mb-4">
+              Đang làm bản khác từ meme này. Sửa mô tả nếu muốn rồi bấm &ldquo;Vẽ meme&rdquo;.
+            </Alert>
+          )}
 
-        {fromMemeId && fromMode === "reuse" && (
-          <div className="mb-4 p-3 rounded-xl border" style={{ borderColor: "var(--border-primary)", background: "var(--bg-card)" }}>
-            <p className="text-sm th-text-secondary">Đã điền lại ý tưởng cũ. Sửa nếu muốn rồi làm lại.</p>
-          </div>
-        )}
+          {fromMemeId && fromMode === "reuse" && (
+            <Alert tone="info" className="mb-4">
+              Đã điền lại ý tưởng cũ. Sửa nếu muốn rồi làm tiếp.
+            </Alert>
+          )}
 
-        {/* Step 1: Input */}
-        {step === 1 && (showManual || Boolean(fromMemeId)) && (
-          <div className="grid items-start gap-6 lg:grid-cols-[minmax(360px,400px)_minmax(0,1fr)]">
-            <Card className="min-w-0">
-              <CardHeader>
-                <h2 className="text-lg font-semibold th-text-primary flex items-center gap-2">
-                  <Sparkles size={20} style={{ color: "var(--accent)" }} />
-                  Ý tưởng
-                </h2>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Textarea
-                  id="idea"
-                  aria-label="Ý tưởng"
-                  placeholder='Ví dụ: Sếp nhắn "em rảnh không" lúc 10 giờ tối…'
-                  value={idea}
-                  onChange={(e) => setIdea(e.target.value)}
-                  rows={5}
-                  className="text-base"
-                />
-                {/* Trang gợi ý câu thoại là AI văn bản nên miễn phí, nhưng trước
-                    đây không có đường nào dẫn tới nó từ trong sản phẩm. */}
-                <Link
-                  href={`/projects/${projectId}/ai-meme`}
-                  className="inline-flex min-h-11 items-center gap-1.5 text-sm th-text-accent hover:opacity-80 lg:min-h-0"
-                >
-                  <Sparkles size={14} /> Bí ý tưởng? Lấy 6 câu gợi ý miễn phí
-                </Link>
-                {/* Reference image upload */}
-                <div>
-                  <p className="text-xs font-medium th-text-secondary mb-2 flex items-center gap-1.5">
-                    <ImageIcon size={12} />
-                    Ảnh mẫu (tuỳ chọn)
-                  </p>
-                  <div
-                    className="border-2 border-dashed rounded-xl p-4 text-center transition-colors cursor-pointer th-border th-bg-hover"
-                    onClick={() => refInputRef.current?.click()}
-                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const files = Array.from(e.dataTransfer.files);
-                      addRefImages(files);
-                    }}
-                  >
-                    <input
-                      ref={refInputRef}
-                      aria-label="Chọn ảnh mẫu"
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={(e) => {
-                        const files = Array.from(e.target.files || []);
-                        addRefImages(files);
-                        e.target.value = "";
+          {/* Step 1: Input */}
+          {showManual && step === 1 && (
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
+              <Card className="min-w-0">
+                <CardHeader>
+                  <h2 className="flex items-center gap-2 text-lg font-semibold th-text-primary">
+                    <Sparkles size={20} className="th-text-accent" aria-hidden />
+                    Ý tưởng
+                  </h2>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Textarea
+                    id="idea"
+                    aria-label="Ý tưởng"
+                    placeholder='Ví dụ: Sếp nhắn "em rảnh không" lúc 10 giờ tối…'
+                    value={idea}
+                    onChange={(e) => setIdea(e.target.value)}
+                    rows={5}
+                    className="text-base"
+                  />
+                  {/* Reference image upload */}
+                  <div>
+                    <p className="mb-2 flex items-center gap-1.5 text-xs font-medium th-text-secondary">
+                      <ImageIcon size={12} aria-hidden />
+                      Ảnh mẫu (tuỳ chọn)
+                    </p>
+                    <div
+                      className="cursor-pointer rounded-xl border-2 border-dashed p-4 text-center transition-colors th-border th-bg-hover"
+                      onClick={() => refInputRef.current?.click()}
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        addRefImages(Array.from(e.dataTransfer.files));
                       }}
-                    />
-                    {refImages.length === 0 ? (
-                      <div className="py-2">
-                        <Upload size={24} className="mx-auto mb-2 th-text-muted" />
-                        <p className="text-sm th-text-tertiary">
-                          Bấm để chọn, kéo thả hoặc dán ảnh vào đây
-                        </p>
-                        <p className="text-xs th-text-muted mt-1">
-                          Tối đa {MAX_REF_IMAGES} ảnh, mỗi ảnh &le; {MAX_REF_SIZE_MB}MB
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="flex gap-2 flex-wrap justify-center">
-                          {refImages.map((img, idx) => (
-                            <div key={idx} className="relative group">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={img.preview}
-                                alt={`Ảnh mẫu ${idx + 1}`}
-                                className="w-20 h-20 object-cover rounded-lg border"
-                                style={{ borderColor: "var(--border-primary)" }}
-                              />
-                              <button
-                                onClick={(e) => { e.stopPropagation(); removeRefImage(idx); }}
-                                className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-white"
-                                style={{ background: "var(--danger, #ef4444)" }}
-                              >
-                                <X size={12} />
-                              </button>
-                            </div>
-                          ))}
-                          {refImages.length < MAX_REF_IMAGES && (
-                            <div className="w-20 h-20 rounded-lg border-2 border-dashed flex items-center justify-center th-border th-text-muted">
-                              <Upload size={18} />
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-xs th-text-muted">
-                          Meme sẽ bám theo bối cảnh và người, vật trong ảnh
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <label className="flex items-center gap-2 cursor-pointer p-2 rounded-xl th-bg-tertiary">
-                    <input
-                      type="checkbox"
-                      checked={noCharacters}
-                      onChange={(e) => {
-                        setNoCharacters(e.target.checked);
-                        if (e.target.checked) {
-                          setSelectedCharacterIds(new Set());
-                          setOneOffCharacters([]);
-                          setTaggedCharacterIds(new Set());
-                        }
-                      }}
-                      className="w-4 h-4 accent-[var(--accent)]"
-                    />
-                    <span className="text-sm th-text-secondary">Không dùng nhân vật của kênh</span>
-                    <span className="text-xs th-text-muted ml-auto">Ví dụ: ảnh sự kiện, ảnh có sẵn…</span>
-                  </label>
-
-                  {!noCharacters && (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs th-text-tertiary">Nhân vật có trong meme:</p>
-                        <Button size="sm" variant="outline" onClick={openQuickCharacterModal}>
-                          <Plus size={14} /> Thêm nhân vật
-                        </Button>
-                      </div>
-
-                      {characters.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {characters.map((c) => {
-                            const rawAvatar = c.avatar_url || c.poses[0]?.image_url;
-                            const avatar = rawAvatar && !rawAvatar.startsWith("/mock/") ? rawAvatar : null;
-                            const selected = selectedCharacterIds.has(c.id);
-                            return (
-                              <button
-                                key={c.id}
-                                type="button"
-                                onClick={() => toggleSelectedCharacter(c.id)}
-                                className={`flex items-center gap-2 p-2 rounded-xl text-left border transition-all ${
-                                  selected
-                                    ? "th-border-accent th-bg-accent-light"
-                                    : "th-bg-tertiary th-bg-hover th-border"
-                                }`}
-                              >
-                                <div className="w-9 h-9 rounded-lg overflow-hidden th-bg-card flex items-center justify-center text-xs font-bold th-text-muted">
-                                  {avatar ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={avatar} alt={c.name} className="w-full h-full object-cover" />
-                                  ) : (
-                                    c.name[0]?.toUpperCase()
-                                  )}
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="text-xs font-medium th-text-primary truncate">@{c.name}</p>
-                                  <p className="text-[11px] th-text-muted">{c.poses.length} biểu cảm</p>
-                                </div>
-                                <span
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    appendMentionToIdea(c.name);
-                                  }}
-                                  className="ml-auto text-[10px] px-2 py-1 rounded-md th-bg-card th-text-secondary"
-                                >
-                                  {selected ? "đã chọn" : "chọn"}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <p className="text-xs th-text-muted">Kênh chưa có nhân vật. Vẫn làm meme được, hoặc tạo nhanh ở nút trên.</p>
-                      )}
-
-                      <div>
-                        <label htmlFor="one-off-character" className="mb-1.5 block text-xs th-text-tertiary">Nhân vật chỉ dùng cho meme này:</label>
-                        <div className="flex gap-2">
-                          <Input
-                            id="one-off-character"
-                            placeholder="Ví dụ: anh xe ôm công nghệ, chú mèo hàng xóm…"
-                            value={oneOffInput}
-                            onChange={(e) => setOneOffInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                addOneOffCharacter();
-                              }
-                            }}
-                            className="text-sm"
-                          />
-                          <Button type="button" variant="outline" onClick={addOneOffCharacter}>
-                            <Plus size={14} /> Thêm
-                          </Button>
-                        </div>
-                        {oneOffCharacters.length > 0 && (
-                          <div className="flex gap-2 flex-wrap mt-2">
-                            {oneOffCharacters.map((name) => (
-                              <span key={name} className="px-2 py-1 rounded-lg text-xs th-bg-accent-light th-text-accent flex items-center gap-1">
-                                @{name}
-                                <button type="button" onClick={() => removeOneOffCharacter(name)} aria-label={`Bỏ nhân vật ${name}`} className="-m-1.5 p-1.5 th-text-accent">
-                                  <X size={12} />
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs th-text-tertiary mb-2">Khổ ảnh:</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                    {(Object.entries(FORMAT_DIMENSIONS) as [MemeFormat, { width: number; height: number; label: string }][]).map(([key]) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setFormat(key)}
-                        className={`flex min-h-11 items-center justify-center rounded-lg border px-2 py-2 text-xs lg:min-h-9 ${
-                          format === key ? "th-border-accent th-bg-accent-light th-text-accent" : "th-bg-tertiary th-border th-text-secondary"
-                        }`}
-                      >
-                        {key}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <Button size="lg" className="w-full" onClick={handleAssistImage} loading={generating} disabled={!idea.trim()}>
-                    <Zap size={18} />
-                    {generating ? "Đang viết…" : "Gợi ý chữ và cảnh"}
-                  </Button>
-                  <Button size="lg" variant="outline" className="w-full" onClick={handleDirectFlow} disabled={!idea.trim()}>
-                    <Wand2 size={18} />
-                    Viết tay mô tả ảnh
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-            <aside className="sticky top-6 min-h-[440px] overflow-hidden rounded-xl border p-5 lg:p-6" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] th-text-accent">Xem trước</p>
-              <h2 className="mt-1 text-lg font-semibold th-text-primary">Ảnh của bạn sẽ hiện ở đây</h2>
-              <div className="mt-5 flex aspect-[4/5] max-h-[620px] items-center justify-center rounded-xl border border-dashed p-7 text-center th-bg-secondary" style={{ borderColor: "var(--border-primary)" }}>
-                <div><span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl th-bg-accent-light th-text-accent"><ImageIcon size={21} /></span><p className="mt-4 text-sm font-medium th-text-primary">Bắt đầu bằng một ý tưởng</p><p className="mt-2 max-w-xs text-sm leading-6 th-text-tertiary">Chọn nhân vật hoặc thêm ảnh mẫu khi cần giữ đúng người, vật và bối cảnh.</p></div>
-              </div>
-            </aside>
-          </div>
-        )}
-
-        {/* Step 2: Select variation */}
-        {step === 2 && (
-          <div className="space-y-5">
-            <p className="text-sm th-text-secondary">Có {variations.length} phương án. Chọn một để vẽ.</p>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {variations.map((v, index) => (
-                <Card key={index} hover onClick={() => { setSelectedVariation(index); setHasPickedVariation(true); }}
-                  className={selectedVariation === index ? "th-border-accent th-shadow-lg" : ""}>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className={`px-2 py-1 rounded-lg text-xs ${selectedVariation === index ? "th-bg-accent-light th-text-accent" : "th-bg-tertiary th-text-tertiary"}`}>
-                        Phương án {index + 1}
-                      </span>
-                      <span className="px-2 py-1 th-bg-tertiary rounded-lg text-xs th-text-tertiary">{v.tone}</span>
-                    </div>
-                    <div>
-                      <p className="th-text-primary font-bold text-lg leading-tight">&ldquo;{v.headline}&rdquo;</p>
-                      {v.subtext && <p className="th-text-secondary text-sm mt-1">{v.subtext}</p>}
-                    </div>
-                    {v.caption && (
-                      <div className="p-2 rounded-lg" style={{ background: "var(--bg-tertiary)", opacity: 0.5 }}>
-                        <p className="text-xs th-text-tertiary mb-0.5">Nội dung bài đăng:</p>
-                        <p className="text-xs th-text-secondary">{v.caption}</p>
-                      </div>
-                    )}
-                    {v.suggested_characters.length > 0 && (
-                      <div>
-                        <p className="text-xs th-text-muted mb-1">Nhân vật:</p>
-                        {v.suggested_characters.map((sc, ci) => (
-                          <div key={ci} className="flex items-center gap-2 py-1">
-                            <span className="text-sm th-text-secondary">{sc.character_name}</span>
-                            <span className="text-xs th-text-muted">- {sc.reasoning}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {v.visual_direction && (
-                      <div className="p-2 rounded-lg" style={{ background: "var(--bg-tertiary)", opacity: 0.6 }}>
-                        <p className="text-xs th-text-tertiary mb-1">Cảnh sẽ vẽ:</p>
-                        <p className="text-xs th-text-secondary line-clamp-3">
-                          {v.visual_direction.scene || v.visual_direction.character_styling || v.visual_direction.composition || "Đã có mô tả cảnh chi tiết"}
-                        </p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep(1)}>Quay lại</Button>
-              <Button variant="outline" onClick={handleGenerate} loading={generating}>
-                <RotateCcw size={16} /> {generating ? "Đang gợi ý…" : "Gợi ý 3 ý khác"}
-              </Button>
-              <Button onClick={() => setStep(3)} disabled={!hasPickedVariation}>Tiếp tục xem trước <ChevronRight size={16} /></Button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Preview & Export */}
-        {step === 3 && variations[selectedVariation] && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Preview area */}
-            <div className="lg:col-span-2 space-y-4">
-              {/* AI Preview */}
-                <Card>
-                  <CardContent className="p-6">
-                    {/* No image yet — show generate button */}
-                    {!aiImageBase64 && !aiGenerating && (
-                      <div className="flex flex-col items-center justify-center py-16 space-y-4">
-                        <div className="w-20 h-20 rounded-2xl th-bg-accent-light flex items-center justify-center">
-                          <Wand2 size={36} style={{ color: "var(--accent)" }} />
-                        </div>
-                        <div className="text-center">
-                          <p className="th-text-primary font-semibold text-lg">Vẽ meme</p>
-                          <p className="th-text-tertiary text-sm mt-1 max-w-sm">
-                            Vẽ ảnh hoàn chỉnh từ chữ, nhân vật và kiểu ảnh bạn đã chọn.
+                    >
+                      <input
+                        ref={refInputRef}
+                        aria-label="Chọn ảnh mẫu"
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          addRefImages(Array.from(e.target.files || []));
+                          e.target.value = "";
+                        }}
+                      />
+                      {refImages.length === 0 ? (
+                        <div className="py-2">
+                          <Upload size={20} className="mx-auto mb-2 th-text-muted" aria-hidden />
+                          <p className="text-sm th-text-tertiary">Bấm để chọn, kéo thả hoặc dán ảnh vào đây</p>
+                          <p className="mt-1 text-xs th-text-muted">
+                            Tối đa {MAX_REF_IMAGES} ảnh, mỗi ảnh &le; {MAX_REF_SIZE_MB}MB
                           </p>
                         </div>
-                        <Button size="lg" onClick={handleAiGenerate}>
-                          <Wand2 size={18} />
-                          Vẽ meme · {POINT_COSTS.meme} điểm
-                        </Button>
-                        <p className="text-xs th-text-muted">
-                          Kênh còn <strong>{projectPoints}</strong> điểm
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Generating state */}
-                    {aiGenerating && (
-                      <div className="flex flex-col items-center justify-center py-16 space-y-4">
-                        <div className="w-20 h-20 rounded-2xl th-bg-accent-light flex items-center justify-center">
-                          <Loader2 size={36} className="animate-spin" style={{ color: "var(--accent)" }} />
-                        </div>
-                        <div className="text-center">
-                          <p className="th-text-primary font-semibold">Đang vẽ…</p>
-                          <p className="th-text-tertiary text-sm mt-1">Mất khoảng 10–30 giây</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Error state */}
-                    {aiError && !aiGenerating && (
-                      <div className="space-y-4">
-                        <div className="p-4 rounded-xl th-bg-danger-light th-border-danger" style={{ borderWidth: "1px", borderStyle: "solid" }}>
-                          <p className="th-text-danger text-sm font-medium">Chưa vẽ được</p>
-                          <p className="th-text-danger text-xs mt-1 opacity-80">{aiError}</p>
-                        </div>
-                        <div className="flex justify-center">
-                          <Button onClick={handleAiGenerate}>
-                            <RotateCcw size={16} /> Thử lại ({POINT_COSTS.meme} điểm)
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* AI Image result */}
-                    {aiImageBase64 && !aiGenerating && (
-                      <div className="space-y-4">
-                        <div className="flex justify-center">
-                          <div className="relative rounded-2xl overflow-hidden inline-block" style={{ maxWidth: "100%" }}>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={`data:image/png;base64,${aiImageBase64}`}
-                              alt="Meme vừa vẽ"
-                              className="block max-h-[600px] w-auto rounded-2xl"
-                            />
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap justify-center gap-2">
+                            {refImages.map((img, idx) => (
+                              <div key={idx} className="group relative">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={img.preview}
+                                  alt={`Ảnh mẫu ${idx + 1}`}
+                                  className="h-20 w-20 rounded-lg border object-cover th-border"
+                                />
+                                <button
+                                  type="button"
+                                  aria-label={`Bỏ ảnh mẫu ${idx + 1}`}
+                                  onClick={(e) => { e.stopPropagation(); removeRefImage(idx); }}
+                                  className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full th-bg-danger th-text-on-primary"
+                                >
+                                  <X size={12} aria-hidden />
+                                </button>
+                              </div>
+                            ))}
+                            {refImages.length < MAX_REF_IMAGES && (
+                              <div className="flex h-20 w-20 items-center justify-center rounded-lg border-2 border-dashed th-border th-text-muted">
+                                <Upload size={16} aria-hidden />
+                              </div>
+                            )}
                           </div>
+                          <p className="text-xs th-text-muted">Meme sẽ bám theo bối cảnh và người, vật trong ảnh</p>
                         </div>
-                        <div className="flex items-center justify-center gap-3">
-                          <Button variant="outline" size="sm" onClick={handleExport}>
-                            <Download size={14} /> Tải ảnh
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={handleAiGenerate}>
-                            <RotateCcw size={14} /> Vẽ lại ({POINT_COSTS.meme} điểm)
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => router.push(`/projects/${projectId}/video?image=${encodeURIComponent(imageSourceUrl || "")}`)} disabled={!imageSourceUrl} title={!imageSourceUrl ? "Lưu ảnh xong mới làm video được" : undefined}>
-                            <Clapperboard size={14} /> Làm video từ ảnh này
-                          </Button>
-                          <span className="text-xs th-text-muted">Kênh còn {projectPoints} điểm</span>
-                        </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
+                  </div>
 
-                  </CardContent>
-                </Card>
-            </div>
-
-            {/* Controls sidebar */}
-            <div className="space-y-4">
-              {/* Format */}
-              <Card>
-                <CardHeader><h3 className="text-sm font-semibold th-text-primary">Khổ ảnh</h3></CardHeader>
-                <CardContent className="space-y-2">
-                  {(Object.entries(FORMAT_DIMENSIONS) as [MemeFormat, { width: number; height: number; label: string }][]).map(([key, val]) => (
-                    <button key={key} onClick={() => setFormat(key)}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all border ${
-                        format === key ? "th-border-accent th-bg-accent-light th-text-accent" : "th-bg-tertiary th-text-secondary border-transparent th-bg-hover"
-                      }`}>
-                      <span>{key}</span>
-                      <span className="text-xs th-text-muted">{val.label}</span>
-                    </button>
-                  ))}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader><h3 className="text-sm font-semibold th-text-primary">Logo</h3></CardHeader>
-                <CardContent className="space-y-3">
-                  <label className="flex items-center justify-between cursor-pointer">
-                    <span className="text-sm th-text-secondary">Đóng logo ở góc dưới bên phải</span>
-                    <input
-                      type="checkbox"
-                      checked={enableWatermark}
-                      onChange={(e) => setEnableWatermark(e.target.checked)}
-                      className="w-4 h-4 accent-[var(--accent)]"
-                    />
-                  </label>
-
-                  {enableWatermark && (
-                    <>
-                      <Input
-                        id="watermark-text"
-                        label="Chữ ký kênh"
-                        placeholder="Ví dụ: @tenkenh"
-                        value={resolvedWatermarkText}
-                        onChange={(e) => setWatermarkText(e.target.value)}
-                        className="text-sm"
+                  <div className="space-y-3">
+                    <label className="flex cursor-pointer items-center gap-2 rounded-xl p-2 th-bg-tertiary">
+                      <input
+                        type="checkbox"
+                        checked={noCharacters}
+                        onChange={(e) => {
+                          setNoCharacters(e.target.checked);
+                          if (e.target.checked) {
+                            setSelectedCharacterIds(new Set());
+                            setOneOffCharacters([]);
+                            setTaggedCharacterIds(new Set());
+                          }
+                        }}
+                        className="h-4 w-4 th-accent-control"
                       />
+                      <span className="text-sm th-text-secondary">Không dùng nhân vật của kênh</span>
+                      <span className="ml-auto hidden text-xs th-text-muted sm:inline">Ví dụ: ảnh sự kiện, ảnh có sẵn…</span>
+                    </label>
 
-                      <div>
-                        <p className="text-xs font-medium th-text-secondary mb-1.5">Logo (tuỳ chọn)</p>
-                        <div
-                          className="border rounded-xl p-3 text-center cursor-pointer th-border th-bg-hover"
-                          onClick={() => watermarkLogoInputRef.current?.click()}
-                        >
-                          <input
-                            ref={watermarkLogoInputRef}
-                            aria-label="Chọn ảnh logo"
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              void handleWatermarkLogoUpload(e.target.files?.[0] || null);
-                              e.target.value = "";
-                            }}
-                          />
-                          {watermarkLogo ? (
-                            <div className="flex items-center justify-center gap-2">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={watermarkLogo.preview} alt="Logo" className="w-10 h-10 object-contain rounded" />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (watermarkLogo) URL.revokeObjectURL(watermarkLogo.preview);
-                                  setWatermarkLogo(null);
-                                }}
-                              >
-                                Xoá logo
-                              </Button>
+                    {!noCharacters && (
+                      <>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs th-text-tertiary">Nhân vật có trong meme:</p>
+                          <Button size="sm" variant="outline" onClick={openQuickCharacterModal}>
+                            <Plus size={14} aria-hidden /> Thêm nhân vật
+                          </Button>
+                        </div>
+
+                        {characters.length > 0 ? (
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            {characters.map((c) => {
+                              const rawAvatar = c.avatar_url || c.poses[0]?.image_url;
+                              const avatar = rawAvatar && !rawAvatar.startsWith("/mock/") ? rawAvatar : null;
+                              const selected = selectedCharacterIds.has(c.id);
+                              return (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  aria-pressed={selected}
+                                  onClick={() => toggleSelectedCharacter(c.id)}
+                                  className={`flex items-center gap-2 rounded-xl border p-2 text-left transition-colors ${
+                                    selected ? "th-border-accent th-bg-accent-light" : "th-border th-bg-tertiary th-bg-hover"
+                                  }`}
+                                >
+                                  <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg text-xs font-semibold th-bg-card th-text-muted">
+                                    {avatar ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img src={avatar} alt="" className="h-full w-full object-cover" />
+                                    ) : (
+                                      c.name[0]?.toUpperCase()
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="truncate text-xs font-medium th-text-primary">@{c.name}</p>
+                                    <p className="text-xs th-text-muted">{c.poses.length} biểu cảm</p>
+                                  </div>
+                                  <span className={`ml-auto text-xs ${selected ? "th-text-accent" : "th-text-muted"}`}>
+                                    {selected ? "Đã chọn" : "Chọn"}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-xs th-text-muted">Kênh chưa có nhân vật. Vẫn làm meme được, hoặc tạo nhanh ở nút trên.</p>
+                        )}
+
+                        <div>
+                          <label htmlFor="one-off-character" className="mb-1.5 block text-xs th-text-tertiary">Nhân vật chỉ dùng cho meme này:</label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="one-off-character"
+                              placeholder="Ví dụ: anh xe ôm công nghệ, chú mèo hàng xóm…"
+                              value={oneOffInput}
+                              onChange={(e) => setOneOffInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  addOneOffCharacter();
+                                }
+                              }}
+                              className="text-sm"
+                            />
+                            <Button type="button" variant="outline" onClick={addOneOffCharacter}>
+                              <Plus size={14} aria-hidden /> Thêm
+                            </Button>
+                          </div>
+                          {oneOffCharacters.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {oneOffCharacters.map((name) => (
+                                <Chip key={name} selected onClick={() => removeOneOffCharacter(name)} aria-label={`Bỏ nhân vật ${name}`}>
+                                  @{name} <X size={12} aria-hidden />
+                                </Chip>
+                              ))}
                             </div>
-                          ) : (
-                            <p className="text-xs th-text-muted">Tải logo lên để đóng vào ảnh</p>
                           )}
                         </div>
-                      </div>
-                    </>
-                  )}
+                      </>
+                    )}
+                  </div>
+                  <div>
+                    <p className="mb-2 text-xs th-text-tertiary">Khổ ảnh:</p>
+                    <div role="radiogroup" aria-label="Khổ ảnh" className="flex flex-wrap gap-1.5">
+                      {formatChoices.map(([key]) => (
+                        <Chip key={key} role="radio" selected={format === key} onClick={() => setFormat(key)}>
+                          {key}
+                        </Chip>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <Button size="lg" className="w-full" onClick={handleAssistImage} loading={generating} disabled={!idea.trim()}>
+                      <Zap size={18} aria-hidden />
+                      {generating ? "Đang viết…" : "Gợi ý chữ và cảnh"}
+                    </Button>
+                    <Button size="lg" variant="outline" className="w-full" onClick={handleDirectFlow} disabled={!idea.trim()}>
+                      <Wand2 size={18} aria-hidden />
+                      Tự viết mô tả ảnh
+                    </Button>
+                  </div>
+                  <p className="text-xs th-text-tertiary">Gợi ý chữ không tốn điểm. Chỉ tính điểm khi bấm Vẽ meme ở bước sau.</p>
                 </CardContent>
               </Card>
+              <Card className="p-5 lg:sticky lg:top-6">
+                <p className="text-sm font-medium th-text-secondary">Xem trước</p>
+                <EmptyState
+                  className="mt-4 aspect-[4/5] max-h-[620px] justify-center"
+                  icon={ImageIcon}
+                  title="Ảnh của bạn sẽ hiện ở đây"
+                  hint="Chọn nhân vật hoặc thêm ảnh mẫu khi cần giữ đúng người, vật và bối cảnh."
+                />
+              </Card>
+            </div>
+          )}
 
-              {/* AI reference and prompt controls */}
+          {/* Step 2: Select variation */}
+          {showManual && step === 2 && (
+            <div className="space-y-5">
+              <p className="text-sm th-text-secondary">Có {variations.length} phương án. Chọn một để vẽ.</p>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                {variations.map((v, index) => (
+                  <Card key={index} hover onClick={() => { setSelectedVariation(index); setHasPickedVariation(true); }}
+                    className={selectedVariation === index ? "th-border-accent th-shadow-lg" : ""}>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`rounded-lg px-2 py-1 text-xs ${selectedVariation === index ? "th-bg-accent-light th-text-accent" : "th-bg-tertiary th-text-tertiary"}`}>
+                          Phương án {index + 1}
+                        </span>
+                        {v.tone && <span className="rounded-lg px-2 py-1 text-xs th-bg-tertiary th-text-tertiary">{v.tone}</span>}
+                      </div>
+                      <div>
+                        <p className="text-lg font-semibold leading-tight th-text-primary">&ldquo;{v.headline}&rdquo;</p>
+                        {v.subtext && <p className="mt-1 text-sm th-text-secondary">{v.subtext}</p>}
+                      </div>
+                      {v.caption && (
+                        <div className="rounded-lg p-2 th-bg-tertiary">
+                          <p className="mb-0.5 text-xs th-text-tertiary">Nội dung bài đăng:</p>
+                          <p className="text-xs th-text-secondary">{v.caption}</p>
+                        </div>
+                      )}
+                      {v.suggested_characters.length > 0 && (
+                        <div>
+                          <p className="mb-1 text-xs th-text-muted">Nhân vật:</p>
+                          {v.suggested_characters.map((sc, ci) => (
+                            <div key={ci} className="flex items-center gap-2 py-1">
+                              <span className="text-sm th-text-secondary">{sc.character_name}</span>
+                              <span className="text-xs th-text-muted">· {sc.reasoning}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {v.visual_direction && (
+                        <div className="rounded-lg p-2 th-bg-tertiary">
+                          <p className="mb-1 text-xs th-text-tertiary">Cảnh sẽ vẽ:</p>
+                          <p className="line-clamp-3 text-xs th-text-secondary">
+                            {v.visual_direction.scene || v.visual_direction.character_styling || v.visual_direction.composition || "Đã có mô tả cảnh chi tiết"}
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button variant="outline" onClick={() => setStep(1)}>Quay lại</Button>
+                <Button variant="outline" onClick={handleGenerate} loading={generating}>
+                  <RotateCcw size={16} aria-hidden /> {generating ? "Đang gợi ý…" : "Gợi ý 3 ý khác"}
+                </Button>
+                <Button onClick={() => setStep(3)} disabled={!hasPickedVariation}>Tiếp tục xem trước <ChevronRight size={16} aria-hidden /></Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Preview & Export */}
+          {showManual && step === 3 && variations[selectedVariation] && (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              <div className="space-y-4 lg:col-span-2">
+                {aiGenerating ? (
+                  <JobStatus
+                    state="working"
+                    title="Đang vẽ meme"
+                    detail="Mất khoảng 10–30 giây. Ảnh tự lưu vào Thư viện khi xong."
+                  />
+                ) : aiError ? (
+                  <JobStatus
+                    state="failed"
+                    title="Chưa vẽ được"
+                    detail={aiError}
+                    refundedPoints={aiRefunded}
+                    onRetry={handleAiGenerate}
+                  >
+                    {drawPrice}
+                  </JobStatus>
+                ) : aiImageSrc ? (
+                  <Card className="p-4 sm:p-6">
+                    <div className="flex justify-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={aiImageSrc} alt="Meme vừa vẽ" className="block max-h-[600px] w-auto max-w-full rounded-2xl" />
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                      <Button variant="outline" size="sm" onClick={handleExport}>
+                        <Download size={14} aria-hidden /> Tải ảnh
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleAiGenerate}>
+                        <RotateCcw size={14} aria-hidden /> Vẽ lại
+                      </Button>
+                      {imageSourceUrl ? (
+                        <Link
+                          href={`/projects/${projectId}/video?image=${encodeURIComponent(imageSourceUrl)}`}
+                          className={buttonClasses("outline", "sm")}
+                        >
+                          <Clapperboard size={14} aria-hidden /> Làm video từ ảnh này
+                        </Link>
+                      ) : (
+                        <Button variant="outline" size="sm" disabled title="Lưu ảnh xong mới làm video được">
+                          <Clapperboard size={14} aria-hidden /> Làm video từ ảnh này
+                        </Button>
+                      )}
+                    </div>
+                    <div className="mt-2 flex justify-center">{drawPrice}</div>
+                  </Card>
+                ) : (
+                  <Card className="flex flex-col items-center gap-4 px-6 py-14 text-center">
+                    <span className="flex h-14 w-14 items-center justify-center rounded-2xl th-bg-accent-light th-text-accent">
+                      <Wand2 size={20} aria-hidden />
+                    </span>
+                    <div>
+                      <p className="text-lg font-semibold th-text-primary">Vẽ meme</p>
+                      <p className="mt-1 max-w-sm text-sm th-text-tertiary">
+                        Vẽ ảnh hoàn chỉnh từ chữ, nhân vật và kiểu ảnh bạn đã chọn. Xong là tự lưu vào Thư viện.
+                      </p>
+                    </div>
+                    {drawPrice}
+                    <Button size="lg" onClick={handleAiGenerate}>
+                      <Wand2 size={18} aria-hidden />
+                      Vẽ meme
+                    </Button>
+                  </Card>
+                )}
+              </div>
+
+              {/* Controls sidebar */}
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader><h3 className="text-sm font-semibold th-text-primary">Khổ ảnh</h3></CardHeader>
+                  <CardContent>
+                    <div role="radiogroup" aria-label="Khổ ảnh" className="flex flex-wrap gap-1.5">
+                      {formatChoices.map(([key, val]) => (
+                        <Chip key={key} role="radio" selected={format === key} onClick={() => setFormat(key)} title={val.label}>
+                          {key}
+                        </Chip>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader><h3 className="text-sm font-semibold th-text-primary">Logo</h3></CardHeader>
+                  <CardContent className="space-y-3">
+                    <label className="flex cursor-pointer items-center justify-between gap-3">
+                      <span className="text-sm th-text-secondary">Đóng logo ở góc dưới bên phải</span>
+                      <input
+                        type="checkbox"
+                        checked={enableWatermark}
+                        onChange={(e) => setEnableWatermark(e.target.checked)}
+                        className="h-4 w-4 th-accent-control"
+                      />
+                    </label>
+
+                    {enableWatermark && (
+                      <>
+                        <Input
+                          id="watermark-text"
+                          label="Chữ ký kênh"
+                          placeholder="Ví dụ: @tenkenh"
+                          value={resolvedWatermarkText}
+                          onChange={(e) => setWatermarkText(e.target.value)}
+                          className="text-sm"
+                        />
+
+                        <div>
+                          <p className="mb-1.5 text-xs font-medium th-text-secondary">Logo (tuỳ chọn)</p>
+                          <div
+                            className="cursor-pointer rounded-xl border p-3 text-center th-border th-bg-hover"
+                            onClick={() => watermarkLogoInputRef.current?.click()}
+                          >
+                            <input
+                              ref={watermarkLogoInputRef}
+                              aria-label="Chọn ảnh logo"
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                void handleWatermarkLogoUpload(e.target.files?.[0] || null);
+                                e.target.value = "";
+                              }}
+                            />
+                            {watermarkLogo ? (
+                              <div className="flex items-center justify-center gap-2">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={watermarkLogo.preview} alt="Logo" className="h-10 w-10 rounded object-contain" />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (watermarkLogo) URL.revokeObjectURL(watermarkLogo.preview);
+                                    setWatermarkLogo(null);
+                                  }}
+                                >
+                                  Bỏ logo
+                                </Button>
+                              </div>
+                            ) : (
+                              <p className="text-xs th-text-muted">Chọn ảnh logo để đóng vào ảnh</p>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
                 <Card>
                   <CardHeader><h3 className="text-sm font-semibold th-text-primary">Ảnh mẫu và ghi chú</h3></CardHeader>
                   <CardContent className="space-y-3">
                     <div>
-                      <p className="text-xs font-medium th-text-secondary mb-2 flex items-center gap-1.5">
-                        <ImageIcon size={12} /> Ảnh mẫu để vẽ theo
+                      <p className="mb-2 flex items-center gap-1.5 text-xs font-medium th-text-secondary">
+                        <ImageIcon size={12} aria-hidden /> Ảnh mẫu để vẽ theo
                       </p>
                       <div
-                        className="border-2 border-dashed rounded-xl p-3 text-center transition-colors cursor-pointer th-border th-bg-hover"
+                        className="cursor-pointer rounded-xl border-2 border-dashed p-3 text-center transition-colors th-border th-bg-hover"
                         onClick={() => aiRefInputRef.current?.click()}
                         onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                         onDrop={(e) => {
@@ -1535,33 +1461,34 @@ export default function GeneratePage() {
                       >
                         <input
                           ref={aiRefInputRef}
+                          aria-label="Chọn ảnh mẫu để vẽ theo"
                           type="file"
                           accept="image/*"
                           multiple
                           className="hidden"
                           onChange={(e) => {
-                            const files = Array.from(e.target.files || []);
-                            addAiRefImages(files);
+                            addAiRefImages(Array.from(e.target.files || []));
                             e.target.value = "";
                           }}
                         />
                         {aiRefImages.length === 0 ? (
                           <div className="py-1">
-                            <Upload size={18} className="mx-auto mb-1 th-text-muted" />
+                            <Upload size={16} className="mx-auto mb-1 th-text-muted" aria-hidden />
                             <p className="text-xs th-text-tertiary">Thả ảnh mẫu để vẽ theo bố cục và kiểu ảnh</p>
                           </div>
                         ) : (
-                          <div className="flex gap-2 flex-wrap justify-center">
+                          <div className="flex flex-wrap justify-center gap-2">
                             {aiRefImages.map((img, idx) => (
                               <div key={idx} className="relative">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={img.preview} alt={`Ảnh mẫu ${idx + 1}`} className="w-14 h-14 object-cover rounded-lg border" style={{ borderColor: "var(--border-primary)" }} />
+                                <img src={img.preview} alt={`Ảnh mẫu ${idx + 1}`} className="h-14 w-14 rounded-lg border object-cover th-border" />
                                 <button
+                                  type="button"
+                                  aria-label={`Bỏ ảnh mẫu ${idx + 1}`}
                                   onClick={(e) => { e.stopPropagation(); removeAiRefImage(idx); }}
-                                  className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-white"
-                                  style={{ background: "var(--danger, #ef4444)" }}
+                                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full th-bg-danger th-text-on-primary"
                                 >
-                                  <X size={10} />
+                                  <X size={12} aria-hidden />
                                 </button>
                               </div>
                             ))}
@@ -1570,150 +1497,118 @@ export default function GeneratePage() {
                       </div>
                     </div>
 
-                    {!noCharacters && (
-                    <div>
-                      <p className="text-xs font-medium th-text-secondary mb-2 flex items-center gap-1.5">
-                        <Tags size={12} /> Gắn nhân vật có trong ảnh
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {characters.map((char) => {
-                          const active = taggedCharacterIds.has(char.id);
-                          return (
-                            <button
-                              key={char.id}
-                              type="button"
-                              onClick={() => toggleTaggedCharacter(char.id)}
-                              className={`px-2.5 py-1 rounded-lg text-xs border transition-all ${
-                                active
-                                  ? "th-border-accent th-bg-accent-light th-text-accent"
-                                  : "th-bg-tertiary th-border th-text-secondary th-bg-hover"
-                              }`}
-                            >
+                    {!noCharacters && characters.length > 0 && (
+                      <div>
+                        <p className="mb-2 flex items-center gap-1.5 text-xs font-medium th-text-secondary">
+                          <Tags size={12} aria-hidden /> Gắn nhân vật có trong ảnh
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {characters.map((char) => (
+                            <Chip key={char.id} selected={taggedCharacterIds.has(char.id)} onClick={() => toggleTaggedCharacter(char.id)}>
                               {char.name}
-                            </button>
-                          );
-                        })}
+                            </Chip>
+                          ))}
+                        </div>
                       </div>
-                    </div>
                     )}
 
-                    <div>
-                      <p className="text-xs font-medium th-text-secondary mb-1.5">Ghi chú</p>
-                      <Textarea
-                        id="ai-custom-prompt"
-                        placeholder="Ví dụ: theo bố cục ảnh mẫu 1, chữ đặt giữa, giọng châm nhẹ"
-                        value={aiCustomPrompt}
-                        onChange={(e) => setAiCustomPrompt(e.target.value)}
-                        rows={3}
-                        className="text-xs"
-                      />
-                    </div>
+                    <Textarea
+                      id="ai-custom-prompt"
+                      label="Ghi chú"
+                      placeholder="Ví dụ: theo bố cục ảnh mẫu 1, chữ đặt giữa, giọng châm nhẹ"
+                      value={aiCustomPrompt}
+                      onChange={(e) => setAiCustomPrompt(e.target.value)}
+                      rows={3}
+                      className="text-sm"
+                    />
                   </CardContent>
                 </Card>
-              
 
-              
+                {variations[selectedVariation].caption && (
+                  <Card>
+                    <CardHeader><h3 className="text-sm font-semibold th-text-primary">Nội dung bài đăng</h3></CardHeader>
+                    <CardContent>
+                      <p className="whitespace-pre-wrap text-sm th-text-secondary">{variations[selectedVariation].caption}</p>
+                      <Button variant="ghost" size="sm" className="mt-2"
+                        onClick={() => {
+                          navigator.clipboard.writeText(variations[selectedVariation].caption || "");
+                          toast.success("Đã chép nội dung bài đăng");
+                        }}>
+                        Sao chép
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
 
-              {/* Caption */}
-              {variations[selectedVariation].caption && (
-                <Card>
-                  <CardHeader><h3 className="text-sm font-semibold th-text-primary">Nội dung bài đăng</h3></CardHeader>
-                  <CardContent>
-                    <p className="text-sm th-text-secondary whitespace-pre-wrap">{variations[selectedVariation].caption}</p>
-                    <Button variant="ghost" size="sm" className="mt-2"
-                      onClick={() => {
-                        navigator.clipboard.writeText(variations[selectedVariation].caption || "");
-                        toast.success("Đã chép nội dung bài đăng");
-                      }}>
-                      Sao chép
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Actions */}
-              <div className="space-y-2">
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onClick={handleExport}
-                  disabled={!aiImageBase64}
-                >
-                  <Download size={18} /> Tải ảnh
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="w-full"
-                  size="lg"
-                  onClick={handleSave}
-                  loading={saving}
-                  disabled={!aiImageBase64 || Boolean(imageOutputId)}
-                >
-                  <Save size={18} /> {imageOutputId ? "Đã lưu vào thư viện" : "Lưu vào thư viện"}
-                </Button>
-                <Button variant="outline" className="w-full" onClick={() => setStep(2)}>
-                  Chọn phương án khác
-                </Button>
+                <div className="space-y-2">
+                  <Button className="w-full" size="lg" onClick={handleExport} disabled={!aiImageSrc}>
+                    <Download size={18} aria-hidden /> Tải ảnh
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    size="lg"
+                    onClick={handleSave}
+                    loading={saving}
+                    disabled={!aiImageSrc || Boolean(imageOutputId || savedMemeId)}
+                  >
+                    <Save size={18} aria-hidden /> {imageOutputId || savedMemeId ? "Đã lưu vào Thư viện" : "Lưu vào Thư viện"}
+                  </Button>
+                  <Button variant="outline" className="w-full" onClick={() => setStep(2)} disabled={variations.length < 2}>
+                    Chọn phương án khác
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </>
+      )}
 
-        <OutOfPointsModal
-          open={Boolean(pointsNeeded)}
-          onClose={() => setPointsNeeded(null)}
-          required={pointsNeeded?.required ?? 0}
-          current={pointsNeeded?.current ?? 0}
-          action="Vẽ meme"
-          onFunded={() => setAiError(null)}
-        />
+      <OutOfPointsModal
+        open={Boolean(pointsNeeded)}
+        onClose={() => setPointsNeeded(null)}
+        required={pointsNeeded?.required ?? 0}
+        current={pointsNeeded?.current ?? 0}
+        action="Vẽ meme"
+        onFunded={() => {
+          setPointsNeeded(null);
+          fetchProjectPoints();
+          void handleAiGenerate();
+        }}
+      />
 
-        <Modal isOpen={showQuickCharacterModal} onClose={() => setShowQuickCharacterModal(false)} title="Tạo nhanh nhân vật">
-          <form onSubmit={handleQuickCreateCharacter} className="space-y-4">
-            <Input
-              id="quick-char-name"
-              label="Tên nhân vật"
-              placeholder="Ví dụ: cô chủ quán cà phê"
-              value={quickCharacterForm.name}
-              onChange={(e) => setQuickCharacterForm((prev) => ({ ...prev, name: e.target.value }))}
-              required
-            />
-            <Textarea
-              id="quick-char-desc"
-              label="Mô tả ngoại hình (tuỳ chọn)"
-              placeholder="Ví dụ: áo khoác denim, tóc ngắn, đeo kính tròn"
-              value={quickCharacterForm.description}
-              onChange={(e) => setQuickCharacterForm((prev) => ({ ...prev, description: e.target.value }))}
-              rows={2}
-            />
-            <Textarea
-              id="quick-char-personality"
-              label="Tính cách (tuỳ chọn)"
-              placeholder="Ví dụ: nói chuyện hài hước, hơi cà khịa"
-              value={quickCharacterForm.personality}
-              onChange={(e) => setQuickCharacterForm((prev) => ({ ...prev, personality: e.target.value }))}
-              rows={2}
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" type="button" onClick={() => setShowQuickCharacterModal(false)}>Huỷ</Button>
-              <Button type="submit" loading={quickCharacterSaving}>Tạo và chọn</Button>
-            </div>
-          </form>
-        </Modal>
-        <Modal isOpen={showVideoModal} onClose={() => setShowVideoModal(false)} title="Làm video từ ảnh này">
-          <div className="space-y-4">
-            <p className="text-sm th-text-tertiary">Video mở đầu bằng đúng ảnh này, khổ dọc 9:16, có tiếng Việt.</p>
-            <Textarea id="video-script" label="Video diễn ra thế nào?" value={videoScript} onChange={(event) => { setVideoScript(event.target.value); setVideoQuote(null); }} rows={5} placeholder="Mô tả chuyển động, lời thoại và âm thanh bằng tiếng Việt" />
-            <div className="grid grid-cols-2 gap-2">
-              {[15, 30].map((seconds) => <button key={seconds} type="button" onClick={() => { setVideoDuration(seconds as 15 | 30); setVideoQuote(null); }} className={`rounded-xl border px-3 py-2 text-sm ${videoDuration === seconds ? "th-border-accent th-bg-accent-light th-text-accent" : "th-border"}`}>{seconds} giây</button>)}
-              {["720p", "1080p"].map((resolution) => <button key={resolution} type="button" onClick={() => { setVideoResolution(resolution as "720p" | "1080p"); setVideoQuote(null); }} className={`rounded-xl border px-3 py-2 text-sm ${videoResolution === resolution ? "th-border-accent th-bg-accent-light th-text-accent" : "th-border"}`}>{resolution}</button>)}
-            </div>
-            <label className="flex items-center justify-between rounded-xl th-bg-tertiary px-3 py-2 text-sm th-text-secondary"><span>Có tiếng trong video</span><input type="checkbox" checked={videoAudio} onChange={(event) => { setVideoAudio(event.target.checked); setVideoQuote(null); }} /></label>
-            {videoQuote ? <div className="rounded-xl th-bg-accent-light p-3 text-sm th-text-accent">Giá: <strong>{videoQuote.customerPoints} điểm</strong></div> : <Button className="w-full" disabled={!videoScript.trim()} onClick={() => getVideoQuote().catch((error) => toast.error(error instanceof Error ? error.message : "Không lấy được báo giá."))} loading={videoLoading}>Xem giá video</Button>}
-            {videoQuote && <Button className="w-full" onClick={submitVideo} loading={videoLoading}>Làm video với giá này</Button>}
+      <Modal isOpen={showQuickCharacterModal} onClose={() => setShowQuickCharacterModal(false)} title="Tạo nhanh nhân vật">
+        <form onSubmit={handleQuickCreateCharacter} className="space-y-4">
+          <Input
+            id="quick-char-name"
+            label="Tên nhân vật"
+            placeholder="Ví dụ: cô chủ quán cà phê"
+            value={quickCharacterForm.name}
+            onChange={(e) => setQuickCharacterForm((prev) => ({ ...prev, name: e.target.value }))}
+            required
+          />
+          <Textarea
+            id="quick-char-desc"
+            label="Mô tả ngoại hình (tuỳ chọn)"
+            placeholder="Ví dụ: áo khoác denim, tóc ngắn, đeo kính tròn"
+            value={quickCharacterForm.description}
+            onChange={(e) => setQuickCharacterForm((prev) => ({ ...prev, description: e.target.value }))}
+            rows={2}
+          />
+          <Textarea
+            id="quick-char-personality"
+            label="Tính cách (tuỳ chọn)"
+            placeholder="Ví dụ: nói chuyện hài hước, hơi cà khịa"
+            value={quickCharacterForm.personality}
+            onChange={(e) => setQuickCharacterForm((prev) => ({ ...prev, personality: e.target.value }))}
+            rows={2}
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" type="button" onClick={() => setShowQuickCharacterModal(false)}>Huỷ</Button>
+            <Button type="submit" loading={quickCharacterSaving}>Tạo và chọn</Button>
           </div>
-        </Modal>
-      </main>
-    </div>
+        </form>
+      </Modal>
+    </PageContainer>
   );
 }

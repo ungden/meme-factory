@@ -122,7 +122,7 @@ export async function processMemeRun(admin: Admin, run: MemeRun): Promise<"compl
       .select("id,user_id,name,style_prompt,brand_voice,audience,content_guidelines,default_format,watermark_url,creator_handle,workspace_version")
       .eq("id", run.project_id)
       .single();
-    if (!project || project.workspace_version !== run.workspace_version) throw new FinalMemeError("Dự án vừa thay đổi; lượt này dừng.");
+    if (!project || project.workspace_version !== run.workspace_version) throw new FinalMemeError("Kênh vừa thay đổi nên meme này dừng lại.");
     const options = normalizeMemeOptions(run.options);
     const { data: profileRow } = await admin
       .from("channel_profiles")
@@ -366,11 +366,11 @@ export async function processMemeRun(admin: Admin, run: MemeRun): Promise<"compl
     const message =
       error instanceof FinalMemeError
         ? error.message
-        : "AI chưa làm xong meme này. Hệ thống sẽ tự thử lại.";
+        : "Chưa làm xong meme này. AIDA sẽ tự thử lại.";
     console.error("meme run failed", { runId: run.id, attempt: run.attempts, error });
     await patchRun(admin, run, {
       status: final ? "failed" : "queued",
-      error: final && !(error instanceof FinalMemeError) ? "AI chưa làm được meme này sau ba lần thử." : message,
+      error: final && !(error instanceof FinalMemeError) ? "Chưa làm được meme này sau ba lần thử." : message,
       checkpoint: run.checkpoint,
       next_attempt_at: new Date(Date.now() + memeRetryDelaySeconds(run.attempts) * 1000).toISOString(),
       lease_expires_at: null,

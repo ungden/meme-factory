@@ -19,7 +19,7 @@ export async function GET(
       .eq("created_by", a.user.id)
       .eq("workspace_version", a.project.workspace_version)
       .maybeSingle();
-    if (error || !job) throw new FilmError("Không tìm thấy lượt soạn AI.", 404);
+    if (error || !job) throw new FilmError("Không tìm thấy gợi ý này. Bạn thử lại nhé.", 404);
     const { input_snapshot, ...safeJob } = job;
     const publicJob = { ...safeJob, intent: input_snapshot?.intent || "" };
     const profile = await latestChannelProfile(a);

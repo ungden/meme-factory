@@ -126,9 +126,11 @@ export async function POST(request: NextRequest) {
     // Meme Chỉnh tay gửi kèm mã của lần bấm để gửi lại sau khi rớt mạng không
     // trừ điểm hai lần. Ứng dụng di động và ảnh nhân vật chưa gửi mã này.
     const drawSave = type === "meme" ? readDrawSave(body) : null;
-    generationRequestId = type === "meme" && isDrawRequestId(body.request_id) ? body.request_id : crypto.randomUUID();
-    if (type === "meme" && generationRequestId === body.request_id) {
-      const prior = await readDrawPrior(getSupabaseAdmin(), project_id, generationRequestId);
+    const clientRequestId = type === "meme" && isDrawRequestId(body.request_id) ? body.request_id : null;
+    const requestId: string = clientRequestId ?? crypto.randomUUID();
+    generationRequestId = requestId;
+    if (clientRequestId) {
+      const prior = await readDrawPrior(getSupabaseAdmin(), project_id, requestId);
       const decision = decideDrawReplay(prior);
       if (decision === "replay")
         return NextResponse.json({
@@ -166,7 +168,7 @@ export async function POST(request: NextRequest) {
           actorUserId: user.id,
           cost,
           description: `${POINT_LABELS[action]} (-${cost} điểm)`,
-          requestId: generationRequestId,
+          requestId,
           aiAction: type,
           metadata: { type, project_id: projectId },
           projectName: String(project.name || ""),

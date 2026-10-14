@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn. Bạn đăng nhập lại nhé." }, { status: 401 });
     }
 
     const body = await request.json();
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     } = body || {};
 
     if (!project_id || !request_id || !output_kind) {
-      return NextResponse.json({ error: "Thiếu dữ liệu log output" }, { status: 400 });
+      return NextResponse.json({ error: "Thiếu thông tin bài cần ghi lại." }, { status: 400 });
     }
 
     const { error } = await supabase
@@ -43,11 +43,11 @@ export async function POST(request: NextRequest) {
       .eq("status", "completed");
 
     if (error) {
-      return NextResponse.json({ error: "Không thể ghi log output" }, { status: 500 });
+      return NextResponse.json({ error: "Chưa ghi lại được bài này." }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch {
-    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
+    return NextResponse.json({ error: "Chưa ghi lại được bài này. Bạn thử lại nhé." }, { status: 500 });
   }
 }

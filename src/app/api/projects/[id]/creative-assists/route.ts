@@ -55,13 +55,13 @@ export async function POST(
   const body = await request.json().catch(() => ({}));
   if (!KINDS.includes(body.kind))
     return NextResponse.json(
-      { error: "Loại hỗ trợ AI không hợp lệ." },
+      { error: "Không rõ cần gợi ý gì. Bạn tải lại trang rồi thử lại nhé." },
       { status: 400 },
     );
   const { data: project } = await projectForRef(supabase, id);
   if (!project)
     return NextResponse.json(
-      { error: "Không tìm thấy dự án hoặc bạn không có quyền." },
+      { error: "Không tìm thấy kênh hoặc bạn không còn quyền với kênh này." },
       { status: 404 },
     );
   if (
@@ -70,7 +70,7 @@ export async function POST(
   )
     return NextResponse.json(
       {
-        error: "Dự án đã được làm mới. Hãy tải lại trang trước khi soạn.",
+        error: "Kênh vừa được làm mới. Bạn tải lại trang rồi thử lại nhé.",
         code: "WORKSPACE_VERSION_CONFLICT",
       },
       { status: 409 },
@@ -86,7 +86,7 @@ export async function POST(
     !Number.isInteger(usage.dayCount)
   )
     return NextResponse.json(
-      { error: "Chưa kiểm tra được hạn mức soạn. Hãy thử lại." },
+      { error: "Chưa kiểm tra được số lượt gợi ý. Bạn thử lại nhé." },
       { status: 503 },
     );
   const { minuteCount, dayCount } = usage;
@@ -94,7 +94,7 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          "Bạn đã dùng 5 lượt soạn trong một phút. Hãy thử lại sau ít phút.",
+          "Bạn vừa nhờ gợi ý 5 lần trong một phút. Chờ ít phút rồi thử lại nhé.",
         code: "RATE_LIMIT_MINUTE",
       },
       { status: 429 },
@@ -102,7 +102,7 @@ export async function POST(
   if ((dayCount ?? 0) >= 30)
     return NextResponse.json(
       {
-        error: "Đã đạt giới hạn 30 lượt soạn hôm nay.",
+        error: "Hôm nay bạn đã nhờ gợi ý đủ 30 lần. Mai thử tiếp nhé.",
         code: "RATE_LIMIT_DAY",
       },
       { status: 429 },
@@ -151,13 +151,13 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          "Không tải được hồ sơ kênh và lịch sử; chưa gửi AI. Hãy thử lại.",
+          "Chưa đọc được hồ sơ kênh. Bạn thử lại nhé.",
       },
       { status: 503 },
     );
   if (charactersError)
     return NextResponse.json(
-      { error: charactersError.message },
+      { error: "Chưa đọc được nhân vật của kênh. Bạn thử lại nhé." },
       { status: 500 },
     );
   const allowedCharacters = (characters ?? []).map((character) => ({
@@ -175,7 +175,7 @@ export async function POST(
     )
   )
     return NextResponse.json(
-      { error: "Nhân vật được chọn không thuộc dự án này." },
+      { error: "Nhân vật được chọn không thuộc kênh này." },
       { status: 400 },
     );
 
@@ -251,7 +251,7 @@ export async function POST(
     .single();
   if (insertError || !job)
     return NextResponse.json(
-      { error: insertError?.message || "Không thể tạo lượt soạn AI." },
+      { error: "Chưa gợi ý được. Bạn thử lại nhé." },
       { status: 500 },
     );
 
@@ -332,8 +332,8 @@ export async function POST(
             code:
               error instanceof Error ? error.message : "CREATIVE_ASSIST_FAILED",
             message: editorial
-              ? "AI chưa tìm được bản đủ tốt hoặc chưa hoàn tất lượt soạn. Bản nháp trước của bạn vẫn được giữ."
-              : "Không thể hoàn tất lượt soạn AI.",
+              ? "Chưa viết được bản đủ tốt. Bản nháp trước của bạn vẫn còn nguyên."
+              : "Chưa gợi ý được. Bạn thử lại nhé.",
           },
           completed_at: new Date().toISOString(),
           usage: {
