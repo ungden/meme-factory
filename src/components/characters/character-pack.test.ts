@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { drawCost, isInsufficientPoints, needsDrawing, packState, planDraw, type PackCharacter } from "./character-pack";
+import { drawCost, drawFailureKind, isInsufficientPoints, needsDrawing, packState, planDraw, type PackCharacter } from "./character-pack";
 
 const draft = (view: string) => ({ path: `p/film-pack/c/${view}-x.png`, url: `https://x/${view}.png` });
 
@@ -83,5 +83,21 @@ describe("isInsufficientPoints", () => {
     expect(isInsufficientPoints({ error: "Không đủ điểm. Mỗi ảnh cần 5 điểm" })).toBe(true);
     expect(isInsufficientPoints({ error: "Lỗi khác" })).toBe(false);
     expect(isInsufficientPoints(null)).toBe(false);
+  });
+});
+
+describe("drawFailureKind", () => {
+  it("mạng rớt hoặc máy chủ không trả lời rõ: chưa biết đã vẽ chưa", () => {
+    expect(drawFailureKind(null)).toBe("unknown");
+    expect(drawFailureKind({})).toBe("unknown");
+  });
+
+  it("cùng mã đang vẽ ở lần gọi khác", () => {
+    expect(drawFailureKind({ code: "DRAW_IN_PROGRESS", error: "Ảnh này vẫn đang vẽ." })).toBe("busy");
+  });
+
+  it("máy chủ báo hỏng rõ ràng thì lần sau là lần vẽ mới", () => {
+    expect(drawFailureKind({ error: "Chưa vẽ được." })).toBe("failed");
+    expect(drawFailureKind({ code: "REQUEST_USED", error: "Lần vẽ trước đã dừng." })).toBe("failed");
   });
 });

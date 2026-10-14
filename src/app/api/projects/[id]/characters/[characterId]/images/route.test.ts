@@ -8,6 +8,11 @@ const state = vi.hoisted(() => ({
   uploads: [] as string[],
   poses: [] as Record<string, unknown>[],
   avatarUpdates: [] as unknown[],
+  // Sổ điểm và job giả: trừ theo mã như RPC thật, job trùng khoá thì báo trùng.
+  charges: 0,
+  payments: new Set<string>(),
+  jobs: new Map<string, string>(),
+  hold: null as Promise<void> | null,
 }));
 
 vi.mock("@/lib/short-film/server", () => {
@@ -19,10 +24,16 @@ vi.mock("@/lib/short-film/server", () => {
       super(message);
     }
   }
-  const chain = (result: unknown) => {
+  type Filters = Record<string, unknown>;
+  const chain = (result: { data: unknown } | ((filters: Filters) => unknown)) => {
+    const filters: Record<string, unknown> = {};
     const node: Record<string, unknown> = {};
-    for (const key of ["select", "eq"]) node[key] = () => node;
-    node.maybeSingle = async () => result;
+    node.select = () => node;
+    node.eq = (column: string, value: unknown) => {
+      filters[column] = value;
+      return node;
+    };
+    node.maybeSingle = async () => (typeof result === "function" ? result(filters) : result);
     return node;
   };
   const admin = {
@@ -33,12 +44,18 @@ vi.mock("@/lib/short-film/server", () => {
           update: (patch: unknown) => ({ eq: async () => state.avatarUpdates.push(patch) }),
         };
       if (table === "character_dna") return chain({ data: null });
+      if (table === "generation_jobs")
+        return chain((f: Filters) => ({ data: state.jobs.has(String(f.id)) ? { status: state.jobs.get(String(f.id)) } : null }));
+      if (table === "project_transactions")
+        return chain((f: Filters) => ({ data: state.payments.has(String(f.request_id)) ? { created_at: new Date().toISOString() } : null }));
       return {
+        ...chain((f: Filters) => ({ data: state.poses.find((pose) => pose.image_url === f.image_url) ?? null })),
         insert: (row: Record<string, unknown>) => ({
           select: () => ({
             single: async () => {
-              state.poses.push(row);
-              return { data: { id: "pose1", ...row }, error: null };
+              const pose = { id: `pose${state.poses.length + 1}`, ...row };
+              state.poses.push(pose);
+              return { data: pose, error: null };
             },
           }),
         }),
@@ -79,14 +96,27 @@ vi.mock("@/lib/charged-image", () => {
       super(`Không đủ điểm. Mỗi ảnh cần ${required} điểm, bạn đang có ${available} điểm.`);
     }
   }
+  class DuplicateRequestError extends Error {}
   return {
     InsufficientPointsError,
-    chargedCharacterImage: async ({ generate }: { generate: () => Promise<unknown> }) => {
+    DuplicateRequestError,
+    chargedCharacterImage: async ({ generate, requestId }: { generate: () => Promise<unknown>; requestId?: string }) => {
       if (state.insufficient) throw new InsufficientPointsError(5, 2);
+      const id = requestId ?? `r${state.jobs.size + 1}`;
+      if (!state.payments.has(id)) {
+        state.payments.add(id);
+        state.charges += 1;
+      }
+      if (state.jobs.has(id)) throw new DuplicateRequestError();
+      state.jobs.set(id, "running");
       try {
-        return { result: await generate(), requestId: "r1", cost: 5 };
+        if (state.hold) await state.hold;
+        const result = await generate();
+        state.jobs.set(id, "completed");
+        return { result, requestId: id, cost: 5 };
       } catch (error) {
         state.refunds += 1;
+        state.jobs.set(id, "failed");
         throw error;
       }
     },
@@ -113,6 +143,10 @@ describe("vẽ thêm ảnh nhân vật", () => {
     state.uploads = [];
     state.poses = [];
     state.avatarUpdates = [];
+    state.charges = 0;
+    state.payments = new Set();
+    state.jobs = new Map();
+    state.hold = null;
   });
 
   it("lưu ảnh vào kho trước khi trả lời, không cần trình duyệt bấm lưu", async () => {
@@ -139,5 +173,56 @@ describe("vẽ thêm ảnh nhân vật", () => {
     const response = await call();
     expect(response.status).toBe(402);
     expect(await response.json()).toMatchObject({ code: "INSUFFICIENT_POINTS", required: 5, current: 2 });
+  });
+
+  describe("bấm hai lần cùng một mã", () => {
+    const requestId = "6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
+
+    it("hai yêu cầu chạy cùng lúc chỉ trừ một lần, yêu cầu sau báo đang vẽ", async () => {
+      let release!: () => void;
+      state.hold = new Promise<void>((resolve) => (release = resolve));
+      const first = call({ note: "cười", request_id: requestId });
+      const second = call({ note: "cười", request_id: requestId });
+      const secondResponse = await second;
+      release();
+      const firstResponse = await first;
+      expect(firstResponse.status).toBe(200);
+      expect(secondResponse.status).toBe(409);
+      expect(await secondResponse.json()).toMatchObject({ code: "DRAW_IN_PROGRESS" });
+      expect(state.charges).toBe(1);
+      expect(state.uploads).toHaveLength(1);
+      expect(state.refunds).toBe(0);
+    });
+
+    it("gửi lại sau khi xong thì trả đúng ảnh cũ, không trừ thêm", async () => {
+      const firstResponse = await call({ request_id: requestId });
+      const first = await firstResponse.json();
+      const againResponse = await call({ request_id: requestId });
+      const again = await againResponse.json();
+      expect(againResponse.status).toBe(200);
+      expect(again).toMatchObject({ replayed: true, pointsUsed: 0 });
+      expect(again.pose.id).toBe(first.pose.id);
+      expect(state.charges).toBe(1);
+      expect(state.uploads).toHaveLength(1);
+      expect(state.uploads[0]).toContain(`extra-${requestId}`);
+    });
+
+    it("mã của lần đã hỏng thì không dùng lại, để lần mới không thành miễn phí", async () => {
+      state.uploadError = new Error("storage down");
+      expect((await call({ request_id: requestId })).status).toBe(500);
+      state.uploadError = null;
+      const again = await call({ request_id: requestId });
+      expect(again.status).toBe(409);
+      expect(await again.json()).toMatchObject({ code: "REQUEST_USED" });
+      expect(state.charges).toBe(1);
+      expect(state.refunds).toBe(1);
+    });
+
+    it("hai lần bấm khác mã là hai ảnh, hai lần trừ", async () => {
+      await call({ request_id: requestId });
+      await call({ request_id: "7a1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b" });
+      expect(state.charges).toBe(2);
+      expect(state.uploads).toHaveLength(2);
+    });
   });
 });
