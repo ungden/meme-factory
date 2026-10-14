@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { notFound, useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Check, ImagePlus, Plus, Sparkles, Star, Users, X } from "lucide-react";
+import { ArrowRight, Check, ImagePlus, Plus, Search, Sparkles, Star, Users, X } from "lucide-react";
 import Alert from "@/components/ui/alert";
 import Button, { buttonClasses } from "@/components/ui/button";
 import Card, { CardContent } from "@/components/ui/card";
@@ -16,6 +16,15 @@ import PriceLine from "@/components/ui/price-line";
 import Textarea from "@/components/ui/textarea";
 import OutOfPointsModal from "@/components/wallet/out-of-points-modal";
 import CharacterPackCard from "@/components/characters/character-pack-card";
+import CharacterListToolbar from "@/components/characters/character-list-toolbar";
+import {
+  arrangeCharacters,
+  CHARACTER_TOOLBAR_MIN,
+  characterUsage,
+  usageScore,
+  type CharacterFilter,
+  type CharacterSort,
+} from "@/components/characters/character-list";
 import { drawCost, isLocked, needsDrawing, PACK_VIEWS } from "@/components/characters/character-pack";
 import { postJson, useCharacterPack } from "@/components/characters/use-character-pack";
 import { formatPoints } from "@/lib/format";
@@ -44,6 +53,9 @@ export default function CharacterStage() {
   const [manual, setManual] = useState<CastMember | null>(null);
   const [manualImage, setManualImage] = useState<{ file: File; preview: string } | null>(null);
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<CharacterFilter>("all");
+  const [sort, setSort] = useState<CharacterSort>("usage");
   const suggestedOnce = useRef(false);
   const manualImageInput = useRef<HTMLInputElement>(null);
 
@@ -84,25 +96,22 @@ export default function CharacterStage() {
     void suggest();
   }, [status, suggest]);
 
+  const usage = useMemo(() => characterUsage(baseImages, memes), [baseImages, memes]);
+
   const featured = useMemo(() => {
     if (!status || status.characters.length < 2) return null;
-    const memesByImage = new Map<string, number>();
-    for (const meme of memes) {
-      if (meme.base_image_id) memesByImage.set(meme.base_image_id, (memesByImage.get(meme.base_image_id) ?? 0) + 1);
-    }
     let best: { id: string; name: string; ready: number; memes: number; baseId: string } | null = null;
-    let bestScore = 0;
     for (const character of status.characters) {
-      const images = baseImages.filter((image) => image.character_id === character.id);
-      const made = images.reduce((sum, image) => sum + (memesByImage.get(image.id) ?? 0), 0);
-      const score = made * 10 + images.length;
-      if (images.length && score > bestScore) {
-        bestScore = score;
-        best = { id: character.id, name: character.name, ready: images.length, memes: made, baseId: images[0].id };
-      }
+      const entry = usage.get(character.id);
+      if (entry && usageScore(entry) > usageScore(best ?? undefined)) best = { id: character.id, name: character.name, ...entry };
     }
     return best;
-  }, [status, baseImages, memes]);
+  }, [status, usage]);
+
+  const shown = useMemo(
+    () => (status ? arrangeCharacters(status.characters, { query, filter, sort, usage }) : []),
+    [status, query, filter, sort, usage],
+  );
 
   async function addCharacters(members: CastMember[], image?: File) {
     setAdding(true);
@@ -166,6 +175,7 @@ export default function CharacterStage() {
   const lockedCount = status.characters.filter(isLocked).length;
   const busy = Boolean(pack.work) || adding;
   const keptCount = suggestions.filter((member) => member.keep).length;
+  const showToolbar = status.characters.length >= CHARACTER_TOOLBAR_MIN;
 
   return (
     <PageContainer>
@@ -212,9 +222,31 @@ export default function CharacterStage() {
           </Card>
         )}
 
-        {status.characters.length > 0 ? (
+        {showToolbar && (
+          <CharacterListToolbar query={query} onQuery={setQuery} filter={filter} onFilter={setFilter} sort={sort} onSort={setSort} />
+        )}
+
+        {showToolbar && shown.length === 0 ? (
+          <EmptyState
+            icon={Search}
+            title="Không có nhân vật nào khớp"
+            hint="Thử tên khác hoặc bỏ lọc nhé."
+            action={
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setQuery("");
+                  setFilter("all");
+                }}
+              >
+                Bỏ lọc
+              </Button>
+            }
+          />
+        ) : status.characters.length > 0 ? (
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {status.characters.map((character) => (
+            {(showToolbar ? shown : status.characters).map((character) => (
               <li key={character.id}>
                 <CharacterPackCard
                   character={character}

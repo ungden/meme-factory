@@ -24,7 +24,8 @@ vi.mock("@/lib/short-film/server", () => {
       super(message);
     }
   }
-  const chain = (result: unknown | ((filters: Record<string, unknown>) => unknown)) => {
+  type Filters = Record<string, unknown>;
+  const chain = (result: { data: unknown } | ((filters: Filters) => unknown)) => {
     const filters: Record<string, unknown> = {};
     const node: Record<string, unknown> = {};
     node.select = () => node;
@@ -44,11 +45,11 @@ vi.mock("@/lib/short-film/server", () => {
         };
       if (table === "character_dna") return chain({ data: null });
       if (table === "generation_jobs")
-        return chain((f) => ({ data: state.jobs.has(String(f.id)) ? { status: state.jobs.get(String(f.id)) } : null }));
+        return chain((f: Filters) => ({ data: state.jobs.has(String(f.id)) ? { status: state.jobs.get(String(f.id)) } : null }));
       if (table === "project_transactions")
-        return chain((f) => ({ data: state.payments.has(String(f.request_id)) ? { created_at: new Date().toISOString() } : null }));
+        return chain((f: Filters) => ({ data: state.payments.has(String(f.request_id)) ? { created_at: new Date().toISOString() } : null }));
       return {
-        ...chain((f) => ({ data: state.poses.find((pose) => pose.image_url === f.image_url) ?? null })),
+        ...chain((f: Filters) => ({ data: state.poses.find((pose) => pose.image_url === f.image_url) ?? null })),
         insert: (row: Record<string, unknown>) => ({
           select: () => ({
             single: async () => {
