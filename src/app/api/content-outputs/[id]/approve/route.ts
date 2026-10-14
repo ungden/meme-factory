@@ -9,8 +9,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const body = await request.json().catch(() => ({}));
   const status = body.status === "rejected" ? "rejected" : "approved";
   const { data: output } = await supabase.from("content_outputs").select("id, review_version, status").eq("id", id).maybeSingle();
-  if (!output) return NextResponse.json({ error: "Không tìm thấy đầu ra." }, { status: 404 });
-  if (!['completed', 'approved', 'rejected'].includes(output.status)) return NextResponse.json({ error: "Chỉ có thể duyệt đầu ra đã tạo xong." }, { status: 409 });
+  if (!output) return NextResponse.json({ error: "Không tìm thấy bài này." }, { status: 404 });
+  if (!['completed', 'approved', 'rejected'].includes(output.status)) return NextResponse.json({ error: "Bài chưa xong nên chưa duyệt được." }, { status: 409 });
   const { data: result, error: reviewError } = await supabaseAdmin.rpc("review_content_output", {
     p_output: id,
     p_actor: user.id,

@@ -725,11 +725,11 @@ export async function quoteSegmentRender(a: Access, plan: FilmPlan) {
         .single();
       if (raceError) throw raceError;
       if (raced.render_task_id)
-        throw new FilmError("Bản dựng với đúng các đoạn này đã được nhận.", 409);
+        throw new FilmError("Bản ghép với đúng các đoạn này đã có rồi.", 409);
       manifest = raced;
     } else manifest = data;
   }
-  if (!manifest) throw new FilmError("Không khóa được manifest bản dựng.", 500);
+  if (!manifest) throw new FilmError("Chưa chốt được bản ghép. Bạn thử lại nhé.", 500);
   const render = task("render", {
     clips,
     format: plan.format,

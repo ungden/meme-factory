@@ -53,7 +53,7 @@ export async function updateSession(request: NextRequest) {
   if (!isValidUrl(supabaseUrl) || !supabaseKey) {
     if (process.env.NODE_ENV === "production")
       return new NextResponse(
-        JSON.stringify({ error: "Hệ thống chưa cấu hình xong. Vui lòng thử lại sau." }),
+        JSON.stringify({ error: "Hệ thống đang bảo trì. Bạn thử lại sau ít phút nhé." }),
         { status: 503, headers: { "content-type": "application/json", "cache-control": "no-store" } },
       );
     return NextResponse.next({ request });

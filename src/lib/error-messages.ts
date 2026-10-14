@@ -182,7 +182,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   SEGMENT_SCOPE_MISMATCH: "Đoạn phim không thuộc tập phim này.",
   SEGMENT_SOURCE_INVALID: "Nguồn của đoạn phim không hợp lệ.",
   SEGMENT_TASK_SCOPE_MISMATCH: "Công đoạn không thuộc đoạn phim này.",
-  EDIT_MANIFEST_SCOPE_MISMATCH: "Bản dựng không thuộc tập phim này.",
+  EDIT_MANIFEST_SCOPE_MISMATCH: "Bản ghép này không thuộc tập phim này.",
 
   // ----- Kịch bản và phân cảnh -----
   // Chủ kênh không tự sửa được lỗi kiểm kịch bản; họ chỉ bấm được một trong
@@ -410,7 +410,7 @@ export const ERROR_DETAILS: Record<string, string> = {
   STORY_GUEST_KEY_INVALID:
     "Mã khách mời không hợp lệ.",
   STORY_GUEST_DESCRIPTION_REQUIRED:
-    "Khách mời cần mô tả ngoại hình đủ rõ để dựng ảnh.",
+    "Khách mời cần mô tả ngoại hình đủ rõ để vẽ.",
   STORY_GUEST_UNDECLARED:
     "Kịch bản dùng một khách mời chưa được khai báo.",
   FAMILY_EDITORIAL_NEEDS_REVIEW:
@@ -434,9 +434,9 @@ export const ERROR_DETAILS: Record<string, string> = {
   FAMILY_EDITORIAL_REVIEW_INVALID:
     "Kết quả biên tập chưa hợp lệ.",
   FAMILY_DIALOGUE_CHANGED:
-    "AI đã tự đổi lời thoại khi dựng cảnh.",
+    "Lời thoại bị đổi khi làm cảnh.",
   FAMILY_PLAN_INVALID:
-    "Phân cảnh AI dựng chưa hợp lệ.",
+    "Phân cảnh chưa hợp lệ.",
   FAMILY_WRITING_TIMEOUT:
     "Bước viết kịch bản quá thời gian cho phép.",
   FAMILY_CHECKPOINT_SAVE_FAILED:

@@ -28,7 +28,9 @@ export function PageContainer({
   className?: string;
 }) {
   return (
-    <main className={`min-h-screen px-4 pb-12 pt-16 sm:px-6 lg:px-8 lg:pt-8 ${className}`}>
+    // overflow-x-clip: quầng sáng sau ô nhập ở trang chính và trang kênh cố ý
+    // lấn ra hai bên; không cắt thì điện thoại cuộn ngang được.
+    <main className={`min-h-screen overflow-x-clip px-4 pb-12 pt-16 sm:px-6 lg:px-8 lg:pt-8 ${className}`}>
       <div className={`mx-auto w-full ${WIDTHS[width]}`}>{children}</div>
     </main>
   );

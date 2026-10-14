@@ -80,7 +80,7 @@ export async function DELETE(r: NextRequest, { params }: Context) {
       .eq("plan_id", p.planId);
     if (count)
       throw new FilmError(
-        "Phim đã có lịch sử sản xuất; giữ lại các kết quả và bản dựng.",
+        "Phim này đã làm rồi nên không xoá được; các bản đã làm vẫn được giữ.",
         409,
       );
     const { error } = await a.admin

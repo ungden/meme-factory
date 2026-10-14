@@ -96,7 +96,7 @@ export async function createTemplateFromFile(input: CreateTemplateInput): Promis
     // Clean up the object we just uploaded so a failed insert leaves no litter.
     await supabase.storage.from("meme-templates").remove([storagePath]);
     if (error.code === "23505") {
-      throw new Error("Ảnh này đã có trong thư viện mẫu của dự án.");
+      throw new Error("Ảnh này đã có trong Mẫu meme của kênh.");
     }
     throw new Error(error.message);
   }

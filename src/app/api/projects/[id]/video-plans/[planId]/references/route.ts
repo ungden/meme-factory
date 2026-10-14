@@ -67,7 +67,7 @@ export async function POST(
         visualRequirements,
         visualStoryMechanism:
           s.storyboard?.referencePlan?.storyMechanism || "",
-        displayName: `Ảnh tham chiếu · ${authoredReference.purpose}`,
+        displayName: `Ảnh mẫu · ${authoredReference.purpose}`,
         subjectKey: `${s.id}:${s.version}:reference:${referenceImageId}:1`,
       },
       0,

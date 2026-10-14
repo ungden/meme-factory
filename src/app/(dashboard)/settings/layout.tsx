@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-export const metadata: Metadata = { title: "Tài khoản" };
+export const metadata: Metadata = { title: { absolute: "Tài khoản | AIDA" } };
 
 export default function Layout({ children }: { children: ReactNode }) {
   return children;

@@ -83,7 +83,7 @@ async function callOpenAi(path: string, body: BodyInit, headers: Record<string, 
   }
 
   const image = payload.data?.[0]?.b64_json;
-  if (!image) throw new Error("Không nhận được kết quả từ AI. Vui lòng thử lại.");
+  if (!image) throw new Error("Chưa vẽ được ảnh. Bạn thử lại nhé.");
 
   return { image, text: payload.data?.[0]?.revised_prompt, usage: payload.usage };
 }

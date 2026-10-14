@@ -85,7 +85,7 @@ export async function POST(
     checkVersion(a, body);
     if (voicesLocked(await latestChannelProfile(a)))
       throw new FilmError(
-        "Giọng của bốn nhân vật trong dự án đã được chốt; không tạo hoặc duyệt thêm giọng ở đây.",
+        "Giọng các nhân vật của kênh đã chốt rồi, không thêm giọng ở đây được nữa.",
         409,
       );
     if (body.quoteId) {

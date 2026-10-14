@@ -414,7 +414,7 @@ function extractImageFromResponse(response: any): GeneratedImageResult {
 
   const parts = response?.candidates?.[0]?.content?.parts;
   if (!parts || parts.length === 0) {
-    throw new Error("Không nhận được kết quả từ AI. Vui lòng thử lại.");
+    throw new Error("Chưa vẽ được ảnh. Bạn thử lại nhé.");
   }
 
   for (const part of parts) {
@@ -431,7 +431,7 @@ function extractImageFromResponse(response: any): GeneratedImageResult {
     if (textContent) {
       console.error("AI returned text instead of image:", textContent);
     }
-    throw new Error("AI không tạo được ảnh. Vui lòng thử lại với mô tả khác.");
+    throw new Error("Chưa vẽ được ảnh này. Bạn thử mô tả khác nhé.");
   }
 
   // Gỡ metadata (EXIF/XMP/C2PA/text chunk...) ngay tại điểm ảnh rời khỏi
