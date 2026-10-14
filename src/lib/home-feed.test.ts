@@ -29,8 +29,14 @@ describe("trang chính", () => {
     const items = homeFeed([project], [], [
       { id: "m1", project_id: "p1", workspace_version: 2, intent: "", status: "running", source: "manual", created_at: "2026-10-09T09:30:00Z", completed_at: null },
       { id: "m2", project_id: "p1", workspace_version: 2, intent: "x", status: "completed", source: "manual", created_at: "2026-10-09T06:00:00Z", completed_at: "2026-10-09T06:01:00Z", memes: { image_url: "https://a/b.png" } },
+      { id: "m3", project_id: "p1", workspace_version: 2, intent: "y", status: "completed", source: "manual", created_at: "2026-10-09T05:00:00Z", completed_at: "2026-10-09T05:01:00Z", meme_id: "meme-3", memes: { image_url: "https://a/c.png" } },
     ]);
-    expect(items.map((item) => item.href)).toEqual(["/projects/banh-bao/generate", "/projects/banh-bao/gallery"]);
+    // Có meme_id thì mở đúng meme đó trong Thư viện, không bắt tìm lại.
+    expect(items.map((item) => item.href)).toEqual([
+      "/projects/banh-bao/generate",
+      "/projects/banh-bao/gallery",
+      "/projects/banh-bao/gallery?item=meme-3",
+    ]);
   });
 
   it("có cả video lẻ: bỏ bản nháp, mỗi thẻ mở đúng video của nó", () => {

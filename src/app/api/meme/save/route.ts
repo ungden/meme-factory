@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     const { supabase, user } = await getRequestUser(request);
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn. Bạn đăng nhập lại nhé." }, { status: 401 });
     }
 
     const body = await request.json();
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!project) {
-      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      return NextResponse.json({ error: "Không tìm thấy kênh này." }, { status: 404 });
     }
 
     if (source_meme_id) {
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (!sourceMeme) {
-        return NextResponse.json({ error: "Source meme không hợp lệ" }, { status: 400 });
+        return NextResponse.json({ error: "Meme gốc không còn nữa." }, { status: 400 });
       }
     }
 
@@ -197,6 +197,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ meme });
   } catch (error) {
     console.error("Save meme error:", error);
-    return NextResponse.json({ error: "Failed to save meme" }, { status: 500 });
+    return NextResponse.json({ error: "Chưa lưu được meme. Bạn thử lại nhé." }, { status: 500 });
   }
 }

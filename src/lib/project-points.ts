@@ -94,8 +94,8 @@ export async function spendProjectPoints(rpc: PointsRpc, input: SpendInput): Pro
       _owner_user_id: input.projectOwnerId,
       _points_to_deposit: shortfall,
       _description: input.projectName
-        ? `Tự chuyển điểm sang dự án ${input.projectName}`
-        : "Tự chuyển điểm sang ví dự án",
+        ? `Tự chuyển điểm vào kênh ${input.projectName}`
+        : "Tự chuyển điểm vào kênh",
     });
 
     if (!moved.success)
@@ -161,8 +161,8 @@ export async function ensureProjectPoints(
       _owner_user_id: input.projectOwnerId,
       _points_to_deposit: shortfall,
       _description: input.projectName
-        ? `Tự chuyển điểm sang dự án ${input.projectName}`
-        : "Tự chuyển điểm sang ví dự án",
+        ? `Tự chuyển điểm vào kênh ${input.projectName}`
+        : "Tự chuyển điểm vào kênh",
     });
     if (!moved.success)
       return { ok: false, available: input.currentPoints + Number(moved.points ?? 0) };

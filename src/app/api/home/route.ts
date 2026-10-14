@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       .limit(30),
     admin
       .from("meme_production_runs")
-      .select("id,project_id,workspace_version,intent,status,source,created_at,completed_at,memes(image_url,generated_content)")
+      .select("id,project_id,workspace_version,intent,status,source,created_at,completed_at,meme_id,memes(image_url,generated_content)")
       .in("project_id", ids)
       .order("created_at", { ascending: false })
       .limit(30),

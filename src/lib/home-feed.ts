@@ -49,6 +49,7 @@ export type FeedMemeRun = {
   source: string;
   created_at: string;
   completed_at: string | null;
+  meme_id?: string | null;
   memes?: { image_url?: string | null; generated_content?: { headline?: string } | null } | null;
 };
 
@@ -168,7 +169,10 @@ export function homeFeed(
       label: MEME_LABEL[status],
       // Thư viện chưa mở thẳng được một meme, nên meme xong dẫn về Thư viện; meme
       // đang làm hoặc hỏng thì trang Meme mới có tiến độ và nút thử lại.
-      href: `/projects/${projectRef(project)}/${status === "ready" ? "gallery" : "generate"}`,
+      href:
+        status === "ready" && run.meme_id
+          ? `/projects/${projectRef(project)}/gallery?item=${run.meme_id}`
+          : `/projects/${projectRef(project)}/${status === "ready" ? "gallery" : "generate"}`,
       imageUrl: status === "ready" ? run.memes?.image_url || null : null,
       videoUrl: null,
       format: null,
