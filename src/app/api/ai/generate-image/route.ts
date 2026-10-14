@@ -14,6 +14,7 @@ import {
 } from "@/lib/gemini-image";
 import { POINT_LABELS, type PointAction } from "@/lib/point-pricing";
 import { spendProjectPoints } from "@/lib/project-points";
+import { formatPoints } from "@/lib/format";
 import { RATE_LIMITS, checkRateLimit, rateLimitMessage } from "@/lib/rate-limit";
 import { assertPriceCoversCost, getPointCost } from "@/lib/point-pricing.server";
 import {
@@ -31,6 +32,13 @@ import {
   buildCharacterManifest,
 } from "@/lib/continuity/asset-manifest";
 import type { GenerationRecipe } from "@/lib/continuity/types";
+import {
+  decideDrawReplay,
+  isDrawRequestId,
+  persistDrawnMeme,
+  readDrawPrior,
+  readDrawSave,
+} from "@/lib/meme-draw";
 
 let supabaseAdminClient: SupabaseClient | null = null;
 
@@ -70,7 +78,7 @@ export async function POST(request: NextRequest) {
     const { supabase, user } = await getRequestUser(request);
     if (!user) {
       return NextResponse.json(
-        { error: "Vui lòng đăng nhập để sử dụng tính năng này" },
+        { error: "Phiên đăng nhập đã hết hạn. Bạn đăng nhập lại nhé." },
         { status: 401 }
       );
     }
@@ -89,13 +97,13 @@ export async function POST(request: NextRequest) {
 
     if (!type || !["meme", "character", "background"].includes(type)) {
       return NextResponse.json(
-        { error: "Invalid type. Must be 'meme', 'character', or 'background'." },
+        { error: "Không rõ cần vẽ gì. Bạn tải lại trang rồi thử lại nhé." },
         { status: 400 }
       );
     }
 
     if (!project_id || typeof project_id !== "string") {
-      return NextResponse.json({ error: "Thiếu project_id" }, { status: 400 });
+      return NextResponse.json({ error: "Chưa chọn kênh. Bạn tải lại trang rồi thử lại nhé." }, { status: 400 });
     }
 
     // Verify user can access this project (owner or shared member via RLS)
@@ -106,7 +114,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (!project) {
-      return NextResponse.json({ error: "Project không hợp lệ hoặc bạn không có quyền" }, { status: 403 });
+      return NextResponse.json({ error: "Không tìm thấy kênh hoặc bạn không còn quyền với kênh này." }, { status: 403 });
     }
 
     projectId = project_id;
@@ -115,7 +123,33 @@ export async function POST(request: NextRequest) {
     // Point System — Atomic Deduct via RPC
     // ============================================
     const action = getPointAction(type);
-    generationRequestId = crypto.randomUUID();
+    // Meme Chỉnh tay gửi kèm mã của lần bấm để gửi lại sau khi rớt mạng không
+    // trừ điểm hai lần. Ứng dụng di động và ảnh nhân vật chưa gửi mã này.
+    const drawSave = type === "meme" ? readDrawSave(body) : null;
+    generationRequestId = type === "meme" && isDrawRequestId(body.request_id) ? body.request_id : crypto.randomUUID();
+    if (type === "meme" && generationRequestId === body.request_id) {
+      const prior = await readDrawPrior(getSupabaseAdmin(), project_id, generationRequestId);
+      const decision = decideDrawReplay(prior);
+      if (decision === "replay")
+        return NextResponse.json({
+          image: "",
+          image_url: prior.meme!.image_url,
+          meme_id: prior.meme!.id,
+          generation_request_id: generationRequestId,
+          pointsUsed: 0,
+          replayed: true,
+        });
+      if (decision === "busy")
+        return NextResponse.json(
+          { error: "Ảnh này vẫn đang vẽ. Lát nữa mở Thư viện là thấy nhé.", code: "DRAW_IN_PROGRESS" },
+          { status: 409 },
+        );
+      if (decision === "used")
+        return NextResponse.json(
+          { error: "Lần vẽ trước chưa xong. Bạn bấm vẽ lại nhé.", code: "REQUEST_USED" },
+          { status: 409 },
+        );
+    }
     // Price comes from the admin-configured table, falling back to the compiled
     // constants, and is checked against the worst call this action can make before
     // a single point is taken.
@@ -146,7 +180,7 @@ export async function POST(request: NextRequest) {
       if (!spent.ok) {
         return NextResponse.json(
           {
-            error: `Không đủ điểm. ${POINT_LABELS[action]} cần ${cost} điểm, bạn đang có ${spent.available} điểm.`,
+            error: `Không đủ điểm. ${POINT_LABELS[action]} cần ${formatPoints(cost)}, bạn đang có ${formatPoints(spent.available)}.`,
             code: "INSUFFICIENT_POINTS",
             required: cost,
             current: spent.available,
@@ -190,6 +224,9 @@ export async function POST(request: NextRequest) {
           started_at: new Date().toISOString(),
         });
       if (jobInsertError) {
+        // Hai lần gửi cùng mã chạy song song: lần thua không được hoàn điểm,
+        // vì khoản trừ (theo mã) thuộc về lần đang vẽ.
+        if (jobInsertError.code === "23505") throw new Error("DRAW_IN_PROGRESS");
         // Rollout tolerance: `character_reference` and `background` only became
         // valid creation kinds in 20260818135130. While that migration is still
         // rolling out, keep the paid generation working instead of failing it
@@ -359,6 +396,23 @@ export async function POST(request: NextRequest) {
             fallback: priceEstimate,
           });
 
+    let savedMeme: { id: string; image_url: string } | null = null;
+    if (drawSave && generationRequestId && actorUserId && result.image) {
+      try {
+        savedMeme = await persistDrawnMeme(getSupabaseAdmin(), {
+          projectId: project_id,
+          actorUserId,
+          requestId: generationRequestId,
+          imageBase64: result.image,
+          save: drawSave,
+        });
+      } catch (saveError) {
+        // Ảnh đã vẽ và đã tính điểm: vẫn trả về để trình duyệt tự lưu như cũ,
+        // không biến lỗi ghi sổ thành một lần vẽ hỏng rồi hoàn điểm.
+        console.error("Drawn meme persistence failed:", saveError);
+      }
+    }
+
     if (generationJobPersisted && generationRequestId) {
       const { error: completeJobError } = await getSupabaseAdmin()
         .from("generation_jobs")
@@ -393,6 +447,8 @@ export async function POST(request: NextRequest) {
       text: result.text,
       generation_request_id: generationRequestId,
       generation_job_id: generationJobPersisted ? generationRequestId : undefined,
+      meme_id: savedMeme?.id,
+      image_url: savedMeme?.image_url,
       reference_manifest: generationRecipe
         ? {
             selected: generationRecipe.references.length,
@@ -418,6 +474,13 @@ export async function POST(request: NextRequest) {
     const rawMessage =
       error instanceof Error ? error.message : "";
 
+    if (rawMessage === "DRAW_IN_PROGRESS") {
+      return NextResponse.json(
+        { error: "Ảnh này vẫn đang vẽ. Lát nữa mở Thư viện là thấy nhé.", code: "DRAW_IN_PROGRESS" },
+        { status: 409 },
+      );
+    }
+
     if (generationJobPersisted && generationRequestId) {
       await getSupabaseAdmin()
         .from("generation_jobs")
@@ -430,6 +493,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Guarantee: if points were deducted and request fails, refund immediately
+    let refundedPoints = 0;
     if (actorUserId && projectId && deductedCost > 0 && deductedAction) {
       const { error: refundError } = await getSupabaseAdmin().rpc("atomic_refund_project_points", {
         _project_id: projectId,
@@ -444,44 +508,45 @@ export async function POST(request: NextRequest) {
       });
       if (refundError) {
         console.error("Point refund failed:", refundError.message);
+      } else {
+        refundedPoints = deductedCost;
       }
     }
 
     // Sanitize: only return safe, user-facing messages — never leak model names, API keys, or internal details
-    let userMessage = "Không thể tạo ảnh. Vui lòng thử lại.";
+    const refunded = refundedPoints > 0 ? refundedPoints : undefined;
+    let userMessage = "Chưa vẽ được. Bạn thử lại nhé.";
 
     if (rawMessage.includes("not configured") || rawMessage.includes("AI_KEY_NOT_CONFIGURED")) {
       return NextResponse.json(
-        { error: "Hệ thống AI chưa được cấu hình. Vui lòng liên hệ admin.", code: "NOT_CONFIGURED" },
+        { error: "Chức năng vẽ đang tạm dừng. Bạn quay lại sau nhé.", code: "NOT_CONFIGURED", refundedPoints: refunded },
         { status: 503 }
       );
     }
     if (rawMessage.includes("VALIDATION_HEADLINE_REQUIRED")) {
-      return NextResponse.json({ error: "Cần headline hoặc prompt mô tả để tạo meme" }, { status: 400 });
+      return NextResponse.json({ error: "Cần chữ trên ảnh hoặc mô tả cảnh để vẽ meme.", refundedPoints: refunded }, { status: 400 });
     }
     if (rawMessage.includes("VALIDATION_CHARACTER_REQUIRED")) {
-      return NextResponse.json({ error: "characterName và characterDescription là bắt buộc" }, { status: 400 });
+      return NextResponse.json({ error: "Cần tên và mô tả nhân vật để vẽ.", refundedPoints: refunded }, { status: 400 });
     }
     if (rawMessage.includes("VALIDATION_BACKGROUND_REQUIRED")) {
-      return NextResponse.json({ error: "description is required for background generation" }, { status: 400 });
+      return NextResponse.json({ error: "Cần mô tả cảnh để vẽ nền.", refundedPoints: refunded }, { status: 400 });
     }
     if (rawMessage.includes("Không nhận được kết quả")) {
-      userMessage = "AI không trả về kết quả. Vui lòng thử lại.";
+      userMessage = "Chưa nhận được ảnh. Bạn thử lại nhé.";
     } else if (rawMessage.includes("không tạo được ảnh")) {
-      userMessage = "AI không tạo được ảnh. Vui lòng thử mô tả khác.";
-    } else if (rawMessage.includes("Không đủ points") || rawMessage.includes("INSUFFICIENT_POINTS")) {
-      userMessage = rawMessage; // Point messages are safe to show
+      userMessage = "Chưa vẽ được ảnh này. Bạn thử mô tả khác nhé.";
     } else if (rawMessage.includes("Lỗi trừ points")) {
-      userMessage = "Lỗi hệ thống khi xử lý points. Vui lòng thử lại.";
+      userMessage = "Chưa trừ được điểm. Bạn thử lại nhé.";
     } else if (rawMessage.includes("SAFETY") || rawMessage.includes("blocked")) {
-      userMessage = "Nội dung bị từ chối bởi bộ lọc an toàn. Vui lòng thử ý tưởng khác.";
+      userMessage = "Nội dung này bị bộ lọc an toàn chặn. Bạn thử ý tưởng khác nhé.";
     } else if (rawMessage.includes("quota") || rawMessage.includes("rate limit") || rawMessage.includes("429") || rawMessage.includes("RESOURCE_EXHAUSTED")) {
       return NextResponse.json(
-        { error: "Hệ thống AI đang quá tải (hết quota ngày). Vui lòng thử lại sau vài giờ.", code: "RATE_LIMIT" },
+        { error: "Đang có quá nhiều người vẽ cùng lúc. Bạn thử lại sau ít phút nhé.", code: "RATE_LIMIT", refundedPoints: refunded },
         { status: 429 }
       );
     }
 
-    return NextResponse.json({ error: userMessage }, { status: 500 });
+    return NextResponse.json({ error: userMessage, refundedPoints: refunded }, { status: 500 });
   }
 }
