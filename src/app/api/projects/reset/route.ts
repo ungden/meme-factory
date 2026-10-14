@@ -62,17 +62,17 @@ export async function POST(request: NextRequest) {
   const { supabase, user } = await getRequestUser(request);
   if (!user) return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
   const body = await request.json();
-  if (body.confirm !== "RESET_OWNED_WORKSPACE") return NextResponse.json({ error: "Xác nhận reset không hợp lệ." }, { status: 400 });
+  if (body.confirm !== "RESET_OWNED_WORKSPACE") return NextResponse.json({ error: "Chưa xác nhận làm lại từ đầu." }, { status: 400 });
   const { data: projects } = await supabase.from("projects").select("id, slug, name, workspace_version").eq("user_id", user.id).order("created_at", { ascending: true });
-  if (!projects?.length) return NextResponse.json({ projects: [], message: "Không có dự án bạn sở hữu để reset." });
+  if (!projects?.length) return NextResponse.json({ projects: [], message: "Bạn chưa có kênh nào để làm lại từ đầu." });
   const selected = Array.isArray(body.project_ids) ? new Set(body.project_ids.filter((id: unknown): id is string => typeof id === "string")) : new Set(projects.map((project) => project.id));
   const targets = projects.filter((project) => selected.has(project.id));
-  if (!targets.length) return NextResponse.json({ error: "Không có dự án hợp lệ để reset." }, { status: 400 });
+  if (!targets.length) return NextResponse.json({ error: "Không có kênh nào hợp lệ để làm lại từ đầu." }, { status: 400 });
   const admin = getSupabaseAdmin();
   const completed: { projectId: string; backupId: string; workspaceVersion: number }[] = [];
   for (const project of targets) {
     const inventory = await projectInventory(project);
-    if (inventory.activeJobs.length) return NextResponse.json({ error: `Dự án ${project.name} còn ${inventory.activeJobs.length} job đang chạy. Reset chưa được thực hiện.`, activeJobs: inventory.activeJobs }, { status: 409 });
+    if (inventory.activeJobs.length) return NextResponse.json({ error: `Kênh ${project.name} còn ${inventory.activeJobs.length} bài đang làm. Chờ xong rồi hãy làm lại từ đầu nhé.`, activeJobs: inventory.activeJobs }, { status: 409 });
     const manifest = { ...manifestFor(project, inventory), records: inventory.records, objects: inventory.objects };
     const manifestSha = crypto.createHash("sha256").update(JSON.stringify(manifest)).digest("hex");
     const prefix = `${user.id}/${project.id}/${Date.now()}`;

@@ -1,47 +1,30 @@
 "use client";
 
-import { AlertTriangle, RotateCcw, Home } from "lucide-react";
 import Link from "next/link";
+import { AlertTriangle, RotateCcw, Home } from "lucide-react";
+import Button, { buttonClasses } from "@/components/ui/button";
 
 export default function RootError({
-  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  // Không in error.message: ở bản chạy thật Next đã thay nó bằng câu tiếng Anh
+  // chung chung, còn ở máy dev thì là chữ kỹ thuật.
   return (
-    <div className="min-h-screen flex items-center justify-center p-8" style={{ background: "var(--bg-primary, #ffffff)" }}>
-      <div className="text-center max-w-md">
-        <div
-          className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-4"
-          style={{ background: "var(--danger-light, #fef2f2)" }}
-        >
-          <AlertTriangle size={32} style={{ color: "var(--danger, #ef4444)" }} />
+    <div className="flex min-h-screen items-center justify-center p-8 th-bg-primary">
+      <div className="max-w-md text-center">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl th-bg-danger-light th-text-danger">
+          <AlertTriangle size={20} />
         </div>
-        <h2 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary, #1a1a2e)" }}>
-          Có lỗi xảy ra
-        </h2>
-        <p className="text-sm mb-6" style={{ color: "var(--text-tertiary, #6b7280)" }}>
-          {error.message || "Một lỗi không xác định đã xảy ra. Vui lòng thử lại."}
-        </p>
-        <div className="flex gap-3 justify-center">
-          <button
-            onClick={reset}
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white rounded-xl transition-all"
-            style={{ background: "linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 65%, #000))" }}
-          >
+        <h1 className="mb-2 text-xl font-semibold th-text-primary">Có lỗi xảy ra</h1>
+        <p className="mb-6 text-sm th-text-tertiary">Trang này chưa mở được. Bạn thử lại nhé.</p>
+        <div className="flex flex-wrap justify-center gap-3">
+          <Button onClick={reset}>
             <RotateCcw size={16} /> Thử lại
-          </button>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-xl border transition-all"
-            style={{
-              color: "var(--text-secondary, #374151)",
-              borderColor: "var(--border-primary, #e5e7eb)",
-              background: "var(--bg-card, #ffffff)",
-            }}
-          >
+          </Button>
+          <Link href="/" className={buttonClasses("outline", "md")}>
             <Home size={16} /> Về trang chủ
           </Link>
         </div>

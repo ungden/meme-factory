@@ -2,7 +2,7 @@
  * Những việc đang chờ người dùng, gom từ các bảng sẵn có.
  *
  * Một tập phim chạy 30–45 phút và dừng lại giữa chừng khi cần một quyết định.
- * Trước đây người dùng chỉ biết điều đó nếu tự mở đúng dự án, đúng tab — nên
+ * Trước đây người dùng chỉ biết điều đó nếu tự mở đúng kênh, đúng tab — nên
  * cách dùng thực tế là ngồi canh màn hình. Chuông thông báo trả lời đúng một câu
  * hỏi: "có gì đang đợi tôi không?"
  *
@@ -12,12 +12,12 @@
 import { errorCode, humanizeError } from "./error-messages";
 
 /**
- * - `points`: ví hết điểm, AI đứng yên cho tới khi nạp thêm.
- * - `budget`: tập phim chạm giới hạn điểm chính người dùng đặt.
+ * - `points`: kênh hết điểm, mọi việc đứng yên cho tới khi có thêm điểm.
+ * - `budget`: tập phim chạm mức chi chính người dùng đặt.
  * - `decision`: tập phim cần một quyết định.
  * - `ready`: phim xong, chờ duyệt.
  * - `failed`: meme không làm được vì lý do khác tiền.
- * - `done`: tin tốt — AI tự làm xong meme theo lịch.
+ * - `done`: tin tốt — meme theo lịch đã xong.
  */
 export type NotificationKind = "points" | "budget" | "decision" | "ready" | "failed" | "done";
 
@@ -65,6 +65,8 @@ export type NotificationProject = {
   slug: string | null;
   name: string;
   workspace_version?: number | null;
+  /** Người xem thông báo có phải chủ kênh không; thiếu thì coi như chủ kênh. */
+  owned?: boolean;
 };
 
 const MAX_ITEMS = 20;
@@ -75,6 +77,20 @@ const HOUR = 60 * 60 * 1000;
 export const MEME_FAILURE_WINDOW_MS = 3 * 24 * HOUR;
 export const MEME_DIGEST_WINDOW_MS = 24 * HOUR;
 const WALLET_HREF = "/wallet";
+
+/**
+ * Bài trừ vào điểm của kênh, nhưng với chủ kênh thì hết điểm kênh là AIDA tự
+ * chuyển điểm từ ví cá nhân sang (`project-points.ts`). Vậy chỗ chủ kênh gỡ
+ * được là Ví: mua thêm điểm là bài chạy tiếp. Thành viên được mời thì không
+ * chuyển được điểm của mình vào kênh người khác, nên đưa họ tới trang điểm của
+ * kênh, nơi nói rõ phải nhờ chủ kênh.
+ */
+export function pointsFix(project: NotificationProject, projectId: string): { href: string; action: string } {
+  if (project.owned === false) {
+    return { href: `/projects/${project.slug || projectId}/wallet`, action: "nhờ chủ kênh thêm điểm để làm tiếp" };
+  }
+  return { href: WALLET_HREF, action: "mua thêm điểm để làm tiếp" };
+}
 
 /**
  * Thứ tự hiện: việc người dùng phải tự gỡ lên trước, rồi tới tin hỏng chỉ để
@@ -95,9 +111,9 @@ function shorten(text: string): string {
 }
 
 /**
- * Lượt chạy đứng yên vì "budget_blocked" có hai nguyên nhân rất khác nhau: ví
- * thật sự hết điểm (phải nạp), hoặc tập chạm giới hạn chính người dùng đặt
- * (phải nâng giới hạn). Gộp làm một thì người hết tiền đi nâng hạn mức mãi mà
+ * Lượt chạy đứng yên vì "budget_blocked" có hai nguyên nhân rất khác nhau: kênh
+ * thật sự hết điểm (phải thêm điểm), hoặc tập chạm mức chi chính người dùng đặt
+ * (phải nâng mức chi). Gộp làm một thì người hết điểm đi nâng mức chi mãi mà
  * phim vẫn không chạy.
  */
 export function filmBudgetCause(error: string | null): "wallet" | "cap" {
@@ -127,7 +143,7 @@ export function buildNotifications(input: {
   const now = input.now ?? Date.now();
   const items: NotificationItem[] = [];
 
-  // Dự án đã bị xoá, người dùng mất quyền, hoặc lượt thuộc phiên bản trước khi
+  // Kênh đã bị xoá, người dùng mất quyền, hoặc lượt thuộc phiên bản trước khi
   // đặt lại không gian làm việc: bỏ qua thay vì hiện một dòng bấm vào không đi
   // đâu cả.
   const projectFor = (projectId: string, version?: number | null) => {
@@ -144,16 +160,17 @@ export function buildNotifications(input: {
     const href = `/projects/${ref(project, run.project_id)}/short-films?tap=${run.plan_id || run.id}`;
     if (run.status === "budget_blocked") {
       const wallet = filmBudgetCause(run.error) === "wallet";
+      const fix = pointsFix(project, run.project_id);
       items.push({
         id: `run:${run.id}`,
         kind: wallet ? "points" : "budget",
-        title: wallet ? "Kênh hết điểm — nạp thêm để làm tiếp" : "Tập phim chạm mức chi bạn đặt",
+        title: wallet ? "Kênh hết điểm" : "Tập phim chạm mức chi bạn đặt",
         detail: shorten(
           wallet
-            ? `${project.name} — tập phim đang dừng vì kênh hết điểm.`
+            ? `${project.name} — tập phim đang dừng, ${fix.action}.`
             : `${project.name} — nâng mức chi để làm tiếp.`,
         ),
-        href: wallet ? WALLET_HREF : href,
+        href: wallet ? fix.href : href,
         at: run.updated_at,
       });
       continue;
@@ -203,8 +220,9 @@ function memeNotifications(
     return at > 0 && now - at <= windowMs;
   };
 
-  // Một meme làm được sau lần hỏng nghĩa là chuyện đã qua (ví đã được nạp,
-  // AI đã chạy lại được): báo lại lỗi cũ chỉ làm người dùng đi sửa thứ đã ổn.
+  // Một meme làm được sau lần hỏng nghĩa là chuyện đã qua (kênh đã có điểm,
+  // việc làm meme đã chạy lại được): báo lại lỗi cũ chỉ làm người dùng đi sửa
+  // thứ đã ổn.
   const lastSuccess = new Map<string, number>();
   for (const run of runs) {
     if (run.status !== "completed") continue;
@@ -248,11 +266,12 @@ function memeNotifications(
   for (const group of failures.values()) {
     const generate = `/projects/${group.project.slug || group.projectId}/generate`;
     const many = group.count > 1 ? `${group.count} meme` : "meme";
+    const fix = pointsFix(group.project, group.projectId);
     const detail =
       group.cause === "wallet"
-        ? `${group.project.name} hết điểm — nạp thêm để làm tiếp.`
+        ? `${group.project.name} hết điểm — ${fix.action}.`
         : group.cause === "gave_up"
-          ? `${group.project.name} — ${many} chưa làm được sau 3 lần thử. Bạn làm lại nhé.`
+          ? `${group.project.name} — ${many} chưa làm được sau 3 lần thử. Bạn thử lại nhé.`
           : `${group.project.name} — ${many} chưa làm được. Bạn thử lại nhé.`;
     items.push({
       id: `meme-failed:${group.projectId}:${group.cause}`,
@@ -261,7 +280,7 @@ function memeNotifications(
       kind: group.cause === "wallet" ? "points" : "failed",
       title: "Meme chưa làm được",
       detail: shorten(detail),
-      href: group.cause === "wallet" ? WALLET_HREF : generate,
+      href: group.cause === "wallet" ? fix.href : generate,
       at: finishedAt(group.latest),
     });
   }
@@ -272,7 +291,7 @@ function memeNotifications(
       id: `meme-digest:${group.projectId}`,
       kind: "done",
       title: `${group.project.name} có ${group.count} meme mới hôm nay`,
-      detail: shorten(headline ? `Mới nhất: “${headline}”` : "Bấm để xem và tải về."),
+      detail: shorten(headline ? `Mới nhất: “${headline}”` : "Bấm để xem và tải ảnh."),
       href: `/projects/${group.project.slug || group.projectId}/generate`,
       at: finishedAt(group.latest),
     });

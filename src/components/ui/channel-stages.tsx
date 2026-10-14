@@ -1,6 +1,6 @@
-/** Ba bước của một kênh: kênh → nhân vật → nội dung. */
+/** Ba bước của một kênh: kênh → nhân vật → bài đầu tiên. */
 export default function ChannelStages({ current }: { current: 0 | 1 | 2 }) {
-  const labels = ["Kênh", "Nhân vật", "Làm nội dung"];
+  const labels = ["Kênh", "Nhân vật", "Làm bài"];
   return (
     <ol className="flex items-center gap-2 text-xs" aria-label="Các bước của kênh">
       {labels.map((label, index) => (

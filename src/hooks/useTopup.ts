@@ -58,6 +58,7 @@ export function useTopup() {
         bankBin: data.bankBin,
         bankName: data.bankName,
         accountName: data.accountName,
+        points: typeof data.points === "number" ? data.points : null,
       });
       setIsModalOpen(true);
     } catch (e: unknown) {

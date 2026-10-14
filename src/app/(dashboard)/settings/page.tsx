@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { Download, KeyRound, Mail, Trash2, User as UserIcon } from "lucide-react";
 import Button from "@/components/ui/button";
+import Card, { CardContent } from "@/components/ui/card";
 import Input from "@/components/ui/input";
+import { PageContainer, PageHeader } from "@/components/ui/page";
 import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
 
@@ -21,18 +23,20 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border p-5" style={{ borderColor: "var(--border-primary)", background: "var(--bg-card)" }}>
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl th-bg-accent-light th-text-accent">
-          <Icon size={17} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 className="font-semibold th-text-primary">{title}</h2>
-          <p className="mt-1 text-sm th-text-tertiary">{description}</p>
-          <div className="mt-4 space-y-3">{children}</div>
-        </div>
-      </div>
-    </section>
+    <Card>
+      <CardContent>
+        <section className="flex items-start gap-3" aria-label={title}>
+          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl th-bg-accent-light th-text-accent">
+            <Icon size={16} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="font-semibold th-text-primary">{title}</h2>
+            <p className="mt-1 text-sm th-text-tertiary">{description}</p>
+            <div className="mt-4 space-y-3">{children}</div>
+          </div>
+        </section>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -103,7 +107,7 @@ export default function SettingsPage() {
     if (!token) return;
     const response = await fetch("/api/account/export", { headers: { Authorization: `Bearer ${token}` } });
     if (!response.ok) {
-      toast.error("Chưa tải được dữ liệu. Thử lại sau nhé.");
+      toast.error("Chưa tải được dữ liệu. Bạn thử lại sau nhé.");
       return;
     }
     const blob = await response.blob();
@@ -138,56 +142,53 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex">
-      <main className="min-h-screen flex-1 p-4 pt-16 md:p-8 lg:p-10">
-        <div className="mx-auto max-w-2xl space-y-5">
-          <header>
-            <h1 className="text-2xl font-bold th-text-primary">Cài đặt tài khoản</h1>
-            <p className="mt-2 th-text-tertiary">{loaded ? email : "Đang tải…"}</p>
-          </header>
+    <PageContainer width="form">
+      <PageHeader
+        title="Tài khoản"
+        description={loaded ? email : undefined}
+      />
+      <div className="space-y-5">
+        <Section title="Tên hiển thị" description="Tên này xuất hiện khi bạn làm việc cùng người khác trong một kênh." icon={UserIcon}>
+          <Input id="display-name" label="Tên hiển thị" value={name} onChange={(event) => setName(event.target.value)} placeholder="Tên của bạn" />
+          <Button onClick={saveName} loading={busy === "name"}>Lưu</Button>
+        </Section>
 
-          <Section title="Tên hiển thị" description="Tên này xuất hiện khi bạn làm việc cùng người khác trong một kênh." icon={UserIcon}>
-            <Input id="display-name" label="Tên hiển thị" value={name} onChange={(event) => setName(event.target.value)} placeholder="Tên của bạn" />
-            <Button onClick={saveName} loading={busy === "name"}>Lưu</Button>
-          </Section>
+        <Section title="Email đăng nhập" description="Đổi email cần xác nhận ở địa chỉ mới; email cũ vẫn dùng được cho tới lúc đó." icon={Mail}>
+          <Input id="new-email" label="Email mới" type="email" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} placeholder="ban@example.com" />
+          <Button onClick={changeEmail} loading={busy === "email"} disabled={!newEmail.trim()}>Gửi xác nhận</Button>
+        </Section>
 
-          <Section title="Email đăng nhập" description="Đổi email cần xác nhận ở địa chỉ mới; email cũ vẫn dùng được cho tới lúc đó." icon={Mail}>
-            <Input id="new-email" label="Email mới" type="email" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} placeholder="ban@example.com" />
-            <Button onClick={changeEmail} loading={busy === "email"} disabled={!newEmail.trim()}>Gửi xác nhận</Button>
-          </Section>
+        <Section title="Mật khẩu" description="Đặt mật khẩu mới cho lần đăng nhập sau." icon={KeyRound}>
+          <Input id="new-password" label="Mật khẩu mới" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" minLength={6} />
+          <Button onClick={changePassword} loading={busy === "password"} disabled={!password}>Đổi mật khẩu</Button>
+        </Section>
 
-          <Section title="Mật khẩu" description="Đặt mật khẩu mới cho lần đăng nhập sau." icon={KeyRound}>
-            <Input id="new-password" label="Mật khẩu mới" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" minLength={6} />
-            <Button onClick={changePassword} loading={busy === "password"} disabled={!password}>Đổi mật khẩu</Button>
-          </Section>
+        <Section title="Dữ liệu của bạn" description="Tải về một tệp gồm kênh, nhân vật, bài và lịch sử giao dịch của bạn." icon={Download}>
+          <Button variant="outline" onClick={downloadData}>Tải dữ liệu</Button>
+        </Section>
 
-          <Section title="Dữ liệu của bạn" description="Tải về tệp JSON gồm kênh, nhân vật, nội dung và lịch sử giao dịch." icon={Download}>
-            <Button variant="outline" onClick={downloadData}>Tải dữ liệu</Button>
-          </Section>
-
-          <Section
-            title="Xoá tài khoản"
-            description="Xoá vĩnh viễn tài khoản, mọi kênh bạn sở hữu và toàn bộ ảnh, video, phim bên trong. Điểm còn lại không được hoàn tiền. Không thể khôi phục."
-            icon={Trash2}
+        <Section
+          title="Xoá tài khoản"
+          description="Tài khoản, mọi kênh bạn sở hữu cùng toàn bộ ảnh, video, phim bên trong sẽ mất hẳn, không lấy lại được. Điểm còn lại không được hoàn tiền."
+          icon={Trash2}
+        >
+          <Input
+            id="delete-confirm"
+            label={`Gõ "${DELETE_CONFIRMATION}" để xác nhận`}
+            value={confirmText}
+            onChange={(event) => setConfirmText(event.target.value)}
+            placeholder={DELETE_CONFIRMATION}
+          />
+          <Button
+            variant="danger"
+            onClick={deleteAccount}
+            loading={busy === "delete"}
+            disabled={confirmText.trim().toUpperCase() !== DELETE_CONFIRMATION}
           >
-            <Input
-              id="delete-confirm"
-              label={`Gõ "${DELETE_CONFIRMATION}" để xác nhận`}
-              value={confirmText}
-              onChange={(event) => setConfirmText(event.target.value)}
-              placeholder={DELETE_CONFIRMATION}
-            />
-            <Button
-              variant="danger"
-              onClick={deleteAccount}
-              loading={busy === "delete"}
-              disabled={confirmText.trim().toUpperCase() !== DELETE_CONFIRMATION}
-            >
-              Xoá tài khoản vĩnh viễn
-            </Button>
-          </Section>
-        </div>
-      </main>
-    </div>
+            Xoá tài khoản vĩnh viễn
+          </Button>
+        </Section>
+      </div>
+    </PageContainer>
   );
 }

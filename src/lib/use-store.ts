@@ -196,7 +196,7 @@ export function useProject(projectId: string) {
       ? supabase.from("projects").update(patch).eq("id", projectId)
       : supabase.from("projects").update(patch).eq("slug", projectId);
     const { data, error } = await target.select("id").single();
-    if (error || !data) throw new Error(error?.message || "Không có quyền cập nhật dự án.");
+    if (error || !data) throw new Error(error ? "Chưa lưu được thay đổi của kênh. Bạn thử lại nhé." : "Bạn không có quyền sửa kênh này.");
     await load();
   }, [projectId, load]);
 
@@ -511,7 +511,7 @@ export function useMemes(projectRef: string, enabled = true) {
       return newMeme;
     }
     const projectId = await resolveProjectIdCached(projectRef);
-    if (!projectId) throw new Error("Project not found");
+    if (!projectId) throw new Error("Không tìm thấy kênh này.");
     const res = await fetch("/api/meme/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -519,7 +519,7 @@ export function useMemes(projectRef: string, enabled = true) {
     });
     const data = await res.json();
     if (!res.ok || !data?.meme) {
-      throw new Error(data?.error || "Không thể lưu meme vào thư viện");
+      throw new Error(data?.error || "Chưa lưu được meme vào thư viện. Bạn thử lại nhé.");
     }
     await load();
     return data.meme;
@@ -656,10 +656,10 @@ export async function generateImage(
       return await res.json();
     }
 
-    const err = await res.json().catch(() => ({ error: "Image generation failed" }));
+    const err = await res.json().catch(() => ({ error: "Chưa vẽ được ảnh. Bạn thử lại nhé." }));
     return {
       image: "",
-      error: err.error || "Image generation failed",
+      error: err.error || "Chưa vẽ được ảnh. Bạn thử lại nhé.",
       code: err.code,
       required: typeof err.required === "number" ? err.required : undefined,
       current: typeof err.current === "number" ? err.current : undefined,
@@ -667,7 +667,7 @@ export async function generateImage(
   } catch {
     return {
       image: "",
-      error: "Không thể kết nối server. Vui lòng thử lại sau.",
+      error: "Chưa kết nối được tới AIDA. Bạn kiểm tra mạng rồi thử lại nhé.",
       code: "NOT_CONFIGURED",
     };
   }

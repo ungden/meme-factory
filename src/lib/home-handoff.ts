@@ -77,3 +77,24 @@ export function parseVideoHandoff(raw: string | null, now: number): VideoHandoff
     : [];
   return { prompt: value.prompt.slice(0, 2000), references, at: value.at };
 }
+
+/**
+ * Loại bài người dùng chọn ở ô nhập. Trên URL (`?output=`) và trong nháp trang
+ * giới thiệu chỉ lưu mã ngắn; link và nháp cũ ghi nhãn tiếng Việt nên vẫn đọc
+ * được để không gãy link đã gửi đi.
+ */
+export type ComposeKind = "film" | "video" | "meme";
+
+const LEGACY_KIND: Record<string, ComposeKind> = {
+  "Tạo phim ngắn": "film",
+  "Tạo video": "video",
+  "Tạo ảnh": "meme",
+};
+
+export function parseComposeKind(value: unknown): ComposeKind | null {
+  if (value === "film" || value === "video" || value === "meme") return value;
+  return typeof value === "string" ? LEGACY_KIND[value] ?? null : null;
+}
+
+/** Trang trong kênh làm loại bài đó. */
+export const KIND_PATH: Record<ComposeKind, string> = { film: "short-films", video: "video", meme: "generate" };

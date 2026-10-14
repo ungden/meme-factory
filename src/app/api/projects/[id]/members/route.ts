@@ -10,7 +10,7 @@ async function resolveProjectAndUser(request: NextRequest, projectRef: string) {
   const { supabase, user } = await getRequestUser(request);
 
   if (!user) {
-    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+    return { error: NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 }) };
   }
 
   const query = supabase.from("projects").select("id, user_id").limit(1);
@@ -19,7 +19,7 @@ async function resolveProjectAndUser(request: NextRequest, projectRef: string) {
     : await query.eq("slug", projectRef).maybeSingle();
 
   if (!project) {
-    return { error: NextResponse.json({ error: "Project not found" }, { status: 404 }) };
+    return { error: NextResponse.json({ error: "Không tìm thấy kênh này." }, { status: 404 }) };
   }
 
   return { supabase, user, project };
@@ -117,24 +117,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { user, project } = resolved;
   if (user.id !== project.user_id) {
-    return NextResponse.json({ error: "Chỉ owner mới được thêm thành viên" }, { status: 403 });
+    return NextResponse.json({ error: "Chỉ chủ kênh mới mời được thành viên." }, { status: 403 });
   }
 
   const body = await req.json();
   const email = String(body?.email || "").trim().toLowerCase();
   if (!email) {
-    return NextResponse.json({ error: "Thiếu email" }, { status: 400 });
+    return NextResponse.json({ error: "Nhập email người bạn muốn mời nhé." }, { status: 400 });
   }
 
   const { data: users } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
   const target = users.users.find((u) => (u.email || "").toLowerCase() === email);
 
   if (!target) {
-    return NextResponse.json({ error: "Không tìm thấy user với email này" }, { status: 404 });
+    return NextResponse.json({ error: "Email này chưa có tài khoản AIDA. Nhờ họ đăng ký trước rồi mời lại nhé." }, { status: 404 });
   }
 
   if (target.id === project.user_id) {
-    return NextResponse.json({ error: "Owner đã có quyền sẵn" }, { status: 400 });
+    return NextResponse.json({ error: "Bạn là chủ kênh nên đã có quyền sẵn." }, { status: 400 });
   }
 
   const { data: existingMember } = await supabaseAdmin
@@ -145,7 +145,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .maybeSingle();
 
   if (existingMember) {
-    return NextResponse.json({ error: "User đã là thành viên dự án" }, { status: 400 });
+    return NextResponse.json({ error: "Người này đã là thành viên của kênh." }, { status: 400 });
   }
 
   const { data: pendingInvite } = await supabaseAdmin
@@ -157,7 +157,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .maybeSingle();
 
   if (pendingInvite) {
-    return NextResponse.json({ error: "Đã gửi lời mời trước đó" }, { status: 400 });
+    return NextResponse.json({ error: "Bạn đã mời người này rồi, đang chờ họ trả lời." }, { status: 400 });
   }
 
   const { error } = await supabaseAdmin.from("project_invitations").insert({
@@ -168,7 +168,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   });
 
   if (error) {
-    return NextResponse.json({ error: "Không thể gửi lời mời" }, { status: 500 });
+    return NextResponse.json({ error: "Chưa gửi được lời mời. Bạn thử lại nhé." }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, message: "Đã gửi lời mời" });
@@ -181,7 +181,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const { user, project } = resolved;
   if (user.id !== project.user_id) {
-    return NextResponse.json({ error: "Chỉ owner mới được xoá thành viên" }, { status: 403 });
+    return NextResponse.json({ error: "Chỉ chủ kênh mới xoá được thành viên." }, { status: 403 });
   }
 
   const invitationId = req.nextUrl.searchParams.get("invitationId");
@@ -193,7 +193,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       .eq("project_id", project.id);
 
     if (error) {
-      return NextResponse.json({ error: "Không thể huỷ lời mời" }, { status: 500 });
+      return NextResponse.json({ error: "Chưa huỷ được lời mời. Bạn thử lại nhé." }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
@@ -201,10 +201,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const userId = req.nextUrl.searchParams.get("userId");
   if (!userId) {
-    return NextResponse.json({ error: "Thiếu userId hoặc invitationId" }, { status: 400 });
+    return NextResponse.json({ error: "Chưa rõ cần xoá ai. Tải lại trang rồi thử lại nhé." }, { status: 400 });
   }
   if (userId === project.user_id) {
-    return NextResponse.json({ error: "Không thể xoá owner" }, { status: 400 });
+    return NextResponse.json({ error: "Không xoá được chủ kênh." }, { status: 400 });
   }
 
   const { error } = await supabaseAdmin
@@ -214,7 +214,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     .eq("user_id", userId);
 
   if (error) {
-    return NextResponse.json({ error: "Không thể xoá thành viên" }, { status: 500 });
+    return NextResponse.json({ error: "Chưa xoá được thành viên. Bạn thử lại nhé." }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

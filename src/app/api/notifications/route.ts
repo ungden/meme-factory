@@ -14,8 +14,8 @@ export const dynamic = "force-dynamic";
 const WAITING = ["needs_review", "budget_blocked", "paused"];
 
 /**
- * GET /api/notifications — những việc đang chờ người dùng và meme AI tự làm,
- * trên mọi dự án.
+ * GET /api/notifications — những việc đang chờ người dùng và meme theo lịch,
+ * trên mọi kênh.
  *
  * Đọc thẳng từ lượt sản xuất và tác vụ thay vì một bảng thông báo riêng: trạng
  * thái đã nằm ở đó, và một bảng nữa là một nguồn sự thật nữa có thể lệch.
@@ -32,14 +32,15 @@ export async function GET(request: NextRequest) {
     ]);
 
     const projects: Record<string, NotificationProject> = {};
-    const remember = (project: Record<string, unknown>) => {
+    const remember = (project: Record<string, unknown>, isOwner: boolean) => {
       projects[String(project.id)] = {
         slug: (project.slug as string | null) ?? null,
         name: String(project.name),
         workspace_version: (project.workspace_version as number | null) ?? null,
+        owned: isOwner,
       };
     };
-    for (const project of owned.data || []) remember(project);
+    for (const project of owned.data || []) remember(project, true);
 
     const sharedIds = (member.data || [])
       .map((row) => String(row.project_id))
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
         .from("projects")
         .select("id, slug, name, workspace_version")
         .in("id", sharedIds);
-      for (const project of shared || []) remember(project);
+      for (const project of shared || []) remember(project, false);
     }
 
     const projectIds = Object.keys(projects);
@@ -95,6 +96,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     await reportError(error, { scope: "notifications", tags: { userId: user.id } });
-    return NextResponse.json({ error: "Không tải được thông báo." }, { status: 500 });
+    return NextResponse.json({ error: "Chưa tải được thông báo. Bạn thử lại nhé." }, { status: 500 });
   }
 }

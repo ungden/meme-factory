@@ -5,11 +5,15 @@ import { useParams } from "next/navigation";
 import { useProject } from "@/lib/use-store";
 import { useDeferredTask } from "@/lib/use-deferred-task";
 import Card, { CardContent } from "@/components/ui/card";
+import Alert from "@/components/ui/alert";
 import Button from "@/components/ui/button";
+import Input from "@/components/ui/input";
 import { UserPlus, Trash2 } from "lucide-react";
 import ConfirmModal from "@/components/ui/confirm-modal";
+import { PageContainer, PageSkeleton } from "@/components/ui/page";
 import { useToast } from "@/components/ui/toast";
 import ChannelSettingsHeader from "@/components/layout/channel-settings-tabs";
+import { formatDateTime } from "@/lib/format";
 
 interface ProjectMember {
   user_id: string;
@@ -25,6 +29,9 @@ interface ProjectInvitation {
   status: "pending" | "accepted" | "rejected" | "cancelled";
   created_at: string;
 }
+
+const DANGER_LINK =
+  "inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-medium th-text-danger th-bg-hover disabled:opacity-50";
 
 export default function ProjectMembersPage() {
   const params = useParams();
@@ -45,6 +52,7 @@ export default function ProjectMembersPage() {
     action: () => void;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!projectId) return;
@@ -58,7 +66,12 @@ export default function ProjectMembersPage() {
         setMembers(membersData.members || []);
         setInvitations(membersData.invitations || []);
         setIsOwner(Boolean(membersData.isOwner));
+        setLoadFailed(false);
+      } else {
+        setLoadFailed(true);
       }
+    } catch {
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -78,8 +91,9 @@ export default function ProjectMembersPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data?.error || "Không thể gửi lời mời");
+        toast.error(data?.error || "Chưa gửi được lời mời. Bạn thử lại nhé.");
       } else {
+        toast.success(`Đã gửi lời mời tới ${email}`);
         setMemberEmail("");
         void fetchData();
       }
@@ -97,7 +111,7 @@ export default function ProjectMembersPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data?.error || "Không thể xoá thành viên");
+        toast.error(data?.error || "Chưa xoá được thành viên. Bạn thử lại nhé.");
       } else {
         void fetchData();
       }
@@ -115,7 +129,7 @@ export default function ProjectMembersPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data?.error || "Không thể huỷ lời mời");
+        toast.error(data?.error || "Chưa huỷ được lời mời. Bạn thử lại nhé.");
       } else {
         void fetchData();
       }
@@ -124,120 +138,121 @@ export default function ProjectMembersPage() {
     }
   };
 
-  if (loading || projectLoading) {
-    return (
-      <div className="flex">
-        <main className="flex-1 p-4 pt-16 md:p-8">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 w-72 th-bg-tertiary rounded-lg" />
-            <div className="h-40 th-bg-card rounded-2xl" />
-          </div>
-        </main>
-      </div>
-    );
-  }
+  if (loading || projectLoading) return <PageSkeleton width="form" blocks={1} />;
+
+  const pending = invitations.filter((i) => i.status === "pending");
 
   return (
-    <div className="flex">
-      <main className="flex-1 p-4 pt-16 md:p-8">
-        <ChannelSettingsHeader description="Mời người khác cùng làm kênh này." />
+    <PageContainer width="form">
+      <ChannelSettingsHeader description="Mời người khác cùng làm kênh này." />
 
-        <Card>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold th-text-primary">Danh sách thành viên</h2>
-              <span className="text-xs th-text-muted">{members.length} người</span>
-            </div>
+      {loadFailed && (
+        <Alert
+          className="mb-4"
+          action={<Button variant="outline" size="sm" onClick={() => void fetchData()}>Thử lại</Button>}
+        >
+          Chưa tải được danh sách thành viên.
+        </Alert>
+      )}
 
-            {isOwner && (
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="email"
-                  placeholder="Nhập email để gửi lời mời"
-                  value={memberEmail}
-                  onChange={(e) => setMemberEmail(e.target.value)}
-                  className="flex-1 px-3 py-2 rounded-xl text-sm th-bg-card th-text-primary"
-                  style={{ border: "1px solid var(--border-primary)" }}
-                />
-                <Button onClick={addMember} disabled={!memberEmail.trim() || busy}>
-                  <UserPlus size={14} /> Gửi lời mời
-                </Button>
-              </div>
-            )}
+      <Card>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold th-text-primary">Thành viên</h2>
+            <span className="text-xs th-text-muted">{members.length} người</span>
+          </div>
 
-            <div className="space-y-2">
-              {members.map((m) => (
-                <div key={m.user_id} className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: "var(--bg-tertiary)" }}>
-                  <div>
-                    <p className="text-sm th-text-primary">{m.email}</p>
-                    <p className="text-xs th-text-muted">{m.is_owner ? "Chủ kênh" : "Thành viên"}</p>
-                  </div>
-                  {isOwner && !m.is_owner && (
+          {isOwner && (
+            <form
+              className="flex flex-col gap-2 sm:flex-row"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void addMember();
+              }}
+            >
+              <Input
+                type="email"
+                aria-label="Email người được mời"
+                placeholder="Nhập email để gửi lời mời"
+                value={memberEmail}
+                onChange={(e) => setMemberEmail(e.target.value)}
+              />
+              <Button type="submit" loading={busy} disabled={!memberEmail.trim()} className="shrink-0">
+                <UserPlus size={14} /> Gửi lời mời
+              </Button>
+            </form>
+          )}
+
+          <ul className="space-y-2">
+            {members.map((m) => (
+              <li key={m.user_id} className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 th-bg-tertiary">
+                <div className="min-w-0">
+                  <p className="truncate text-sm th-text-primary">{m.email}</p>
+                  <p className="text-xs th-text-muted">{m.is_owner ? "Chủ kênh" : "Thành viên"}</p>
+                </div>
+                {isOwner && !m.is_owner && (
+                  <button
+                    type="button"
+                    className={DANGER_LINK}
+                    disabled={busy}
+                    onClick={() =>
+                      setConfirm({
+                        title: "Xoá thành viên?",
+                        message: `${m.email} sẽ không mở được kênh này nữa.`,
+                        confirmText: "Xoá thành viên",
+                        action: () => removeMember(m.user_id),
+                      })
+                    }
+                  >
+                    <Trash2 size={14} /> Xoá
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          {isOwner && pending.length > 0 && (
+            <div className="pt-2">
+              <p className="mb-2 text-xs th-text-muted">Lời mời đang chờ trả lời</p>
+              <ul className="space-y-2">
+                {pending.map((inv) => (
+                  <li key={inv.id} className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 th-bg-tertiary">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm th-text-primary">{inv.invitee_email}</p>
+                      <p className="text-xs th-text-muted">Đã mời lúc {formatDateTime(inv.created_at)}</p>
+                    </div>
                     <button
+                      type="button"
+                      className={DANGER_LINK}
+                      disabled={busy}
                       onClick={() =>
                         setConfirm({
-                          title: "Xoá thành viên?",
-                          message: `${m.email} sẽ mất quyền truy cập kênh này.`,
-                          confirmText: "Xoá thành viên",
-                          action: () => removeMember(m.user_id),
+                          title: "Huỷ lời mời?",
+                          message: `Lời mời gửi tới ${inv.invitee_email} sẽ không còn dùng được.`,
+                          confirmText: "Huỷ lời mời",
+                          action: () => cancelInvitation(inv.id),
                         })
                       }
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs"
-                      style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444" }}
-                      disabled={busy}
                     >
-                      <Trash2 size={12} /> Xoá
+                      <Trash2 size={14} /> Huỷ mời
                     </button>
-                  )}
-                </div>
-              ))}
+                  </li>
+                ))}
+              </ul>
             </div>
-
-            {isOwner && invitations.filter((i) => i.status === "pending").length > 0 && (
-              <div className="pt-2">
-                <p className="text-xs th-text-muted mb-2">Lời mời đang chờ phản hồi</p>
-                <div className="space-y-2">
-                  {invitations
-                    .filter((i) => i.status === "pending")
-                    .map((inv) => (
-                      <div key={inv.id} className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: "var(--bg-tertiary)" }}>
-                        <div>
-                          <p className="text-sm th-text-primary">{inv.invitee_email}</p>
-                          <p className="text-xs th-text-muted">Đã mời lúc {new Date(inv.created_at).toLocaleString("vi-VN")}</p>
-                        </div>
-                        <button
-                          onClick={() =>
-                            setConfirm({
-                              title: "Huỷ lời mời?",
-                              message: `Lời mời gửi tới ${inv.invitee_email} sẽ không còn hiệu lực.`,
-                              confirmText: "Huỷ lời mời",
-                              action: () => cancelInvitation(inv.id),
-                            })
-                          }
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs"
-                          style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444" }}
-                          disabled={busy}
-                        >
-                          <Trash2 size={12} /> Huỷ mời
-                        </button>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        <ConfirmModal
-          isOpen={!!confirmState}
-          onClose={() => setConfirm(null)}
-          onConfirm={() => confirmState?.action()}
-          title={confirmState?.title || ""}
-          message={confirmState?.message || ""}
-          confirmText={confirmState?.confirmText}
-          variant="danger"
-          loading={busy}
-        />
-      </main>
-    </div>
+          )}
+        </CardContent>
+      </Card>
+      <ConfirmModal
+        isOpen={!!confirmState}
+        onClose={() => setConfirm(null)}
+        onConfirm={() => confirmState?.action()}
+        title={confirmState?.title || ""}
+        message={confirmState?.message || ""}
+        confirmText={confirmState?.confirmText}
+        variant="danger"
+        loading={busy}
+      />
+    </PageContainer>
   );
 }

@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import Script from "next/script";
 import { GA_ID } from "@/lib/analytics";
+import Button from "@/components/ui/button";
 
 const STORAGE_KEY = "aida:analytics-consent";
 
@@ -77,29 +78,17 @@ gtag('config', '${GA_ID}');`}
         <div
           role="dialog"
           aria-label="Lựa chọn đo lường"
-          className="fixed inset-x-3 bottom-3 z-[90] mx-auto max-w-2xl rounded-2xl border p-4 shadow-lg sm:inset-x-6"
-          style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
+          className="fixed inset-x-3 bottom-3 z-[90] mx-auto max-w-2xl rounded-2xl border p-4 th-border th-bg-card th-shadow-lg sm:inset-x-6"
         >
           <p className="text-sm th-text-secondary">
             Chúng tôi muốn đo xem trang nào hữu ích để cải thiện sản phẩm. Bạn đồng ý không? Từ chối cũng không
             ảnh hưởng gì tới việc sử dụng.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => writeConsent("granted")}
-              className="min-h-10 rounded-lg px-4 text-sm font-semibold text-white th-bg-accent"
-            >
-              Đồng ý
-            </button>
-            <button
-              type="button"
-              onClick={() => writeConsent("denied")}
-              className="min-h-10 rounded-lg border px-4 text-sm font-semibold th-text-secondary"
-              style={{ borderColor: "var(--border-primary)" }}
-            >
+            <Button onClick={() => writeConsent("granted")}>Đồng ý</Button>
+            <Button variant="outline" onClick={() => writeConsent("denied")}>
               Không, cảm ơn
-            </button>
+            </Button>
           </div>
         </div>
       )}

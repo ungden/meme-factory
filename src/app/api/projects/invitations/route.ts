@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   const { supabase, user } = await getRequestUser(request);
 
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
   }
 
   const { data: invites } = await supabase
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   const { supabase, user } = await getRequestUser(req);
 
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
   }
 
   const body = await req.json();
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   const action = String(body?.action || "");
 
   if (!invitationId || !["accept", "reject"].includes(action)) {
-    return NextResponse.json({ error: "Dữ liệu không hợp lệ" }, { status: 400 });
+    return NextResponse.json({ error: "Lời mời không đúng. Tải lại trang rồi thử lại nhé." }, { status: 400 });
   }
 
   const { data: invite } = await supabase
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (!invite || invite.status !== "pending") {
-    return NextResponse.json({ error: "Lời mời không còn hiệu lực" }, { status: 400 });
+    return NextResponse.json({ error: "Lời mời này không còn dùng được." }, { status: 400 });
   }
 
   if (action === "accept") {
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     );
 
     if (memberError) {
-      return NextResponse.json({ error: "Không thể tham gia dự án" }, { status: 500 });
+      return NextResponse.json({ error: "Chưa vào được kênh. Bạn thử lại nhé." }, { status: 500 });
     }
   }
 
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
     .eq("id", invitationId);
 
   if (inviteError) {
-    return NextResponse.json({ error: "Không thể cập nhật lời mời" }, { status: 500 });
+    return NextResponse.json({ error: "Chưa trả lời được lời mời. Bạn thử lại nhé." }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

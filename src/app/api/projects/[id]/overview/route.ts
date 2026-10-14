@@ -23,7 +23,7 @@ export async function GET(
     : await projectQuery.eq("slug", id).maybeSingle();
   if (!project)
     return NextResponse.json(
-      { error: "Không tìm thấy dự án." },
+      { error: "Không tìm thấy kênh này." },
       { status: 404 },
     );
 
@@ -85,8 +85,13 @@ export async function GET(
     weeklyOutputCount.error ||
     activeJobs.error ||
     productionRuns.error;
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("Project overview error:", error);
+    return NextResponse.json(
+      { error: "Chưa tải được tổng quan kênh. Bạn thử lại nhé." },
+      { status: 500 },
+    );
+  }
   return NextResponse.json(
     {
       characterCount: characterCount.count ?? 0,

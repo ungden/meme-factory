@@ -10,16 +10,20 @@ import {
   MoreVertical,
   Plus,
   Trash2,
+  Tv,
   Users,
-  Zap,
 } from "lucide-react";
 import { useProjects, IS_MOCK_MODE } from "@/lib/use-store";
+import Alert from "@/components/ui/alert";
 import Button from "@/components/ui/button";
 import ConfirmModal from "@/components/ui/confirm-modal";
+import EmptyState from "@/components/ui/empty-state";
+import { PageContainer, Skeleton } from "@/components/ui/page";
 import { useToast } from "@/components/ui/toast";
 import AnnouncementBanner from "@/components/ui/announcement-banner";
 import { getProjectRouteRef } from "@/lib/project-visuals";
 import { fetchJsonCached, invalidateClientCache } from "@/lib/client-fetch";
+import { KIND_PATH, parseComposeKind } from "@/lib/home-handoff";
 import HomeComposer, { type ComposerPreset } from "./_components/home-composer";
 import HomeFeedList from "./_components/home-feed-list";
 import { useHomeFeed } from "./_components/use-home-feed";
@@ -35,13 +39,7 @@ export default function ProjectsPage() {
   // Tách "chưa tải xong" khỏi "tải hỏng": gộp hai trạng thái khiến một kênh
   // lâu năm bị gắn nhãn "Kênh mới" chỉ vì một lần gọi API thất bại.
   const [summariesFailed, setSummariesFailed] = useState(false);
-  const requestedDestination = () => {
-    const output = searchParams.get("output");
-    if (output === "Tạo phim ngắn") return "short-films";
-    if (output === "Tạo video") return "video";
-    if (output === "Tạo ảnh") return "generate";
-    return "";
-  };
+  const requestedKind = parseComposeKind(searchParams.get("output"));
 
   useEffect(() => {
     if (IS_MOCK_MODE || !projects.length) return;
@@ -64,73 +62,79 @@ export default function ProjectsPage() {
     setMenuOpen(null);
   };
 
+  const openChannel = (projectRef: string) => {
+    const query = searchParams.toString();
+    const destination = requestedKind ? `/${KIND_PATH[requestedKind]}` : "";
+    router.push(`/projects/${projectRef}${destination}${query ? `?${query}` : ""}`);
+  };
+
   return (
-    <div className="flex">
-      <main className="min-h-screen flex-1 overflow-x-hidden p-4 pt-16 md:p-8 lg:p-10">
-        <div className="mx-auto max-w-7xl">
-          {IS_MOCK_MODE && (
-            <div className="mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 th-border-accent th-bg-accent-light">
-              <Zap size={18} className="th-text-accent" />
-              <p className="text-sm th-text-accent">Đang xem bằng dữ liệu mẫu.</p>
-            </div>
-          )}
+    <PageContainer width="wide" className="overflow-x-hidden">
+      {IS_MOCK_MODE && (
+        <Alert tone="info" className="mb-6">Đang xem bằng dữ liệu mẫu.</Alert>
+      )}
 
-          <AnnouncementBanner />
+      <AnnouncementBanner />
 
-          <div className="relative mx-auto mb-14 max-w-3xl pt-4 sm:pt-12">
-            <div aria-hidden className="pointer-events-none absolute inset-x-[-30%] -top-24 h-[420px] th-glow" />
-            <div className="relative">
-              {loading ? <div className="h-56 animate-pulse rounded-3xl th-bg-card" /> : <HomeComposer projects={projects} onStarted={feed.reload} preset={preset} />}
-            </div>
-          </div>
+      <div className="relative mx-auto mb-14 max-w-3xl pt-4 sm:pt-12">
+        <div aria-hidden className="pointer-events-none absolute inset-x-[-30%] -top-24 h-[420px] th-glow" />
+        <div className="relative">
+          {loading ? <Skeleton className="h-56 rounded-3xl" /> : <HomeComposer projects={projects} onStarted={feed.reload} preset={preset} />}
+        </div>
+      </div>
 
+      {projects.length > 0 && (
+        <div className="mb-10">
+          <HomeFeedList
+            items={feed.items}
+            loading={feed.loading}
+            failed={feed.failed}
+            onRemix={(item) => setPreset({ kind: item.kind, projectId: item.projectId, format: item.format, nonce: Date.now() })}
+          />
+        </div>
+      )}
+
+      <section aria-labelledby="channels-title">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 id="channels-title" className="text-base font-semibold th-text-primary">Kênh của bạn</h2>
           {projects.length > 0 && (
-            <div className="mb-10">
-              <HomeFeedList
-                items={feed.items}
-                loading={feed.loading}
-                failed={feed.failed}
-                onRemix={(item) => setPreset({ kind: item.kind, projectId: item.projectId, format: item.format, nonce: Date.now() })}
-              />
-            </div>
+            <Button variant="outline" size="sm" onClick={() => router.push("/projects/new")}>
+              <Plus size={14} /> Kênh mới
+            </Button>
           )}
-
-          <section aria-labelledby="channels-title">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 id="channels-title" className="text-[15px] font-semibold th-text-primary">Kênh của bạn</h2>
-              {projects.length > 0 && (
-                <Button variant="outline" size="sm" onClick={() => router.push("/projects/new")}>
-                  <Plus size={15} /> Kênh mới
-                </Button>
-              )}
-            </div>
-          {loading ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {[1, 2, 3].map((item) => <div key={item} className="h-28 animate-pulse rounded-xl th-bg-card" />)}
-            </div>
-          ) : projects.length === 0 ? (
-            <p className="rounded-2xl border border-dashed px-4 py-8 text-center text-sm th-border th-text-secondary">
-              Chưa có kênh nào.{" "}
-              <button type="button" onClick={() => router.push("/projects/new")} className="font-semibold th-text-accent underline-offset-2 hover:underline">Tạo kênh đầu tiên</button>{" "}
-              — chỉ cần vài câu mô tả.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {projects.map((project) => {
-                const projectRef = getProjectRouteRef(project);
-                const summary = summaries[project.id];
-                const autopilot = feed.autopilot[project.id];
-                return (
+        </div>
+        {loading ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {[1, 2, 3].map((item) => <Skeleton key={item} className="h-28" />)}
+          </div>
+        ) : projects.length === 0 ? (
+          <EmptyState
+            icon={Tv}
+            title="Chưa có kênh nào"
+            hint="Chỉ cần vài câu mô tả, AIDA điền sẵn hồ sơ kênh cho bạn."
+            action={
+              <Button size="sm" onClick={() => router.push("/projects/new")}>
+                <Plus size={14} /> Tạo kênh đầu tiên
+              </Button>
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {projects.map((project) => {
+              const projectRef = getProjectRouteRef(project);
+              const summary = summaries[project.id];
+              const autopilot = feed.autopilot[project.id];
+              return (
                 <article
                   key={project.id}
                   className="group relative flex items-start gap-3 rounded-2xl border p-4 transition-all th-border th-bg-card hover:-translate-y-0.5 hover:th-shadow-md"
                 >
                   <button
-                    onClick={() => { const query = searchParams.toString(); const destination = requestedDestination(); router.push(`/projects/${projectRef}${destination ? `/${destination}` : ""}${query ? `?${query}` : ""}`); }}
+                    onClick={() => openChannel(projectRef)}
                     className="flex min-w-0 flex-1 items-start gap-3 text-left"
                     aria-label={`Mở kênh ${project.name}`}
                   >
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-semibold text-white" style={{ backgroundImage: "var(--accent-gradient)" }}>
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-semibold th-bg-gradient th-text-on-primary">
                       {project.name.trim().slice(0, 2).toLocaleUpperCase("vi")}
                     </span>
                     <span className="min-w-0 flex-1">
@@ -147,36 +151,36 @@ export default function ProjectsPage() {
                   <div className="relative">
                     <button
                       aria-label="Tuỳ chọn kênh"
+                      aria-expanded={menuOpen === project.id}
                       onClick={() => setMenuOpen(menuOpen === project.id ? null : project.id)}
                       className="rounded-lg p-2 th-text-muted th-bg-hover"
                     >
-                      <MoreVertical size={17} />
+                      <MoreVertical size={16} />
                     </button>
                     {menuOpen === project.id && (
-                      <div className="absolute right-0 top-10 z-10 w-40 rounded-xl border py-1 shadow-xl" style={{ background: "var(--bg-tertiary)", borderColor: "var(--border-primary)" }}>
+                      <div className="absolute right-0 top-10 z-10 w-40 rounded-xl border py-1 th-border th-bg-tertiary th-shadow-lg">
                         <button onClick={() => { router.push(`/projects/${projectRef}`); setMenuOpen(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-sm th-text-secondary th-bg-hover"><Edit2 size={14} /> Mở kênh</button>
                         <button onClick={() => { router.push(`/projects/${projectRef}/short-films`); setMenuOpen(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-sm th-text-secondary th-bg-hover"><ArrowRight size={14} /> Phim ngắn</button>
-                        <button onClick={() => setDeleteTarget(project.id)} className="flex w-full items-center gap-2 px-3 py-2 text-sm th-bg-hover" style={{ color: "var(--danger)" }}><Trash2 size={14} /> Xoá</button>
+                        <button onClick={() => setDeleteTarget(project.id)} className="flex w-full items-center gap-2 px-3 py-2 text-sm th-text-danger th-bg-hover"><Trash2 size={14} /> Xoá</button>
                       </div>
                     )}
                   </div>
                 </article>
-              );})}
-            </div>
-          )}
-          </section>
-        </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
-        <ConfirmModal
-          isOpen={!!deleteTarget}
-          onClose={() => setDeleteTarget(null)}
-          onConfirm={handleDelete}
-          title="Xoá kênh?"
-          message="Mọi nhân vật, phim, meme của kênh sẽ mất hẳn, không lấy lại được."
-          confirmText="Xoá kênh"
-          variant="danger"
-        />
-      </main>
-    </div>
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Xoá kênh?"
+        message="Mọi nhân vật, phim, meme của kênh sẽ mất hẳn, không lấy lại được."
+        confirmText="Xoá kênh"
+        variant="danger"
+      />
+    </PageContainer>
   );
 }

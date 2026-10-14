@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/supabase/request-auth";
 import { supabaseAdmin } from "@/lib/admin";
+import { formatPoints } from "@/lib/format";
 
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -10,7 +11,7 @@ async function resolveProject(request: NextRequest, projectRef: string) {
   const { supabase, user } = await getRequestUser(request);
 
   if (!user) {
-    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+    return { error: NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 }) };
   }
 
   const query = supabase.from("projects").select("id, user_id, name").limit(1);
@@ -19,7 +20,7 @@ async function resolveProject(request: NextRequest, projectRef: string) {
     : await query.eq("slug", projectRef).maybeSingle();
 
   if (!project) {
-    return { error: NextResponse.json({ error: "Project not found" }, { status: 404 }) };
+    return { error: NextResponse.json({ error: "Không tìm thấy kênh này." }, { status: 404 }) };
   }
 
   return { user, project, supabase };
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const resolved = await resolveProject(request, id);
   if ("error" in resolved) return resolved.error;
 
-  const { project, supabase } = resolved;
+  const { project, supabase, user } = resolved;
 
   const { data: wallet } = await supabase
     .from("project_wallets")
@@ -54,6 +55,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // lượt gọi mạng trên mọi trang trong dự án.
     project_name: project.name,
     points: wallet?.points ?? 0,
+    // Chỉ chủ kênh chuyển được điểm vào kênh; trang điểm của kênh cần biết để
+    // không mời thành viên bấm một nút chắc chắn bị từ chối.
+    is_owner: project.user_id === user.id,
     transactions: transactions ?? [],
   });
 }
@@ -65,38 +69,41 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { user, project } = resolved;
   if (user.id !== project.user_id) {
-    return NextResponse.json({ error: "Chỉ owner mới được nạp ví dự án" }, { status: 403 });
+    return NextResponse.json({ error: "Chỉ chủ kênh mới chuyển được điểm vào kênh." }, { status: 403 });
   }
 
   const body = await req.json();
   const points = Number(body?.points || 0);
-  if (!Number.isFinite(points) || points <= 0) {
-    return NextResponse.json({ error: "Số points không hợp lệ" }, { status: 400 });
+  if (!Number.isSafeInteger(points) || points <= 0) {
+    return NextResponse.json({ error: "Số điểm phải là số nguyên lớn hơn 0." }, { status: 400 });
   }
 
   const { data: result, error } = await supabaseAdmin.rpc("atomic_deposit_points_to_project", {
     _project_id: project.id,
     _owner_user_id: user.id,
     _points_to_deposit: points,
-    _description: `Chuyển điểm vào kênh ${project.name}: +${points} điểm`,
+    _description: `Chuyển điểm vào kênh ${project.name}: +${formatPoints(points)}`,
   });
 
   if (error) {
-    return NextResponse.json({ error: "Lỗi nạp ví dự án" }, { status: 500 });
+    return NextResponse.json({ error: "Chưa chuyển được điểm. Bạn thử lại nhé." }, { status: 500 });
   }
 
   if (!result?.success) {
     if (result?.error === "Insufficient points") {
       return NextResponse.json(
         {
-          error: `Ví của bạn không đủ điểm: cần ${points}, đang có ${Number(result?.points ?? 0)}.`,
+          error: `Ví của bạn không đủ điểm: cần ${formatPoints(points)}, đang có ${formatPoints(Number(result?.points ?? 0))}.`,
           code: "INSUFFICIENT_POINTS",
+          required: points,
+          available: Number(result?.points ?? 0),
         },
         { status: 400 }
       );
     }
 
-    return NextResponse.json({ error: result?.error || "Không thể nạp ví dự án" }, { status: 400 });
+    console.error("Project points deposit refused:", result?.error);
+    return NextResponse.json({ error: "Chưa chuyển được điểm. Bạn thử lại nhé." }, { status: 400 });
   }
 
   return NextResponse.json({

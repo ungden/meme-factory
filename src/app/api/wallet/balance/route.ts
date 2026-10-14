@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !user) {
-      return NextResponse.json({ error: "Phiên đăng nhập hết hạn" }, { status: 401 });
+      return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
     }
 
     // Get wallet (maybeSingle to handle missing wallet gracefully)
@@ -68,6 +68,6 @@ export async function GET(req: Request) {
     });
   } catch (error) {
     console.error("Wallet balance error:", error);
-    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
+    return NextResponse.json({ error: "Chưa tải được ví. Bạn thử lại nhé." }, { status: 500 });
   }
 }

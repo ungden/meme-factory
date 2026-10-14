@@ -8,8 +8,9 @@ import { loginWithGoogleAction } from "@/app/(auth)/auth/actions";
 import { IS_MOCK_MODE } from "@/lib/use-store";
 import { FREE_TRIAL_POINTS } from "@/lib/point-pricing";
 import Button from "@/components/ui/button";
+import Alert from "@/components/ui/alert";
 import Input from "@/components/ui/input";
-import { Sparkles, Mail, Lock, AlertTriangle, Zap } from "lucide-react";
+import { Sparkles, Mail, Lock, Zap } from "lucide-react";
 
 function isSupabaseConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -46,7 +47,7 @@ export default function LoginPage() {
     if (errorCode === "auth_failed") {
       setError("Chưa đăng nhập được. Bạn thử lại nhé.");
     } else if (errorCode === "oauth_failed") {
-      setError("Đăng nhập Google thất bại hoặc đã bị huỷ.");
+      setError("Chưa đăng nhập được bằng Google, hoặc bạn đã huỷ giữa chừng.");
     }
   }, [searchParams]);
 
@@ -97,17 +98,21 @@ export default function LoginPage() {
         window.location.href = redirectPath;
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Có lỗi xảy ra";
+      const msg = err instanceof Error ? err.message : "";
       // Translate common Supabase errors
       if (msg.includes("Invalid login credentials")) {
-        setError("Email hoặc mật khẩu không đúng");
+        setError("Email hoặc mật khẩu chưa đúng.");
       } else if (msg.includes("Email not confirmed")) {
         setError("Bạn cần bấm link xác nhận trong email trước đã.");
         setNeedsConfirmation(true);
       } else if (msg.includes("already registered")) {
-        setError("Email này đã được đăng ký");
+        setError("Email này đã có tài khoản. Bạn đăng nhập nhé.");
+      } else if (/password/i.test(msg)) {
+        setError("Mật khẩu cần ít nhất 6 ký tự.");
+      } else if (/rate limit|too many/i.test(msg)) {
+        setError("Bạn thử hơi nhiều lần. Chờ vài phút rồi thử lại nhé.");
       } else {
-        setError(msg);
+        setError("Chưa đăng nhập được. Bạn thử lại nhé.");
       }
     } finally {
       setLoading(false);
@@ -129,7 +134,11 @@ export default function LoginPage() {
       setMessage("Đã gửi lại email xác nhận. Kiểm tra cả hộp thư rác nhé.");
       setNeedsConfirmation(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Chưa gửi lại được email xác nhận");
+      setError(
+        err instanceof Error && /rate limit|too many/i.test(err.message)
+          ? "Bạn vừa gửi lại rồi. Chờ vài phút rồi thử lại nhé."
+          : "Chưa gửi lại được email xác nhận. Bạn thử lại nhé.",
+      );
     } finally {
       setResending(false);
     }
@@ -155,10 +164,10 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center justify-center w-14 h-14 th-bg-gradient rounded-2xl mb-4 th-shadow-accent" aria-label="AIDA — trang chủ">
-            <Sparkles size={26} fill="currentColor" className="text-white" />
+          <Link href="/" className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl th-bg-gradient th-text-on-primary th-shadow-accent" aria-label="AIDA — trang chủ">
+            <Sparkles size={20} fill="currentColor" />
           </Link>
-          <h1 className="text-[28px] font-extrabold tracking-[-0.03em] th-text-primary">
+          <h1 className="text-3xl font-extrabold tracking-tight th-text-primary">
             {mode === "reset" ? "Đặt lại mật khẩu" : isSignUp ? "Tạo tài khoản AIDA" : "Chào mừng trở lại"}
           </h1>
           <p className="th-text-secondary mt-2 leading-6">
@@ -169,13 +178,10 @@ export default function LoginPage() {
         {/* Dev mode - skip login */}
         {IS_MOCK_MODE && (
           <div className="mb-6">
-            <button
-              onClick={() => router.push("/projects")}
-              className="w-full p-4 th-bg-accent rounded-2xl text-white font-semibold text-base th-bg-accent-hover transition-all shadow-lg th-shadow-accent flex items-center justify-center gap-3"
-            >
+            <Button size="lg" className="w-full" onClick={() => router.push("/projects")}>
               <Zap size={20} />
               Xem thử bằng dữ liệu mẫu (bỏ qua đăng nhập)
-            </button>
+            </Button>
             <p className="text-center text-xs th-text-muted mt-2">
               Dùng dữ liệu mẫu để xem thử mọi màn hình
             </p>
@@ -184,17 +190,9 @@ export default function LoginPage() {
 
         {/* Setup warning */}
         {!configured && !IS_MOCK_MODE && (
-          <div className="mb-6 p-4 border rounded-2xl th-border-warning th-bg-warning-light">
-            <div className="flex items-start gap-3">
-              <AlertTriangle size={20} style={{ color: "var(--warning)" }} className="mt-0.5 flex-shrink-0" />
-              <div>
-                <h3 className="text-sm font-semibold" style={{ color: "var(--warning)" }}>Cần thiết lập Supabase</h3>
-                <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--warning)", opacity: 0.8 }}>
-                  Để sử dụng xác thực, cấu hình Supabase trong <code className="px-1 py-0.5 rounded" style={{ background: "var(--warning-light)", color: "var(--warning)" }}>.env.local</code>
-                </p>
-              </div>
-            </div>
-          </div>
+          <Alert tone="warning" title="Đăng nhập đang tạm dừng" className="mb-6">
+            Trang này chưa được nối với máy chủ đăng nhập. Bạn quay lại sau ít phút nhé.
+          </Alert>
         )}
 
         {/* Form */}
@@ -253,7 +251,7 @@ export default function LoginPage() {
             )}
 
             {error && (
-              <div className="p-3 border rounded-xl text-sm th-border-danger th-bg-danger-light th-text-danger">
+              <Alert>
                 {error}
                 {needsConfirmation && (
                   <button
@@ -265,14 +263,10 @@ export default function LoginPage() {
                     {resending ? "Đang gửi lại…" : "Gửi lại email xác nhận"}
                   </button>
                 )}
-              </div>
+              </Alert>
             )}
 
-            {message && (
-              <div className="p-3 border rounded-xl text-sm th-border-success th-bg-success-light th-text-success">
-                {message}
-              </div>
-            )}
+            {message && <Alert tone="success">{message}</Alert>}
 
             <Button
               type="submit"
@@ -298,9 +292,9 @@ export default function LoginPage() {
           </form>
 
           <div className="my-5 flex items-center gap-3">
-            <div className="flex-1 h-px" style={{ background: "var(--border-primary)" }} />
-            <span className="text-xs th-text-muted uppercase">hoặc</span>
-            <div className="flex-1 h-px" style={{ background: "var(--border-primary)" }} />
+            <div className="flex-1 border-t th-border" />
+            <span className="text-xs th-text-muted">hoặc</span>
+            <div className="flex-1 border-t th-border" />
           </div>
 
           {/* Hidden form for Google OAuth — calls Server Action so code_verifier is stored in server cookies */}
