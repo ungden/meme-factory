@@ -67,6 +67,13 @@ export async function POST(request: NextRequest) {
       await reportError(new Error(orphanError.message), { scope: "refund.sweeper.orphan" });
     refunded += Number(orphans || 0);
 
+    // Video lẻ hỏng ở nhà cung cấp: trang video chỉ hoàn khi có người mở lại,
+    // người đã rời trang thì phải nhờ vòng quét này.
+    const { data: videos, error: videoError } = await admin.rpc("settle_failed_content_videos", { _limit: BATCH });
+    if (videoError)
+      await reportError(new Error(videoError.message), { scope: "refund.sweeper.video" });
+    refunded += Number(videos || 0);
+
     return NextResponse.json({ scanned: jobs?.length || 0, refunded });
   } catch (error) {
     await reportError(error, { scope: "refund.sweeper" });
