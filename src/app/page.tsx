@@ -117,7 +117,7 @@ export default function Home() {
                 <Sparkles size={14} className="shrink-0" />
                 Cho chủ fanpage và kênh TikTok
               </span>
-              <h1 className="mt-6 text-[34px] font-extrabold leading-[1.08] tracking-[-0.04em] sm:text-[52px] lg:text-[50px] xl:text-[56px]">
+              <h1 className="mt-6 text-balance text-[34px] font-extrabold leading-[1.08] tracking-[-0.04em] sm:text-[52px] lg:text-[50px] xl:text-[56px]">
                 Gõ một ý tưởng.
                 <br />
                 <span className="th-text-gradient">Nhận bài đăng ngay.</span>
