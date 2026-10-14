@@ -107,7 +107,7 @@ export default function CharacterPackCard({
       )}
 
       {working ? (
-        <JobStatus state="working" title={working} />
+        <JobStatus state="working" title={working} leaveHint="Giữ trang này mở tới khi vẽ xong; rời trang thì ảnh đã vẽ vẫn còn, lần sau vẽ tiếp phần thiếu." />
       ) : failure ? (
         <JobStatus
           state="failed"

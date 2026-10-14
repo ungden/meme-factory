@@ -128,7 +128,7 @@ export default function CharacterImages({
         </div>
       </div>
 
-      {drawing && <JobStatus state="working" title={`Đang vẽ thêm ảnh cho ${character.name}…`} detail="Thường mất 10–30 giây." />}
+      {drawing && <JobStatus state="working" title={`Đang vẽ thêm ảnh cho ${character.name}…`} detail="Thường mất 10–30 giây." leaveHint="Rời trang cũng được, ảnh xong sẽ nằm trong trang nhân vật này." />}
       {!drawing && drawError && (
         <JobStatus
           state="failed"

@@ -301,7 +301,7 @@ export default function BasePackWizard({
         {step === "anchor" && (
           <div className="space-y-4">
             {busy ? (
-              <JobStatus state="working" title="Đang vẽ ảnh đầu" detail="Xong là tự lưu vào Mẫu meme." />
+              <JobStatus state="working" title="Đang vẽ ảnh đầu" detail="Xong là tự lưu vào Mẫu meme." leaveHint={null} />
             ) : anchor?.baseImage && !anchor.error ? (
               <>
                 <p className="text-sm th-text-tertiary">
@@ -341,6 +341,7 @@ export default function BasePackWizard({
               state="working"
               title={`Đã lưu ${drawnCount} / ${selectedRecipes.length} biểu cảm`}
               detail="Ảnh nào xong là đã nằm trong Mẫu meme. Đóng cửa sổ giữa chừng không mất ảnh đã vẽ, mở lại là vẽ tiếp phần còn thiếu."
+              leaveHint={null}
             />
 
             {items.length > 0 && (

@@ -16,6 +16,7 @@ export default function JobStatus({
   refundedPoints,
   onRetry,
   retryLabel = "Thử lại",
+  leaveHint = "Rời trang cũng được, xong sẽ nằm trong thư viện.",
   children,
 }: {
   state: "working" | "failed" | "done";
@@ -25,6 +26,8 @@ export default function JobStatus({
   refundedPoints?: number;
   onRetry?: () => void;
   retryLabel?: string;
+  /** Câu nói người dùng có thể đi chỗ khác; null khi việc này cần giữ trang. */
+  leaveHint?: string | null;
   children?: ReactNode;
 }) {
   const Icon = state === "working" ? Loader2 : state === "failed" ? XCircle : CheckCircle2;
@@ -40,7 +43,7 @@ export default function JobStatus({
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium th-text-primary">{title}</p>
           {detail && <p className="mt-0.5 text-sm th-text-secondary">{detail}</p>}
-          {state === "working" && <p className="mt-1 text-xs th-text-tertiary">Rời trang cũng được, xong sẽ có thông báo.</p>}
+          {state === "working" && leaveHint && <p className="mt-1 text-xs th-text-tertiary">{leaveHint}</p>}
           {state === "failed" && !!refundedPoints && (
             <p className="mt-1 text-xs th-text-secondary">Đã hoàn {formatPoints(refundedPoints)} vào kênh.</p>
           )}
