@@ -35,7 +35,7 @@ export default function SharePost({ caption, hashtags = [], label = "Sao chép b
       window.setTimeout(() => setCopied(false), 2000);
       toast.success("Đã sao chép bài đăng. Dán thẳng vào Facebook nhé.");
     } catch {
-      toast.error("Trình duyệt không cho sao chép. Bạn bôi đen và copy tay giúp nhé.");
+      toast.error("Trình duyệt không cho sao chép. Bạn bôi đen rồi sao chép tay giúp nhé.");
     }
   }
 
@@ -54,7 +54,7 @@ export default function SharePost({ caption, hashtags = [], label = "Sao chép b
       <button
         type="button"
         onClick={copy}
-        className="inline-flex items-center gap-1.5 text-xs font-semibold th-text-accent"
+        className="inline-flex min-h-8 items-center gap-1.5 text-xs font-semibold th-text-accent"
       >
         {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? "Đã chép" : label}
       </button>
@@ -62,7 +62,7 @@ export default function SharePost({ caption, hashtags = [], label = "Sao chép b
         <button
           type="button"
           onClick={share}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold th-text-accent"
+          className="inline-flex min-h-8 items-center gap-1.5 text-xs font-semibold th-text-accent"
         >
           <Share2 size={14} /> Chia sẻ
         </button>

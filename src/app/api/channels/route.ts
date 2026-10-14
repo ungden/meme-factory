@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   if (!throttle.allowed) return NextResponse.json({ error: rateLimitMessage(throttle) }, { status: 429 });
   const body = await request.json().catch(() => ({}));
   const draft = channelFromSuggestion(body);
-  if (!draft) return NextResponse.json({ error: "Đặt tên cho kênh." }, { status: 400 });
+  if (!draft) return NextResponse.json({ error: "Đặt tên cho kênh nhé." }, { status: 400 });
   if (isChannelLook(body?.look)) draft.look = body.look;
   const fields = projectFields(draft);
   const { data: project, error } = await supabase

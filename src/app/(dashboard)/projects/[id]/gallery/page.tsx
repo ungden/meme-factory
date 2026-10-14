@@ -1,16 +1,21 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import Link from "next/link";
+import { useState, useCallback, useEffect, useRef } from "react";
 import SharePost from "@/components/content/share-post";
 import PromptModal from "@/components/ui/prompt-modal";
 import { suggestHashtags } from "@/lib/post-text";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useProject, useMemes } from "@/lib/use-store";
-import Button from "@/components/ui/button";
+import Button, { buttonClasses } from "@/components/ui/button";
 import Card from "@/components/ui/card";
+import EmptyState from "@/components/ui/empty-state";
 import Modal from "@/components/ui/modal";
 import ConfirmModal from "@/components/ui/confirm-modal";
+import Select from "@/components/ui/select";
+import { PageContainer, PageHeader, Skeleton } from "@/components/ui/page";
 import { useToast } from "@/components/ui/toast";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { recordMemeExport, useMemeCollections, useMemeExports } from "@/lib/use-templates";
 import {
   Download,
@@ -27,11 +32,18 @@ import {
   Type,
   FolderPlus,
   CopyPlus,
+  SearchX,
 } from "lucide-react";
-import { FORMAT_DIMENSIONS, type ContentOutput, type MemeContent, type MemeFormat } from "@/types/database";
+import { FORMAT_DIMENSIONS, type ContentOutput, type Meme, type MemeContent, type MemeFormat } from "@/types/database";
 import { createClient } from "@/lib/supabase/client";
 
-/** Trạng thái đầu ra video hiển thị cho người dùng; không rơi về mã thô. */
+/**
+ * `?item=<id>` mở thẳng một bài: id của meme thì mở khung chi tiết, id của
+ * video thì cuộn tới thẻ video đó. Thẻ ở trang chính dẫn về đây.
+ */
+const GALLERY_ITEM_PARAM = "item";
+
+/** Trạng thái video hiển thị cho người dùng; không rơi về mã thô. */
 const VIDEO_STATUS_LABELS: Record<string, string> = {
   draft: "Bản nháp",
   queued: "Đang chờ",
@@ -39,9 +51,12 @@ const VIDEO_STATUS_LABELS: Record<string, string> = {
   failed: "Chưa làm được",
 };
 
+const FINISHED_VIDEO = ["completed", "approved", "rejected"];
+
 export default function GalleryPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const projectId = params.id as string;
   const toast = useToast();
 
@@ -67,6 +82,14 @@ export default function GalleryPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "draft">("all");
   const [duplicating, setDuplicating] = useState(false);
   const [contentOutputs, setContentOutputs] = useState<ContentOutput[]>([]);
+  const [outputsLoaded, setOutputsLoaded] = useState(false);
+
+  // Bài được mở qua link: meme cũ có thể nằm ngoài trang đầu của danh sách.
+  const linkedItem = searchParams.get(GALLERY_ITEM_PARAM);
+  const [linkedMeme, setLinkedMeme] = useState<Meme | null>(null);
+  const [highlighted, setHighlighted] = useState<string | null>(null);
+  const handledMemeLink = useRef<string | null>(null);
+  const handledVideoLink = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -77,7 +100,8 @@ export default function GalleryPage() {
         const outputs = (payload?.contentSets ?? []).flatMap((set: { content_outputs?: ContentOutput[] }) => set.content_outputs ?? []);
         setContentOutputs(outputs);
       })
-      .catch(() => { if (active) setContentOutputs([]); });
+      .catch(() => { if (active) setContentOutputs([]); })
+      .finally(() => { if (active) setOutputsLoaded(true); });
     return () => { active = false; };
   }, [projectId]);
 
@@ -85,17 +109,52 @@ export default function GalleryPage() {
   // library starts showing it once it has actually been submitted to a provider.
   const videoOutputs = contentOutputs.filter((output) => output.kind === "video" && output.status !== "draft");
 
+  useEffect(() => {
+    if (!linkedItem || loading || handledMemeLink.current === linkedItem) return;
+    handledMemeLink.current = linkedItem;
+    if (memes.some((meme) => meme.id === linkedItem)) {
+      setSelectedMeme(linkedItem);
+      return;
+    }
+    if (!project?.id) {
+      handledMemeLink.current = null;
+      return;
+    }
+    let active = true;
+    createClient()
+      .from("memes")
+      .select("*")
+      .eq("id", linkedItem)
+      .eq("project_id", project.id)
+      .maybeSingle()
+      .then((result: { data: unknown }) => {
+        const data = result.data as Meme | null;
+        if (!active || !data) return;
+        setLinkedMeme(data);
+        setSelectedMeme(linkedItem);
+      });
+    return () => { active = false; };
+  }, [linkedItem, loading, memes, project?.id]);
+
+  useEffect(() => {
+    if (!linkedItem || !outputsLoaded || handledVideoLink.current === linkedItem) return;
+    handledVideoLink.current = linkedItem;
+    if (!videoOutputs.some((output) => output.id === linkedItem)) return;
+    setHighlighted(linkedItem);
+    requestAnimationFrame(() => document.getElementById(`item-${linkedItem}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  }, [linkedItem, outputsLoaded, videoOutputs]);
+
   const reviewOutput = useCallback(async (outputId: string, status: "approved" | "rejected") => {
     try {
       const response = await fetch(`/api/content-outputs/${outputId}/approve`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "Không lưu được trạng thái duyệt.");
+      if (!response.ok) throw new Error(payload.error || "Chưa lưu được. Bạn thử lại nhé.");
       setContentOutputs((current) => current.map((output) => output.id === outputId ? payload.output : output));
-      toast.success(status === "approved" ? "Đã duyệt." : "Đã đánh dấu cần sửa.");
+      toast.success(status === "approved" ? "Đã duyệt" : "Đã đánh dấu cần sửa");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Không lưu được trạng thái duyệt.");
+      toast.error(error instanceof Error ? error.message : "Chưa lưu được. Bạn thử lại nhé.");
     }
   }, [toast]);
 
@@ -119,7 +178,7 @@ export default function GalleryPage() {
   }).length;
   const composedCount = memes.filter((meme) => meme.composed_locally).length;
   const watermarkedCount = memes.filter((meme) => meme.has_watermark).length;
-  const topMascot = (() => {
+  const topCharacter = (() => {
     const counts = new Map<string, number>();
     for (const meme of memes) {
       const name = Array.isArray(meme.selected_characters) && meme.selected_characters[0]?.character_name;
@@ -133,7 +192,7 @@ export default function GalleryPage() {
     return best;
   })();
 
-  const selected = memes.find((m) => m.id === selectedMeme);
+  const selected = memes.find((m) => m.id === selectedMeme) ?? (linkedMeme && linkedMeme.id === selectedMeme ? linkedMeme : undefined);
 
   // Only memes with images can be downloaded
   const downloadableMemes = memes.filter((m) => m.image_url);
@@ -182,9 +241,9 @@ export default function GalleryPage() {
     link.href = imageUrl;
     link.download = `meme-${id}.png`;
     link.click();
-    toast.success("Đang tải…");
+    toast.success("Đang tải ảnh…");
 
-    const meme = memes.find((entry) => entry.id === id);
+    const meme = memes.find((entry) => entry.id === id) ?? (linkedMeme?.id === id ? linkedMeme : undefined);
     if (project?.id && meme) {
       const dimensions = FORMAT_DIMENSIONS[meme.format];
       void recordMemeExport({
@@ -202,9 +261,8 @@ export default function GalleryPage() {
   };
 
   /** Reuses the stored image object; only the row is copied. */
-  const handleDuplicate = async (id: string) => {
-    const source = memes.find((meme) => meme.id === id);
-    if (!source || !project?.id) return;
+  const handleDuplicate = async (source: Meme) => {
+    if (!project?.id) return;
 
     setDuplicating(true);
     try {
@@ -224,45 +282,35 @@ export default function GalleryPage() {
         composed_locally: Boolean(source.composed_locally),
       });
       if (error) throw new Error(error.message);
-      toast.success("Đã nhân bản");
-      setSelectedMeme(null);
+      toast.success("Đã sao chép thành bài mới");
+      closeDetail();
       await reload();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Nhân bản thất bại");
+    } catch {
+      toast.error("Chưa sao chép được. Bạn thử lại nhé.");
     } finally {
       setDuplicating(false);
     }
   };
 
-  const goRegenerate = (memeId: string) => {
+  const closeDetail = () => {
     setSelectedMeme(null);
-    setDeleteTarget(null);
-    setSelectionMode(false);
-    setSelectedIds(new Set());
-    requestAnimationFrame(() => {
-      router.push(`/projects/${projectId}/generate?fromMeme=${encodeURIComponent(memeId)}&mode=regenerate`);
-    });
+    // Đóng khung chi tiết thì bỏ `?item=` để tải lại trang không mở lại nó.
+    if (linkedItem) router.replace(`/projects/${projectId}/gallery`, { scroll: false });
   };
 
-  const goEditText = (memeId: string) => {
+  const leaveTo = (href: string) => {
     setSelectedMeme(null);
     setDeleteTarget(null);
     setSelectionMode(false);
     setSelectedIds(new Set());
-    requestAnimationFrame(() => {
-      router.push(`/projects/${projectId}/editor?meme=${encodeURIComponent(memeId)}`);
-    });
+    requestAnimationFrame(() => router.push(href));
   };
 
-  const goReuseIdea = (memeId: string) => {
-    setSelectedMeme(null);
-    setDeleteTarget(null);
-    setSelectionMode(false);
-    setSelectedIds(new Set());
-    requestAnimationFrame(() => {
-      router.push(`/projects/${projectId}/generate?fromMeme=${encodeURIComponent(memeId)}&mode=reuse`);
-    });
-  };
+  const goRegenerate = (memeId: string) =>
+    leaveTo(`/projects/${projectId}/generate?fromMeme=${encodeURIComponent(memeId)}&mode=regenerate`);
+  const goEditText = (memeId: string) => leaveTo(`/projects/${projectId}/editor?meme=${encodeURIComponent(memeId)}`);
+  const goReuseIdea = (memeId: string) =>
+    leaveTo(`/projects/${projectId}/generate?fromMeme=${encodeURIComponent(memeId)}&mode=reuse`);
 
   const handleBulkDownload = useCallback(async () => {
     if (selectedDownloadable.length === 0) {
@@ -332,7 +380,7 @@ export default function GalleryPage() {
       link.click();
       URL.revokeObjectURL(url);
 
-      toast.success(`Đã tải ${selectedDownloadable.length} ảnh (file nén)`);
+      toast.success(`Đã tải ${selectedDownloadable.length} ảnh trong một tệp nén`);
       exitSelectionMode();
     } catch (err) {
       console.error("ZIP download failed:", err);
@@ -342,77 +390,81 @@ export default function GalleryPage() {
     setIsZipping(false);
   }, [selectedDownloadable, memes, project, toast]);
 
+  const countLine = `${visibleMemes.length} ảnh · ${videoOutputs.length} video${visibleMemes.length !== memes.length ? ` (lọc từ ${memes.length} ảnh)` : ""}`;
+
   return (
-    <div className="flex">
-      <main className="flex-1 p-4 pt-16 md:p-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold th-text-primary">Thư viện</h1>
-            <p className="th-text-tertiary mt-1">{visibleMemes.length} ảnh · {videoOutputs.length} video đang hiển thị{visibleMemes.length !== memes.length ? ` (lọc từ ${memes.length} ảnh)` : ""}</p>
-          </div>
-          {!loading && memes.length > 0 && !selectionMode && (
+    <PageContainer width="work">
+      <PageHeader
+        title="Thư viện"
+        description={loading ? "Meme, video, phim bạn làm đều nằm ở đây." : countLine}
+        actions={
+          !loading && memes.length > 0 && !selectionMode ? (
             <Button variant="outline" onClick={() => setSelectionMode(true)}>
               <CheckSquare size={16} />
               Chọn để tải
             </Button>
-          )}
-        </div>
+          ) : null
+        }
+      />
 
-        {videoOutputs.length > 0 && (
-          <section className="mb-6">
-            <h2 className="mb-3 text-lg font-semibold th-text-primary">Video và phim</h2>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {videoOutputs.map((output) => (
-                <Card key={output.id} className="overflow-hidden p-0">
-                  {["completed", "approved", "rejected"].includes(output.status) ? <video controls preload="none" poster={output.poster_url ? `/api/content-outputs/${output.id}/media?artifact=poster` : undefined} className="w-full bg-black object-contain" style={{ aspectRatio: ["16:9", "9:16", "1:1", "4:5"].includes(output.format) ? output.format.replace(":", "/") : "16/9" }} src={`/api/content-outputs/${output.id}/media`} /> : <div className="flex aspect-[9/16] items-center justify-center p-5 text-center text-sm th-text-tertiary">{output.status === "failed" ? "Video chưa làm được. Làm lại để xem giá mới." : "Đang làm video, lát quay lại nhé."}</div>}
-                  <div className="p-3"><p className="line-clamp-2 text-sm th-text-secondary">{output.caption || output.script || "Video"}</p><p className="mt-1 text-xs th-text-muted">{output.duration_seconds ? `${output.duration_seconds} giây` : ""} · {["completed", "approved", "rejected"].includes(output.status) ? (output.status === "approved" ? "Đã duyệt" : output.status === "rejected" ? "Cần sửa" : "Xong") : VIDEO_STATUS_LABELS[output.status] || "Đang làm"}</p>{["completed", "approved", "rejected"].includes(output.status) && <div className="mt-2 flex flex-wrap items-center gap-3"><a className="inline-flex text-xs font-semibold th-text-accent" href={`/api/content-outputs/${output.id}/media?download=1`}>Tải video</a><SharePost caption={output.caption || output.script || ""} hashtags={postHashtags} />{output.status === "completed" && <><button onClick={() => reviewOutput(output.id, "approved")} className="text-xs font-semibold th-text-success">Duyệt</button><button onClick={() => reviewOutput(output.id, "rejected")} className="text-xs font-semibold th-text-warning">Cần sửa</button></>}</div>}</div>
-                </Card>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Stats */}
-        {!loading && memes.length > 0 && (
-          <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Tổng số ảnh" value={String(memes.length)} hint={`+${memesThisMonth} trong tháng này`} />
-            <StatCard
-              label="Ghép chữ"
-              value={String(composedCount)}
-              hint={`${Math.round((composedCount / memes.length) * 100)}% miễn phí`}
-            />
-            <StatCard
-              label="Có logo"
-              value={`${Math.round((watermarkedCount / memes.length) * 100)}%`}
-              hint={`${watermarkedCount} / ${memes.length} ảnh`}
-            />
-            <StatCard
-              label="Nhân vật dùng nhiều nhất"
-              value={topMascot?.name ?? "—"}
-              hint={topMascot ? `${topMascot.count} meme` : "chưa có dữ liệu"}
-            />
+      {videoOutputs.length > 0 && (
+        <section className="mb-6" aria-labelledby="videos-title">
+          <h2 id="videos-title" className="mb-3 text-lg font-semibold th-text-primary">Video và phim</h2>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {videoOutputs.map((output) => (
+              <VideoCard
+                key={output.id}
+                output={output}
+                highlighted={highlighted === output.id}
+                hashtags={postHashtags}
+                onReview={reviewOutput}
+              />
+            ))}
           </div>
-        )}
+        </section>
+      )}
 
-        {/* Filters */}
-        {!loading && memes.length > 0 && (
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <select
+      {!loading && memes.length > 0 && (
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Tổng số ảnh" value={String(memes.length)} hint={`+${memesThisMonth} trong tháng này`} />
+          <StatCard
+            label="Ghép chữ"
+            value={String(composedCount)}
+            hint={`${Math.round((composedCount / memes.length) * 100)}% miễn phí`}
+          />
+          <StatCard
+            label="Có logo"
+            value={`${Math.round((watermarkedCount / memes.length) * 100)}%`}
+            hint={`${watermarkedCount} / ${memes.length} ảnh`}
+          />
+          <StatCard
+            label="Nhân vật dùng nhiều nhất"
+            value={topCharacter?.name ?? "—"}
+            hint={topCharacter ? `${topCharacter.count} meme` : "chưa có số liệu"}
+          />
+        </div>
+      )}
+
+      {!loading && memes.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="w-40">
+            <Select
               aria-label="Lọc theo thời gian"
               value={timeFilter}
               onChange={(event) => setTimeFilter(event.target.value as typeof timeFilter)}
-              className="rounded-xl border th-border-secondary th-bg-tertiary px-3 py-1.5 text-xs th-text-primary"
+              className="py-1.5 text-sm"
             >
               <option value="all">Mọi thời điểm</option>
               <option value="7d">7 ngày qua</option>
               <option value="30d">30 ngày qua</option>
-            </select>
-            <select
+            </Select>
+          </div>
+          <div className="w-36">
+            <Select
               aria-label="Lọc theo khổ ảnh"
               value={formatFilter}
               onChange={(event) => setFormatFilter(event.target.value as typeof formatFilter)}
-              className="rounded-xl border th-border-secondary th-bg-tertiary px-3 py-1.5 text-xs th-text-primary"
+              className="py-1.5 text-sm"
             >
               <option value="all">Mọi khổ ảnh</option>
               {(Object.keys(FORMAT_DIMENSIONS) as MemeFormat[]).map((format) => (
@@ -420,380 +472,312 @@ export default function GalleryPage() {
                   {format}
                 </option>
               ))}
-            </select>
-            <select
+            </Select>
+          </div>
+          <div className="w-40">
+            <Select
               aria-label="Lọc theo trạng thái"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
-              className="rounded-xl border th-border-secondary th-bg-tertiary px-3 py-1.5 text-xs th-text-primary"
+              className="py-1.5 text-sm"
             >
               <option value="all">Mọi trạng thái</option>
-              <option value="completed">Đã hoàn tất</option>
+              <option value="completed">Đã xong</option>
               <option value="draft">Nháp</option>
-            </select>
-            <span className="text-xs th-text-tertiary">
-              {visibleMemes.length} / {memes.length} ảnh
-            </span>
+            </Select>
           </div>
-        )}
+          <span className="text-xs th-text-tertiary">
+            {visibleMemes.length} / {memes.length} ảnh
+          </span>
+        </div>
+      )}
 
-        {/* Collections rail + grid */}
-        <div className="grid gap-5 lg:grid-cols-[190px_minmax(0,1fr)]">
-          <aside className="space-y-1">
-            <div className="mb-1 flex items-center justify-between">
-              <span className="text-xs font-medium th-text-tertiary">Album</span>
-              <button
-                type="button"
-                aria-label="Album mới"
-                onClick={() => setNewCollectionOpen(true)}
-                className="flex h-11 w-11 items-center justify-center rounded-lg th-text-tertiary th-bg-hover hover:th-text-primary lg:h-8 lg:w-8"
-              >
-                <FolderPlus size={16} />
-              </button>
-            </div>
+      <div className="grid gap-5 lg:grid-cols-[190px_minmax(0,1fr)]">
+        <aside className="space-y-1">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs font-medium th-text-tertiary">Album</span>
+            <button
+              type="button"
+              aria-label="Tạo album"
+              onClick={() => setNewCollectionOpen(true)}
+              className="flex h-11 w-11 items-center justify-center rounded-lg th-text-tertiary th-bg-hover hover:th-text-primary lg:h-8 lg:w-8"
+            >
+              <FolderPlus size={16} />
+            </button>
+          </div>
+          <CollectionRow
+            label="Tất cả"
+            count={memes.length}
+            active={activeCollection === null}
+            onClick={() => setActiveCollection(null)}
+          />
+          {collections.map((collection) => (
             <CollectionRow
-              label="Tất cả"
-              count={memes.length}
-              active={activeCollection === null}
-              onClick={() => setActiveCollection(null)}
+              key={collection.id}
+              label={collection.name}
+              count={collection.meme_count}
+              active={activeCollection === collection.id}
+              onClick={() => setActiveCollection(collection.id)}
             />
-            {collections.map((collection) => (
-              <CollectionRow
-                key={collection.id}
-                label={collection.name}
-                count={collection.meme_count}
-                active={activeCollection === collection.id}
-                onClick={() => setActiveCollection(collection.id)}
-              />
-            ))}
-          </aside>
+          ))}
+        </aside>
 
-          <div className="min-w-0 space-y-4">
-
-        {/* Selection bar */}
-        {selectionMode && (
-          <div
-            className="flex items-center justify-between mb-4 p-3 rounded-xl border"
-            style={{
-              background: "var(--bg-card)",
-              borderColor: "var(--accent)",
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium th-text-primary">
-                {selectedDownloadable.length} / {downloadableMemes.length} đã chọn
-              </span>
-              <button
-                onClick={selectedIds.size === downloadableMemes.length ? deselectAll : selectAll}
-                className="text-xs th-text-accent hover:underline"
-              >
-                {selectedIds.size === downloadableMemes.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                onClick={handleBulkDownload}
-                disabled={selectedDownloadable.length === 0 || isZipping}
-                loading={isZipping}
-              >
-                {isZipping ? (
-                  <>
-                    <Package size={14} />
-                    Đang nén… ({zipProgress.done}/{zipProgress.total})
-                  </>
-                ) : (
-                  <>
-                    <Download size={14} />
-                    Tải ảnh ({selectedDownloadable.length})
-                  </>
-                )}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={exitSelectionMode}>
-                <X size={14} />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* ZIP progress bar */}
-        {isZipping && (
-          <div className="mb-4 w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-tertiary)" }}>
-            <div
-              className="h-full rounded-full transition-all duration-300 th-bg-accent-light0"
-              style={{
-                width: `${zipProgress.total > 0 ? (zipProgress.done / zipProgress.total) * 100 : 0}%`,
-              }}
-            />
-          </div>
-        )}
-
-        {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="aspect-square th-bg-card rounded-2xl animate-pulse" />
-            ))}
-          </div>
-        ) : memes.length === 0 ? (
-          videoOutputs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="w-20 h-20 th-bg-card rounded-2xl flex items-center justify-center mb-4">
-                <ImageIcon size={32} className="th-text-muted" />
-              </div>
-              <h3 className="text-lg font-medium th-text-secondary">Thư viện còn trống</h3>
-              <p className="th-text-muted mt-1">Meme, video, phim bạn làm sẽ nằm ở đây</p>
-            </div>
-          ) : (
-            // Kênh chỉ có phim vẫn là kênh có nội dung; đừng nói "chưa có gì".
-            <div className="flex flex-col items-center justify-center py-12">
-              <h3 className="text-lg font-medium th-text-secondary">Chưa có ảnh nào</h3>
-              <p className="th-text-muted mt-1">Phim của bạn đang ở phần phía trên.</p>
-            </div>
-          )
-        ) : visibleMemes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16">
-            <h3 className="text-lg font-medium th-text-secondary">Không có ảnh nào khớp bộ lọc</h3>
-            <p className="th-text-muted mt-1">Bỏ bớt bộ lọc hoặc chọn album khác nhé.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {visibleMemes.map((meme) => {
-              const content = meme.generated_content as MemeContent;
-              const isSelected = selectedIds.has(meme.id);
-              const hasImage = !!meme.image_url;
-
-              return (
-                <Card
-                  key={meme.id}
-                  hover
-                  onClick={() => {
-                    if (selectionMode) {
-                      if (hasImage) toggleSelection(meme.id);
-                    } else {
-                      setSelectedMeme(meme.id);
-                    }
-                  }}
-                  className={`group overflow-hidden relative ${
-                    selectionMode && isSelected ? "ring-2 th-ring-accent" : ""
-                  }`}
+        <div className="min-w-0 space-y-4">
+          {selectionMode && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 th-border-accent th-bg-card">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium th-text-primary">
+                  {selectedDownloadable.length} / {downloadableMemes.length} đã chọn
+                </span>
+                <button
+                  onClick={selectedIds.size === downloadableMemes.length ? deselectAll : selectAll}
+                  className="text-xs th-text-accent hover:underline"
                 >
-                  {/* Selection checkbox */}
-                  {selectionMode && (
-                    <div className="absolute top-2 left-2 z-10">
-                      {isSelected ? (
-                        <div
-                          className="w-6 h-6 rounded-md flex items-center justify-center"
-                          style={{ background: "var(--accent-gradient)" }}
-                        >
-                          <CheckCircle size={16} className="text-white" />
-                        </div>
-                      ) : hasImage ? (
-                        <div
-                          className="w-6 h-6 rounded-md border-2 flex items-center justify-center bg-white/80 dark:bg-black/40"
-                          style={{ borderColor: "var(--border-primary)" }}
-                        >
-                          <Square size={12} className="th-text-muted" />
-                        </div>
+                  {selectedIds.size === downloadableMemes.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleBulkDownload}
+                  disabled={selectedDownloadable.length === 0 || isZipping}
+                  loading={isZipping}
+                >
+                  {isZipping ? (
+                    <>
+                      <Package size={14} />
+                      Đang nén… ({zipProgress.done}/{zipProgress.total})
+                    </>
+                  ) : (
+                    <>
+                      <Download size={14} />
+                      Tải ảnh ({selectedDownloadable.length})
+                    </>
+                  )}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={exitSelectionMode} aria-label="Thoát chọn">
+                  <X size={14} />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {isZipping && (
+            <div className="h-1.5 w-full overflow-hidden rounded-full th-bg-tertiary" role="progressbar" aria-valuemin={0} aria-valuemax={zipProgress.total} aria-valuenow={zipProgress.done}>
+              <div
+                className="h-full rounded-full transition-all duration-300 th-bg-accent"
+                style={{ width: `${zipProgress.total > 0 ? (zipProgress.done / zipProgress.total) * 100 : 0}%` }}
+              />
+            </div>
+          )}
+
+          {loading ? (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} className="aspect-square" />
+              ))}
+            </div>
+          ) : memes.length === 0 ? (
+            videoOutputs.length === 0 ? (
+              <EmptyState
+                icon={ImageIcon}
+                title="Thư viện còn trống"
+                hint="Meme, video, phim bạn làm sẽ nằm ở đây."
+                action={
+                  <Link href={`/projects/${projectId}`} className={buttonClasses("primary", "sm")}>
+                    Làm bài đầu tiên
+                  </Link>
+                }
+              />
+            ) : (
+              // Kênh chỉ có phim vẫn là kênh có bài; đừng nói "chưa có gì".
+              <EmptyState icon={ImageIcon} title="Chưa có ảnh nào" hint="Video và phim của bạn nằm ở phần phía trên." />
+            )
+          ) : visibleMemes.length === 0 ? (
+            <EmptyState icon={SearchX} title="Không có ảnh nào khớp bộ lọc" hint="Bỏ bớt bộ lọc hoặc chọn album khác nhé." />
+          ) : (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+              {visibleMemes.map((meme) => {
+                const content = meme.generated_content as MemeContent;
+                const isSelected = selectedIds.has(meme.id);
+                const hasImage = !!meme.image_url;
+
+                return (
+                  <Card
+                    key={meme.id}
+                    hover
+                    onClick={() => {
+                      if (selectionMode) {
+                        if (hasImage) toggleSelection(meme.id);
+                      } else {
+                        setSelectedMeme(meme.id);
+                      }
+                    }}
+                    className={`group relative overflow-hidden ${selectionMode && isSelected ? "ring-2 th-ring-accent" : ""}`}
+                  >
+                    {selectionMode && (
+                      <div className="absolute left-2 top-2 z-10">
+                        {isSelected ? (
+                          <div className="flex h-6 w-6 items-center justify-center rounded-md th-bg-accent th-text-on-primary">
+                            <CheckCircle size={16} />
+                          </div>
+                        ) : (
+                          <div
+                            className={`flex h-6 w-6 items-center justify-center rounded-md border-2 th-border th-bg-card ${hasImage ? "" : "cursor-not-allowed opacity-40"}`}
+                            title={hasImage ? undefined : "Không có ảnh để tải"}
+                          >
+                            <Square size={12} className="th-text-muted" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="relative flex aspect-square items-center justify-center overflow-hidden th-bg-tertiary">
+                      {meme.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={meme.image_url} alt={content?.headline || meme.original_idea} loading="lazy" className="h-full w-full object-cover" />
                       ) : (
-                        <div
-                          className="w-6 h-6 rounded-md border-2 flex items-center justify-center bg-white/50 opacity-40 cursor-not-allowed"
-                          style={{ borderColor: "var(--border-primary)" }}
-                          title="Không có ảnh để tải"
-                        >
-                          <Square size={12} className="th-text-muted" />
+                        <div className="p-4 text-center">
+                          <ImageIcon size={20} className="mx-auto mb-2 th-text-muted" />
+                          <p className="line-clamp-3 text-xs th-text-tertiary">
+                            {content?.headline || meme.original_idea}
+                          </p>
                         </div>
                       )}
+                      {!selectionMode && (
+                        <div
+                          // Chỉ hiện khi rê chuột nghĩa là thiết bị cảm ứng không
+                          // bao giờ chạm tới được: người dùng điện thoại không tạo
+                          // lại hay tải nổi một ảnh lẻ. Dưới lg thì luôn hiện, và
+                          // focus bàn phím cũng mở được.
+                          className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100"
+                        >
+                          <OverlayButton label="Làm bản khác" onClick={() => goRegenerate(meme.id)}>
+                            <Sparkles size={16} />
+                          </OverlayButton>
+                          <OverlayButton label="Ghép chữ (miễn phí)" onClick={() => goEditText(meme.id)}>
+                            <Type size={16} />
+                          </OverlayButton>
+                          <OverlayButton label="Dùng lại ý tưởng" onClick={() => goReuseIdea(meme.id)}>
+                            <Wand2 size={16} />
+                          </OverlayButton>
+                          <OverlayButton label="Tải ảnh" onClick={() => handleDownload(meme.image_url, meme.id)}>
+                            <Download size={16} />
+                          </OverlayButton>
+                          <OverlayButton label="Xoá meme" danger onClick={() => setDeleteTarget(meme.id)}>
+                            <Trash2 size={16} />
+                          </OverlayButton>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <p className="truncate text-xs font-medium th-text-primary">
+                        {content?.headline || meme.original_idea}
+                      </p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="flex items-center gap-1 text-xs th-text-muted">
+                          <Calendar size={12} />
+                          {formatDate(meme.created_at)}
+                        </span>
+                        <span className="rounded px-1.5 py-0.5 text-xs th-bg-tertiary th-text-tertiary">
+                          {meme.format}
+                        </span>
+                        {meme.source_meme_id && (
+                          <span className="rounded px-1.5 py-0.5 text-xs th-bg-accent-light th-text-accent">
+                            Bản khác
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Cùng mẫu offset + "Xem thêm" mà màn phim ngắn đang dùng. */}
+          {!loading && hasMore && visibleMemes.length > 0 && (
+            <div className="mt-6 flex justify-center">
+              <Button variant="outline" loading={loadingMore} onClick={loadMore}>
+                Xem thêm ảnh cũ hơn
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Modal isOpen={!!selected} onClose={closeDetail} title="Chi tiết meme" size="xl">
+        {selected &&
+          (() => {
+            const content = selected.generated_content as MemeContent;
+            return (
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="flex min-h-[200px] items-center justify-center overflow-hidden rounded-xl th-bg-tertiary">
+                  {selected.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={selected.image_url} alt={content?.headline || selected.original_idea} className="h-auto w-full" />
+                  ) : (
+                    <div className="p-8 text-center">
+                      <ImageIcon size={20} className="mx-auto mb-2 th-text-muted" />
+                      <p className="text-sm th-text-tertiary">{content?.headline}</p>
                     </div>
                   )}
-
-                  <div
-                    className="aspect-square relative overflow-hidden flex items-center justify-center"
-                    style={{ background: "var(--bg-tertiary)" }}
-                  >
-                    {meme.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={meme.image_url} alt={content?.headline || meme.original_idea} loading="lazy" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="text-center p-4">
-                        <ImageIcon size={24} className="mx-auto th-text-muted mb-2" />
-                        <p className="text-xs th-text-tertiary line-clamp-3">
-                          {content?.headline || meme.original_idea}
-                        </p>
-                      </div>
-                    )}
-                    {!selectionMode && (
-                      <div
-                        // Chỉ hiện khi rê chuột nghĩa là thiết bị cảm ứng không
-                        // bao giờ chạm tới được: người dùng điện thoại không tạo
-                        // lại hay tải nổi một ảnh lẻ. Dưới lg thì luôn hiện, và
-                        // focus bàn phím cũng mở được.
-                        className="absolute inset-0 flex items-center justify-center gap-2 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100"
-                        style={{ background: "var(--bg-overlay)" }}
-                      >
-                        <button
-                          aria-label="Làm bản khác từ meme này"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            goRegenerate(meme.id);
-                          }}
-                          className="p-2 th-bg-accent-medium rounded-xl th-bg-accent-soft-hover transition-colors"
-                          title="Làm bản khác"
-                        >
-                          <Sparkles size={18} className="text-white" />
-                        </button>
-                        <button
-                          aria-label="Ghép chữ lên meme này"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            goEditText(meme.id);
-                          }}
-                          className="p-2 th-bg-accent-medium rounded-xl th-bg-accent-soft-hover transition-colors"
-                          title="Ghép chữ (miễn phí)"
-                        >
-                          <Type size={18} className="text-white" />
-                        </button>
-                        <button
-                          aria-label="Dùng lại ý tưởng"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            goReuseIdea(meme.id);
-                          }}
-                          className="p-2 th-bg-accent-medium rounded-xl th-bg-accent-soft-hover transition-colors"
-                          title="Dùng lại ý tưởng"
-                        >
-                          <Wand2 size={18} className="text-white" />
-                        </button>
-                        <button
-                          aria-label="Tải ảnh"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownload(meme.image_url, meme.id);
-                          }}
-                          className="p-2 bg-white/20 rounded-xl hover:bg-white/30 transition-colors"
-                        >
-                          <Download size={18} className="text-white" />
-                        </button>
-                        <button
-                          aria-label="Xoá meme"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteTarget(meme.id);
-                          }}
-                          className="p-2 bg-red-500/30 rounded-xl hover:bg-red-500/50 transition-colors"
-                        >
-                          <Trash2 size={18} className="text-white" />
-                        </button>
-                      </div>
-                    )}
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs th-text-muted">Ý tưởng</p>
+                    <p className="mt-1 text-sm th-text-secondary">{selected.original_idea}</p>
                   </div>
-                  <div className="p-3">
-                    <p className="text-xs th-text-primary font-medium truncate">
-                      {content?.headline || meme.original_idea}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs th-text-muted flex items-center gap-1">
-                        <Calendar size={10} />
-                        {new Date(meme.created_at).toLocaleDateString("vi-VN")}
-                      </span>
-                      <span className="px-1.5 py-0.5 text-xs th-bg-tertiary th-text-tertiary rounded">
-                        {meme.format}
-                      </span>
-                      {meme.source_meme_id && (
-                        <span className="px-1.5 py-0.5 text-xs rounded th-bg-accent-light th-text-accent">
-                          Bản khác
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Cùng mẫu offset + "Tải thêm" mà màn phim ngắn đang dùng. */}
-        {!loading && hasMore && visibleMemes.length > 0 && (
-          <div className="mt-6 flex justify-center">
-            <Button variant="outline" loading={loadingMore} onClick={loadMore}>
-              Tải thêm ảnh cũ hơn
-            </Button>
-          </div>
-        )}
-
-          </div>
-        </div>
-
-
-        {/* Detail Modal */}
-        <Modal isOpen={!!selected} onClose={() => setSelectedMeme(null)} title="Chi tiết meme" size="xl">
-          {selected &&
-            (() => {
-              const content = selected.generated_content as MemeContent;
-              return (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="th-bg-tertiary rounded-xl overflow-hidden flex items-center justify-center min-h-[200px]">
-                    {selected.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={selected.image_url} alt={((selected.generated_content as MemeContent)?.headline) || selected.original_idea} className="w-full h-auto" />
-                    ) : (
-                      <div className="text-center p-8">
-                        <ImageIcon size={48} className="mx-auto th-text-muted mb-2" />
-                        <p className="text-sm th-text-tertiary">{content?.headline}</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-4">
+                  {content?.headline && (
                     <div>
-                      <p className="text-xs th-text-muted uppercase tracking-wider">Ý tưởng gốc</p>
-                      <p className="text-sm th-text-secondary mt-1">{selected.original_idea}</p>
+                      <p className="text-xs th-text-muted">Chữ trên ảnh</p>
+                      <p className="mt-1 text-lg font-bold th-text-primary">{content.headline}</p>
                     </div>
-                    {content?.headline && (
-                      <div>
-                        <p className="text-xs th-text-muted uppercase tracking-wider">Chữ trên ảnh</p>
-                        <p className="text-lg font-bold th-text-primary mt-1">{content.headline}</p>
-                      </div>
-                    )}
-                    {content?.caption && (
-                      <div>
-                        <p className="text-xs th-text-muted uppercase tracking-wider">Nội dung bài đăng</p>
-                        <p className="text-sm th-text-secondary mt-1">{content.caption}</p>
-                        {/* Sao chép cả caption lẫn hashtag, đúng khối chữ dán
-                            thẳng được vào Facebook. */}
-                        <SharePost
-                          className="mt-2"
-                          caption={content.caption || ""}
-                          hashtags={postHashtags}
-                          label="Sao chép bài đăng"
-                        />
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 text-xs th-text-tertiary">
-                      <Calendar size={12} />
-                      {new Date(selected.created_at).toLocaleString("vi-VN")}
-                      <span className="px-1.5 py-0.5 th-bg-tertiary rounded">{selected.format}</span>
-                      {selected.source_meme_id && (
-                        <span className="px-1.5 py-0.5 rounded th-bg-accent-light th-text-accent">Làm từ meme cũ</span>
-                      )}
+                  )}
+                  {content?.caption && (
+                    <div>
+                      <p className="text-xs th-text-muted">Nội dung bài đăng</p>
+                      <p className="mt-1 text-sm th-text-secondary">{content.caption}</p>
+                      {/* Sao chép cả nội dung bài đăng lẫn hashtag, đúng khối chữ
+                          dán thẳng được vào Facebook. */}
+                      <SharePost
+                        className="mt-2"
+                        caption={content.caption || ""}
+                        hashtags={postHashtags}
+                        label="Sao chép bài đăng"
+                      />
                     </div>
-                    <div className="flex gap-2 pt-2">
-                      <Button variant="outline" size="sm" onClick={() => goRegenerate(selected.id)}>
-                        <Sparkles size={14} /> Làm bản khác
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => goEditText(selected.id)}>
-                        <Type size={14} /> Ghép chữ
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        loading={duplicating}
-                        onClick={() => handleDuplicate(selected.id)}
-                      >
-                        <CopyPlus size={14} /> Nhân bản
-                      </Button>
-                      {collections.length > 0 && (
-                        <select
+                  )}
+                  <div className="flex flex-wrap items-center gap-2 text-xs th-text-tertiary">
+                    <Calendar size={12} />
+                    {formatDateTime(selected.created_at)}
+                    <span className="rounded px-1.5 py-0.5 th-bg-tertiary">{selected.format}</span>
+                    {selected.source_meme_id && (
+                      <span className="rounded px-1.5 py-0.5 th-bg-accent-light th-text-accent">Làm từ meme cũ</span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <Button size="sm" onClick={() => handleDownload(selected.image_url, selected.id)} disabled={!selected.image_url}>
+                      <Download size={14} /> Tải ảnh
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => goRegenerate(selected.id)}>
+                      <Sparkles size={14} /> Làm bản khác
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => goEditText(selected.id)}>
+                      <Type size={14} /> Ghép chữ
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => goReuseIdea(selected.id)}>
+                      <Wand2 size={14} /> Dùng lại ý tưởng
+                    </Button>
+                    <Button variant="outline" size="sm" loading={duplicating} onClick={() => handleDuplicate(selected)}>
+                      <CopyPlus size={14} /> Sao chép
+                    </Button>
+                    {collections.length > 0 && (
+                      <div className="w-40">
+                        <Select
                           aria-label="Thêm vào album"
                           defaultValue=""
+                          className="py-1.5 text-sm"
                           onChange={async (event) => {
                             const collectionId = event.target.value;
                             event.target.value = "";
@@ -807,11 +791,10 @@ export default function GalleryPage() {
                                 await addMeme(collectionId, selected.id);
                                 toast.success("Đã thêm vào album");
                               }
-                            } catch (error) {
-                              toast.error(error instanceof Error ? error.message : "Không cập nhật được");
+                            } catch {
+                              toast.error("Chưa cập nhật được album. Bạn thử lại nhé.");
                             }
                           }}
-                          className="rounded-xl border th-border-secondary th-bg-tertiary px-3 text-sm th-text-primary"
                         >
                           <option value="">Album…</option>
                           {collections.map((collection) => (
@@ -820,96 +803,164 @@ export default function GalleryPage() {
                               {collection.name}
                             </option>
                           ))}
-                        </select>
-                      )}
-                      <Button variant="outline" size="sm" onClick={() => goReuseIdea(selected.id)}>
-                        <Wand2 size={14} /> Dùng lại ý tưởng
-                      </Button>
-                      <Button size="sm" onClick={() => handleDownload(selected.image_url, selected.id)}>
-                        <Download size={14} /> Tải ảnh
-                      </Button>
-                      <Button variant="danger" size="sm" onClick={() => setDeleteTarget(selected.id)}>
-                        <Trash2 size={14} /> Xoá
-                      </Button>
-                    </div>
-
-                    {exportHistory.length > 0 && (
-                      <div className="pt-2">
-                        <p className="text-xs th-text-muted uppercase tracking-wider mb-1.5">
-                          Lịch sử tải
-                        </p>
-                        <ul className="space-y-1">
-                          {exportHistory.slice(0, 6).map((entry) => (
-                            <li
-                              key={entry.id}
-                              className="flex items-center justify-between gap-2 text-xs th-text-tertiary"
-                            >
-                              <span>
-                                {new Date(entry.created_at).toLocaleString("vi-VN", {
-                                  day: "2-digit",
-                                  month: "2-digit",
-                                  year: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </span>
-                              <span className="tabular-nums">
-                                {entry.format.toUpperCase()} · {entry.width}×{entry.height}
-                                {entry.file_size_bytes
-                                  ? ` · ${(entry.file_size_bytes / 1024 / 1024).toFixed(1)} MB`
-                                  : ""}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
+                        </Select>
                       </div>
                     )}
+                    <Button variant="danger" size="sm" onClick={() => setDeleteTarget(selected.id)}>
+                      <Trash2 size={14} /> Xoá
+                    </Button>
                   </div>
+
+                  {exportHistory.length > 0 && (
+                    <div className="pt-2">
+                      <p className="mb-1.5 text-xs th-text-muted">Lịch sử tải</p>
+                      <ul className="space-y-1">
+                        {exportHistory.slice(0, 6).map((entry) => (
+                          <li
+                            key={entry.id}
+                            className="flex items-center justify-between gap-2 text-xs th-text-tertiary"
+                          >
+                            <span>{formatDateTime(entry.created_at)}</span>
+                            <span className="tabular-nums">
+                              {entry.format.toUpperCase()} · {entry.width}×{entry.height}
+                              {entry.file_size_bytes
+                                ? ` · ${(entry.file_size_bytes / 1024 / 1024).toFixed(1)} MB`
+                                : ""}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
-              );
-            })()}
-        </Modal>
+              </div>
+            );
+          })()}
+      </Modal>
 
-        {/* Delete Confirmation */}
-        <PromptModal
-          isOpen={newCollectionOpen}
-          onClose={() => setNewCollectionOpen(false)}
-          onSubmit={async (name) => {
-            setNewCollectionOpen(false);
-            try {
-              await createCollection(name);
-              toast.success("Đã tạo album");
-            } catch (error) {
-              toast.error(error instanceof Error ? error.message : "Chưa tạo được album");
-            }
-          }}
-          title="Album mới"
-          label="Tên album"
-          placeholder="Ví dụ: Bài đăng tháng 10"
-          confirmText="Tạo"
-        />
+      <PromptModal
+        isOpen={newCollectionOpen}
+        onClose={() => setNewCollectionOpen(false)}
+        onSubmit={async (name) => {
+          setNewCollectionOpen(false);
+          try {
+            await createCollection(name);
+            toast.success("Đã tạo album");
+          } catch {
+            toast.error("Chưa tạo được album. Bạn thử lại nhé.");
+          }
+        }}
+        title="Tạo album"
+        label="Tên album"
+        placeholder="Ví dụ: Bài đăng tháng 10"
+        confirmText="Tạo"
+      />
 
-        <ConfirmModal
-          isOpen={!!deleteTarget}
-          onClose={() => setDeleteTarget(null)}
-          onConfirm={handleDelete}
-          title="Xoá meme này?"
-          message="Xoá rồi không lấy lại được."
-          confirmText="Xoá"
-          variant="danger"
-        />
-      </main>
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Xoá meme này?"
+        message="Meme này sẽ mất hẳn, không lấy lại được."
+        confirmText="Xoá"
+        variant="danger"
+      />
+    </PageContainer>
+  );
+}
+
+function VideoCard({
+  output,
+  highlighted,
+  hashtags,
+  onReview,
+}: {
+  output: ContentOutput;
+  highlighted: boolean;
+  hashtags: string[];
+  onReview: (id: string, status: "approved" | "rejected") => void;
+}) {
+  const finished = FINISHED_VIDEO.includes(output.status);
+  const ratio = ["16:9", "9:16", "1:1", "4:5"].includes(output.format) ? output.format.replace(":", "/") : "16/9";
+  const statusLabel = finished
+    ? output.status === "approved" ? "Đã duyệt" : output.status === "rejected" ? "Cần sửa" : "Xong"
+    : VIDEO_STATUS_LABELS[output.status] || "Đang làm";
+  return (
+    <div id={`item-${output.id}`} className="scroll-mt-24">
+      <Card className={`overflow-hidden p-0 ${highlighted ? "ring-2 th-ring-accent" : ""}`}>
+        {finished ? (
+          <video
+            controls
+            preload="none"
+            poster={output.poster_url ? `/api/content-outputs/${output.id}/media?artifact=poster` : undefined}
+            className="w-full bg-black object-contain"
+            style={{ aspectRatio: ratio }}
+            src={`/api/content-outputs/${output.id}/media`}
+          />
+        ) : (
+          <div className="flex aspect-[9/16] items-center justify-center p-5 text-center text-sm th-text-tertiary">
+            {output.status === "failed" ? "Video chưa làm được. Làm lại để xem giá mới." : "Đang làm video, lát quay lại nhé."}
+          </div>
+        )}
+        <div className="p-3">
+          <p className="line-clamp-2 text-sm th-text-secondary">{output.caption || output.script || "Video"}</p>
+          <p className="mt-1 text-xs th-text-muted">
+            {output.duration_seconds ? `${output.duration_seconds} giây · ` : ""}{statusLabel}
+          </p>
+          {finished && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <a className={buttonClasses("outline", "sm")} href={`/api/content-outputs/${output.id}/media?download=1`}>
+                <Download size={14} /> Tải video
+              </a>
+              <SharePost caption={output.caption || output.script || ""} hashtags={hashtags} />
+              {output.status === "completed" && (
+                <>
+                  <Button variant="ghost" size="sm" onClick={() => onReview(output.id, "approved")}>Duyệt</Button>
+                  <Button variant="ghost" size="sm" onClick={() => onReview(output.id, "rejected")}>Cần sửa</Button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
     </div>
+  );
+}
+
+function OverlayButton({
+  label,
+  danger = false,
+  onClick,
+  children,
+}: {
+  label: string;
+  danger?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      className={`rounded-xl p-2 transition-transform th-bg-card th-shadow-sm hover:scale-105 ${danger ? "th-text-danger" : "th-text-primary"}`}
+    >
+      {children}
+    </button>
   );
 }
 
 function StatCard({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
-    <div className="rounded-2xl border p-3" style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}>
+    <Card className="p-3">
       <p className="text-xs th-text-tertiary">{label}</p>
       <p className="mt-0.5 truncate text-xl font-bold th-text-primary">{value}</p>
-      <p className="truncate text-[11px] th-text-tertiary">{hint}</p>
-    </div>
+      <p className="truncate text-xs th-text-tertiary">{hint}</p>
+    </Card>
   );
 }
 

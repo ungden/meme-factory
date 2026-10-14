@@ -4,17 +4,20 @@ import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUp, AtSign, Check, Clapperboard, Film, Images, Sparkles } from "lucide-react";
+import Alert from "@/components/ui/alert";
 import Button from "@/components/ui/button";
+import Chip from "@/components/ui/chip";
 import { useToast } from "@/components/ui/toast";
 import { humanizeError } from "@/lib/error-messages";
-import { giveFilmHandoff, giveVideoHandoff } from "@/lib/home-handoff";
+import { formatPointsRange } from "@/lib/format";
+import { giveFilmHandoff, giveVideoHandoff, parseComposeKind, type ComposeKind } from "@/lib/home-handoff";
 import { getProjectRouteRef } from "@/lib/project-visuals";
 import { isTaggable, referencesFor, type TaggableCharacter } from "@/lib/character-refs";
 import type { FilmFormat } from "@/lib/film-camera-language";
 import type { Project } from "@/types/database";
 import { FORMAT_CHOICES, QUALITY_OPTIONS } from "../[id]/short-films/_lib/studio";
 
-type Kind = "film" | "video" | "meme";
+type Kind = ComposeKind;
 
 /** "Làm thêm kiểu này" từ một thẻ đã xong: cùng kênh, cùng loại, cùng cách quay. */
 export type ComposerPreset = { kind?: Kind; projectId: string; format?: FilmFormat | null; nonce: number };
@@ -81,7 +84,8 @@ export default function HomeComposer({
     try {
       const draft = JSON.parse(window.sessionStorage.getItem(LANDING_DRAFT) || "null") as { idea?: string; output?: string } | null;
       if (draft?.idea) setIdea(draft.idea);
-      if (draft?.output) setKind(draft.output === "Tạo phim ngắn" ? "film" : "meme");
+      const drafted = parseComposeKind(draft?.output);
+      if (drafted) setKind(drafted);
     } catch {
       // Nháp hỏng thì bắt đầu trống.
     }
@@ -140,9 +144,10 @@ export default function HomeComposer({
     setError("");
     if (newChannel || !channel) {
       // Kênh mới đi qua đủ hai bước: hồ sơ kênh rồi nhân vật. Ý tưởng được giữ
-      // làm mô tả kênh ban đầu.
+      // làm mô tả kênh ban đầu; loại bài nằm cùng nháp để khi quay lại đây
+      // (bước nhân vật đưa về trang chính) ô nhập vẫn đúng loại người dùng chọn.
       try {
-        window.sessionStorage.setItem(LANDING_DRAFT, JSON.stringify({ idea: written, output: kind === "film" ? "Tạo phim ngắn" : "Tạo ảnh" }));
+        window.sessionStorage.setItem(LANDING_DRAFT, JSON.stringify({ idea: written, output: kind }));
       } catch {
         // Mất nháp không chặn việc tạo kênh.
       }
@@ -196,15 +201,15 @@ export default function HomeComposer({
   return (
     <form onSubmit={submit} className="flex flex-col gap-3" aria-labelledby="home-title">
       <div className="text-center">
-        <h1 id="home-title" className="text-[28px] font-semibold leading-tight tracking-[-0.035em] th-text-primary sm:text-[40px]">
+        <h1 id="home-title" className="text-3xl font-semibold leading-tight tracking-tight th-text-primary sm:text-4xl">
           Hôm nay {lockChannel && channel ? channel.name : "kênh của bạn"} <span className="th-text-gradient">đăng gì?</span>
         </h1>
-        <p className="mx-auto mt-3 max-w-xl text-[15px] th-text-secondary">
+        <p className="mx-auto mt-3 max-w-xl text-base th-text-secondary">
           Viết một ý tưởng, hoặc để trống cho AIDA tự nghĩ. Làm xong sẽ hiện ngay bên dưới.
         </p>
       </div>
 
-      <div className="mt-2 rounded-[22px] border th-border th-bg-elevated p-2.5 th-shadow-lg transition-shadow focus-within:shadow-[0_0_0_1px_var(--accent-border),0_24px_70px_-24px_var(--accent-shadow)] sm:p-3">
+      <div className="mt-2 rounded-3xl border th-border th-bg-elevated p-2.5 th-shadow-lg transition-colors focus-within:th-border-accent sm:p-3">
         <textarea
           ref={box}
           value={idea}
@@ -219,25 +224,23 @@ export default function HomeComposer({
           maxLength={2000}
           aria-label="Ý tưởng"
           placeholder={placeholder}
-          className="w-full resize-none bg-transparent px-2 py-2 text-[15px] leading-relaxed th-text-primary outline-none placeholder:th-text-muted"
+          className="w-full resize-none bg-transparent px-2 py-2 text-base leading-relaxed th-text-primary outline-none placeholder:th-text-muted"
         />
 
         {kind !== "film" && !newChannel && (
           <div className="flex flex-wrap items-center gap-1.5 px-1 pb-2" role="group" aria-label="Gắn nhân vật">
             <span className="flex items-center gap-1 text-xs th-text-muted">
-              <AtSign size={13} aria-hidden /> Gắn nhân vật
+              <AtSign size={12} aria-hidden /> Gắn nhân vật
             </span>
             {characters.map((character) => {
               const on = tagged.includes(character.id);
               return (
-                <button
+                <Chip
                   key={character.id}
-                  type="button"
-                  aria-pressed={on}
+                  selected={on}
                   onClick={() => setTagged((list) => (on ? list.filter((id) => id !== character.id) : [...list, character.id]))}
-                  className={`flex min-h-8 items-center gap-1.5 rounded-full border py-0.5 pl-0.5 pr-2.5 text-xs transition-colors ${on ? "th-border-accent th-bg-accent-light th-text-primary" : "th-border th-text-secondary th-bg-hover"}`}
                 >
-                  <span className="relative h-6 w-6 overflow-hidden rounded-full th-bg-tertiary">
+                  <span className="relative -ml-2.5 h-6 w-6 overflow-hidden rounded-full th-bg-tertiary">
                     {/* eslint-disable-next-line @next/next/no-img-element -- ảnh nhân vật nằm ở kho lưu trữ của app */}
                     <img src={character.references?.identity_face || character.avatarUrl || ""} alt="" className="h-full w-full object-cover" />
                     {on && (
@@ -247,7 +250,7 @@ export default function HomeComposer({
                     )}
                   </span>
                   {character.name}
-                </button>
+                </Chip>
               );
             })}
             {cast?.channelId === channelId && !characters.length && channel && (
@@ -267,14 +270,14 @@ export default function HomeComposer({
                 role="radio"
                 aria-checked={kind === value}
                 onClick={() => setKind(value)}
-                className={`flex min-h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition-colors ${kind === value ? "th-bg-card th-text-primary th-shadow-sm" : "th-text-tertiary hover:th-text-primary"}`}
+                className={`flex min-h-8 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors ${kind === value ? "th-bg-card th-text-primary th-shadow-sm" : "th-text-tertiary hover:th-text-primary"}`}
               >
-                <Icon size={15} aria-hidden /> {label}
+                <Icon size={14} aria-hidden /> {label}
               </button>
             ))}
           </div>
           {!lockChannel && (
-          <label className="flex min-h-9 min-w-0 max-w-full items-center gap-1.5 rounded-full border th-border px-3 text-[13px] th-text-tertiary th-bg-hover">
+          <label className="flex min-h-9 min-w-0 max-w-full items-center gap-1.5 rounded-full border th-border px-3 text-sm th-text-tertiary th-bg-hover">
             <span className="shrink-0">Kênh</span>
             <select
               value={channelId}
@@ -289,7 +292,7 @@ export default function HomeComposer({
           </label>
           )}
           <Button type="submit" loading={busy} disabled={tooShort} className="ml-auto rounded-full px-4" aria-label={written ? "Bắt đầu làm" : "Tự nghĩ ý tưởng rồi làm"}>
-            {written ? <ArrowUp size={17} aria-hidden /> : <Sparkles size={17} aria-hidden />}
+            {written ? <ArrowUp size={16} aria-hidden /> : <Sparkles size={16} aria-hidden />}
             {newChannel
               ? "Tạo kênh"
               : kind === "video"
@@ -304,17 +307,15 @@ export default function HomeComposer({
       {kind === "film" && !newChannel && (
         <div className="flex flex-wrap justify-center gap-2" role="radiogroup" aria-label="Cách quay">
           {FORMAT_CHOICES.map((choice) => (
-            <button
+            <Chip
               key={choice.value || "auto"}
-              type="button"
               role="radio"
-              aria-checked={format === choice.value}
+              selected={format === choice.value}
               title={choice.description}
               onClick={() => setFormat(choice.value)}
-              className={`min-h-8 rounded-full border px-3 text-xs transition-colors ${format === choice.value ? "th-border-accent th-bg-accent-light th-text-accent" : "th-border th-text-tertiary th-bg-hover"}`}
             >
               {choice.label}
-            </button>
+            </Chip>
           ))}
         </div>
       )}
@@ -327,7 +328,7 @@ export default function HomeComposer({
               ? "Tả cảnh trong video (ít nhất vài chữ)."
               : "Viết thêm vài chữ, hoặc xoá hết để AIDA tự nghĩ."
             : kind === "film"
-              ? `Dùng nhân vật của kênh · ${QUALITY_OPTIONS[0].estimatedPoints.toLocaleString("vi-VN")}–${QUALITY_OPTIONS[1].estimatedPoints.toLocaleString("vi-VN")} điểm · 5–10 phút · hỏi bạn trước khi chi quá mức.`
+              ? `Dùng nhân vật của kênh · ${formatPointsRange(QUALITY_OPTIONS[0].estimatedPoints, QUALITY_OPTIONS[1].estimatedPoints)} · 5–10 phút · hỏi bạn trước khi chi quá mức.`
               : kind === "video"
                 ? taggedCharacters.length
                   ? `Video tới 30 giây, giữ đúng gương mặt ${taggedCharacters.map((character) => character.name).join(", ")} · xem giá trước khi làm.`
@@ -336,9 +337,7 @@ export default function HomeComposer({
                   ? `Một meme có ${taggedCharacters.map((character) => character.name).join(", ")} · khoảng 1 phút.`
                   : "Một meme · tự chọn nhân vật hợp ý · khoảng 1 phút."}
       </p>
-      {error && (
-        <p role="alert" className="rounded-lg border th-border-danger th-bg-danger-light px-3 py-2 text-sm th-text-danger">{error}</p>
-      )}
+      {error && <Alert>{error}</Alert>}
     </form>
   );
 }

@@ -4,6 +4,7 @@ import { ArrowRight, CalendarClock, Check } from "lucide-react";
 import SiteFooter from "@/components/marketing/site-footer";
 import SiteHeader from "@/components/marketing/site-header";
 import { FREE_TRIAL_POINTS, POINT_COSTS, POINT_PACKAGES, formatVND } from "@/lib/point-pricing";
+import { formatPoints, formatPointsRange } from "@/lib/format";
 import {
   FILM_POINTS_RANGE,
   PRICING_EXAMPLES,
@@ -21,9 +22,8 @@ export const metadata: Metadata = {
 type Points = number | { min: number; max: number };
 
 function pointsText(points: Points) {
-  if (typeof points === "number") return points === 0 ? "Miễn phí" : `${points.toLocaleString("vi-VN")} điểm`;
-  if (points.min === points.max) return `${points.min.toLocaleString("vi-VN")} điểm`;
-  return `${points.min.toLocaleString("vi-VN")}–${points.max.toLocaleString("vi-VN")} điểm`;
+  if (typeof points === "number") return points === 0 ? "Miễn phí" : formatPoints(points);
+  return formatPointsRange(points.min, points.max);
 }
 
 function vndText(points: Points) {
@@ -88,7 +88,7 @@ export default function PricingPage() {
                     )}
                   </div>
                   <p className="mt-4 text-[28px] font-extrabold tracking-[-0.03em]">{formatVND(pkg.price)}</p>
-                  <p className="mt-0.5 th-text-secondary">{pkg.points.toLocaleString("vi-VN")} điểm</p>
+                  <p className="mt-0.5 th-text-secondary">{formatPoints(pkg.points)}</p>
                   <p className="mt-4 border-t pt-4 text-[13px] leading-5 th-border th-text-tertiary">
                     Khoảng {memes} meme
                     {films > 0 ? ` hoặc ${films === 1 ? "một" : `${films}`} phim ngắn` : ""}.
@@ -163,7 +163,7 @@ export default function PricingPage() {
                 ))}
               </div>
               <p className="mt-4 text-[13px] leading-5 th-text-tertiary">
-                Ví dụ tính từ giá meme {POINT_COSTS.meme} điểm và phim {FILM_POINTS_RANGE.min.toLocaleString("vi-VN")}–{FILM_POINTS_RANGE.max.toLocaleString("vi-VN")} điểm
+                Ví dụ tính từ giá meme {formatPoints(POINT_COSTS.meme)} và phim {formatPointsRange(FILM_POINTS_RANGE.min, FILM_POINTS_RANGE.max)}
                 một tập ~{FILM_POINTS_RANGE.seconds} giây. Bạn đặt mức chi tối đa cho mỗi tập và cả ngày; sắp vượt là dừng lại
                 hỏi bạn.
               </p>

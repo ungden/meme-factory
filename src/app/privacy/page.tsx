@@ -1,80 +1,94 @@
-import { Metadata } from "next";
+import type { Metadata } from "next";
+import Link from "next/link";
+import SiteFooter from "@/components/marketing/site-footer";
+import SiteHeader from "@/components/marketing/site-header";
 
 export const metadata: Metadata = {
-  title: "Chính sách bảo mật (Privacy Policy)",
-  description: "Chính sách bảo mật thông tin và dữ liệu người dùng của AIDA Media Studio.",
+  title: "Chính sách bảo mật",
+  description: "AIDA thu thập, dùng và bảo vệ dữ liệu của bạn như thế nào.",
 };
+
+const linkClass = "th-text-accent underline underline-offset-4";
 
 export default function PrivacyPolicy() {
   return (
-    <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6 lg:py-16 lg:px-8">
-      <div className="max-w-none">
-        <h1 className="text-3xl font-extrabold tracking-tight th-text-primary sm:text-4xl mb-8">
-          Chính sách bảo mật (Privacy Policy)
-        </h1>
-        <p className="th-text-tertiary mb-8">Cập nhật lần cuối: 10/09/2026</p>
+    <div className="media-home min-h-screen overflow-x-clip">
+      <SiteHeader />
 
-        <section className="mb-8">
-          <h2 className="text-2xl font-bold th-text-primary mb-4">1. Thu thập thông tin</h2>
-          <p className="th-text-secondary mb-4">
-            AIDA Media Studio (“chúng tôi”, “ứng dụng”, “website”) thu thập các thông tin sau khi bạn sử dụng dịch vụ:
-          </p>
-          <ul className="list-disc pl-6 th-text-secondary space-y-2 mb-4">
-            <li><strong>Thông tin tài khoản:</strong> Địa chỉ email khi bạn đăng ký và tạo tài khoản (thông qua Supabase hoặc đăng nhập Google).</li>
-            <li><strong>Dữ liệu người dùng tạo ra:</strong> Ý tưởng, prompt, kịch bản, hình ảnh và giọng nhân vật, ảnh, video, phụ đề và các bản dựng được tạo ra trong quá trình sử dụng.</li>
-            <li><strong>Thông tin giao dịch:</strong> Lịch sử nạp điểm và dùng điểm trong hệ thống (chúng tôi KHÔNG lưu trữ trực tiếp số thẻ tín dụng hay thông tin ngân hàng của bạn).</li>
-            <li><strong>Dữ liệu sử dụng:</strong> Thông tin về cách bạn tương tác với hệ thống để phục vụ cải thiện tính năng và chất lượng AI.</li>
-          </ul>
-        </section>
+      <main>
+        <article className="mx-auto max-w-[860px] px-4 pb-20 pt-14 sm:px-6 sm:pt-20">
+          <h1 className="text-4xl font-extrabold tracking-tight th-text-primary">Chính sách bảo mật</h1>
+          <p className="mt-3 th-text-tertiary">Cập nhật lần cuối: 10/09/2026</p>
 
-        <section className="mb-8">
-          <h2 className="text-2xl font-bold th-text-primary mb-4">2. Sử dụng thông tin</h2>
-          <p className="th-text-secondary mb-4">Chúng tôi sử dụng thông tin của bạn vào các mục đích sau:</p>
-          <ul className="list-disc pl-6 th-text-secondary space-y-2 mb-4">
-            <li>Cung cấp, vận hành và duy trì các tính năng của ứng dụng.</li>
-            <li>Xử lý các yêu cầu tạo văn bản, hình ảnh, giọng nói và video thông qua các đối tác cung cấp dịch vụ AI.</li>
-            <li>Quản lý tài khoản, hỗ trợ khách hàng và giải quyết các vấn đề kỹ thuật.</li>
-            <li>Theo dõi thanh toán và nạp/rút điểm trên hệ thống.</li>
-            <li>Phân tích để cải thiện trải nghiệm người dùng.</li>
-          </ul>
-        </section>
+          <Section title="1. Thông tin chúng tôi thu thập">
+            <p>AIDA (“chúng tôi”) thu thập các thông tin sau khi bạn dùng dịch vụ:</p>
+            <ul>
+              <li><strong>Thông tin tài khoản:</strong> địa chỉ email khi bạn đăng ký (bằng email hoặc đăng nhập Google).</li>
+              <li><strong>Những gì bạn làm trên AIDA:</strong> ý tưởng, mô tả, kịch bản, nhân vật và giọng nhân vật, ảnh, video, phụ đề và phim làm ra trong lúc dùng.</li>
+              <li><strong>Thông tin giao dịch:</strong> lịch sử nạp tiền, mua điểm và dùng điểm. Chúng tôi không lưu số thẻ hay thông tin đăng nhập ngân hàng của bạn.</li>
+              <li><strong>Cách bạn dùng sản phẩm:</strong> để cải thiện tính năng và chất lượng bài làm ra. Việc đo lường chỉ bật khi bạn đồng ý.</li>
+            </ul>
+          </Section>
 
-        <section className="mb-8">
-          <h2 className="text-2xl font-bold th-text-primary mb-4">3. Chia sẻ thông tin với bên thứ ba</h2>
-          <p className="th-text-secondary mb-4">
-            Chúng tôi không bán, trao đổi hoặc cho thuê thông tin cá nhân của bạn cho bên thứ ba. Tuy nhiên, để cung cấp dịch vụ, thông tin của bạn có thể được chia sẻ cho:
-          </p>
-          <ul className="list-disc pl-6 th-text-secondary space-y-2 mb-4">
-            <li><strong>Nhà cung cấp dịch vụ AI:</strong> Prompt, kịch bản và media tham chiếu cần thiết có thể được gửi tới API AI để tạo nội dung. Dữ liệu này chịu thêm chính sách xử lý của nhà cung cấp tương ứng.</li>
-            <li><strong>Nhà cung cấp hạ tầng:</strong> Supabase (xác thực, cơ sở dữ liệu và lưu trữ), Vercel (website), Railway (worker xử lý media) và SePay (đối soát thanh toán).</li>
-            <li><strong>Yêu cầu pháp lý:</strong> Khi được yêu cầu bởi cơ quan chức năng hoặc để bảo vệ quyền lợi hợp pháp của chúng tôi.</li>
-          </ul>
-        </section>
+          <Section title="2. Chúng tôi dùng thông tin để làm gì">
+            <ul>
+              <li>Cung cấp và vận hành các tính năng của AIDA.</li>
+              <li>Gửi yêu cầu viết chữ, vẽ ảnh, đọc giọng và làm video tới các đối tác cung cấp mô hình AI.</li>
+              <li>Quản lý tài khoản, trả lời khi bạn cần trợ giúp và xử lý sự cố.</li>
+              <li>Đối soát tiền nạp và điểm trong ví.</li>
+              <li>Phân tích để sản phẩm dễ dùng hơn.</li>
+            </ul>
+          </Section>
 
-        <section className="mb-8">
-          <h2 className="text-2xl font-bold th-text-primary mb-4">4. Quyền của người dùng</h2>
-          <p className="th-text-secondary mb-4">Bạn có các quyền sau đối với dữ liệu của mình:</p>
-          <ul className="list-disc pl-6 th-text-secondary space-y-2 mb-4">
-            <li>Xem và chỉnh sửa thông tin cá nhân trong phần Cài đặt tài khoản.</li>
-            <li>Xóa các dự án, nhân vật, hình ảnh và video đã tạo trong ứng dụng, theo các nghĩa vụ lưu giữ giao dịch và đối soát áp dụng.</li>
-            <li>Yêu cầu xóa hoàn toàn tài khoản bằng cách liên hệ với chúng tôi. Khi tài khoản bị xóa, mọi dữ liệu liên quan sẽ bị xóa khỏi cơ sở dữ liệu trừ các thông tin bắt buộc lưu trữ theo quy định của pháp luật.</li>
-          </ul>
-        </section>
+          <Section title="3. Chia sẻ thông tin với bên thứ ba">
+            <p>
+              Chúng tôi không bán, trao đổi hay cho thuê thông tin cá nhân của bạn. Để cung cấp dịch vụ, một phần thông tin
+              được chia sẻ cho:
+            </p>
+            <ul>
+              <li><strong>Nhà cung cấp mô hình AI:</strong> ý tưởng, kịch bản và ảnh mẫu cần thiết để làm bài. Phần dữ liệu này chịu thêm chính sách của nhà cung cấp tương ứng.</li>
+              <li><strong>Nhà cung cấp hạ tầng:</strong> Supabase (đăng nhập, cơ sở dữ liệu và lưu trữ), Vercel (website), Railway (máy xử lý video) và SePay (đối soát chuyển khoản).</li>
+              <li><strong>Yêu cầu pháp lý:</strong> khi cơ quan có thẩm quyền yêu cầu, hoặc để bảo vệ quyền lợi hợp pháp của chúng tôi.</li>
+            </ul>
+          </Section>
 
-        <section className="mb-8">
-          <h2 className="text-2xl font-bold th-text-primary mb-4">5. Lưu trữ và bảo mật</h2>
-          <p className="th-text-secondary mb-4">
-            Chúng tôi áp dụng các biện pháp bảo mật tiêu chuẩn (bao gồm mã hóa truyền tải và xác thực bảo mật thông qua Supabase) để bảo vệ dữ liệu của bạn khỏi việc truy cập trái phép. Tuy nhiên, không có phương thức truyền tải qua Internet nào là an toàn 100%, do đó chúng tôi không thể đảm bảo an toàn tuyệt đối.
-          </p>
-        </section>
+          <Section title="4. Quyền của bạn">
+            <ul>
+              <li>Xem và sửa thông tin cá nhân ở trang <Link href="/settings" className={linkClass}>Tài khoản</Link>.</li>
+              <li>Xoá kênh, nhân vật, ảnh và video đã làm, trừ phần sổ giao dịch phải giữ để đối soát.</li>
+              <li>
+                Xoá hẳn tài khoản ở trang <Link href="/settings" className={linkClass}>Tài khoản</Link>, hoặc viết cho chúng tôi.
+                Khi tài khoản bị xoá, mọi dữ liệu liên quan bị xoá khỏi cơ sở dữ liệu, trừ thông tin pháp luật bắt buộc lưu giữ.
+              </li>
+            </ul>
+          </Section>
 
-        <section className="mb-8">
-          <h2 className="text-2xl font-bold th-text-primary mb-4">6. Liên hệ</h2>
-          <p className="th-text-secondary mb-4">
-            Nếu bạn có bất kỳ câu hỏi nào về Chính sách bảo mật này, vui lòng liên hệ với chúng tôi tại: support@aida.vn.
-          </p>
-        </section>
-      </div>
+          <Section title="5. Lưu trữ và bảo mật">
+            <p>
+              Chúng tôi áp dụng các biện pháp bảo mật tiêu chuẩn (mã hoá đường truyền, đăng nhập an toàn qua Supabase) để
+              bảo vệ dữ liệu khỏi truy cập trái phép. Tuy vậy, không cách truyền dữ liệu nào qua Internet an toàn tuyệt đối.
+            </p>
+          </Section>
+
+          <Section title="6. Liên hệ">
+            <p>
+              Có câu hỏi về chính sách này, bạn viết cho chúng tôi tại{" "}
+              <a href="mailto:support@aida.vn" className={linkClass}>support@aida.vn</a> nhé.
+            </p>
+          </Section>
+        </article>
+      </main>
+
+      <SiteFooter />
     </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mt-10 space-y-4 leading-7 th-text-secondary [&_li]:pl-1 [&_strong]:th-text-primary [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-6">
+      <h2 className="text-xl font-bold th-text-primary">{title}</h2>
+      {children}
+    </section>
   );
 }

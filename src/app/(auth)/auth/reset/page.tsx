@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Lock, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/button";
+import Alert from "@/components/ui/alert";
 import Input from "@/components/ui/input";
 
 /**
@@ -47,7 +48,11 @@ export default function ResetPasswordPage() {
     const { error: updateError } = await createClient().auth.updateUser({ password });
     setSaving(false);
     if (updateError) {
-      setError(updateError.message);
+      setError(
+        /different from the old/i.test(updateError.message)
+          ? "Mật khẩu mới cần khác mật khẩu cũ."
+          : "Chưa đổi được mật khẩu. Bạn thử lại nhé.",
+      );
       return;
     }
     setDone(true);
@@ -57,27 +62,27 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4" style={{ background: "var(--bg-primary)" }}>
+    <div className="flex min-h-screen items-center justify-center p-4 th-bg-primary">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl th-bg-accent shadow-lg th-shadow-accent">
-            <Sparkles size={28} className="text-white" />
+          <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl th-bg-accent th-text-on-primary th-shadow-accent">
+            <Sparkles size={20} />
           </div>
           <h1 className="text-2xl font-bold th-text-primary">Đặt mật khẩu mới</h1>
         </div>
 
-        <div className="rounded-2xl p-6" style={{ background: "var(--bg-card)", border: "1px solid var(--border-primary)" }}>
+        <div className="rounded-2xl border p-6 th-border th-bg-card">
           {ready === false ? (
             <div className="space-y-4">
               <p className="th-text-secondary">
-                Link đặt lại mật khẩu đã hết hạn hoặc được mở ở trình duyệt khác. Hãy yêu cầu một link mới.
+                Link đặt lại mật khẩu đã hết hạn hoặc được mở ở trình duyệt khác. Bạn xin một link mới nhé.
               </p>
               <Button className="w-full" onClick={() => (window.location.href = "/login")}>
                 Quay lại đăng nhập
               </Button>
             </div>
           ) : done ? (
-            <p className="th-text-success">Đã đổi mật khẩu. Đang đưa bạn vào AIDA…</p>
+            <Alert tone="success">Đã đổi mật khẩu. Đang đưa bạn vào AIDA…</Alert>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="relative">
@@ -108,9 +113,7 @@ export default function ResetPasswordPage() {
                   minLength={6}
                 />
               </div>
-              {error && (
-                <div className="rounded-xl border p-3 text-sm th-border-danger th-bg-danger-light th-text-danger">{error}</div>
-              )}
+              {error && <Alert>{error}</Alert>}
               <Button type="submit" className="w-full" size="lg" loading={saving} disabled={ready === null}>
                 Lưu mật khẩu mới
               </Button>
