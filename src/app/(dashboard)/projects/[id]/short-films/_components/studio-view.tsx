@@ -7,6 +7,7 @@ import {
   Check,
   ChevronDown,
   Clapperboard,
+  Coins,
   Download,
   Lightbulb,
   Mic,
@@ -17,7 +18,15 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import Button from "@/components/ui/button";
+import Button, { buttonClasses } from "@/components/ui/button";
+import Chip from "@/components/ui/chip";
+import Input from "@/components/ui/input";
+import JobStatus from "@/components/ui/job-status";
+import PriceLine from "@/components/ui/price-line";
+import Select from "@/components/ui/select";
+import Textarea from "@/components/ui/textarea";
+import { formatPoints } from "@/lib/format";
+import { humanizeError } from "@/lib/error-messages";
 import type { StoryGenre } from "@/lib/story-genre";
 import type { FilmFormat } from "@/lib/film-camera-language";
 import SharePost from "@/components/content/share-post";
@@ -36,7 +45,7 @@ import {
   type StudioTask,
   FORMAT_CHOICES,
 } from "../_lib/studio";
-
+import type { FilmSchedule } from "../_lib/schedule";
 
 const STATUS_CLASS: Record<EpisodeSummary["status"], string> = {
   draft: "th-bg-tertiary th-text-secondary",
@@ -68,7 +77,7 @@ export function EpisodeList({
   return (
     <nav aria-label="Các tập phim" className="flex flex-col gap-2">
       <Button onClick={onNew} variant={selectedKey ? "outline" : "primary"} className="w-full">
-        <Plus className="h-4 w-4" aria-hidden /> Tập mới
+        <Plus size={16} aria-hidden /> Tập mới
       </Button>
       <ul className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible">
         {episodes.map((episode) => {
@@ -76,10 +85,11 @@ export function EpisodeList({
           return (
             <li key={episode.key} className="min-w-56 lg:min-w-0">
               <button
+                type="button"
                 onClick={() => onSelect(episode)}
                 aria-current={active ? "true" : undefined}
-                className={`flex w-full flex-col gap-1 rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                  active ? "th-border-accent th-bg-accent-light" : "th-border th-bg-card hover:th-bg-hover"
+                className={`flex w-full flex-col gap-1 rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                  active ? "th-border-accent th-bg-accent-light" : "th-border th-bg-card th-bg-hover"
                 }`}
               >
                 <span className="line-clamp-2 text-sm font-medium th-text-primary">{episode.title}</span>
@@ -96,7 +106,7 @@ export function EpisodeList({
   );
 }
 
-/** Tên gọi chủ fanpage đọc; null là để AI tự chọn — lựa chọn mặc định. */
+/** Tên gọi chủ fanpage đọc; null là để AIDA tự chọn — lựa chọn mặc định. */
 const GENRE_CHOICES: Array<{ value: StoryGenre | null; label: string }> = [
   { value: null, label: "Tự động" },
   { value: "comedy", label: "Hài tự nhiên" },
@@ -123,7 +133,7 @@ function ChoiceGroup<T extends string | null>({
         {choices.map((item) => (
           <label
             key={item.value || "auto"}
-            className={`cursor-pointer rounded-lg border p-3 ${value === item.value ? "th-border-accent th-bg-accent-light" : "th-border th-bg-card"}`}
+            className={`cursor-pointer rounded-xl border p-3 ${value === item.value ? "th-border-accent th-bg-accent-light" : "th-border th-bg-card"}`}
           >
             <span className="flex items-center gap-2 text-sm font-medium th-text-primary">
               <input type="radio" name={name} checked={value === item.value} onChange={() => onChange(item.value)} />
@@ -152,6 +162,7 @@ export function IdeaPanel({
   onQuality,
   limit,
   onLimit,
+  available,
   starting,
   onStart,
   advancedHref,
@@ -170,13 +181,15 @@ export function IdeaPanel({
   onQuality: (value: QualityId) => void;
   limit: number;
   onLimit: (value: number) => void;
+  /** Điểm kênh đang có, kể cả phần tự chuyển từ ví; null khi chưa tải xong. */
+  available: number | null;
   starting: boolean;
   onStart: () => void;
   advancedHref: string;
 }) {
   const [advanced, setAdvanced] = useState(false);
   const option = QUALITY_OPTIONS.find((item) => item.id === quality)!;
-  // Để trống là một lựa chọn hợp lệ: AI tự nghĩ ba hướng, tự chọn một và làm
+  // Để trống là một lựa chọn hợp lệ: AIDA tự nghĩ ba hướng, tự chọn một và làm
   // tới hết phim. Chỉ chặn ý tưởng viết dở vài chữ.
   const written = idea.trim();
   const ready = (!written || written.length >= 10) && limit >= option.estimatedPoints * 0.5;
@@ -191,58 +204,57 @@ export function IdeaPanel({
       </header>
 
       <div className="flex flex-col gap-2">
-        <label htmlFor="idea" className="text-sm font-medium th-text-primary">Tập này kể chuyện gì? (không bắt buộc)</label>
-        <textarea
+        <Textarea
           id="idea"
+          label="Tập này kể chuyện gì? (không bắt buộc)"
           value={idea}
           onChange={(event) => onIdea(event.target.value)}
           rows={4}
           placeholder="Ví dụ: Đậu Đỏ than lương của mẹ về ba ngày đã hết."
-          className="w-full rounded-lg border th-border th-bg-input px-3 py-2.5 text-sm th-text-primary th-ring-accent focus:outline-none focus:ring-2"
         />
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="ghost" size="sm" onClick={onSuggest} loading={suggesting}>
-            <Lightbulb className="h-4 w-4" aria-hidden /> Xem vài gợi ý
+            <Lightbulb size={16} aria-hidden /> Xem vài gợi ý
           </Button>
           {suggestions.map((suggestion) => (
-            <button
-              key={suggestion.title}
-              onClick={() => onIdea(suggestion.idea)}
-              className="rounded-full border th-border th-bg-card px-3 py-1 text-xs th-text-secondary hover:th-bg-hover"
-              title={suggestion.idea}
-            >
+            <Chip key={suggestion.title} onClick={() => onIdea(suggestion.idea)} title={suggestion.idea}>
               {suggestion.title}
-            </button>
+            </Chip>
           ))}
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <Button size="lg" onClick={onStart} disabled={!ready} loading={starting}>
-          {written ? <Clapperboard className="h-5 w-5" aria-hidden /> : <Sparkles className="h-5 w-5" aria-hidden />}
+      <div className="flex flex-col gap-2">
+        {written && written.length < 10 ? (
+          <p className="text-xs th-text-secondary">Viết thêm vài chữ, hoặc xoá hết để AIDA tự nghĩ.</p>
+        ) : (
+          <PriceLine
+            points={{ min: Math.min(option.estimatedPoints, limit), max: limit }}
+            available={available}
+            note="khoảng 5–10 phút · rời trang cũng được"
+          />
+        )}
+        <Button size="lg" className="w-fit" onClick={onStart} disabled={!ready} loading={starting}>
+          {written ? <Clapperboard size={20} aria-hidden /> : <Sparkles size={20} aria-hidden />}
           Làm phim
         </Button>
-        <span className="text-xs th-text-secondary">
-          {written && written.length < 10
-            ? "Viết thêm vài chữ, hoặc xoá hết để AIDA tự nghĩ."
-            : `Tối đa ${limit.toLocaleString("vi-VN")} điểm · khoảng 5–10 phút · có thể rời trang.`}
-        </span>
       </div>
 
-      <div className="rounded-lg border th-border">
+      <div className="rounded-2xl border th-border">
         <button
+          type="button"
           onClick={() => setAdvanced((value) => !value)}
           aria-expanded={advanced}
-          className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm th-text-secondary"
+          className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm th-text-secondary"
         >
           <span>
             Tuỳ chọn thêm
             {choices > 0 && <span className="ml-1 th-text-accent">· đã chọn {choices}</span>}
           </span>
-          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${advanced ? "rotate-180" : ""}`} aria-hidden />
+          <ChevronDown size={16} className={`shrink-0 transition-transform ${advanced ? "rotate-180" : ""}`} aria-hidden />
         </button>
         {advanced && (
-          <div className="flex flex-col gap-4 border-t th-border px-3 py-3">
+          <div className="flex flex-col gap-4 border-t th-border px-4 py-4">
             <ChoiceGroup
               legend="Cách kể"
               name="story-genre"
@@ -267,24 +279,24 @@ export function IdeaPanel({
               }}
               choices={QUALITY_OPTIONS.map((item) => ({
                 value: item.id,
-                label: `${item.label} · khoảng ${item.estimatedPoints.toLocaleString("vi-VN")} điểm`,
+                label: `${item.label} · khoảng ${formatPoints(item.estimatedPoints)}`,
                 description: item.description,
               }))}
             />
-            <label className="flex flex-col gap-1 text-sm th-text-primary">
-              Chi tối đa cho tập này (điểm)
-              <input
+            <div className="max-w-56">
+              <Input
+                id="film-limit"
+                label="Chi tối đa cho tập này (điểm)"
                 type="number"
                 min={50}
                 step={50}
                 value={limit}
                 onChange={(event) => onLimit(Number(event.target.value))}
-                className="w-40 rounded-lg border th-border th-bg-input px-3 py-2 text-sm th-text-primary"
               />
-              <span className="text-xs th-text-secondary">Sắp vượt mức này sẽ dừng lại hỏi bạn.</span>
-            </label>
-            <Link href={advancedHref} className="text-sm th-text-accent underline-offset-2 hover:underline">
-              Chỉnh tay từng cảnh và giọng nói →
+              <p className="mt-1 text-xs th-text-secondary">Sắp vượt mức này sẽ dừng lại hỏi bạn.</p>
+            </div>
+            <Link href={advancedHref} className="w-fit text-sm th-text-accent underline-offset-2 hover:underline">
+              Chỉnh tay từng cảnh và giọng nói
             </Link>
           </div>
         )}
@@ -296,40 +308,57 @@ export function IdeaPanel({
 export function ProgressPanel({
   run,
   busy,
+  refundedPoints,
   onPause,
   onResume,
   onCancel,
+  onRetry,
 }: {
   run: StudioRun;
   busy: boolean;
+  /** Điểm đã hoàn cho các bước hỏng của tập này. */
+  refundedPoints: number;
   onPause: () => void;
   onResume: () => void;
   onCancel: () => void;
+  /** Làm lại tập đã dừng hẳn; phần đã xong được dùng lại. */
+  onRetry: () => void;
 }) {
+  if (run.status === "failed")
+    return (
+      <JobStatus
+        state="failed"
+        title="Tập này dừng giữa chừng"
+        detail={run.error ? humanizeError(run.error) : "Phần đã làm vẫn được giữ."}
+        refundedPoints={refundedPoints}
+        onRetry={busy ? undefined : onRetry}
+        retryLabel="Làm lại tập này"
+      />
+    );
   const current = runStep(run);
-  const stopped = ["cancelled", "failed"].includes(run.status);
+  const stopped = run.status === "cancelled";
   const percent = Math.min(100, Math.round((run.points_committed / Math.max(1, run.max_points_per_film)) * 100));
   return (
-    <section className="flex flex-col gap-4 rounded-xl border th-border th-bg-card p-4 sm:p-5" aria-label="Tiến độ">
+    <section className="flex flex-col gap-4 rounded-2xl border th-border th-bg-card p-4 sm:p-5" aria-label="Tiến độ">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 text-base font-medium th-text-primary" role="status" aria-live="polite">
-          {runIsActive(run) && <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--accent)]" aria-hidden />}
+          {runIsActive(run) && <span className="h-2 w-2 animate-pulse rounded-full th-bg-accent" aria-hidden />}
           {runHeadline(run)}
         </p>
         <div className="flex gap-2">
           {runIsActive(run) && (
             <Button variant="outline" size="sm" onClick={onPause} disabled={busy}>
-              <Pause className="h-4 w-4" aria-hidden /> Tạm dừng
+              <Pause size={16} aria-hidden /> Tạm dừng
             </Button>
           )}
           {run.status === "paused" && (
             <Button size="sm" onClick={onResume} disabled={busy}>
-              <Play className="h-4 w-4" aria-hidden /> Làm tiếp
+              <Play size={16} aria-hidden /> Làm tiếp
             </Button>
           )}
           {!stopped && run.status !== "completed" && (
             <Button variant="ghost" size="sm" onClick={onCancel} disabled={busy}>
-              <X className="h-4 w-4" aria-hidden /> Huỷ tập
+              <X size={16} aria-hidden /> Huỷ tập
             </Button>
           )}
         </div>
@@ -341,10 +370,10 @@ export function ProgressPanel({
           return (
             <li key={step.key} className="flex flex-col gap-1.5">
               <span
-                className={`h-1.5 rounded-full ${done ? "bg-[var(--accent)]" : now ? "bg-[var(--accent)] opacity-50" : "th-bg-tertiary"}`}
+                className={`h-1.5 rounded-full ${done ? "th-bg-accent" : now ? "th-bg-accent opacity-50" : "th-bg-tertiary"}`}
                 aria-hidden
               />
-              <span className={`text-[11px] leading-tight sm:text-xs ${now ? "font-medium th-text-primary" : done ? "th-text-secondary" : "th-text-muted"}`}>
+              <span className={`text-xs leading-tight ${now ? "font-medium th-text-primary" : done ? "th-text-secondary" : "th-text-muted"}`}>
                 {step.label}
                 <span className="sr-only">{done ? " (xong)" : now ? " (đang làm)" : ""}</span>
               </span>
@@ -354,10 +383,13 @@ export function ProgressPanel({
       </ol>
       <div className="flex items-center gap-3 text-xs th-text-secondary">
         <div className="h-1 flex-1 overflow-hidden rounded-full th-bg-tertiary" aria-hidden>
-          <div className="h-full bg-[var(--accent)] opacity-60" style={{ width: `${percent}%` }} />
+          <div className="h-full th-bg-accent opacity-60" style={{ width: `${percent}%` }} />
         </div>
-        Đã dùng {run.points_committed.toLocaleString("vi-VN")} / {run.max_points_per_film.toLocaleString("vi-VN")} điểm
+        Đã dùng {formatPoints(run.points_committed)} / {formatPoints(run.max_points_per_film)}
       </div>
+      {stopped && refundedPoints > 0 && (
+        <p className="text-xs th-text-secondary">Đã hoàn {formatPoints(refundedPoints)} vào kênh.</p>
+      )}
     </section>
   );
 }
@@ -366,9 +398,9 @@ function MediaPreview({ task }: { task: StudioTask }) {
   if (!task.url) return null;
   if (["image", "frame"].includes(task.kind))
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={task.url} alt="Kết quả cần xem" className="max-h-80 w-full rounded-lg object-contain th-bg-tertiary" />;
+    return <img src={task.url} alt="Kết quả cần xem" className="max-h-80 w-full rounded-xl object-contain th-bg-tertiary" />;
   if (task.kind === "tts") return <audio src={task.url} controls className="w-full" />;
-  return <video src={task.url} poster={task.posterUrl} controls playsInline className="max-h-80 w-full rounded-lg th-bg-tertiary" />;
+  return <video src={task.url} poster={task.posterUrl} controls playsInline className="max-h-80 w-full rounded-xl th-bg-tertiary" />;
 }
 
 export function AttentionPanel({
@@ -377,6 +409,7 @@ export function AttentionPanel({
   onUseAnyway,
   onRegenerate,
   onRaiseBudget,
+  onTopUp,
   onAcceptScript,
   onRewriteScript,
   onRetry,
@@ -386,6 +419,8 @@ export function AttentionPanel({
   onUseAnyway: (task: StudioTask) => void;
   onRegenerate: (task: StudioTask, reason: string) => void;
   onRaiseBudget: (limit: number) => void;
+  /** Kênh hết điểm: mở hộp nạp, nạp xong tập tự làm tiếp. */
+  onTopUp: () => void;
   onAcceptScript: () => void;
   onRewriteScript: () => void;
   onRetry: () => void;
@@ -394,9 +429,9 @@ export function AttentionPanel({
   const [note, setNote] = useState("");
   if (attention.kind === "none") return null;
   const frame = (title: string, body: React.ReactNode) => (
-    <section className="flex flex-col gap-4 rounded-xl border th-border-warning th-bg-warning-light p-4 sm:p-5" aria-label="Cần bạn quyết định">
+    <section className="flex flex-col gap-4 rounded-2xl border th-border-warning th-bg-warning-light p-4 sm:p-5" aria-label="Cần bạn quyết định">
       <h3 className="flex items-center gap-2 text-base font-semibold th-text-primary">
-        <AlertTriangle className="h-5 w-5 th-text-warning" aria-hidden /> {title}
+        <AlertTriangle size={20} className="th-text-warning" aria-hidden /> {title}
       </h3>
       {body}
     </section>
@@ -410,16 +445,31 @@ export function AttentionPanel({
       </ul>
     ) : null;
 
+  if (attention.kind === "budget" && attention.cause === "wallet")
+    return frame(
+      "Kênh hết điểm",
+      <>
+        <p className="text-sm th-text-primary">
+          Tập này đã dùng {formatPoints(attention.used)}. Phần đã làm được giữ nguyên; nạp thêm là tập tự làm tiếp.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={onTopUp} disabled={busy}>
+            <Coins size={16} aria-hidden /> Nạp điểm
+          </Button>
+        </div>
+      </>,
+    );
+
   if (attention.kind === "budget")
     return frame(
       "Tập này sắp vượt mức chi bạn đặt",
       <>
         <p className="text-sm th-text-primary">
-          Đã dùng {attention.used.toLocaleString("vi-VN")} / {attention.limit.toLocaleString("vi-VN")} điểm. Phần đã làm được giữ nguyên.
+          Đã dùng {formatPoints(attention.used)} / {formatPoints(attention.limit)}. Phần đã làm được giữ nguyên.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => onRaiseBudget(attention.suggested)} disabled={busy}>
-            Nâng lên {attention.suggested.toLocaleString("vi-VN")} điểm và làm tiếp
+            Nâng lên {formatPoints(attention.suggested)} và làm tiếp
           </Button>
         </div>
       </>,
@@ -433,7 +483,7 @@ export function AttentionPanel({
         {issueList(attention.issues)}
         <div className="flex flex-wrap gap-2">
           <Button onClick={onRewriteScript} disabled={busy}>
-            <RefreshCw className="h-4 w-4" aria-hidden /> Viết lại kịch bản
+            <RefreshCw size={16} aria-hidden /> Viết lại kịch bản
           </Button>
           <Button variant="outline" onClick={onAcceptScript} disabled={busy}>
             Kịch bản ổn, làm tiếp
@@ -449,7 +499,7 @@ export function AttentionPanel({
         <p className="text-sm th-text-primary">{attention.message}</p>
         <div>
           <Button onClick={onRetry} disabled={busy}>
-            <Play className="h-4 w-4" aria-hidden /> Thử làm tiếp
+            <Play size={16} aria-hidden /> Thử làm tiếp
           </Button>
         </div>
       </>,
@@ -465,6 +515,9 @@ export function AttentionPanel({
         <div className="flex flex-col gap-3">
           <p className="text-sm font-medium th-text-primary">Chỗ chưa ổn:</p>
           {issueList(attention.issues)}
+          {!!task.refunded_points && (
+            <p className="text-xs th-text-secondary">Đã hoàn {formatPoints(task.refunded_points)} của bước này vào kênh.</p>
+          )}
         </div>
       </div>
       <div className="flex flex-col gap-2">
@@ -473,30 +526,29 @@ export function AttentionPanel({
           {REGENERATE_REASONS.map((item) => {
             const on = reasons.includes(item);
             return (
-              <button
+              <Chip
                 key={item}
+                selected={on}
                 onClick={() => setReasons((list) => (on ? list.filter((value) => value !== item) : [...list, item]))}
-                aria-pressed={on}
-                className={`rounded-full border px-3 py-1 text-xs ${on ? "th-border-accent th-bg-accent-light th-text-accent" : "th-border th-bg-card th-text-secondary"}`}
               >
                 {item}
-              </button>
+              </Chip>
             );
           })}
         </div>
-        <input
+        <Input
+          aria-label="Ghi thêm"
           value={note}
           onChange={(event) => setNote(event.target.value)}
           placeholder="Ghi thêm nếu cần, ví dụ: nhân vật phải đi chân trần"
-          className="rounded-lg border th-border th-bg-input px-3 py-2 text-sm th-text-primary"
         />
       </div>
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => onRegenerate(task, reason || attention.issues.join("; ") || "Kết quả chưa đạt")} disabled={busy}>
-          <RefreshCw className="h-4 w-4" aria-hidden /> Làm lại
+          <RefreshCw size={16} aria-hidden /> Làm lại
         </Button>
         <Button variant="outline" onClick={() => onUseAnyway(task)} disabled={busy}>
-          <Check className="h-4 w-4" aria-hidden /> Vẫn dùng bản này
+          <Check size={16} aria-hidden /> Vẫn dùng bản này
         </Button>
       </div>
     </>,
@@ -509,10 +561,10 @@ export function ScriptPanel({ title, lines, editHref }: { title: string; lines: 
   const [open, setOpen] = useState(true);
   if (!lines.length) return null;
   return (
-    <section className="rounded-xl border th-border th-bg-card" aria-labelledby="script-title">
+    <section className="rounded-2xl border th-border th-bg-card" aria-labelledby="script-title">
       <div className="flex items-center justify-between gap-2 px-4 py-3 sm:px-5">
-        <button onClick={() => setOpen((value) => !value)} aria-expanded={open} className="flex items-center gap-2 text-left">
-          <ChevronDown className={`h-4 w-4 th-text-secondary transition-transform ${open ? "" : "-rotate-90"}`} aria-hidden />
+        <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} className="flex items-center gap-2 text-left">
+          <ChevronDown size={16} className={`th-text-secondary transition-transform ${open ? "" : "-rotate-90"}`} aria-hidden />
           <h3 id="script-title" className="text-base font-semibold th-text-primary">Kịch bản · {title}</h3>
         </button>
         {editHref && (
@@ -550,7 +602,7 @@ export function SceneStrip({ scenes }: { scenes: SceneTile[] }) {
       <h3 className="text-sm font-medium th-text-secondary">Các cảnh</h3>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {scenes.map((scene) => (
-          <li key={scene.number} className="overflow-hidden rounded-lg border th-border th-bg-card">
+          <li key={scene.number} className="overflow-hidden rounded-xl border th-border th-bg-card">
             <div className="flex aspect-video items-center justify-center th-bg-tertiary">
               {scene.task?.url && ["image", "frame"].includes(scene.task.kind) ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -587,32 +639,32 @@ export function FilmPanel({
 }) {
   const approved = Boolean(film.approved_at);
   return (
-    <section className="flex flex-col gap-3 rounded-xl border th-border-success th-bg-card p-4 sm:p-5" aria-label="Phim đã xong">
+    <section className="flex flex-col gap-3 rounded-2xl border th-border-success th-bg-card p-4 sm:p-5" aria-label="Phim đã xong">
       <h3 className="flex items-center gap-2 text-base font-semibold th-text-primary">
-        <Sparkles className="h-5 w-5 th-text-success" aria-hidden /> Phim đã xong
+        <Sparkles size={20} className="th-text-success" aria-hidden /> Phim đã xong
       </h3>
-      <video src={film.url} poster={film.posterUrl} controls playsInline className="w-full rounded-lg bg-black" />
+      <video src={film.url} poster={film.posterUrl} controls playsInline className="w-full rounded-xl bg-black" />
       <div className="flex flex-wrap gap-2">
         {approved ? (
-          <span className="inline-flex items-center gap-1.5 rounded-lg th-bg-success-light px-3 py-2 text-sm th-text-success">
-            <Check className="h-4 w-4" aria-hidden /> Đã duyệt
+          <span className="inline-flex items-center gap-1.5 rounded-xl th-bg-success-light px-3 py-2 text-sm th-text-success">
+            <Check size={16} aria-hidden /> Đã duyệt
           </span>
         ) : (
           <Button onClick={onApprove} loading={approving}>
-            <Check className="h-4 w-4" aria-hidden /> Duyệt phim
+            <Check size={16} aria-hidden /> Duyệt phim
           </Button>
         )}
-        <a href={film.url} download className="inline-flex min-h-10 items-center gap-2 rounded-lg border th-border px-4 text-sm th-text-secondary">
-          <Download className="h-4 w-4" aria-hidden /> Tải phim
+        <a href={film.url} download className={buttonClasses("outline")}>
+          <Download size={16} aria-hidden /> Tải phim
         </a>
         {film.srtUrl && (
-          <a href={film.srtUrl} download className="inline-flex min-h-10 items-center gap-2 rounded-lg border th-border px-4 text-sm th-text-secondary">
-            <Download className="h-4 w-4" aria-hidden /> Tải phụ đề
+          <a href={film.srtUrl} download className={buttonClasses("outline")}>
+            <Download size={16} aria-hidden /> Tải phụ đề
           </a>
         )}
       </div>
-      {/* Tải phim về rồi vẫn còn phải tự nghĩ caption; đưa luôn khối chữ dán
-          được vào bài đăng. */}
+      {/* Tải phim về rồi vẫn còn phải tự nghĩ nội dung bài đăng; đưa luôn khối
+          chữ dán được vào bài. */}
       <SharePost caption={caption} hashtags={hashtags} label="Sao chép bài đăng" />
     </section>
   );
@@ -630,9 +682,9 @@ export type VoiceCandidate = {
 };
 
 /**
- * Giọng mẫu giữ cho mỗi bé nói một giọng qua mọi cảnh khi AI tự nói. Cách dễ
- * nhất là nghe phim rồi bấm vào câu bé nói hay nhất; tải file lên dành cho ai
- * có sẵn giọng thật được phép dùng.
+ * Giọng mẫu giữ cho mỗi nhân vật nói một giọng qua mọi cảnh khi nhân vật tự
+ * nói. Cách dễ nhất là nghe phim rồi bấm vào câu nói hay nhất; thêm file thu
+ * sẵn dành cho ai có giọng thật được phép dùng.
  */
 export function VoiceSamplePanel({
   characters,
@@ -669,23 +721,19 @@ export function VoiceSamplePanel({
   };
   const lengthOk = seconds >= 3 && seconds <= 12;
   return (
-    <section aria-labelledby="voice-title" className="flex flex-col gap-3 rounded-xl border th-border th-bg-card p-4">
+    <section aria-labelledby="voice-title" className="flex flex-col gap-3 rounded-2xl border th-border th-bg-card p-4">
       <header className="flex items-start justify-between gap-3">
         <div>
           <h3 id="voice-title" className="flex items-center gap-2 text-sm font-semibold th-text-primary">
-            <Mic className="h-4 w-4" aria-hidden /> Giọng nhân vật
+            <Mic size={16} aria-hidden /> Giọng nhân vật
           </h3>
           <p className="mt-1 text-xs th-text-secondary">
             Sau tập đầu, câu nói hay nhất của mỗi nhân vật được giữ làm giọng cho các tập sau. Muốn thì đổi.
           </p>
         </div>
-        <button
-          onClick={() => setExpanded((value) => !value)}
-          aria-expanded={expanded}
-          className="shrink-0 text-xs font-medium th-text-accent underline"
-        >
+        <Button size="sm" variant="ghost" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}>
           {expanded ? "Thu gọn" : "Đổi giọng"}
-        </button>
+        </Button>
       </header>
       <ul className="flex flex-wrap gap-2">
         {characters.map((character) => (
@@ -693,7 +741,7 @@ export function VoiceSamplePanel({
             key={character.id}
             className={`rounded-full border px-3 py-1 text-xs ${character.hasSample ? "th-border-success th-text-success" : "th-border th-text-secondary"}`}
           >
-            {character.name} · {character.hasSample ? "đã có giọng chuẩn" : "Sẽ chọn sau tập này"}
+            {character.name} · {character.hasSample ? "đã có giọng chuẩn" : "sẽ chọn sau tập này"}
           </li>
         ))}
       </ul>
@@ -712,9 +760,9 @@ export function VoiceSamplePanel({
         </ul>
       )}
       {expanded && (
-        <button onClick={() => setOpen((value) => !value)} className="w-fit text-xs font-medium th-text-accent underline">
-          {open ? "Đóng" : "Hoặc tải giọng thu sẵn lên"}
-        </button>
+        <Button size="sm" variant="ghost" className="w-fit" onClick={() => setOpen((value) => !value)}>
+          {open ? "Đóng" : "Hoặc thêm giọng thu sẵn"}
+        </Button>
       )}
       {expanded && open && (
         <form
@@ -724,18 +772,15 @@ export function VoiceSamplePanel({
             if (file && characterId && lengthOk && rights) onUpload({ characterId, file, seconds, direction });
           }}
         >
-          <select
-            value={characterId}
-            onChange={(event) => setCharacterId(event.target.value)}
-            className="rounded-lg border th-border th-bg-input px-3 py-2 text-sm th-text-primary"
-          >
+          <Select aria-label="Giọng của ai" value={characterId} onChange={(event) => setCharacterId(event.target.value)}>
             <option value="">Giọng của ai?</option>
             {characters.map((character) => (
               <option key={character.id} value={character.id}>{character.name}</option>
             ))}
-          </select>
+          </Select>
           <input
             type="file"
+            aria-label="Chọn file giọng"
             accept="audio/wav,audio/x-wav,audio/mpeg"
             onChange={(event) => pick(event.target.files?.[0] || null)}
             className="text-sm th-text-secondary"
@@ -743,17 +788,17 @@ export function VoiceSamplePanel({
           {file && !lengthOk && (
             <p className="text-xs th-text-warning">File dài 3–12 giây, chỉ có giọng một người.</p>
           )}
-          <input
+          <Input
+            aria-label="Tả giọng"
             value={direction}
             onChange={(event) => setDirection(event.target.value)}
             placeholder="Tả giọng, ví dụ: giọng nữ trẻ, nói nhanh, hơi khàn"
-            className="rounded-lg border th-border th-bg-input px-3 py-2 text-sm th-text-primary"
           />
           <label className="flex items-start gap-2 text-xs th-text-secondary">
             <input type="checkbox" checked={rights} onChange={(event) => setRights(event.target.checked)} />
             Tôi có quyền dùng giọng trong file này.
           </label>
-          <Button type="submit" size="sm" disabled={busy || !file || !characterId || !lengthOk || !rights}>
+          <Button type="submit" size="sm" className="w-fit" disabled={busy || !file || !characterId || !lengthOk || !rights}>
             Lưu giọng chuẩn
           </Button>
         </form>
@@ -762,33 +807,31 @@ export function VoiceSamplePanel({
   );
 }
 
-export type AutopilotSettings = { enabled: boolean; filmsPerDay: number; localTime: string };
-
 /**
- * Lựa chọn thứ hai sau "làm một tập": để kênh tự ra phim đều đặn. AI tự nghĩ ý
- * tưởng mỗi tập (chống lặp các tập gần đây), nên người dùng chỉ chọn nhịp.
+ * Lựa chọn thứ hai sau "làm một tập": để kênh tự ra phim đều đặn. Ý tưởng mỗi
+ * tập tự nghĩ (chống lặp các tập gần đây), nên người dùng chỉ chọn nhịp và mức
+ * chi. Đây là nơi duy nhất sửa lịch phim.
  */
 export function AutopilotPanel({
   settings,
-  pointsPerFilm,
   saving,
   onSave,
 }: {
-  settings: AutopilotSettings;
-  pointsPerFilm: number;
+  settings: FilmSchedule;
   saving: boolean;
-  onSave: (next: AutopilotSettings) => void;
+  onSave: (next: FilmSchedule) => void;
 }) {
   const [draft, setDraft] = useState(settings);
   const dirty =
     draft.enabled !== settings.enabled ||
     draft.filmsPerDay !== settings.filmsPerDay ||
-    draft.localTime !== settings.localTime;
+    draft.localTime !== settings.localTime ||
+    draft.maxPointsPerFilm !== settings.maxPointsPerFilm;
   return (
-    <section aria-labelledby="autopilot-title" className="flex flex-col gap-3 rounded-xl border th-border th-bg-card p-4">
+    <section aria-labelledby="autopilot-title" className="flex flex-col gap-3 rounded-2xl border th-border th-bg-card p-4">
       <header className="flex items-start justify-between gap-3">
         <div>
-          <h3 id="autopilot-title" className="text-sm font-semibold th-text-primary">Tự làm phim mỗi ngày</h3>
+          <h3 id="autopilot-title" className="text-sm font-semibold th-text-primary">Tự làm mỗi ngày</h3>
           <p className="mt-1 text-xs th-text-secondary">
             Mỗi ngày tự nghĩ ý mới và làm thành phim. Phim xong nằm trong danh sách tập.
           </p>
@@ -798,40 +841,49 @@ export function AutopilotPanel({
             type="checkbox"
             checked={draft.enabled}
             onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })}
-            className="h-4 w-4 accent-[var(--accent)]"
+            className="th-accent-control h-4 w-4"
           />
           {draft.enabled ? "Đang bật" : "Tắt"}
         </label>
       </header>
       {draft.enabled && (
-        <div className="flex flex-wrap items-center gap-2 text-sm th-text-primary">
-          Mỗi ngày
-          <select
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Select
+            id="autopilot-count"
+            label="Mỗi ngày"
             value={draft.filmsPerDay}
             onChange={(event) => setDraft({ ...draft, filmsPerDay: Number(event.target.value) })}
-            className="rounded-lg border th-border th-bg-input px-2 py-1.5 text-sm th-text-primary"
           >
             {[1, 2, 3, 4, 5, 6].map((count) => (
               <option key={count} value={count}>{count} phim</option>
             ))}
-          </select>
-          bắt đầu lúc
-          <input
+          </Select>
+          <Input
+            id="autopilot-time"
+            label="Bắt đầu lúc"
             type="time"
             value={draft.localTime}
             onChange={(event) => setDraft({ ...draft, localTime: event.target.value })}
-            className="rounded-lg border th-border th-bg-input px-2 py-1.5 text-sm th-text-primary"
+          />
+          <Input
+            id="autopilot-limit"
+            label="Chi tối đa mỗi phim"
+            type="number"
+            min={50}
+            step={50}
+            value={draft.maxPointsPerFilm}
+            onChange={(event) => setDraft({ ...draft, maxPointsPerFilm: Number(event.target.value) || 0 })}
           />
         </div>
       )}
       {draft.enabled && (
-        <p className="text-xs th-text-secondary">
-          Các phim trong ngày làm lần lượt, mỗi phim tối đa {pointsPerFilm.toLocaleString("vi-VN")} điểm, cả ngày tối đa{" "}
-          {(pointsPerFilm * draft.filmsPerDay).toLocaleString("vi-VN")} điểm.
-        </p>
+        <PriceLine
+          points={draft.maxPointsPerFilm * draft.filmsPerDay}
+          note="mức chi tối đa cả ngày, các phim làm lần lượt"
+        />
       )}
       {dirty && (
-        <Button size="sm" className="w-fit" loading={saving} onClick={() => onSave(draft)}>
+        <Button size="sm" className="w-fit" loading={saving} disabled={draft.maxPointsPerFilm < 50} onClick={() => onSave(draft)}>
           Lưu
         </Button>
       )}

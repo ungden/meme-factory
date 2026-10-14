@@ -466,7 +466,7 @@ async function quoteVideo({
       plan.audio_mode === "dubbed" &&
       speechTasks(eligible, s).some((t) => !accepted(t))
     )
-      throw new FilmError("Duyệt các lượt thoại trước khi tạo video.");
+      throw new FilmError("Duyệt giọng các lượt thoại trước khi quay cảnh nhé.");
     // `referencePackReady` ở trên đã bảo đảm mọi ảnh đều có task được duyệt,
     // nhưng nó kiểm trên một biến khác. Lọc thật thay vì khẳng định non-null:
     // nếu điều kiện kia có đổi, ở đây hỏng rõ ràng thay vì nổ undefined lúc

@@ -243,7 +243,7 @@ export async function saveFilmSegment(
       !["video", "dub", "lip_sync"].includes(source.kind) ||
       Number(source.result?.duration || 0) + 0.05 < patch.outSeconds
     )
-      throw new FilmError("Clip nguồn hoặc khoảng cắt không còn hợp lệ.", 409);
+      throw new FilmError("Cảnh hoặc đoạn cắt vừa đổi. Tải lại trang nhé.", 409);
   }
   const payload = {
     ...patch,
@@ -335,7 +335,7 @@ export async function quoteFilmSegment(
   body: Record<string, unknown>,
 ) {
   if (Number(body.expectedVersion) !== plan.version)
-    throw new FilmError("Kịch bản đã đổi. Hãy tải lại trước khi báo giá.", 409);
+    throw new FilmError("Kịch bản vừa đổi. Tải lại trang rồi xem giá nhé.", 409);
   const segment = (await readFilmSegments(a, plan)).find(
     (item) => item.segmentId === segmentId,
   );
@@ -447,7 +447,7 @@ export async function quoteFilmSegment(
   }
 
   const sourceTask = segment.selectedTaskId || segment.sourceTaskId;
-  if (!sourceTask) throw new FilmError("Đoạn chưa có clip nguồn để lấy khung mở.");
+  if (!sourceTask) throw new FilmError("Cảnh này chưa quay xong nên chưa lấy được ảnh mở đầu.");
   const sourceClip = tasks.find((candidate) => candidate.id === sourceTask);
   if (
     !sourceClip ||
@@ -455,7 +455,7 @@ export async function quoteFilmSegment(
     (!sourceClip.approved_at && !sourceClip.auto_accepted_at) ||
     !sourceClip.result?.path
   )
-    throw new FilmError("Clip nguồn của đoạn chưa sẵn sàng hoặc chưa được duyệt.");
+    throw new FilmError("Cảnh này chưa quay xong hoặc chưa được duyệt.");
   const frame = approvedSegmentImage
     ? null
     : task(
@@ -478,7 +478,7 @@ export async function quoteFilmSegment(
   );
   if (usefulDuration > 30)
     throw new FilmError(
-      "Đoạn dài hơn giới hạn 30 giây của model. Hãy tách thành hai đoạn trước khi tạo.",
+      "Cảnh dài hơn 30 giây. Tách thành hai cảnh rồi làm nhé.",
       409,
     );
   const providerDuration = Math.max(4, Math.min(30, Math.ceil(usefulDuration)));
@@ -553,7 +553,7 @@ export async function quoteFilmSegment(
     }
   }
   if (references.length > seedanceReferenceLimit(plan.video_model))
-    throw new FilmError("Bộ ảnh tham chiếu của đoạn vượt giới hạn model.", 422);
+    throw new FilmError("Cảnh này có nhiều ảnh mẫu quá. Bớt vài ảnh rồi thử lại nhé.", 422);
   const packet = {
     urls: references.map((reference) => reference.url),
     bindings: references.map(
@@ -698,7 +698,7 @@ export async function quoteSegmentRender(a: Access, plan: FilmPlan) {
   let manifest = existing;
   if (manifest?.render_task_id)
     throw new FilmError(
-      "Bản dựng với đúng các đoạn này đã được nhận. Hãy xem kết quả hoặc sửa task render đang lỗi.",
+      "Bản ghép với đúng các cảnh này đã được nhận. Xem kết quả bên dưới nhé.",
       409,
     );
   if (!manifest) {

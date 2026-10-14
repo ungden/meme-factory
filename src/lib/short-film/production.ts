@@ -864,7 +864,7 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
       await patchRun(admin, run, {
         status: "needs_review",
         phase: run.phase,
-        error: "Có yêu cầu provider cần đối soát.",
+        error: "Một bước đã gửi đi đang được kiểm tra lại. Chờ một lát nhé.",
         snapshot: { scriptCheck: "passed" },
       });
       return;
@@ -917,7 +917,7 @@ export async function advanceProductionRun(admin: SupabaseClient, run: Run) {
       await patchRun(admin, run, {
         status: "needs_review",
         phase: "clip_check",
-        error: "Có clip chưa đủ bằng chứng để tự chấp nhận.",
+        error: "Có cảnh chưa tự kiểm được. Bạn xem qua rồi duyệt nhé.",
         snapshot: { scriptCheck: "passed" },
       });
       return;

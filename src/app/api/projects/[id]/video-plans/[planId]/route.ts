@@ -38,22 +38,22 @@ export async function PATCH(r: NextRequest, { params }: Context) {
     const p = await params;
     const a = await access(r, p.id);
     if (a.project.user_id !== a.user.id)
-      throw new FilmError("Chỉ chủ dự án mới có thể ẩn kịch bản.", 403);
+      throw new FilmError("Chỉ chủ kênh mới ẩn được kịch bản.", 403);
     const plan = await readPlan(a, p.planId);
     const body = (await r.json()) as Record<string, unknown>;
     if (body.action !== "archive")
       throw new FilmError("Thao tác quản lý kịch bản không hợp lệ.", 400);
     if (Number(body.workspaceVersion) !== a.project.workspace_version)
-      throw new FilmError("Workspace đã thay đổi. Hãy tải lại bản hiện tại.", 409);
+      throw new FilmError("Kênh vừa thay đổi. Tải lại trang nhé.", 409);
     if (Number(body.expectedVersion) !== plan.version)
-      throw new FilmError("Kịch bản đã đổi ở tab khác. Hãy tải lại trước khi ẩn.", 409);
+      throw new FilmError("Kịch bản vừa được sửa ở nơi khác. Tải lại trang rồi ẩn nhé.", 409);
     const { count, error: countError } = await a.admin
       .from("short_film_tasks")
       .select("id", { count: "exact", head: true })
       .eq("plan_id", p.planId);
     if (countError) throw countError;
     if (!count)
-      throw new FilmError("Kịch bản chưa có lịch sử sản xuất; hãy dùng Xóa kịch bản.", 409);
+      throw new FilmError("Kịch bản này chưa làm thành phim lần nào, dùng Xoá kịch bản nhé.", 409);
     const { error } = await a.admin
       .from("video_plans")
       .update({ archived_at: new Date().toISOString(), updated_at: new Date().toISOString() })
@@ -72,7 +72,7 @@ export async function DELETE(r: NextRequest, { params }: Context) {
     const p = await params;
     const a = await access(r, p.id);
     if (a.project.user_id !== a.user.id)
-      throw new FilmError("Chỉ chủ dự án mới có thể xóa kịch bản.", 403);
+      throw new FilmError("Chỉ chủ kênh mới xoá được kịch bản.", 403);
     await readPlan(a, p.planId);
     const { count } = await a.admin
       .from("short_film_tasks")

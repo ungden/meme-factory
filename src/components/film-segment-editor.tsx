@@ -7,6 +7,11 @@ import type {
   FilmSegmentRevision,
 } from "@/lib/short-film/segment-contracts";
 import type { FilmTask } from "@/lib/short-film/contracts";
+import Alert from "@/components/ui/alert";
+import Button from "@/components/ui/button";
+import Input from "@/components/ui/input";
+import PriceLine from "@/components/ui/price-line";
+import Textarea from "@/components/ui/textarea";
 
 type Quote = {
   id: string;
@@ -95,7 +100,7 @@ export function FilmSegmentEditor({
     try {
       await work();
     } catch (error) {
-      setLocalError(error instanceof Error ? error.message : "Thao tác chưa hoàn tất.");
+      setLocalError(error instanceof Error ? error.message : "Chưa làm xong. Bạn thử lại nhé.");
     } finally {
       setWorking("");
     }
@@ -130,24 +135,25 @@ export function FilmSegmentEditor({
   };
 
   return (
-    <section className="mt-4 rounded-xl border th-border p-3 th-bg-secondary">
+    <section className="mt-4 rounded-2xl border th-border p-3 th-bg-secondary">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold th-text-primary">
-            Sửa từng đoạn trong cảnh {sceneIndex + 1}
+            Sửa từng lượt trong cảnh {sceneIndex + 1}
           </h3>
           <p className="mt-1 text-xs th-text-secondary">
-            Clip nguồn vẫn được tạo gộp. Chỉ đoạn được chọn mới phát sinh lượt tạo mới.
+            Cả cảnh vẫn quay một lần. Chỉ lượt bạn làm lại mới tính thêm điểm.
           </p>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
           disabled={busy || !!working || dirty}
+          loading={working === "Ghép phim"}
           onClick={() => void perform("Ghép phim", onRender)}
-          className="inline-flex min-h-10 items-center gap-2 rounded-lg border th-border px-3 text-sm font-semibold th-text-accent disabled:opacity-50"
         >
           <Film size={16} /> Ghép phim
-        </button>
+        </Button>
       </div>
 
       <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -156,23 +162,16 @@ export function FilmSegmentEditor({
             type="button"
             key={segment.segmentId}
             onClick={() => setSelectedId(segment.segmentId)}
-            className="min-w-40 rounded-lg border px-3 py-2 text-left text-xs"
-            style={{
-              borderColor:
-                segment.segmentId === selected.segmentId
-                  ? "var(--accent)"
-                  : "var(--border-primary)",
-              background:
-                segment.segmentId === selected.segmentId
-                  ? "var(--accent-light)"
-                  : "var(--surface-primary)",
-            }}
+            aria-pressed={segment.segmentId === selected.segmentId}
+            className={`min-w-40 rounded-xl border px-3 py-2 text-left text-xs ${
+              segment.segmentId === selected.segmentId ? "th-border-accent th-bg-accent-light" : "th-border th-bg-card"
+            }`}
           >
             <span className="block font-semibold th-text-primary">
               {segment.sequenceIndex + 1}. {segment.speakerName || "Hành động"}
             </span>
             <span className="mt-1 block th-text-secondary">
-              {segment.inSeconds.toFixed(1)}–{segment.outSeconds.toFixed(1)}s · bản {Math.max(1, segment.revision)}
+              {segment.inSeconds.toFixed(1)}–{segment.outSeconds.toFixed(1)} giây · bản {Math.max(1, segment.revision)}
             </span>
             {segment.selectedTaskId && (
               <span className="mt-1 block th-text-accent">Đang dùng bản thay thế</span>
@@ -197,28 +196,28 @@ export function FilmSegmentEditor({
                 if (event.currentTarget.currentTime >= rangeOut)
                   event.currentTarget.pause();
               }}
-              className="aspect-video w-full rounded-lg bg-black object-contain"
+              className="aspect-video w-full rounded-xl bg-black object-contain"
             />
           ) : (
-            <div className="flex aspect-video items-center justify-center rounded-lg border th-border text-sm th-text-secondary">
-              Clip nguồn chưa sẵn sàng.
+            <div className="flex aspect-video items-center justify-center rounded-xl border th-border text-sm th-text-secondary">
+              Cảnh này chưa quay xong.
             </div>
           )}
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             disabled={!sourceUrl}
             onClick={() => {
               if (!videoRef.current) return;
               videoRef.current.currentTime = rangeIn;
               void videoRef.current.play();
             }}
-            className="inline-flex min-h-10 items-center gap-2 rounded-lg border th-border px-3 text-xs th-text-primary disabled:opacity-50"
           >
-            <Play size={14} /> Phát đúng đoạn đã chọn
-          </button>
-          <div className="space-y-1 rounded-lg border th-border p-2">
+            <Play size={14} /> Phát đúng lượt đã chọn
+          </Button>
+          <div className="space-y-1 rounded-xl border th-border p-2">
             <input
-              aria-label="Điểm vào của đoạn"
+              aria-label="Giây bắt đầu của lượt"
               type="range"
               min={0}
               max={Math.max(0.1, sourceDuration)}
@@ -233,10 +232,10 @@ export function FilmSegmentEditor({
                   timingSource: "manual",
                 })
               }
-              className="w-full accent-[var(--accent)]"
+              className="th-accent-control w-full"
             />
             <input
-              aria-label="Điểm ra của đoạn"
+              aria-label="Giây kết thúc của lượt"
               type="range"
               min={0.05}
               max={Math.max(0.1, sourceDuration)}
@@ -251,13 +250,13 @@ export function FilmSegmentEditor({
                   timingSource: "manual",
                 })
               }
-              className="w-full accent-[var(--accent)]"
+              className="th-accent-control w-full"
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <label className="text-xs th-text-secondary">
-              Điểm vào (giây)
-              <input
+            <Input
+                id="segment-in"
+                label="Bắt đầu (giây)"
                 type="number"
                 min={0}
                 step={0.05}
@@ -268,12 +267,10 @@ export function FilmSegmentEditor({
                     timingSource: "manual",
                   })
                 }
-                className="mt-1 w-full rounded-lg border th-border px-3 py-2 th-bg-input th-text-primary"
               />
-            </label>
-            <label className="text-xs th-text-secondary">
-              Điểm ra (giây)
-              <input
+            <Input
+                id="segment-out"
+                label="Kết thúc (giây)"
                 type="number"
                 min={0.05}
                 step={0.05}
@@ -284,58 +281,50 @@ export function FilmSegmentEditor({
                     timingSource: "manual",
                   })
                 }
-                className="mt-1 w-full rounded-lg border th-border px-3 py-2 th-bg-input th-text-primary"
               />
-            </label>
           </div>
           <p className="text-xs th-text-secondary">
-            Ảnh mở sẽ được lấy đúng tại {draft.inSeconds.toFixed(2)}s của nguồn đang chọn. Thời lượng dùng: {(draft.outSeconds - draft.inSeconds).toFixed(2)}s.
+            Ảnh mở đầu lấy đúng ở giây {draft.inSeconds.toFixed(2)} của bản đang chọn. Lượt này dài {(draft.outSeconds - draft.inSeconds).toFixed(2)} giây.
           </p>
         </div>
 
         <div className="space-y-2">
-          <label className="block text-xs th-text-secondary">
-            Lời thoại · {selected.speakerName || "không người nói"}
-            <textarea
-              value={draft.dialogue}
-              onChange={(event) => update({ dialogue: event.target.value })}
-              className="mt-1 min-h-16 w-full rounded-lg border th-border px-3 py-2 th-bg-input th-text-primary"
-            />
-          </label>
-          <label className="block text-xs th-text-secondary">
-            Hành động
-            <textarea
-              value={draft.action}
-              onChange={(event) => update({ action: event.target.value })}
-              className="mt-1 min-h-16 w-full rounded-lg border th-border px-3 py-2 th-bg-input th-text-primary"
-            />
-          </label>
-          <label className="block text-xs th-text-secondary">
-            Góc máy
-            <input
-              value={draft.camera}
-              onChange={(event) => update({ camera: event.target.value })}
-              className="mt-1 w-full rounded-lg border th-border px-3 py-2 th-bg-input th-text-primary"
-            />
-          </label>
-          <label className="block text-xs th-text-secondary">
-            Prompt chuyển động
-            <textarea
-              value={draft.motionPrompt}
-              onChange={(event) => update({ motionPrompt: event.target.value })}
-              className="mt-1 min-h-24 w-full rounded-lg border th-border px-3 py-2 th-bg-input th-text-primary"
-            />
-          </label>
-          <label className="block text-xs th-text-secondary">
-            Prompt ảnh mở nếu cần tạo ảnh mới
-            <textarea
-              value={draft.imagePrompt}
-              onChange={(event) => update({ imagePrompt: event.target.value })}
-              className="mt-1 min-h-20 w-full rounded-lg border th-border px-3 py-2 th-bg-input th-text-primary"
-            />
-          </label>
-          <details className="rounded-lg border th-border p-2 text-xs th-text-secondary">
-            <summary className="cursor-pointer">Trạng thái và đạo cụ xuyên đoạn</summary>
+          <Textarea
+            id="segment-dialogue"
+            label={`Lời thoại · ${selected.speakerName || "không ai nói"}`}
+            className="min-h-16"
+            value={draft.dialogue}
+            onChange={(event) => update({ dialogue: event.target.value })}
+          />
+          <Textarea
+            id="segment-action"
+            label="Hành động"
+            className="min-h-16"
+            value={draft.action}
+            onChange={(event) => update({ action: event.target.value })}
+          />
+          <Input
+            id="segment-camera"
+            label="Góc máy"
+            value={draft.camera}
+            onChange={(event) => update({ camera: event.target.value })}
+          />
+          <Textarea
+            id="segment-motion"
+            label="Mô tả chuyển động"
+            className="min-h-24"
+            value={draft.motionPrompt}
+            onChange={(event) => update({ motionPrompt: event.target.value })}
+          />
+          <Textarea
+            id="segment-image"
+            label="Mô tả ảnh mở đầu (khi vẽ ảnh mới)"
+            className="min-h-20"
+            value={draft.imagePrompt}
+            onChange={(event) => update({ imagePrompt: event.target.value })}
+          />
+          <details className="rounded-xl border th-border p-2 text-xs th-text-secondary">
+            <summary className="cursor-pointer">Trạng thái và đồ vật nối giữa các lượt</summary>
             <label className="mt-2 block">
               Trước hành động
               <textarea
@@ -345,7 +334,7 @@ export function FilmSegmentEditor({
                     openingState: { ...draft.openingState, note: event.target.value },
                   })
                 }
-                className="mt-1 w-full rounded-lg border th-border px-3 py-2 th-bg-input th-text-primary"
+                className="mt-1 w-full rounded-xl border th-border px-3 py-2 th-bg-input th-text-primary"
               />
             </label>
             <label className="mt-2 block">
@@ -357,13 +346,13 @@ export function FilmSegmentEditor({
                     closingState: { ...draft.closingState, note: event.target.value },
                   })
                 }
-                className="mt-1 w-full rounded-lg border th-border px-3 py-2 th-bg-input th-text-primary"
+                className="mt-1 w-full rounded-xl border th-border px-3 py-2 th-bg-input th-text-primary"
               />
             </label>
             {draft.props.length > 0 && (
               <ul className="mt-2 space-y-1">
                 {draft.props.map((prop) => (
-                  <li key={prop.id} className="rounded th-bg-card px-2 py-1">
+                  <li key={prop.id} className="rounded-lg th-bg-card px-2 py-1">
                     {prop.label}: {prop.color}, {prop.size} · {prop.count} · {prop.position}
                   </li>
                 ))}
@@ -372,14 +361,14 @@ export function FilmSegmentEditor({
           </details>
 
           <div className="flex flex-wrap gap-2 pt-1">
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
               disabled={busy || !!working || dirty}
               onClick={() => frameInputRef.current?.click()}
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg border th-border px-3 text-sm th-text-accent disabled:opacity-50"
             >
-              <ImageUp size={15} /> Chọn ảnh mở khác
-            </button>
+              <ImageUp size={14} /> Chọn ảnh mở đầu khác
+            </Button>
             <input
               ref={frameInputRef}
               type="file"
@@ -389,71 +378,67 @@ export function FilmSegmentEditor({
                 const file = event.target.files?.[0];
                 event.target.value = "";
                 if (!file) return;
-                void perform("Tải ảnh mở", async () => {
+                void perform("Thêm ảnh mở đầu", async () => {
                   setQuote(await onUploadFrame(selected, file));
                 });
               }}
             />
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
               disabled={busy || !!working || !dirty || draft.outSeconds <= draft.inSeconds}
+              loading={working === "Lưu"}
               onClick={() =>
-                void perform("Lưu chỉnh sửa", async () => {
+                void perform("Lưu", async () => {
                   const saved = await onSave(selected, draft);
                   setDraft(patchFromSegment(saved));
                 })
               }
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg border th-border px-3 text-sm th-text-primary disabled:opacity-50"
             >
-              <Save size={15} /> Lưu chỉnh sửa
-            </button>
-            <button
-              type="button"
+              <Save size={14} /> Lưu
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               disabled={busy || !!working || dirty}
               onClick={() =>
-                void perform("Chuẩn bị ảnh mở", async () => {
+                void perform("Vẽ ảnh mở đầu", async () => {
                   setQuote(await onQuote(selected, "generated"));
                 })
               }
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg border th-border px-3 text-sm th-text-accent disabled:opacity-50"
             >
-              Tạo ảnh mở mới · xem giá
-            </button>
-            <button
-              type="button"
-              disabled={busy || !!working || dirty}
-              onClick={() =>
-                void perform("Tạo lại đoạn", async () => {
-                  if (quote) await onRun(quote);
-                  else setQuote(await onQuote(selected));
-                })
-              }
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[var(--accent)] px-3 text-sm font-semibold text-[var(--text-on-accent)] disabled:opacity-50"
-            >
-              <Sparkles size={15} />
-              {quote
-                ? `Duyệt và tạo lại · ${quote.points} điểm`
-                : "Xem giá tạo lại đoạn"}
-            </button>
+              Vẽ ảnh mở đầu mới · xem giá
+            </Button>
           </div>
-          {quote && (
-            <p className="text-xs th-text-secondary">
-              {quote.items.map((item) => `${item.kind}: ${item.points} điểm`).join(" · ")}
-            </p>
-          )}
-          {localError && <p className="text-xs th-text-danger">{localError}</p>}
+          {quote && <PriceLine points={quote.points} />}
+          <Button
+            size="sm"
+            disabled={busy || !!working || dirty}
+            loading={working === "Làm lại lượt"}
+            onClick={() =>
+              void perform("Làm lại lượt", async () => {
+                if (quote) await onRun(quote);
+                else setQuote(await onQuote(selected));
+              })
+            }
+          >
+            <Sparkles size={14} />
+            {quote ? "Đồng ý và làm lại" : "Xem giá làm lại lượt này"}
+          </Button>
+          {localError && <Alert>{localError}</Alert>}
         </div>
       </div>
 
       {(selected.attempts.length > 0 || selected.selectedTaskId) && (
         <div className="mt-3 border-t th-border pt-3">
-          <h4 className="text-xs font-semibold th-text-primary">Các bản của đoạn</h4>
+          <h4 className="text-xs font-semibold th-text-primary">Các bản của lượt này</h4>
           <div className="mt-2 flex flex-wrap gap-2">
             {selected.attempts
               .filter((attempt) => attempt.status === "completed")
               .map((attempt) => (
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="sm"
                   key={attempt.taskId}
                   disabled={busy || !!working || attempt.selected || !attempt.duration}
                   onClick={() =>
@@ -466,17 +451,17 @@ export function FilmSegmentEditor({
                       );
                     })
                   }
-                  className="inline-flex min-h-10 items-center gap-2 rounded-lg border th-border px-3 text-xs th-text-primary disabled:opacity-50"
                 >
                   {attempt.selected ? <Check size={14} /> : <Play size={14} />}
                   {attempt.selected
                     ? `Đang dùng · bản ${attempt.segmentRevision || "cũ"}`
                     : `Dùng bản ${attempt.segmentRevision || "cũ"}`}
-                </button>
+                </Button>
               ))}
             {selected.selectedTaskId && selected.originalSourceTaskId && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 disabled={busy || !!working}
                 onClick={() =>
                   void perform("Khôi phục", async () => {
@@ -488,10 +473,9 @@ export function FilmSegmentEditor({
                     );
                   })
                 }
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg border th-border px-3 text-xs th-text-secondary"
               >
-                <RotateCcw size={14} /> Khôi phục bản gốc
-              </button>
+                <RotateCcw size={14} /> Dùng lại bản gốc
+              </Button>
             )}
           </div>
         </div>

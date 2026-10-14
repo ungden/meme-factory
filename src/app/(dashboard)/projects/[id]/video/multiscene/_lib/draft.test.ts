@@ -105,9 +105,9 @@ describe("displayPhase", () => {
 
 describe("statusLabels", () => {
   // Without this entry the run header said "Đang xử lý" while the task card
-  // for the same state said "Đang đối soát".
+  // for the same state said "Đang kiểm tra".
   it("covers reconciling", () => {
-    expect(statusLabels.reconciling).toBe("Đang đối soát");
+    expect(statusLabels.reconciling).toBe("Đang kiểm tra");
   });
 
   it("covers every run status the pipeline can set", () => {

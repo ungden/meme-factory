@@ -21,22 +21,22 @@ export async function GET(request: NextRequest, { params }: Context) {
 export async function POST(request: NextRequest, { params }: Context) {
   const access = await watermarkAiAccess(request, (await params).id);
   if (access.error) return access.error;
-  if (!hasOpenAiApiKey()) return NextResponse.json({ error: "AI watermark chưa sẵn sàng. Chưa trừ điểm." }, { status: 503 });
+  if (!hasOpenAiApiKey()) return NextResponse.json({ error: "Vẽ logo đang tạm nghỉ. Bạn chưa bị trừ điểm." }, { status: 503 });
   if (Number(request.headers.get("content-length")) > 3 * 1024 * 1024 + 65_536)
     return NextResponse.json({ error: "Ảnh tối đa 3 MB." }, { status: 413 });
   let form: FormData;
-  try { form = await request.formData(); } catch { return NextResponse.json({ error: "Không đọc được dữ liệu." }, { status: 400 }); }
+  try { form = await request.formData(); } catch { return NextResponse.json({ error: "Chưa đọc được ảnh gửi lên. Bạn thử lại nhé." }, { status: 400 }); }
   const mode = form.get("mode"), prompt = String(form.get("prompt") || "").trim();
-  if (mode !== "remove_background" && mode !== "generate") return NextResponse.json({ error: "Chọn cách tạo watermark." }, { status: 400 });
+  if (mode !== "remove_background" && mode !== "generate") return NextResponse.json({ error: "Chọn Xoá nền logo hoặc Vẽ logo mới nhé." }, { status: 400 });
   if (Number(form.get("workspaceVersion")) !== access.project.workspace_version) return watermarkAiError("WORKSPACE_FORBIDDEN");
   if (prompt.length > 1500 || (mode === "generate" && prompt.length < 3))
-    return NextResponse.json({ error: "Mô tả từ 3 đến 1.500 ký tự." }, { status: 400 });
+    return NextResponse.json({ error: "Mô tả logo dài từ 3 đến 1.500 ký tự nhé." }, { status: 400 });
   let input: string | null = null;
   if (mode === "remove_background") {
     const file = form.get("file");
-    if (!(file instanceof File) || file.size > 3 * 1024 * 1024) return NextResponse.json({ error: "Chọn ảnh JPG, PNG hoặc WebP tối đa 3 MB." }, { status: 400 });
+    if (!(file instanceof File) || file.size > 3 * 1024 * 1024) return NextResponse.json({ error: "Chọn ảnh JPG, PNG hoặc WebP tối đa 3 MB nhé." }, { status: 400 });
     try { input = (await prepareWatermarkReference(Buffer.from(await file.arrayBuffer()))).toString("base64"); }
-    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Không đọc được ảnh." }, { status: 400 }); }
+    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Chưa đọc được ảnh. Chọn ảnh khác nhé." }, { status: 400 }); }
   }
   const { data: id, error } = await getSupabaseAdmin().rpc("quote_watermark_ai", {
     p_project: access.project.id, p_user: access.user.id, p_workspace: access.project.workspace_version,

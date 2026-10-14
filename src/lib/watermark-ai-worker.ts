@@ -32,12 +32,12 @@ export async function processWatermarkJob(admin: SupabaseClient, job: Job) {
     const { data: project, error: projectError } = await admin.from("projects").select("user_id,workspace_version").eq("id", job.project_id).maybeSingle();
     if (projectError) throw projectError;
     if (!project || project.user_id !== job.user_id || project.workspace_version !== job.workspace_version) {
-      await finish("failed", 0, null, "Dự án đã thay đổi. Đã hoàn điểm giữ cho watermark."); return;
+      await finish("failed", 0, null, "Kênh vừa thay đổi nên dừng lại. Đã hoàn điểm."); return;
     }
     if (job.status === "processing") {
       let key: string;
       try { key = await getOpenAiApiKey(); }
-      catch { await finish("failed", 0, null, "AI watermark chưa sẵn sàng. Đã hoàn điểm."); return; }
+      catch { await finish("failed", 0, null, "Vẽ logo đang tạm nghỉ. Đã hoàn điểm."); return; }
       const settings = watermarkProviderInput(job.mode, job.prompt);
       const form = new FormData();
       for (const [name, value] of Object.entries(settings)) form.append(name, String(value));
@@ -51,12 +51,12 @@ export async function processWatermarkJob(admin: SupabaseClient, job: Job) {
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(180_000)]),
         });
       } catch {
-        if (!lost) await update({ status: "needs_review", error: "Chưa xác định AI đã xử lý xong hay chưa. Điểm đang được đối soát; không tạo lại tự động.", lease_owner: null, lease_expires_at: null });
+        if (!lost) await update({ status: "needs_review", error: "Chưa rõ logo đã vẽ xong hay chưa. Đang kiểm tra lại điểm; không tự vẽ lại.", lease_owner: null, lease_expires_at: null });
         return;
       }
       if (!response.ok) {
         if (response.status >= 400 && response.status < 500 && response.status !== 408) {
-          await finish("failed", 0, null, "AI chưa tạo được watermark từ đầu vào này. Đã hoàn điểm. Hãy kiểm tra ảnh hoặc mô tả trước khi thử lượt mới.");
+          await finish("failed", 0, null, "Chưa vẽ được logo từ ảnh hoặc mô tả này. Đã hoàn điểm. Đổi ảnh hoặc mô tả rồi thử lại nhé.");
         } else {
           await update({ status: "needs_review", request_id: response.headers.get("x-request-id"), error: "Nhà cung cấp trả lỗi chưa rõ kết quả. Đang đối soát điểm, không gửi lại tự động.", lease_owner: null, lease_expires_at: null });
         }
@@ -79,7 +79,7 @@ export async function processWatermarkJob(admin: SupabaseClient, job: Job) {
       const png = await sharp(Buffer.from(job.output_image, "base64"), { limitInputPixels: 16_777_216 }).png({ compressionLevel: 9 }).toBuffer();
       normalized = await validateWatermarkImage(png);
     } catch {
-      await finish("failed", 0, null, "Ảnh AI chưa đạt yêu cầu nền trong suốt. Đã hoàn điểm; không tự chạy lại."); return;
+      await finish("failed", 0, null, "Logo vẽ ra chưa có nền trong suốt. Đã hoàn điểm; không tự vẽ lại."); return;
     }
     await update({ error: null });
     const bucket = admin.storage.from("watermarks");
@@ -100,15 +100,15 @@ export async function processWatermarkJob(admin: SupabaseClient, job: Job) {
     // Recheck reset/ownership after a potentially long provider/upload operation.
     const { data: current } = await admin.from("projects").select("user_id,workspace_version").eq("id", job.project_id).maybeSingle();
     if (!current || current.user_id !== job.user_id || current.workspace_version !== job.workspace_version) {
-      await finish("failed", 0, null, "Dự án đã thay đổi. Watermark chưa được áp dụng; đã hoàn điểm."); return;
+      await finish("failed", 0, null, "Kênh vừa thay đổi nên logo chưa được dùng. Đã hoàn điểm."); return;
     }
     await finish("completed", watermarkPoints(job.provider_cost_usd, job.max_points), bucket.getPublicUrl(path).data.publicUrl, null);
   } catch {
     if (!lost) {
       // Persisted output is safe to retry; an uncertain provider call is never retried.
       await update(job.status === "saving"
-        ? { error: "Đã có ảnh; đang thử lưu lại. Không gọi AI hoặc trừ điểm thêm.", next_poll_at: new Date(Date.now() + 30_000).toISOString(), lease_owner: null, lease_expires_at: null }
-        : { status: "needs_review", error: "Tác vụ cần đối soát trước khi tiếp tục. Bản watermark hiện tại vẫn được giữ.", lease_owner: null, lease_expires_at: null }).catch(() => {});
+        ? { error: "Đã có ảnh, đang lưu lại. Không trừ thêm điểm.", next_poll_at: new Date(Date.now() + 30_000).toISOString(), lease_owner: null, lease_expires_at: null }
+        : { status: "needs_review", error: "Cần kiểm tra lại trước khi làm tiếp. Logo đang dùng vẫn giữ nguyên.", lease_owner: null, lease_expires_at: null }).catch(() => {});
     }
   } finally { clearInterval(heartbeat); }
 }

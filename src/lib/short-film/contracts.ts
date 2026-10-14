@@ -328,6 +328,10 @@ export type FilmTask = {
   displayName?: string;
   plan_version: number;
   points?: number;
+  /** Chỉ máy chủ đọc; trang nhận `refunded_points` đã tính sẵn. */
+  checkpoint?: Record<string, unknown> | null;
+  /** Điểm đã hoàn vào kênh khi bước này hỏng. */
+  refunded_points?: number;
   status: FilmTaskStatus;
   input: Record<string, unknown>;
   result: Record<string, unknown> | null;
@@ -376,7 +380,7 @@ export function shotDuration(audioSeconds: number, requested: number) {
   const seconds = Math.max(4, requested, Math.ceil(audioSeconds + 0.5));
   if (seconds > 30)
     throw new Error(
-      "Lời thoại dài hơn 30 giây. Hãy chia thành hai cảnh trước khi tạo video.",
+      "Lời thoại dài hơn 30 giây. Chia thành hai cảnh rồi làm nhé.",
     );
   return seconds;
 }
@@ -785,7 +789,7 @@ export function filmVideoInputs(
       `Clip ${duration} giây vượt giới hạn ${seedanceMaxDuration(videoModel)} giây của model đã chọn. Hãy soạn lại storyboard.`,
     );
   if (!references.urls.length || references.urls.length !== references.bindings.length)
-    throw new Error("Bộ ảnh tham chiếu video không hợp lệ.");
+    throw new Error("Bộ ảnh mẫu của cảnh chưa dùng được. Bấm Làm lại cảnh này nhé.");
   const voiceSamples =
     mode === "native" && nativeSpeechSupported(videoModel) ? nativeVoiceSamples(scene) : [];
   return {

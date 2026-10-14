@@ -11,28 +11,28 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { id } = await params;
   const { data: project, error } = await supabase.from("projects")
     .select("id,user_id,workspace_version").eq("id", id).maybeSingle();
-  if (error || !project) return NextResponse.json({ error: "Không tìm thấy dự án hoặc không có quyền." }, { status: 404 });
+  if (error || !project) return NextResponse.json({ error: "Không tìm thấy kênh, hoặc bạn không còn quyền vào kênh này." }, { status: 404 });
   // Brand settings are owner-managed, matching the projects UPDATE policy.
   if (project.user_id !== user.id)
-    return NextResponse.json({ error: "Chỉ chủ dự án được thay watermark." }, { status: 403 });
+    return NextResponse.json({ error: "Chỉ chủ kênh mới đổi được logo." }, { status: 403 });
   if (Number(request.headers.get("content-length")) > MAX_WATERMARK_BYTES + 65_536)
-    return NextResponse.json({ error: "Watermark tối đa 3 MB." }, { status: 413 });
+    return NextResponse.json({ error: "Logo tối đa 3 MB." }, { status: 413 });
   try {
     const form = await request.formData();
     if (Number(form.get("workspaceVersion")) !== project.workspace_version)
-      return NextResponse.json({ error: "Dự án đã thay đổi. Hãy tải lại trang." }, { status: 409 });
+      return NextResponse.json({ error: "Kênh vừa thay đổi. Tải lại trang nhé." }, { status: 409 });
     const file = form.get("file");
     if (!(file instanceof File) || file.size > MAX_WATERMARK_BYTES)
-      return NextResponse.json({ error: "Chọn file watermark tối đa 3 MB." }, { status: 400 });
+      return NextResponse.json({ error: "Chọn ảnh logo tối đa 3 MB nhé." }, { status: 400 });
     const normalized = await validateWatermarkImage(Buffer.from(await file.arrayBuffer()));
     const path = `${user.id}/${project.id}/${project.workspace_version}/${randomUUID()}.png`;
     const bucket = supabase.storage.from("watermarks");
     const { error: uploadError } = await bucket.upload(path, normalized.bytes, {
       contentType: "image/png", cacheControl: "31536000", upsert: false,
     });
-    if (uploadError) return NextResponse.json({ error: "Chưa lưu được watermark. Hãy thử lại." }, { status: 502 });
+    if (uploadError) return NextResponse.json({ error: "Chưa lưu được logo. Bạn thử lại nhé." }, { status: 502 });
     return NextResponse.json({ url: bucket.getPublicUrl(path).data.publicUrl, width: normalized.width, height: normalized.height });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Không đọc được ảnh watermark." }, { status: 400 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Chưa đọc được ảnh logo. Chọn ảnh khác nhé." }, { status: 400 });
   }
 }

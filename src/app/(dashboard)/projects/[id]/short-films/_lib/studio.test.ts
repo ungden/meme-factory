@@ -5,6 +5,7 @@ import {
   latestFilm,
   readableFailure,
   runHeadline,
+  runRefundedPoints,
   runStep,
   shortTitle,
   type StudioRun,
@@ -73,12 +74,48 @@ describe("attention", () => {
   });
 
   it("offers a larger limit when the episode hits its budget", () => {
-    expect(attentionFor(run({ status: "budget_blocked", points_committed: 980 }), [], [], [])).toEqual({
+    expect(
+      attentionFor(run({ status: "budget_blocked", points_committed: 980, error: "PRODUCTION_BUDGET_EXCEEDED" }), [], [], []),
+    ).toEqual({
       kind: "budget",
+      cause: "cap",
       used: 980,
       limit: 1000,
       suggested: 1500,
     });
+  });
+
+  it("tells an empty wallet apart from the cap the user set", () => {
+    const attention = attentionFor(
+      run({ status: "budget_blocked", points_committed: 200, error: "INSUFFICIENT_POINTS" }),
+      [],
+      [],
+      [],
+    );
+    expect(attention).toMatchObject({ kind: "budget", cause: "wallet" });
+  });
+
+  it("never shows a raw error code as an issue", () => {
+    const attention = attentionFor(
+      run({ status: "needs_review", phase: "script_check", error: "STORY_BEATS_INVALID" }),
+      [],
+      [],
+      [],
+    );
+    expect(attention).toMatchObject({ kind: "script" });
+    expect(JSON.stringify(attention)).not.toContain("STORY_BEATS_INVALID");
+  });
+});
+
+describe("runRefundedPoints", () => {
+  it("adds up what was refunded for this episode only", () => {
+    expect(
+      runRefundedPoints(run(), [
+        task({ id: "a", production_run_id: "run", refunded_points: 40 }),
+        task({ id: "b", production_run_id: "run", refunded_points: 0 }),
+        task({ id: "c", production_run_id: "other", refunded_points: 99 }),
+      ]),
+    ).toBe(40);
   });
 
   it("surfaces script review issues and falls back to the run error", () => {

@@ -15,6 +15,7 @@ import {
   isFilmReferenceView,
   type FilmReferenceView,
 } from "@/lib/short-film/channel-setup";
+import { resolveProfileFields } from "@/lib/short-film/channel-profile-fields";
 
 const BUCKET = "character-poses";
 
@@ -35,8 +36,21 @@ function ownsPackPath(projectId: string, characterId: string, path: unknown): pa
 
 async function download(path: string) {
   const { data, error } = await getSupabaseAdmin().storage.from(BUCKET).download(path);
-  if (error || !data) throw new FilmError("Không đọc được ảnh nhân vật. Hãy tạo lại.");
+  if (error || !data) throw new FilmError("Không đọc được ảnh nhân vật. Bấm Vẽ lại nhé.");
   return Buffer.from(await data.arrayBuffer());
+}
+
+/**
+ * Lưu ảnh vừa vẽ vào kho. Gọi BÊN TRONG `generate` của chargedCharacterImage:
+ * điểm đã trừ trước khi vẽ, và chỉ lỗi trong callback mới được hoàn. Trước đây
+ * bước lưu nằm sau callback, nên kho lỗi là mất điểm mà không có ảnh.
+ */
+async function storeImage(a: Access, path: string, base64: string) {
+  const { error } = await a.admin.storage
+    .from(BUCKET)
+    .upload(path, Buffer.from(base64, "base64"), { contentType: "image/png", cacheControl: "31536000" });
+  if (error) throw error;
+  return a.admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
 /**
@@ -110,7 +124,7 @@ export async function GET(r: NextRequest, { params }: { params: Promise<{ id: st
     const [profile, characters, { data: project }] = await Promise.all([
       latestChannelProfile(a),
       loadCharacters(a),
-      a.admin.from("projects").select("description").eq("id", a.project.id).single(),
+      a.admin.from("projects").select("audience,brand_voice,description").eq("id", a.project.id).single(),
     ]);
     const roleIds = (profile?.roles || []).map((role: { characterId: string }) => role.characterId);
     const cast = characters.filter((character) => roleIds.includes(character.id));
@@ -121,12 +135,9 @@ export async function GET(r: NextRequest, { params }: { params: Promise<{ id: st
       owner: a.project.user_id === a.user.id,
       projectId: a.project.id,
       workspaceVersion: a.project.workspace_version,
-      // Hồ sơ kênh lấy từ bước tạo kênh, dùng khi lưu dàn nhân vật lần đầu.
-      channel: {
-        audience: profile?.audience || a.project.audience || "",
-        tone: profile?.tone || a.project.brand_voice || "",
-        positioning: profile?.positioning || project?.description || "",
-      },
+      // Ba ý của hồ sơ kênh, lấy từ cột của kênh (bước tạo kênh, Cài đặt kênh).
+      // Studio phim chỉ hỏi ý nào còn trống.
+      channel: resolveProfileFields({}, project, profile),
       ready: Boolean(profile) && cast.length > 0 && cast.every((character) => character.ready),
     });
   } catch (error) {
@@ -139,7 +150,7 @@ export async function POST(r: NextRequest, { params }: { params: Promise<{ id: s
     const a = await access(r, (await params).id);
     const body = await r.json().catch(() => ({}));
     if (Number(body.workspaceVersion) !== a.project.workspace_version)
-      throw new FilmError("Dự án vừa thay đổi. Tải lại trang rồi thử lại.", 409);
+      throw new FilmError("Kênh vừa thay đổi. Tải lại trang rồi thử lại nhé.", 409);
     const { data: character } = await a.admin
       .from("characters")
       .select("id,name,description,avatar_url")
@@ -165,7 +176,9 @@ export async function POST(r: NextRequest, { params }: { params: Promise<{ id: s
         artDirection: isArtDirectionId(dna?.art_direction) ? dna!.art_direction : undefined,
       };
       const prompt = compileCharacterPosePrompt(params);
-      const { result, requestId } = await chargedCharacterImage({
+      const path = `${a.project.id}/${character.id}/origin-${crypto.randomUUID()}.png`;
+      let url = "";
+      await chargedCharacterImage({
         project: a.project,
         actorUserId: a.user.id,
         description: `ảnh gốc của ${character.name}`,
@@ -177,18 +190,16 @@ export async function POST(r: NextRequest, { params }: { params: Promise<{ id: s
         estimate: estimateImageGenerationPrice({ model: IMAGE_MODEL, resolution: "1K", inputImageCount: 0, prompt }),
         requestedOutput: { characterId: character.id, emotion: "neutral" },
         sourceEntity: { type: "character", id: character.id },
-        generate: () => generateCharacterPose(params),
+        generate: async () => {
+          const made = await generateCharacterPose(params);
+          url = await storeImage(a, path, made.image);
+          const { error: poseError } = await a.admin
+            .from("character_poses")
+            .insert({ character_id: character.id, name: "Ảnh gốc", emotion: "neutral", image_url: url });
+          if (poseError) throw poseError;
+          return made;
+        },
       });
-      const path = `${a.project.id}/${character.id}/origin-${requestId}.png`;
-      const { error: uploadError } = await a.admin.storage
-        .from(BUCKET)
-        .upload(path, Buffer.from(result.image, "base64"), { contentType: "image/png", cacheControl: "31536000" });
-      if (uploadError) throw uploadError;
-      const url = a.admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
-      const { error: poseError } = await a.admin
-        .from("character_poses")
-        .insert({ character_id: character.id, name: "Ảnh gốc", emotion: "neutral", image_url: url });
-      if (poseError) throw poseError;
       // Vẽ lại ảnh gốc nghĩa là người dùng chưa ưng gương mặt cũ: thay luôn ảnh đại diện.
       const { error: avatarError } = await a.admin.from("characters").update({ avatar_url: url }).eq("id", character.id);
       if (avatarError) throw avatarError;
@@ -239,7 +250,7 @@ export async function POST(r: NextRequest, { params }: { params: Promise<{ id: s
     }
 
     if (body.action !== "generate" || !isFilmReferenceView(body.view))
-      throw new FilmError("Yêu cầu không hợp lệ.");
+      throw new FilmError("Chưa rõ cần vẽ ảnh nào. Tải lại trang rồi thử lại nhé.");
     const view = FILM_REFERENCE_VIEWS.find((item) => item.view === body.view)!;
     // Ảnh mặt dựng từ ảnh gốc của nhân vật; thân và lưng dựng từ ảnh mặt vừa tạo
     // để cả bộ là đúng một người. Mọi ảnh đầu vào đọc từ kho của app, không tải
@@ -260,14 +271,14 @@ export async function POST(r: NextRequest, { params }: { params: Promise<{ id: s
         .filter((url): url is string => typeof url === "string" && url.includes(marker))
         .filter((url, index, all) => all.indexOf(url) === index && (url === character.avatar_url || !/\/origin-[0-9a-f-]{36}\.png/.test(url)))
         .slice(0, 3);
-      if (!own.length) throw new FilmError(`${character.name} chưa có ảnh nào. Tạo một ảnh nhân vật trước.`);
+      if (!own.length) throw new FilmError(`${character.name} chưa có ảnh nào. Vẽ một ảnh nhân vật trước nhé.`);
       for (const url of own) {
         const path = decodeURIComponent(url.split(marker)[1].split("?")[0]);
         identity.push({ mimeType: "image/png", base64: (await download(path)).toString("base64") });
         references.push({ url });
       }
     } else {
-      if (!ownsPackPath(a.project.id, character.id, body.facePath)) throw new FilmError("Tạo ảnh cận mặt trước.");
+      if (!ownsPackPath(a.project.id, character.id, body.facePath)) throw new FilmError("Cần vẽ ảnh cận mặt trước nhé.");
       identity.push({ mimeType: "image/png", base64: (await download(body.facePath)).toString("base64") });
       references.push({ path: body.facePath });
     }
@@ -276,7 +287,9 @@ export async function POST(r: NextRequest, { params }: { params: Promise<{ id: s
       { name: character.name, description: character.description || "" },
       medium,
     );
-    const { result, requestId } = await chargedCharacterImage({
+    const path = `${packFolder(a.project.id, character.id)}/${view.view}-${crypto.randomUUID()}.png`;
+    let url = "";
+    await chargedCharacterImage({
       project: a.project,
       actorUserId: a.user.id,
       description: `ảnh chuẩn phim của ${character.name}`,
@@ -293,18 +306,13 @@ export async function POST(r: NextRequest, { params }: { params: Promise<{ id: s
       }),
       requestedOutput: { view: view.view, aspectRatio: view.aspectRatio, characterId: character.id },
       sourceEntity: { type: "character", id: character.id },
-      generate: () => generateFilmReferenceView({ prompt, identityImages: identity, aspectRatio: view.aspectRatio }),
+      generate: async () => {
+        const made = await generateFilmReferenceView({ prompt, identityImages: identity, aspectRatio: view.aspectRatio });
+        url = await storeImage(a, path, made.image);
+        return made;
+      },
     });
-    const path = `${packFolder(a.project.id, character.id)}/${view.view}-${requestId}.png`;
-    const { error: uploadError } = await a.admin.storage
-      .from(BUCKET)
-      .upload(path, Buffer.from(result.image, "base64"), { contentType: "image/png", cacheControl: "31536000" });
-    if (uploadError) throw uploadError;
-    return NextResponse.json({
-      view: view.view,
-      path,
-      url: a.admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl,
-    });
+    return NextResponse.json({ view: view.view, path, url });
   } catch (error) {
     if (error instanceof InsufficientPointsError)
       return NextResponse.json({ error: error.message, code: "INSUFFICIENT_POINTS" }, { status: 402 });

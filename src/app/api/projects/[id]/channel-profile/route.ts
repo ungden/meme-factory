@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { FAMILY_SERIES, type ChannelProfile, type StoryGenre } from "@/lib/family-catalogue";
 import { access, fail, latestChannelProfile } from "@/lib/short-film/server";
 import { CHANNEL_VISUAL_DIRECTIONS, channelFilmMedium } from "@/lib/short-film/channel-setup";
+import { missingProfileFields, resolveProfileFields } from "@/lib/short-film/channel-profile-fields";
 
 const clean = (value: unknown, max: number) => String(value || "").trim().slice(0, max);
 const GENRES: StoryGenre[] = ["comedy", "emotion"];
 
-/** The profile is an owner-controlled, versioned contract.  A plan pins its
- * profile version, so changing the Studio setup cannot rewrite a paid draft. */
+/**
+ * Hồ sơ phim là bản có phiên bản mà mỗi kịch bản ghim, nên đổi hồ sơ không viết
+ * lại một bản nháp đã trả tiền. Ba ý người dùng tự viết (người xem, giọng kể,
+ * kênh kể gì) lấy từ cột của kênh; xem channel-profile-fields.ts.
+ */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -28,26 +32,35 @@ export async function POST(
     const a = await access(request, (await params).id);
     if (a.project.user_id !== a.user.id)
       return NextResponse.json(
-        { error: "Chỉ chủ dự án mới được thay đổi hồ sơ kênh." },
+        { error: "Chỉ chủ kênh mới đổi được hồ sơ kênh." },
         { status: 403 },
       );
     const body = await request.json().catch(() => ({}));
-    const audience = clean(body.audience, 240);
-    const tone = clean(body.tone, 500);
-    const positioning = clean(body.positioning, 1000);
-    const speechRegister = body.speechRegister === "child" ? "child" : "natural";
+    const [current, { data: channel }] = await Promise.all([
+      latestChannelProfile(a),
+      a.admin.from("projects").select("audience,brand_voice,description").eq("id", a.project.id).single(),
+    ]);
+    const { audience, tone, positioning } = resolveProfileFields(body, channel, current);
+    // Không gửi thì giữ lựa chọn cũ: trang Nhân vật lưu dàn nhân vật bằng chính
+    // API này mà không biết hai lựa chọn kia, và từng làm chúng về mặc định.
+    const speechRegister =
+      body.speechRegister === "child" || body.speechRegister === "natural"
+        ? body.speechRegister
+        : current?.speechRegister || "natural";
     const genres = Array.isArray(body.genres)
       ? (body.genres as unknown[]).filter((genre): genre is StoryGenre => typeof genre === "string" && GENRES.includes(genre as StoryGenre)).slice(0, 2)
-      : GENRES;
+      : current?.genres?.length
+        ? current.genres
+        : GENRES;
     const relationships = Array.isArray(body.relationships)
       ? (body.relationships as unknown[]).map((value: unknown) => clean(value, 240)).filter(Boolean).slice(0, 12)
       : [];
     const characterIds = Array.isArray(body.characterIds)
       ? (body.characterIds as unknown[]).filter((value: unknown): value is string => typeof value === "string").slice(0, 8)
-      : [];
-    if (!audience || !tone || !positioning)
+      : (current?.roles || []).map((role) => role.characterId);
+    if (missingProfileFields({ audience, tone, positioning }).length)
       return NextResponse.json(
-        { error: "Cần nêu người xem, sắc thái và điều câu chuyện tập trung." },
+        { error: "Điền đủ người xem, giọng kể và kênh hay kể chuyện gì nhé." },
         { status: 400 },
       );
     const { data: characters, error: characterError } = characterIds.length
@@ -59,10 +72,9 @@ export async function POST(
       : { data: [], error: null };
     if (characterError || (characters || []).length !== characterIds.length)
       return NextResponse.json(
-        { error: "Một hoặc nhiều nhân vật không thuộc dự án này." },
+        { error: "Có nhân vật không thuộc kênh này. Tải lại trang rồi chọn lại nhé." },
         { status: 400 },
       );
-    const current = await latestChannelProfile(a);
     const version = Number(current?.version || 0) + 1;
     const { data: dna } = characterIds.length
       ? await a.admin.from("character_dna").select("character_id,art_direction").in("character_id", characterIds)
@@ -119,6 +131,13 @@ export async function POST(
       profile,
     });
     if (error) throw error;
+    // Ghi hồ sơ trước rồi mới ghi kênh: trigger đồng bộ thấy hai bên đã khớp và
+    // không thêm một phiên bản thừa.
+    const { error: projectError } = await a.admin
+      .from("projects")
+      .update({ audience, brand_voice: tone, description: positioning })
+      .eq("id", a.project.id);
+    if (projectError) throw projectError;
     return NextResponse.json({ profile }, { status: 201 });
   } catch (error) {
     return fail(error);

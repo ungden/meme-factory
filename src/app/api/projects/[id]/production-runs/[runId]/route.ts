@@ -101,7 +101,7 @@ export async function PATCH(
           body.maxPointsPerFilm > run.max_points_per_film ||
           body.maxPointsPerDay > run.max_points_per_day;
         if (raising && a.project.user_id !== a.user.id)
-          throw new FilmError("Chỉ chủ dự án được tăng hạn mức.", 403);
+          throw new FilmError("Chỉ chủ kênh mới nâng được mức chi.", 403);
       }
     } else if (
       action === "cancel" &&

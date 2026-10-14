@@ -11,10 +11,25 @@ import {
   stripStoryGenreMarker,
   type StoryGenre,
 } from "@/lib/story-genre";
+import Alert from "@/components/ui/alert";
+import Button, { buttonClasses } from "@/components/ui/button";
 import ConfirmModal from "@/components/ui/confirm-modal";
+import Input from "@/components/ui/input";
+import Textarea from "@/components/ui/textarea";
+import { PageContainer, PageHeader, Skeleton } from "@/components/ui/page";
+import OutOfPointsModal from "@/components/wallet/out-of-points-modal";
+import { useWallet } from "@/contexts/WalletContext";
 import { filmFormatFromIntent, isFilmFormat, markedFormatIntent, type FilmFormat } from "@/lib/film-camera-language";
 import { takeFilmHandoff } from "@/lib/home-handoff";
 import { castIdentityGaps } from "@/lib/short-film/cast-quality";
+import {
+  PROFILE_FIELD_LABEL,
+  PROFILE_FIELD_LIMIT,
+  PROFILE_FIELD_PLACEHOLDER,
+  missingProfileFields,
+  type ProfileField,
+  type ProfileFields,
+} from "@/lib/short-film/channel-profile-fields";
 import { suggestHashtags } from "@/lib/post-text";
 import { api } from "../../video/multiscene/_lib/draft";
 import {
@@ -24,12 +39,14 @@ import {
   latestFilm,
   qualityOption,
   runIsActive,
+  runRefundedPoints,
   shortTitle,
   type QualityId,
   type StudioCheck,
   type StudioRun,
   type StudioTask,
 } from "../_lib/studio";
+import { scheduleBody, scheduleFromApi, type FilmSchedule } from "../_lib/schedule";
 import {
   AttentionPanel,
   EpisodeList,
@@ -41,7 +58,6 @@ import {
   StatusPill,
   VoiceSamplePanel,
   AutopilotPanel,
-  type AutopilotSettings,
   type SceneTile,
   type VoiceCandidate,
 } from "./studio-view";
@@ -50,14 +66,15 @@ import { FilmSetupPanel, type SetupCharacter } from "./film-setup-panel";
 type PlanDetail = FilmPlan & { video_plan_scenes: FilmPlan["video_plan_scenes"] };
 
 /**
- * Màn "Tạo phim" cho người dùng cuối: một ý tưởng → AI làm cả tập → chỉ hỏi
- * khi cần quyết định. Trình chỉnh từng cảnh cũ vẫn ở /video/multiscene cho ai
- * cần kiểm soát chi tiết.
+ * Màn Phim ngắn cho người dùng cuối: một ý tưởng → AIDA làm cả tập → chỉ hỏi
+ * khi cần quyết định. Trang Chỉnh tay (/video/multiscene) dành cho ai cần sửa
+ * từng cảnh của một tập.
  */
 export default function EpisodeStudio() {
   const { id: ref } = useParams<{ id: string }>();
   const router = useRouter();
   const search = useSearchParams();
+  const wallet = useWallet();
   const base = `/api/projects/${ref}`;
   const selectedKey = search.get("tap");
 
@@ -65,37 +82,39 @@ export default function EpisodeStudio() {
   const [runs, setRuns] = useState<StudioRun[]>([]);
   const [workspace, setWorkspace] = useState<number | null>(null);
   const [channelProfile, setChannelProfile] = useState<ChannelProfile | null>(null);
+  const [channelPoints, setChannelPoints] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   // window.confirm phá nhịp của một màn hình đã có ngôn ngữ riêng, và trên
   // điện thoại nó hiện tên miền như một cảnh báo bảo mật.
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [topUpOpen, setTopUpOpen] = useState(false);
 
   const [idea, setIdea] = useState("");
-  // null = để AI tự chọn; người dùng chỉ đổi khi muốn, trong mục thu gọn.
+  // null = để AIDA tự chọn; người dùng chỉ đổi khi muốn, trong mục thu gọn.
   const [genre, setGenre] = useState<StoryGenre | null>(null);
   const [format, setFormat] = useState<FilmFormat | null>(null);
   const [suggestions, setSuggestions] = useState<{ title: string; idea: string }[]>([]);
   const [suggesting, setSuggesting] = useState(false);
   const [quality, setQuality] = useState<QualityId>("saving");
   const [limit, setLimit] = useState<number>(QUALITY_OPTIONS[0].defaultLimit);
-  // Kênh tự nói tiếng Việt cần Seedance 2.5; chọn sẵn cho người dùng, trừ khi
-  // họ đã tự đổi ở mục tuỳ chọn.
+  // Kênh tự nói tiếng Việt cần bản Chất lượng cao; chọn sẵn cho người dùng, trừ
+  // khi họ đã tự đổi ở mục tuỳ chọn.
   const qualityTouched = useRef(false);
-  const [autopilot, setAutopilot] = useState<AutopilotSettings | null>(null);
+  const [autopilot, setAutopilot] = useState<FilmSchedule | null>(null);
   const [showSetup, setShowSetup] = useState(false);
   const [setup, setSetup] = useState<{
     ready: boolean;
     owner: boolean;
     characters: SetupCharacter[];
     pointsPerImage: number;
+    /** Hồ sơ kênh từ bước tạo kênh và Cài đặt kênh. */
+    channel: ProfileFields | null;
   } | null>(null);
-  const [profileAudience, setProfileAudience] = useState("Gia đình Việt xem video ngắn");
-  const [profileTone, setProfileTone] = useState("Hài tự nhiên và cảm động có nguyên nhân");
-  const [profilePositioning, setProfilePositioning] = useState("");
-  const [profileSpeechRegister, setProfileSpeechRegister] = useState<"child" | "natural">("natural");
-  const [profileGenres, setProfileGenres] = useState<Array<"comedy" | "emotion">>(["comedy", "emotion"]);
+  // Chỉ chứa những ý hồ sơ kênh còn trống; ý đã có không bị hỏi lại.
+  const [profileDraft, setProfileDraft] = useState<Partial<ProfileFields>>({});
+  const autoProfileTried = useRef(false);
 
   const [plan, setPlan] = useState<PlanDetail | null>(null);
   const [planTasks, setPlanTasks] = useState<StudioTask[]>([]);
@@ -118,10 +137,9 @@ export default function EpisodeStudio() {
     refreshVoices().catch(() => undefined);
   }, [refreshVoices]);
 
-
   const episodes = useMemo(() => episodeSummaries(plans, runs), [plans, runs]);
-  // Lượt đang viết kịch bản được chọn bằng id lượt; khi kịch bản ra đời, tập đó
-  // mang khoá của kịch bản. Tìm cả theo id lượt để màn không rơi về "Tập mới".
+  // Tập đang viết kịch bản được chọn bằng id lượt chạy; khi kịch bản ra đời, tập
+  // đó mang khoá của kịch bản. Tìm cả hai để màn không rơi về "Tập mới".
   const episode =
     episodes.find((item) => item.key === selectedKey) ||
     episodes.find((item) => item.runId === selectedKey) ||
@@ -145,7 +163,11 @@ export default function EpisodeStudio() {
     setPlans(planList.plans || []);
     setWorkspace(planList.workspaceVersion ?? null);
     setChannelProfile(planList.channelProfile || null);
-    const filmSetup = await api(`${base}/film-setup`).catch(() => null);
+    const [filmSetup, automation, points] = await Promise.all([
+      api(`${base}/film-setup`).catch(() => null),
+      api(`${base}/film-automation`).catch(() => null),
+      api(`${base}/wallet`).catch(() => null),
+    ]);
     setSetup(
       filmSetup
         ? {
@@ -153,18 +175,16 @@ export default function EpisodeStudio() {
             owner: filmSetup.owner === true,
             characters: filmSetup.characters || [],
             pointsPerImage: Number(filmSetup.pointsPerImage || 0),
+            channel: filmSetup.channel || null,
           }
         : null,
     );
-    const automation = await api(`${base}/film-automation`).catch(() => null);
+    setChannelPoints(typeof points?.points === "number" ? points.points : null);
+    const preferred = qualityOption(planList.nativeVoice ? "quality" : "saving");
     // Chỉ chủ kênh bật được lịch; người cùng kênh không thấy thẻ này.
     setAutopilot(
       automation?.owner
-        ? {
-            enabled: automation.automation?.enabled === true,
-            filmsPerDay: Number(automation.automation?.films_per_day || 1),
-            localTime: String(automation.automation?.local_time || "09:00").slice(0, 5),
-          }
+        ? scheduleFromApi(automation.automation, { maxPointsPerFilm: preferred.defaultLimit, videoModel: preferred.model })
         : null,
     );
     if (planList.nativeVoice && !qualityTouched.current) {
@@ -190,7 +210,7 @@ export default function EpisodeStudio() {
     setRunDetail(runJson ? { run: runJson.run, checks: runJson.checks || [] } : null);
     setPlan(planJson?.plan || null);
     setPlanTasks(planJson?.tasks || []);
-    // Lượt vừa viết xong kịch bản: chuyển sang theo dõi theo kịch bản.
+    // Tập vừa viết xong kịch bản: chuyển sang theo dõi theo kịch bản.
     if (runJson?.run?.plan_id && !episodePlanId) {
       await refreshList();
       select(runJson.run.plan_id);
@@ -204,9 +224,14 @@ export default function EpisodeStudio() {
     refreshers.current = { refreshEpisode, refreshList };
   }, [refreshEpisode, refreshList]);
 
-  useEffect(() => {
+  const loadAll = useCallback(() => {
+    setError("");
     refreshList().catch((cause) => setError(cause.message));
   }, [refreshList]);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
 
   useEffect(() => {
     if (episode && selectedKey && episode.key !== selectedKey) select(episode.key);
@@ -243,16 +268,17 @@ export default function EpisodeStudio() {
 
   // Ý tưởng gửi từ trang chính: kênh đã sẵn sàng thì làm luôn, chưa thì điền
   // sẵn để sau bước chuẩn bị người dùng không phải gõ lại. Khoá chống trùng đi
-  // theo ý tưởng nên lỡ chạy hai lần cũng chỉ ra một lượt.
+  // theo ý tưởng nên lỡ chạy hai lần cũng chỉ ra một tập.
   const handoff = useRef<ReturnType<typeof takeFilmHandoff> | undefined>(undefined);
   useEffect(() => {
     if (handoff.current !== undefined) return;
     handoff.current = takeFilmHandoff(ref);
     if (!handoff.current) return;
     setIdea(handoff.current.idea);
-    // Kênh vừa tạo chưa có hồ sơ: lấy ý tưởng đầu tiên làm điểm tựa cho câu
-    // "kênh tập trung vào điều gì" để người dùng không đứng trước ô trống.
-    setProfilePositioning((current) => current || handoff.current!.idea);
+    // Kênh vừa tạo mà thiếu ý "kênh hay kể chuyện gì": lấy ý tưởng đầu tiên làm
+    // điểm tựa để người dùng không đứng trước ô trống. Chỉ gửi đi nếu ý đó thiếu.
+    const first = handoff.current.idea;
+    setProfileDraft((current) => ({ ...current, positioning: current.positioning || first }));
     if (isFilmFormat(handoff.current.format)) setFormat(handoff.current.format);
   }, [ref]);
   useEffect(() => {
@@ -273,6 +299,16 @@ export default function EpisodeStudio() {
     // Chỉ chạy một lần khi dữ liệu kênh vừa tải xong.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, channelProfile, setup, selectedKey]);
+
+  // Hồ sơ kênh đã đủ từ lúc tạo kênh hoặc ở Cài đặt kênh thì lập hồ sơ phim
+  // luôn, không hỏi lại. Chỉ chủ kênh ghi được hồ sơ.
+  const missingFields = missingProfileFields(setup?.channel);
+  useEffect(() => {
+    if (!loaded || channelProfile || !setup?.owner || missingFields.length || autoProfileTried.current) return;
+    autoProfileTried.current = true;
+    void act(() => saveChannelProfile());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, channelProfile, setup, missingFields.length]);
 
   async function act(work: () => Promise<void>) {
     setBusy(true);
@@ -311,7 +347,7 @@ export default function EpisodeStudio() {
   }
 
   /**
-   * Thể loại và cách quay do AI tự chọn từ ý tưởng, trừ khi người dùng đã chọn
+   * Thể loại và cách quay do AIDA tự chọn từ ý tưởng, trừ khi người dùng đã chọn
    * ở mục tuỳ chọn hoặc đang viết lại một tập đã có thể loại.
    */
   async function startRun(
@@ -322,11 +358,11 @@ export default function EpisodeStudio() {
     filmFormat: FilmFormat | null = format,
     idempotencyKey: string = crypto.randomUUID(),
   ) {
-    if (!channelProfile) throw new Error("Bạn hoàn tất hồ sơ kênh trước khi viết kịch bản nhé.");
+    if (!channelProfile) throw new Error("Điền hồ sơ kênh trước khi làm phim nhé.");
     const current = runs.find((run) => runIsActive(run));
     const response = await api(`${base}/production-runs`, {
       planId: null,
-      // Tập cảm động không quay kiểu bé nói với máy; lựa chọn cũ không được lọt qua.
+      // Tập cảm động không quay kiểu nói với người xem; lựa chọn cũ không được lọt qua.
       intent: markedFormatIntent(
         storyGenre ? markedStoryIntent(intent, storyGenre) : intent,
         storyGenre === "emotion" && (filmFormat === "talk_to_camera" || filmFormat === "cooking_show")
@@ -343,13 +379,27 @@ export default function EpisodeStudio() {
     select(response.runId);
   }
 
+  /** Tập đã dừng hẳn: làm lại trên đúng kịch bản cũ, phần đã xong được dùng lại. */
+  async function retryRun(failed: StudioRun) {
+    const response = await api(`${base}/production-runs`, {
+      planId: failed.plan_id,
+      intent: failed.plan_id ? "" : failed.intent || "",
+      guests: [],
+      maxPointsPerFilm: failed.max_points_per_film,
+      maxPointsPerDay: Math.max(failed.max_points_per_film, failed.max_points_per_day),
+      videoModel: failed.video_model || qualityOption("saving").model,
+      idempotencyKey: crypto.randomUUID(),
+    });
+    await refreshList();
+    select(failed.plan_id || response.runId);
+  }
+
+  /**
+   * Chỉ gửi ý người dùng vừa điền; máy chủ lấy phần còn lại từ hồ sơ của kênh.
+   */
   async function saveChannelProfile(characterIds?: string[]) {
     const response = await api(`${base}/channel-profile`, {
-      audience: channelProfile?.audience || profileAudience,
-      tone: channelProfile?.tone || profileTone,
-      positioning: channelProfile?.positioning || profilePositioning,
-      speechRegister: channelProfile?.speechRegister || profileSpeechRegister,
-      genres: channelProfile?.genres || profileGenres,
+      ...Object.fromEntries(missingFields.map((field) => [field, profileDraft[field] || ""])),
       // Kênh mới mặc định đưa mọi nhân vật lên phim; bước chuẩn bị cho bớt đi.
       characterIds:
         characterIds ||
@@ -360,13 +410,14 @@ export default function EpisodeStudio() {
     setChannelProfile(response.profile);
   }
 
-
   const run = runDetail?.run || null;
   const attention = run
     ? attentionFor(run, planTasks, runDetail?.checks || [], plan?.video_plan_scenes || [])
     : { kind: "none" as const };
   const film = latestFilm(planTasks);
   const advancedHref = `/projects/${ref}/video/multiscene${plan ? `?plan=${plan.id}` : ""}`;
+  const charactersHref = `/projects/${ref}/characters`;
+  const available = channelPoints === null ? null : channelPoints + (wallet.isLoading ? 0 : wallet.points);
 
   const names = new Map<string, string>();
   const castByCharacter = new Map<
@@ -403,8 +454,8 @@ export default function EpisodeStudio() {
       };
     });
 
-  // Câu nào trong cảnh đã quay bằng giọng AI tự nói đều có thể làm giọng chuẩn.
-  // Câu ngắn hơn 3 giây được nới tới 3 giây vì model cần nghe đủ âm sắc.
+  // Câu nào trong cảnh nhân vật tự nói đều có thể làm giọng chuẩn. Câu ngắn hơn
+  // 3 giây được nới tới 3 giây vì cần nghe đủ âm sắc.
   const voiceCandidates: VoiceCandidate[] = (plan?.video_plan_scenes || []).flatMap((scene) => {
     const clip = planTasks
       .filter(
@@ -416,7 +467,7 @@ export default function EpisodeStudio() {
       )
       .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
     if (!clip) return [];
-    // Clip nhiều người nói: đoạn cắt theo mốc dự kiến có thể dính giọng bé khác.
+    // Clip nhiều người nói: đoạn cắt theo mốc dự kiến có thể dính giọng người khác.
     const speakers = new Set(
       (scene.storyboard?.beats || []).filter((beat) => beat.dialogue?.trim()).map((beat) => beat.speakerCharacterId),
     );
@@ -469,290 +520,313 @@ export default function EpisodeStudio() {
   const resume = (body: Record<string, unknown> = {}) =>
     api(`${base}/production-runs/${run!.id}`, { action: "resume", ...body }, "PATCH");
 
+  const setField = (field: ProfileField) => (value: string) =>
+    setProfileDraft((current) => ({ ...current, [field]: value }));
+  const draftComplete = missingFields.every((field) => String(profileDraft[field] || "").trim());
+
   return (
-    // pt-16 chừa chỗ cho nút mở menu trên điện thoại; tránh sidebar
-    // cố định của app shell.
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-6 pt-16 sm:px-6 lg:ml-0 lg:pt-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold th-text-primary">Phim ngắn</h1>
-        <p className="text-sm th-text-secondary">Gõ ý tưởng, nhận phim làm xong. Chỉ hỏi bạn khi cần.</p>
-      </header>
+    <PageContainer width="work">
+      <PageHeader title="Phim ngắn" description="Gõ ý tưởng, nhận phim làm xong. Chỉ hỏi bạn khi cần." />
 
-      {castGaps.length > 0 && (
-        <div className="rounded-lg border th-border-warning th-bg-warning-light px-3 py-2 text-sm th-text-warning">
-          {castGaps.map((gap) => (
-            <p key={gap.characterId}>{gap.message}</p>
-          ))}
-          {setup?.owner ? (
-            <button
-              type="button"
-              onClick={() => {
-                setShowSetup(true);
-                select(null);
-              }}
-              className="mt-1 inline-block font-semibold underline"
-            >
-              Vẽ thêm ảnh còn thiếu
-            </button>
-          ) : (
-            <Link href={`/projects/${ref}/mascots`} className="mt-1 inline-block font-semibold underline">
-              Mở trang Nhân vật
-            </Link>
-          )}
-        </div>
-      )}
-
-      {error && (
-        <p role="alert" className="rounded-lg border th-border-danger th-bg-danger-light px-3 py-2 text-sm th-text-danger">
-          {error}
-        </p>
-      )}
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="min-w-0">
-          <EpisodeList
-            episodes={episodes}
-            selectedKey={selectedKey}
-            onSelect={(item) => select(item.key)}
-            onNew={() => select(null)}
-          />
-        </aside>
-
-        <main className="flex min-w-0 flex-col gap-5">
-          {!loaded ? (
-            <p className="text-sm th-text-secondary">Đang tải…</p>
-          ) : !episode && !channelProfile ? (
-            <section className="flex max-w-2xl flex-col gap-5" aria-labelledby="channel-setup-title">
-              <header>
-                <h2 id="channel-setup-title" className="text-xl font-semibold th-text-primary">Hoàn tất hồ sơ kênh</h2>
-                <p className="mt-1 text-sm th-text-secondary">Kịch bản sẽ bám theo hồ sơ này. Sửa lúc nào cũng được, tập đã làm không bị ảnh hưởng.</p>
-              </header>
-              <label className="flex flex-col gap-1 text-sm th-text-primary">
-                Người xem
-                <input value={profileAudience} onChange={(event) => setProfileAudience(event.target.value)} maxLength={240} className="rounded-lg border th-border th-bg-input px-3 py-2" />
-              </label>
-              <label className="flex flex-col gap-1 text-sm th-text-primary">
-                Kênh hay kể chuyện gì?
-                <textarea value={profilePositioning} onChange={(event) => setProfilePositioning(event.target.value)} maxLength={1000} rows={3} placeholder="Ví dụ: những tình huống nhỏ giữa bố và con, có hành động rõ ràng và kết tự nhiên." className="rounded-lg border th-border th-bg-input px-3 py-2" />
-              </label>
-              <label className="flex flex-col gap-1 text-sm th-text-primary">
-                Giọng kể
-                <textarea value={profileTone} onChange={(event) => setProfileTone(event.target.value)} maxLength={500} rows={2} className="rounded-lg border th-border th-bg-input px-3 py-2" />
-              </label>
-              <fieldset className="flex flex-col gap-2">
-                <legend className="text-sm font-medium th-text-primary">Thể loại phim</legend>
-                <div className="flex gap-4 text-sm th-text-secondary">
-                  {(["comedy", "emotion"] as const).map((genre) => (
-                    <label key={genre} className="flex items-center gap-2">
-                      <input type="checkbox" checked={profileGenres.includes(genre)} onChange={() => setProfileGenres((current) => current.includes(genre) ? current.filter((item) => item !== genre) : [...current, genre])} />
-                      {genre === "comedy" ? "Hài tự nhiên" : "Cảm động có chiều sâu"}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-              <label className="flex flex-col gap-1 text-sm th-text-primary">
-                Giọng thoại
-                <select value={profileSpeechRegister} onChange={(event) => setProfileSpeechRegister(event.target.value as "child" | "natural")} className="w-fit rounded-lg border th-border th-bg-input px-3 py-2">
-                  <option value="natural">Theo từng nhân vật</option>
-                  <option value="child">Giọng trẻ nhỏ</option>
-                </select>
-              </label>
-              <p className="text-xs th-text-secondary">Nhân vật, ảnh và giọng nói chỉnh ở trang Nhân vật.</p>
-              <button type="button" onClick={() => act(() => saveChannelProfile())} disabled={busy || !profilePositioning.trim() || !profileGenres.length} className="w-fit rounded-lg th-bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Lưu hồ sơ</button>
-            </section>
-          ) : !episode && setup && (!setup.ready || showSetup) ? (
-            <FilmSetupPanel
-              base={base}
-              workspace={workspace}
-              characters={setup.characters}
-              castIds={(channelProfile?.roles || []).map((role) => role.characterId)}
-              pointsPerImage={setup.pointsPerImage}
-              owner={setup.owner}
-              mascotsHref={`/projects/${ref}/mascots`}
-              onSaveCast={(ids) => saveChannelProfile(ids)}
-              onDone={async () => {
-                setShowSetup(false);
-                await refreshList();
-              }}
-            />
-          ) : !episode ? (
-            <div className="flex flex-col gap-6">
-              <IdeaPanel
-                idea={idea}
-                onIdea={setIdea}
-                genre={genre}
-                onGenre={setGenre}
-                allowedGenres={channelProfile?.genres || ["comedy", "emotion"]}
-                format={format}
-                onFormat={setFormat}
-                suggestions={suggestions}
-                suggesting={suggesting}
-                onSuggest={suggest}
-                quality={quality}
-                onQuality={(value) => {
-                  qualityTouched.current = true;
-                  setQuality(value);
-                }}
-                limit={limit}
-                onLimit={setLimit}
-                starting={busy}
-                onStart={() =>
-                  act(async () => {
-                    await startRun(idea.trim(), limit, qualityOption(quality).model);
-                    setIdea("");
-                  })
-                }
-                advancedHref={advancedHref}
-              />
-              {autopilot && (
-                <AutopilotPanel
-                  key={`${autopilot.enabled}-${autopilot.filmsPerDay}-${autopilot.localTime}`}
-                  settings={autopilot}
-                  pointsPerFilm={limit}
-                  saving={busy}
-                  onSave={(next) =>
-                    act(async () => {
-                      await api(
-                        `${base}/film-automation`,
-                        {
-                          enabled: next.enabled,
-                          filmsPerDay: next.filmsPerDay,
-                          localTime: next.localTime,
-                          maxPointsPerFilm: limit,
-                          maxPointsPerDay: limit * next.filmsPerDay,
-                          videoModel: qualityOption(quality).model,
-                        },
-                        "PUT",
-                      );
-                    })
-                  }
-                />
-              )}
-            </div>
-          ) : (
-            <>
-              <div className="flex flex-wrap items-center gap-3">
-                <h2 className="text-xl font-semibold th-text-primary">
-                  {plan?.title || shortTitle(run?.intent) || episode.title}
-                </h2>
-                <StatusPill status={episode.status} />
-              </div>
-
-              {run && (
-                <ProgressPanel
-                  run={run}
-                  busy={busy}
-                  onPause={() => act(async () => void (await api(`${base}/production-runs/${run.id}`, { action: "pause" }, "PATCH")))}
-                  onResume={() => act(async () => void (await resume()))}
-                  onCancel={() => setCancelTarget(run.id)}
-                />
-              )}
-
-              {run && (
-                <AttentionPanel
-                  key={`${run.id}:${run.updated_at}`}
-                  attention={attention}
-                  busy={busy}
-                  onUseAnyway={(task) =>
-                    act(async () => {
-                      await api(`${base}/film-tasks/${task.id}`, { action: "approve", workspaceVersion: workspace });
-                      await resume();
-                    })
-                  }
-                  onRegenerate={(task, reason) =>
-                    act(async () => {
-                      await api(`${base}/film-tasks/${task.id}`, { action: "regenerate", reason, workspaceVersion: workspace });
-                      await resume();
-                    })
-                  }
-                  onRaiseBudget={(next) =>
-                    act(async () =>
-                      void (await resume({ maxPointsPerFilm: next, maxPointsPerDay: Math.max(next, run.max_points_per_day) })),
-                    )
-                  }
-                  onAcceptScript={() =>
-                    act(async () => {
-                      if (plan)
-                        await api(`${base}/video-plans/${plan.id}/review`, { workspaceVersion: workspace, expectedVersion: plan.version });
-                      await resume();
-                    })
-                  }
-                  onRewriteScript={() =>
-                    act(async () => {
-                      await api(`${base}/production-runs/${run.id}`, { action: "cancel" }, "PATCH");
-                      const originalIntent = run.intent || plan?.brief || "";
-                      await startRun(
-                        stripStoryGenreMarker(originalIntent),
-                        run.max_points_per_film,
-                        // Viết lại giữ đúng model, thể loại và cách quay của lượt gốc.
-                        plan?.video_model || run.video_model || qualityOption("saving").model,
-                        storyGenreFromIntent(originalIntent, channelProfile?.genres),
-                        filmFormatFromIntent(originalIntent),
-                      );
-                    })
-                  }
-                  onRetry={() => act(async () => void (await resume()))}
-                />
-              )}
-
-              {film && (
-                <FilmPanel
-                  film={film}
-                  approving={busy}
-                  onApprove={() =>
-                    act(async () => {
-                      await api(`${base}/film-tasks/${film.id}`, { action: "approve", workspaceVersion: workspace });
-                      if (run?.status === "needs_review") await resume();
-                    })
-                  }
-                  caption={[plan?.title, plan?.brief || run?.intent].filter(Boolean).join("\n\n")}
-                  hashtags={suggestHashtags(plan?.title)}
-                />
-              )}
-
-              <ScriptPanel
-                title={plan?.title || ""}
-                lines={lines}
-                editHref={plan ? advancedHref : null}
-              />
-              <SceneStrip scenes={scenes} />
-              {plan?.audio_mode === "native" && (
-                <VoiceSamplePanel
-                  characters={voiceCharacters}
-                  candidates={voiceCandidates}
-                  busy={busy}
-                  onUseClip={(candidate) =>
-                    saveVoice({
-                      workspaceVersion: workspace,
-                      characterId: candidate.characterId,
-                      sourceTaskId: candidate.taskId,
-                      inSeconds: candidate.inSeconds,
-                      outSeconds: candidate.outSeconds,
-                    })
-                  }
-                  onUpload={({ characterId, file, seconds, direction }) => {
-                    const form = new FormData();
-                    form.set("workspaceVersion", String(workspace ?? ""));
-                    form.set("characterId", characterId);
-                    form.set("seconds", String(seconds));
-                    form.set("direction", direction);
-                    form.set("rightsConfirmed", "true");
-                    form.set("file", file);
-                    saveVoice(form);
+      <div className="flex flex-col gap-6">
+        {castGaps.length > 0 && (
+          <Alert
+            tone="warning"
+            title="Có nhân vật còn thiếu ảnh"
+            action={
+              setup?.owner ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setShowSetup(true);
+                    select(null);
                   }}
-                />
-              )}
+                >
+                  Vẽ thêm ảnh còn thiếu
+                </Button>
+              ) : (
+                <Link href={charactersHref} className={buttonClasses("outline", "sm")}>
+                  Mở trang Nhân vật
+                </Link>
+              )
+            }
+          >
+            {castGaps.map((gap) => (
+              <p key={gap.characterId}>{gap.message}</p>
+            ))}
+          </Alert>
+        )}
 
-              {!run && !film && plan && (
-                <p className="text-sm th-text-secondary">
-                  Tập này đang chỉnh tay.{" "}
-                  <a href={advancedHref} className="th-text-accent underline-offset-2 hover:underline">Mở tiếp</a>
-                </p>
-              )}
-            </>
-          )}
-        </main>
+        {error && (
+          <Alert
+            action={
+              !loaded ? (
+                <Button size="sm" variant="outline" onClick={loadAll}>
+                  Thử lại
+                </Button>
+              ) : undefined
+            }
+          >
+            {error}
+          </Alert>
+        )}
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+          <aside className="min-w-0">
+            <EpisodeList
+              episodes={episodes}
+              selectedKey={selectedKey}
+              onSelect={(item) => select(item.key)}
+              onNew={() => select(null)}
+            />
+          </aside>
+
+          <div className="flex min-w-0 flex-col gap-5">
+            {!loaded ? (
+              <div role="status" aria-label="Đang tải" className="flex flex-col gap-4">
+                <Skeleton className="h-7 w-40 rounded-lg" />
+                <Skeleton className="h-32" />
+                <Skeleton className="h-11 w-36 rounded-xl" />
+              </div>
+            ) : !episode && !channelProfile && (!setup?.owner || missingFields.length > 0) ? (
+              setup?.owner ? (
+                <section className="flex max-w-2xl flex-col gap-5" aria-labelledby="channel-setup-title">
+                  <header>
+                    <h2 id="channel-setup-title" className="text-xl font-semibold th-text-primary">Còn thiếu một chút hồ sơ kênh</h2>
+                    <p className="mt-1 text-sm th-text-secondary">
+                      Kịch bản sẽ bám theo hồ sơ này. Sửa lúc nào cũng được ở Cài đặt kênh, tập đã làm không bị ảnh hưởng.
+                    </p>
+                  </header>
+                  {missingFields.map((field) =>
+                    field === "positioning" ? (
+                      <Textarea
+                        key={field}
+                        id={`profile-${field}`}
+                        label={PROFILE_FIELD_LABEL[field]}
+                        value={profileDraft[field] || ""}
+                        onChange={(event) => setField(field)(event.target.value)}
+                        maxLength={PROFILE_FIELD_LIMIT[field]}
+                        rows={3}
+                        placeholder={PROFILE_FIELD_PLACEHOLDER[field]}
+                      />
+                    ) : (
+                      <Input
+                        key={field}
+                        id={`profile-${field}`}
+                        label={PROFILE_FIELD_LABEL[field]}
+                        value={profileDraft[field] || ""}
+                        onChange={(event) => setField(field)(event.target.value)}
+                        maxLength={PROFILE_FIELD_LIMIT[field]}
+                        placeholder={PROFILE_FIELD_PLACEHOLDER[field]}
+                      />
+                    ),
+                  )}
+                  <p className="text-xs th-text-secondary">Nhân vật, ảnh và giọng nói chỉnh ở trang Nhân vật.</p>
+                  <Button className="w-fit" onClick={() => act(() => saveChannelProfile())} loading={busy} disabled={!draftComplete}>
+                    Lưu hồ sơ
+                  </Button>
+                </section>
+              ) : (
+                <Alert tone="info" title="Kênh chưa sẵn sàng làm phim">
+                  Chủ kênh cần điền hồ sơ kênh trước. Nhờ chủ kênh mở trang Phim ngắn một lần nhé.
+                </Alert>
+              )
+            ) : !episode && !channelProfile ? (
+              error ? (
+                <Button className="w-fit" variant="outline" loading={busy} onClick={() => act(() => saveChannelProfile())}>
+                  Thử lại
+                </Button>
+              ) : (
+                <div role="status" aria-label="Đang chuẩn bị hồ sơ kênh" className="flex flex-col gap-4">
+                  <Skeleton className="h-7 w-40 rounded-lg" />
+                  <Skeleton className="h-32" />
+                </div>
+              )
+            ) : !episode && setup && (!setup.ready || showSetup) ? (
+              <FilmSetupPanel
+                base={base}
+                workspace={workspace}
+                characters={setup.characters}
+                castIds={(channelProfile?.roles || []).map((role) => role.characterId)}
+                pointsPerImage={setup.pointsPerImage}
+                available={available}
+                owner={setup.owner}
+                charactersHref={charactersHref}
+                onSaveCast={(ids) => saveChannelProfile(ids)}
+                onDone={async () => {
+                  setShowSetup(false);
+                  await refreshList();
+                }}
+              />
+            ) : !episode ? (
+              <div className="flex flex-col gap-6">
+                <IdeaPanel
+                  idea={idea}
+                  onIdea={setIdea}
+                  genre={genre}
+                  onGenre={setGenre}
+                  allowedGenres={channelProfile?.genres || ["comedy", "emotion"]}
+                  format={format}
+                  onFormat={setFormat}
+                  suggestions={suggestions}
+                  suggesting={suggesting}
+                  onSuggest={suggest}
+                  quality={quality}
+                  onQuality={(value) => {
+                    qualityTouched.current = true;
+                    setQuality(value);
+                  }}
+                  limit={limit}
+                  onLimit={setLimit}
+                  available={available}
+                  starting={busy}
+                  onStart={() =>
+                    act(async () => {
+                      await startRun(idea.trim(), limit, qualityOption(quality).model);
+                      setIdea("");
+                    })
+                  }
+                  advancedHref={advancedHref}
+                />
+                {autopilot && (
+                  <AutopilotPanel
+                    key={JSON.stringify(autopilot)}
+                    settings={autopilot}
+                    saving={busy}
+                    onSave={(next) =>
+                      act(async () => {
+                        await api(`${base}/film-automation`, scheduleBody(next), "PUT");
+                      })
+                    }
+                  />
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h2 className="text-xl font-semibold th-text-primary">
+                    {plan?.title || shortTitle(run?.intent) || episode.title}
+                  </h2>
+                  <StatusPill status={episode.status} />
+                </div>
+
+                {run && (
+                  <ProgressPanel
+                    run={run}
+                    busy={busy}
+                    refundedPoints={runRefundedPoints(run, planTasks)}
+                    onPause={() => act(async () => void (await api(`${base}/production-runs/${run.id}`, { action: "pause" }, "PATCH")))}
+                    onResume={() => act(async () => void (await resume()))}
+                    onCancel={() => setCancelTarget(run.id)}
+                    onRetry={() => act(() => retryRun(run))}
+                  />
+                )}
+
+                {run && (
+                  <AttentionPanel
+                    key={`${run.id}:${run.updated_at}`}
+                    attention={attention}
+                    busy={busy}
+                    onUseAnyway={(task) =>
+                      act(async () => {
+                        await api(`${base}/film-tasks/${task.id}`, { action: "approve", workspaceVersion: workspace });
+                        await resume();
+                      })
+                    }
+                    onRegenerate={(task, reason) =>
+                      act(async () => {
+                        await api(`${base}/film-tasks/${task.id}`, { action: "regenerate", reason, workspaceVersion: workspace });
+                        await resume();
+                      })
+                    }
+                    onRaiseBudget={(next) =>
+                      act(async () =>
+                        void (await resume({ maxPointsPerFilm: next, maxPointsPerDay: Math.max(next, run.max_points_per_day) })),
+                      )
+                    }
+                    onTopUp={() => setTopUpOpen(true)}
+                    onAcceptScript={() =>
+                      act(async () => {
+                        if (plan)
+                          await api(`${base}/video-plans/${plan.id}/review`, { workspaceVersion: workspace, expectedVersion: plan.version });
+                        await resume();
+                      })
+                    }
+                    onRewriteScript={() =>
+                      act(async () => {
+                        await api(`${base}/production-runs/${run.id}`, { action: "cancel" }, "PATCH");
+                        const originalIntent = run.intent || plan?.brief || "";
+                        await startRun(
+                          stripStoryGenreMarker(originalIntent),
+                          run.max_points_per_film,
+                          // Viết lại giữ đúng chất lượng, thể loại và cách quay của tập gốc.
+                          plan?.video_model || run.video_model || qualityOption("saving").model,
+                          storyGenreFromIntent(originalIntent, channelProfile?.genres),
+                          filmFormatFromIntent(originalIntent),
+                        );
+                      })
+                    }
+                    onRetry={() => act(async () => void (await resume()))}
+                  />
+                )}
+
+                {film && (
+                  <FilmPanel
+                    film={film}
+                    approving={busy}
+                    onApprove={() =>
+                      act(async () => {
+                        await api(`${base}/film-tasks/${film.id}`, { action: "approve", workspaceVersion: workspace });
+                        if (run?.status === "needs_review") await resume();
+                      })
+                    }
+                    caption={[plan?.title, plan?.brief || run?.intent].filter(Boolean).join("\n\n")}
+                    hashtags={suggestHashtags(plan?.title)}
+                  />
+                )}
+
+                <ScriptPanel title={plan?.title || ""} lines={lines} editHref={plan ? advancedHref : null} />
+                <SceneStrip scenes={scenes} />
+                {plan?.audio_mode === "native" && (
+                  <VoiceSamplePanel
+                    characters={voiceCharacters}
+                    candidates={voiceCandidates}
+                    busy={busy}
+                    onUseClip={(candidate) =>
+                      saveVoice({
+                        workspaceVersion: workspace,
+                        characterId: candidate.characterId,
+                        sourceTaskId: candidate.taskId,
+                        inSeconds: candidate.inSeconds,
+                        outSeconds: candidate.outSeconds,
+                      })
+                    }
+                    onUpload={({ characterId, file, seconds, direction }) => {
+                      const form = new FormData();
+                      form.set("workspaceVersion", String(workspace ?? ""));
+                      form.set("characterId", characterId);
+                      form.set("seconds", String(seconds));
+                      form.set("direction", direction);
+                      form.set("rightsConfirmed", "true");
+                      form.set("file", file);
+                      saveVoice(form);
+                    }}
+                  />
+                )}
+
+                {!run && !film && plan && (
+                  <p className="text-sm th-text-secondary">
+                    Tập này đang chỉnh tay.{" "}
+                    <Link href={advancedHref} className="th-text-accent underline-offset-2 hover:underline">Mở tiếp</Link>
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       </div>
+
       <ConfirmModal
         isOpen={Boolean(cancelTarget)}
         onClose={() => setCancelTarget(null)}
@@ -768,6 +842,19 @@ export default function EpisodeStudio() {
         variant="danger"
       />
 
-    </div>
+      {run && (
+        <OutOfPointsModal
+          open={topUpOpen}
+          onClose={() => setTopUpOpen(false)}
+          required={Math.max(1, run.max_points_per_film - run.points_committed)}
+          current={available ?? 0}
+          action="Làm tiếp tập phim"
+          onFunded={() => {
+            void wallet.refreshBalance();
+            void act(async () => void (await resume()));
+          }}
+        />
+      )}
+    </PageContainer>
   );
 }

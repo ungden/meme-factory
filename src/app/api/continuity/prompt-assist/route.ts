@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as PromptAssistRequest;
     if (!body.projectId) {
-      return NextResponse.json({ error: "Thiếu dự án." }, { status: 400 });
+      return NextResponse.json({ error: "Chưa chọn kênh." }, { status: 400 });
     }
 
     const { supabase, user } = await getRequestUser(request);
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       .eq("id", body.projectId)
       .single();
     if (!project) {
-      return NextResponse.json({ error: "Không tìm thấy dự án." }, { status: 404 });
+      return NextResponse.json({ error: "Không tìm thấy kênh." }, { status: 404 });
     }
 
     const ingredients = Array.isArray(body.ingredients)
@@ -79,8 +79,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: message.includes("AI_KEY_NOT_CONFIGURED")
-          ? "Hệ thống AI chưa được cấu hình. Vui lòng liên hệ quản trị viên."
-          : "AI chưa thể tối ưu chỉ đạo cảnh quay. Vui lòng thử lại.",
+          ? "Hệ thống đang bảo trì. Bạn thử lại sau ít phút nhé."
+          : "Chưa viết lại được mô tả cảnh. Bạn thử lại nhé.",
       },
       { status: 500 },
     );

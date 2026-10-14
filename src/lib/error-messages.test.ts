@@ -2,8 +2,13 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  ERROR_DETAILS,
   ERROR_MESSAGES,
+  IDEA_RETRY,
   INTERNAL_ONLY_CODES,
+  SCENE_REDO,
+  SCRIPT_REWRITE,
+  errorDetail,
   errorCode,
   humanizeError,
   kindLabel,
@@ -78,6 +83,50 @@ describe("humanizeError", () => {
     expect(humanizeError("STORY_GUEST_UNDECLARED: guest-1,guest-2")).toBe(
       ERROR_MESSAGES.STORY_GUEST_UNDECLARED,
     );
+  });
+
+  it("collapses script checks into one of three plain sentences", () => {
+    const plain = new Set([SCRIPT_REWRITE, SCENE_REDO, IDEA_RETRY]);
+    for (const code of [
+      "STORY_BEATS_INVALID",
+      "STORY_WORDS_87",
+      "STORY_SHOT_3_INVALID",
+      "STORYBOARD_BEAT_INVALID",
+      "PERFORMANCE_DIRECTION_WEAK",
+      "REFERENCE_PLAN_ITEM_INVALID",
+      "FAMILY_PREMISES_DUPLICATED",
+      "FAMILY_EDITORIAL_NEEDS_REVIEW",
+    ])
+      expect(plain.has(humanizeError(code)), code).toBe(true);
+    expect(humanizeError("STORY_BEATS_INVALID")).toBe(SCRIPT_REWRITE);
+    expect(humanizeError("STORYBOARD_GROUPING_FAILED")).toBe(SCENE_REDO);
+    expect(humanizeError("FAMILY_PREMISES_NEED_REVIEW")).toBe(IDEA_RETRY);
+  });
+
+  it("asks the user for nothing they cannot do", () => {
+    for (const [code, message] of Object.entries(ERROR_MESSAGES)) {
+      expect(message, code).not.toMatch(/cho AI\b|AI dựng|dựng lại|\bbé\b|Vui lòng/i);
+      expect(message, code).not.toMatch(/!/);
+    }
+  });
+});
+
+describe("errorDetail", () => {
+  it("keeps the specific reason for admins and logs", () => {
+    expect(errorDetail("STORY_BEATS_INVALID")).toContain("nhịp truyện");
+    expect(errorDetail("STORY_WORDS_87")).toBe(ERROR_DETAILS.STORY_WORDS);
+    expect(errorDetail("STORYBOARD_PROP_IDENTITY_CHANGED")).toContain("đạo cụ");
+  });
+
+  it("falls back to the user message for codes that were not collapsed", () => {
+    expect(errorDetail("QUOTE_EXPIRED")).toBe(ERROR_MESSAGES.QUOTE_EXPIRED);
+    expect(errorDetail("Câu đã viết sẵn.")).toBe("Câu đã viết sẵn.");
+  });
+
+  it("has a detail for every collapsed code", () => {
+    for (const [code, message] of Object.entries(ERROR_MESSAGES))
+      if ([SCRIPT_REWRITE, SCENE_REDO].includes(message))
+        expect(ERROR_DETAILS[code], code).toBeTruthy();
   });
 
   it("passes an already-Vietnamese message through unchanged", () => {

@@ -49,7 +49,7 @@ export async function POST(
       maxFilm <= 0 ||
       maxDay < maxFilm
     )
-      throw new FilmError("Nhập trần điểm mỗi phim và mỗi ngày hợp lệ.");
+      throw new FilmError("Nhập mức chi mỗi phim và mỗi ngày bằng số dương nhé.");
     let plan = null;
     if (body.planId) {
       plan = await readPlan(a, String(body.planId));
@@ -57,7 +57,7 @@ export async function POST(
     }
     if (plan?.audio_mode === "fixed" && !fixedVoiceEnabled(a.project.id))
       throw new FilmError(
-        "Nhánh đồng bộ môi một người chưa qua canary. Chọn lồng tiếng theo từng nhân vật.",
+        "Kiểu một giọng đọc chưa mở. Chọn lồng tiếng theo từng nhân vật nhé.",
         409,
       );
     if (
@@ -70,7 +70,7 @@ export async function POST(
       )
     )
       throw new FilmError(
-        "Duyệt giọng của các nhân vật nói trong kịch bản trước.",
+        "Duyệt giọng của các nhân vật có thoại trước nhé.",
         409,
       );
     if (plan?.audio_mode === "native" && !nativeSpeechAllowed(a.project.id, plan.video_model))
