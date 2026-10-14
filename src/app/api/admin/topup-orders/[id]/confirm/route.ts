@@ -15,7 +15,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: "Chưa xác nhận được đơn: " + error.message }, { status: 500 });
     }
 
-    const result = data as { success?: boolean; error?: string; already_confirmed?: boolean };
+    const result = data as { success?: boolean; error?: string; already_completed?: boolean };
 
     if (result?.error) {
       // RPC trả câu tiếng Anh cố định; dịch ở biên thay vì sửa hàm tiền.
@@ -23,7 +23,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: message }, { status: 400 });
     }
 
-    if (result?.already_confirmed) {
+    // atomic_confirm_topup trả already_completed; đọc sai tên khoá thì lần duyệt
+    // lại ghi đè mô tả giao dịch gốc và báo "đã xác nhận" như lần đầu.
+    if (result?.already_completed) {
       return NextResponse.json({ message: "Đơn nạp tiền đã được xác nhận trước đó" });
     }
 
