@@ -5,6 +5,13 @@
 - Mọi chữ người dùng thấy: tiếng Việt, không thuật ngữ kỹ thuật. Người dùng là
   chủ fanpage, không phải kỹ sư — không "prompt", "storyboard", "Seedance",
   "TTS", "workspace", không UUID.
+- Một tên cho mỗi thứ, dùng giống nhau ở menu, tiêu đề, nút, thông báo lỗi:
+  Kênh (không "dự án"), bài (không "đầu ra"), Nhân vật → bộ ảnh nhân vật →
+  biểu cảm (không mascot/pose), ảnh mẫu, Mẫu meme, Logo (không watermark), Ví,
+  Điểm của kênh, mức chi, Tự làm mỗi ngày, Chỉnh tay, Trợ giúp.
+- "Làm" một bài, "Vẽ" ảnh, "Viết" chữ, "Tạo" chỉ cho kênh/album/nhân vật mới;
+  không "dựng", "soạn", "sản xuất". Hạn chế "AI" làm chủ ngữ. Xưng "bạn", câu
+  ngắn, không "Vui lòng", không "!"; viết "Huỷ", "Xoá", "…", "Ví dụ:".
 - Chú thích trong code viết bằng tiếng Việt và giải thích **vì sao**, không mô
   tả lại dòng code. Chú thích chỉ xuất hiện ở chỗ có một quyết định đáng ngạc
   nhiên, một cái bẫy đã mắc, hoặc một ràng buộc bên ngoài.
@@ -50,6 +57,11 @@
   tự làm → chỉ hỏi khi cần → kết quả tải được.
 - Dùng token màu `th-*` và component trong `src/components/ui`. Không class màu
   thô, không `alert()`/`confirm()`.
+- Mỗi trang: `PageContainer` + `PageHeader` (`ui/page`), đang tải là
+  `PageSkeleton`/`Skeleton`, trống là `EmptyState`, lỗi tải là `Alert`, kết quả
+  thao tác là toast, sai id là `notFound()`. Việc tốn điểm: `PriceLine` trước nút
+  làm, `OutOfPointsModal` khi thiếu điểm, `JobStatus` cho tiến độ và hoàn điểm.
+  Số và ngày qua `src/lib/format.ts`.
 - Kiểm ở 375px trước khi coi là xong.
 
 ## Môi trường
