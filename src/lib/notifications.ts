@@ -147,11 +147,11 @@ export function buildNotifications(input: {
       items.push({
         id: `run:${run.id}`,
         kind: wallet ? "points" : "budget",
-        title: wallet ? "Hết điểm — nạp thêm để AI làm tiếp" : "Tập phim chạm giới hạn điểm bạn đặt",
+        title: wallet ? "Kênh hết điểm — nạp thêm để làm tiếp" : "Tập phim chạm mức chi bạn đặt",
         detail: shorten(
           wallet
-            ? `${project.name} — tập phim đang dừng vì ví không đủ điểm.`
-            : `${project.name} — nâng giới hạn để AI làm tiếp.`,
+            ? `${project.name} — tập phim đang dừng vì kênh hết điểm.`
+            : `${project.name} — nâng mức chi để làm tiếp.`,
         ),
         href: wallet ? WALLET_HREF : href,
         at: run.updated_at,
@@ -250,10 +250,10 @@ function memeNotifications(
     const many = group.count > 1 ? `${group.count} meme` : "meme";
     const detail =
       group.cause === "wallet"
-        ? `${group.project.name} hết điểm — nạp thêm để AI làm tiếp.`
+        ? `${group.project.name} hết điểm — nạp thêm để làm tiếp.`
         : group.cause === "gave_up"
-          ? `${group.project.name} — AI thử 3 lần chưa được ${many}. Bạn có thể làm lại.`
-          : `${group.project.name} — AI chưa làm được ${many}. Bạn có thể thử lại.`;
+          ? `${group.project.name} — ${many} chưa làm được sau 3 lần thử. Bạn làm lại nhé.`
+          : `${group.project.name} — ${many} chưa làm được. Bạn thử lại nhé.`;
     items.push({
       id: `meme-failed:${group.projectId}:${group.cause}`,
       // Hết điểm là việc phải làm ngay (mọi thứ khác cũng sẽ dừng), nên xếp
@@ -271,7 +271,7 @@ function memeNotifications(
     items.push({
       id: `meme-digest:${group.projectId}`,
       kind: "done",
-      title: `AI đã làm ${group.count} meme hôm nay cho ${group.project.name}`,
+      title: `${group.project.name} có ${group.count} meme mới hôm nay`,
       detail: shorten(headline ? `Mới nhất: “${headline}”` : "Bấm để xem và tải về."),
       href: `/projects/${group.project.slug || group.projectId}/generate`,
       at: finishedAt(group.latest),

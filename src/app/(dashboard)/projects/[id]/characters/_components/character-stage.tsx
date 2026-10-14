@@ -92,7 +92,7 @@ export default function CharacterStage() {
       body: JSON.stringify(body),
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || "Chưa làm được. Hãy thử lại.");
+    if (!response.ok) throw new Error(payload.error || "Chưa làm được. Bạn thử lại nhé.");
     return payload;
   }
 
@@ -102,7 +102,7 @@ export default function CharacterStage() {
     try {
       const payload = await post("/characters/suggest", { look, count: 3 });
       const list = (payload.characters || []) as CastMember[];
-      if (!list.length) throw new Error("AI chưa nghĩ ra nhân vật nào. Hãy thử lại.");
+      if (!list.length) throw new Error("Chưa nghĩ ra nhân vật nào. Bạn thử lại nhé.");
       setSuggestions(list.map((member) => ({ ...member, keep: true })));
     } catch (cause) {
       setError((cause as Error).message);
@@ -218,12 +218,12 @@ export default function CharacterStage() {
       // Kho ảnh nhân vật công khai: gỡ GPS và dấu vết máy chụp trước khi tải lên.
       const clean = await stripImageMetadataFromFile(file);
       const { error: uploadError } = await supabase.storage.from("character-poses").upload(path, clean, { contentType: file.type });
-      if (uploadError) throw new Error("Chưa tải được ảnh lên. Hãy thử lại.");
+      if (uploadError) throw new Error("Chưa tải được ảnh lên. Bạn thử lại nhé.");
       const url = supabase.storage.from("character-poses").getPublicUrl(path).data.publicUrl;
       const { error: poseError } = await supabase
         .from("character_poses")
         .insert({ character_id: character.id, name: "Ảnh của bạn", emotion: "neutral", image_url: url });
-      if (poseError) throw new Error("Chưa lưu được ảnh. Hãy thử lại.");
+      if (poseError) throw new Error("Chưa lưu được ảnh. Bạn thử lại nhé.");
       await supabase.from("characters").update({ avatar_url: url }).eq("id", character.id);
       const fresh = await load();
       const updated = fresh.characters.find((item) => item.id === character.id);
@@ -261,8 +261,7 @@ export default function CharacterStage() {
       <header>
         <h1 className="text-2xl font-bold th-text-primary">Nhân vật của kênh</h1>
         <p className="mt-1 text-sm th-text-secondary">
-          Mỗi nhân vật có một bộ ảnh chuẩn. Làm meme, video hay phim, bạn gắn nhân vật nào thì AI lấy đúng bộ ảnh đó làm
-          tham chiếu, nên ai cũng giữ một gương mặt qua mọi bài.
+          Gắn nhân vật vào meme, video, phim là bài nào cũng đúng gương mặt đó.
         </p>
       </header>
 
@@ -295,7 +294,7 @@ export default function CharacterStage() {
       {status.owner && pending.length > 1 && (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Button onClick={drawAll} loading={busy} size="lg">
-            <Sparkles size={17} aria-hidden /> AI vẽ {pending.length} nhân vật
+            <Sparkles size={17} aria-hidden /> Vẽ {pending.length} nhân vật
           </Button>
           <span className="text-xs th-text-secondary">Khoảng {pendingCost.toLocaleString("vi-VN")} điểm · vài phút</span>
         </div>
@@ -305,7 +304,7 @@ export default function CharacterStage() {
         <section className="flex flex-col gap-3 rounded-2xl border th-border th-bg-card p-4 sm:p-5" aria-labelledby="add-title">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 id="add-title" className="text-lg font-semibold th-text-primary">
-              {status.characters.length ? "Thêm nhân vật" : "AI gợi ý nhân vật cho kênh"}
+              {status.characters.length ? "Thêm nhân vật" : "Gợi ý nhân vật"}
             </h2>
             <div className="flex rounded-full border th-border p-0.5" role="radiogroup" aria-label="Kiểu hình nhân vật">
               {(Object.keys(LOOK_LABEL) as ChannelLook[]).map((value) => (
@@ -323,7 +322,7 @@ export default function CharacterStage() {
             </div>
           </div>
 
-          {suggesting && <p className="text-sm th-text-secondary" aria-live="polite">AI đang nghĩ nhân vật hợp với kênh…</p>}
+          {suggesting && <p className="text-sm th-text-secondary" aria-live="polite">Đang nghĩ nhân vật hợp với kênh…</p>}
 
           {suggestions.length > 0 && (
             <ul className="flex flex-col gap-3">
@@ -389,16 +388,16 @@ export default function CharacterStage() {
               </Button>
             )}
             <Button variant="outline" onClick={suggest} loading={suggesting} disabled={busy}>
-              <Sparkles size={16} aria-hidden /> {suggestions.length ? "Gợi ý khác" : "AI gợi ý"}
+              <Sparkles size={16} aria-hidden /> {suggestions.length ? "Gợi ý khác" : "Gợi ý"}
             </Button>
             {!manual && (
               <Button variant="ghost" onClick={() => setManual({ name: "", description: "", personality: "" })} disabled={busy}>
-                <Plus size={16} aria-hidden /> Tự tả nhân vật
+                <Plus size={16} aria-hidden /> Tả nhân vật
               </Button>
             )}
           </div>
           <p className="text-xs th-text-secondary">
-            Thêm nhân vật chưa tốn điểm. Vẽ một nhân vật (ảnh gốc và bộ ảnh chuẩn) khoảng {(4 * costPer).toLocaleString("vi-VN")} điểm; dùng ảnh của bạn thì khoảng {(3 * costPer).toLocaleString("vi-VN")} điểm.
+            Thêm nhân vật miễn phí. Vẽ đủ ảnh cho một nhân vật hết khoảng {(4 * costPer).toLocaleString("vi-VN")} điểm, dùng ảnh của bạn khoảng {(3 * costPer).toLocaleString("vi-VN")} điểm.
           </p>
         </section>
       )}
@@ -406,15 +405,15 @@ export default function CharacterStage() {
       {lockedCount > 0 && (
         <div className="flex flex-col gap-2 rounded-2xl border th-border-accent th-bg-card p-4 shadow-lg sm:sticky sm:bottom-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm th-text-primary">
-            {lockedCount} nhân vật đã sẵn sàng. Làm meme, video hay phim và gắn họ vào bài.
+            {lockedCount} nhân vật đã sẵn sàng.
           </p>
           <Button onClick={goCreate}>
-            Làm nội dung <ArrowRight size={16} aria-hidden />
+            Làm bài mới <ArrowRight size={16} aria-hidden />
           </Button>
         </div>
       )}
       {!status.owner && !lockedCount && (
-        <p className="text-sm th-text-secondary">Chủ kênh cần dựng nhân vật trước.</p>
+        <p className="text-sm th-text-secondary">Chủ kênh cần tạo nhân vật trước.</p>
       )}
     </div>
   );
@@ -448,7 +447,7 @@ function CharacterCard({
   const images = locked
     ? VIEWS.map((view) => ({ view, url: character.references[VIEW_ROLE[view]] || "" }))
     : VIEWS.map((view) => ({ view, url: drafts[view]?.url || "" }));
-  const label = locked ? "Đã khoá" : waiting ? "Chờ bạn duyệt" : character.avatarUrl ? "Có ảnh gốc" : "Chưa có ảnh";
+  const label = locked ? "Đã chốt" : waiting ? "Chờ bạn duyệt" : character.avatarUrl ? "Có ảnh gốc" : "Chưa có ảnh";
 
   return (
     <li className="flex flex-col gap-3 rounded-2xl border th-border th-bg-card p-3">
@@ -492,12 +491,12 @@ function CharacterCard({
         <div className="flex flex-wrap gap-2">
           {waiting && (
             <Button size="sm" onClick={onApprove} disabled={busy}>
-              <Check size={15} aria-hidden /> Dùng bộ này
+              <Check size={15} aria-hidden /> Chốt bộ ảnh này
             </Button>
           )}
           {!locked && !waiting && (
             <Button size="sm" onClick={() => onDraw(false)} disabled={busy}>
-              <Sparkles size={15} aria-hidden /> {character.avatarUrl ? "Làm bộ ảnh chuẩn" : "AI vẽ"} · {((character.avatarUrl ? 3 : 4) * costPer).toLocaleString("vi-VN")} điểm
+              <Sparkles size={15} aria-hidden /> {character.avatarUrl ? "Vẽ đủ góc" : "Vẽ nhân vật"} · {((character.avatarUrl ? 3 : 4) * costPer).toLocaleString("vi-VN")} điểm
             </Button>
           )}
           {waiting && (

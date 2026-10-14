@@ -435,7 +435,7 @@ export async function POST(request: NextRequest) {
         _project_id: projectId,
         _actor_user_id: actorUserId,
         _cost: deductedCost,
-        _description: `Hoàn ${deductedCost} pts vào ví dự án — lỗi tạo ${POINT_LABELS[deductedAction]}`,
+        _description: `Hoàn ${deductedCost} điểm vào kênh — ${POINT_LABELS[deductedAction]} chưa thành`,
         _request_id: generationRequestId,
         _ai_action: deductedAction,
         _metadata: {

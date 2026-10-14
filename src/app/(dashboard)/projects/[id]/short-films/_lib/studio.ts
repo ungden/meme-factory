@@ -109,17 +109,17 @@ export function runHeadline(run: StudioRun) {
       return "Đã nhận yêu cầu, sắp bắt đầu";
     case "scripting":
     case "running":
-      return `AI đang ${STUDIO_STEPS[runStep(run)].label.toLowerCase()}`;
+      return `Đang ${STUDIO_STEPS[runStep(run)].label.toLowerCase()}`;
     case "paused":
       return "Đã tạm dừng";
     case "budget_blocked":
-      return "Đã chạm giới hạn điểm của tập";
+      return "Đã chạm mức chi của tập";
     case "needs_review":
       return "Cần bạn quyết định một việc";
     case "completed":
       return "Phim đã xong, mời bạn xem";
     case "cancelled":
-      return "Đã hủy tập này";
+      return "Đã huỷ tập này";
     default:
       return "Có lỗi khi làm phim";
   }
@@ -165,19 +165,19 @@ export function taskNoun(kind: string) {
  */
 export function readableFailure(message: string | null | undefined): string {
   const text = String(message || "").trim();
-  if (!text) return "Bước này không xong. Bấm tạo lại để thử lần nữa.";
+  if (!text) return "Bước này không xong. Bấm Làm lại để thử lần nữa.";
   // Có dấu tiếng Việt nghĩa là thông báo của chính hệ thống, đã viết cho người đọc.
   if (/[àáâãèéêìíòóôõùúýăđĩũơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]/iu.test(text))
     return text;
   if (/abort|timeout|timed out|ETIMEDOUT|ECONNRESET|socket|network|fetch failed/iu.test(text))
-    return "Lần gọi này quá lâu nên bị ngắt giữa chừng. Bấm tạo lại để thử lần nữa.";
+    return "Lần gọi này quá lâu nên bị ngắt giữa chừng. Bấm Làm lại để thử lần nữa.";
   if (/\b(429|rate limit|quota|too many requests)\b/iu.test(text))
-    return "Bên tạo media đang quá tải. Chờ một lát rồi bấm tạo lại.";
+    return "Hệ thống đang bận. Chờ một lát rồi bấm Làm lại.";
   if (/\b(401|403|unauthorized|forbidden|api key)\b/iu.test(text))
-    return "Kết nối tới bên tạo media bị từ chối. Báo cho đội hỗ trợ giúp mình.";
+    return "Chưa kết nối được. Bạn báo đội hỗ trợ giúp nhé.";
   if (/\b(5\d\d|internal server error|bad gateway|service unavailable)\b/iu.test(text))
-    return "Bên tạo media đang gặp sự cố. Chờ một lát rồi bấm tạo lại.";
-  return "Bước này không xong. Bấm tạo lại để thử lần nữa.";
+    return "Hệ thống đang bận. Chờ một lát rồi bấm Làm lại.";
+  return "Bước này không xong. Bấm Làm lại để thử lần nữa.";
 }
 
 /**
@@ -235,7 +235,7 @@ export function attentionFor(
   }
   return {
     kind: "generic",
-    message: run.error || "AI cần bạn kiểm tra trước khi làm tiếp.",
+    message: run.error || "Cần bạn kiểm tra trước khi làm tiếp.",
   };
 }
 
@@ -291,7 +291,7 @@ export const EPISODE_STATUS_LABEL: Record<EpisodeSummary["status"], string> = {
   draft: "Bản nháp",
   working: "Đang làm",
   attention: "Cần bạn xem",
-  ready: "Đã có phim",
+  ready: "Đã xong",
   stopped: "Đã dừng",
 };
 
@@ -369,9 +369,9 @@ export function latestFilm(tasks: StudioTask[]) {
 
 /** Cách quay người dùng có thể chọn; dùng chung cho Studio phim và trang chính. */
 export const FORMAT_CHOICES: Array<{ value: FilmFormat | null; label: string; description: string; comedyOnly?: boolean }> = [
-  { value: null, label: "AI tự chọn", description: "AI chọn cách quay hợp với câu chuyện nhất." },
-  { value: "talk_to_camera", label: "Bé nói với người xem", description: "Bé nhìn thẳng vào máy than chuyện người lớn, đổi nơi liên tục.", comedyOnly: true },
-  { value: "cooking_show", label: "Bé vào bếp", description: "Bé dạy làm một món thật, kết bằng màn nếm thử.", comedyOnly: true },
+  { value: null, label: "Tự động", description: "Chọn cách quay hợp với câu chuyện nhất." },
+  { value: "talk_to_camera", label: "Nói với người xem", description: "Nhân vật nhìn thẳng vào máy kể chuyện, đổi nơi liên tục.", comedyOnly: true },
+  { value: "cooking_show", label: "Vào bếp", description: "Nhân vật chỉ cách làm một món thật, kết bằng màn nếm thử.", comedyOnly: true },
   { value: "phone_vlog", label: "Đi chơi / tiểu phẩm", description: "Quay như vlog điện thoại, cắt nhanh, ít lời." },
   { value: "family_scene", label: "Cả nhà đối đáp", description: "Các thành viên nói chuyện với nhau trong một bối cảnh." },
 ];

@@ -78,7 +78,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     _project_id: project.id,
     _owner_user_id: user.id,
     _points_to_deposit: points,
-    _description: `Nạp ví dự án ${project.name}: +${points} points`,
+    _description: `Chuyển điểm vào kênh ${project.name}: +${points} điểm`,
   });
 
   if (error) {
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (result?.error === "Insufficient points") {
       return NextResponse.json(
         {
-          error: `Points cá nhân không đủ. Cần ${points} points, hiện có ${Number(result?.points ?? 0)} points`,
+          error: `Ví của bạn không đủ điểm: cần ${points}, đang có ${Number(result?.points ?? 0)}.`,
           code: "INSUFFICIENT_POINTS",
         },
         { status: 400 }

@@ -98,7 +98,7 @@ export function EpisodeList({
 
 /** Tên gọi chủ fanpage đọc; null là để AI tự chọn — lựa chọn mặc định. */
 const GENRE_CHOICES: Array<{ value: StoryGenre | null; label: string }> = [
-  { value: null, label: "AI tự chọn" },
+  { value: null, label: "Tự động" },
   { value: "comedy", label: "Hài tự nhiên" },
   { value: "emotion", label: "Cảm động" },
 ];
@@ -186,7 +186,7 @@ export function IdeaPanel({
       <header>
         <h2 id="idea-title" className="text-xl font-semibold th-text-primary">Tập mới</h2>
         <p className="mt-1 text-sm th-text-secondary">
-          Viết ý tưởng nếu bạn có, hoặc để trống. AI tự nghĩ chuyện, chọn cách quay, dựng cảnh, cho nhân vật nói và ghép thành phim.
+          Có ý tưởng thì viết vào, không thì để trống — AIDA tự nghĩ chuyện và làm tới khi ra phim.
         </p>
       </header>
 
@@ -220,11 +220,11 @@ export function IdeaPanel({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <Button size="lg" onClick={onStart} disabled={!ready} loading={starting}>
           {written ? <Clapperboard className="h-5 w-5" aria-hidden /> : <Sparkles className="h-5 w-5" aria-hidden />}
-          {written ? "Làm phim" : "AI tự nghĩ và làm phim"}
+          Làm phim
         </Button>
         <span className="text-xs th-text-secondary">
           {written && written.length < 10
-            ? "Viết thêm một chút, hoặc xoá hết để AI tự nghĩ."
+            ? "Viết thêm vài chữ, hoặc xoá hết để AIDA tự nghĩ."
             : `Tối đa ${limit.toLocaleString("vi-VN")} điểm · khoảng 5–10 phút · có thể rời trang.`}
         </span>
       </div>
@@ -236,7 +236,7 @@ export function IdeaPanel({
           className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm th-text-secondary"
         >
           <span>
-            Tự chọn cách kể, cách quay, chất lượng
+            Tuỳ chọn thêm
             {choices > 0 && <span className="ml-1 th-text-accent">· đã chọn {choices}</span>}
           </span>
           <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${advanced ? "rotate-180" : ""}`} aria-hidden />
@@ -272,7 +272,7 @@ export function IdeaPanel({
               }))}
             />
             <label className="flex flex-col gap-1 text-sm th-text-primary">
-              Không tiêu quá (điểm cho tập này)
+              Chi tối đa cho tập này (điểm)
               <input
                 type="number"
                 min={50}
@@ -281,10 +281,10 @@ export function IdeaPanel({
                 onChange={(event) => onLimit(Number(event.target.value))}
                 className="w-40 rounded-lg border th-border th-bg-input px-3 py-2 text-sm th-text-primary"
               />
-              <span className="text-xs th-text-secondary">AI dừng lại và hỏi bạn nếu sắp vượt mức này.</span>
+              <span className="text-xs th-text-secondary">Sắp vượt mức này sẽ dừng lại hỏi bạn.</span>
             </label>
             <Link href={advancedHref} className="text-sm th-text-accent underline-offset-2 hover:underline">
-              Tự viết kịch bản từng cảnh, chọn giọng, lịch tự sản xuất hằng ngày →
+              Chỉnh tay từng cảnh và giọng nói →
             </Link>
           </div>
         )}
@@ -329,7 +329,7 @@ export function ProgressPanel({
           )}
           {!stopped && run.status !== "completed" && (
             <Button variant="ghost" size="sm" onClick={onCancel} disabled={busy}>
-              <X className="h-4 w-4" aria-hidden /> Hủy tập
+              <X className="h-4 w-4" aria-hidden /> Huỷ tập
             </Button>
           )}
         </div>
@@ -412,14 +412,14 @@ export function AttentionPanel({
 
   if (attention.kind === "budget")
     return frame(
-      "Tập này đã dùng gần hết điểm cho phép",
+      "Tập này sắp vượt mức chi bạn đặt",
       <>
         <p className="text-sm th-text-primary">
           Đã dùng {attention.used.toLocaleString("vi-VN")} / {attention.limit.toLocaleString("vi-VN")} điểm. Phần đã làm được giữ nguyên.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => onRaiseBudget(attention.suggested)} disabled={busy}>
-            Cho phép tới {attention.suggested.toLocaleString("vi-VN")} điểm và làm tiếp
+            Nâng lên {attention.suggested.toLocaleString("vi-VN")} điểm và làm tiếp
           </Button>
         </div>
       </>,
@@ -427,7 +427,7 @@ export function AttentionPanel({
 
   if (attention.kind === "script")
     return frame(
-      "AI thấy kịch bản còn điểm chưa ổn",
+      "Kịch bản còn vài chỗ chưa ổn",
       <>
         {attention.summary && <p className="text-sm th-text-primary">{attention.summary}</p>}
         {issueList(attention.issues)}
@@ -444,7 +444,7 @@ export function AttentionPanel({
 
   if (attention.kind === "generic")
     return frame(
-      "AI cần bạn xem trước khi làm tiếp",
+      "Cần bạn xem qua trước khi làm tiếp",
       <>
         <p className="text-sm th-text-primary">{attention.message}</p>
         <div>
@@ -463,12 +463,12 @@ export function AttentionPanel({
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <MediaPreview task={task} />
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-medium th-text-primary">AI kiểm tra thấy:</p>
+          <p className="text-sm font-medium th-text-primary">Chỗ chưa ổn:</p>
           {issueList(attention.issues)}
         </div>
       </div>
       <div className="flex flex-col gap-2">
-        <p className="text-sm th-text-primary">Tạo lại vì (chọn một hoặc nhiều):</p>
+        <p className="text-sm th-text-primary">Làm lại vì:</p>
         <div className="flex flex-wrap gap-2">
           {REGENERATE_REASONS.map((item) => {
             const on = reasons.includes(item);
@@ -487,13 +487,13 @@ export function AttentionPanel({
         <input
           value={note}
           onChange={(event) => setNote(event.target.value)}
-          placeholder="Ghi thêm nếu cần, ví dụ: Bố phải chân trần"
+          placeholder="Ghi thêm nếu cần, ví dụ: nhân vật phải đi chân trần"
           className="rounded-lg border th-border th-bg-input px-3 py-2 text-sm th-text-primary"
         />
       </div>
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => onRegenerate(task, reason || attention.issues.join("; ") || "Kết quả chưa đạt")} disabled={busy}>
-          <RefreshCw className="h-4 w-4" aria-hidden /> Tạo lại
+          <RefreshCw className="h-4 w-4" aria-hidden /> Làm lại
         </Button>
         <Button variant="outline" onClick={() => onUseAnyway(task)} disabled={busy}>
           <Check className="h-4 w-4" aria-hidden /> Vẫn dùng bản này
@@ -517,7 +517,7 @@ export function ScriptPanel({ title, lines, editHref }: { title: string; lines: 
         </button>
         {editHref && (
           <Link href={editHref} className="text-sm th-text-accent underline-offset-2 hover:underline">
-            Chỉnh chi tiết
+            Chỉnh tay
           </Link>
         )}
       </div>
@@ -587,9 +587,9 @@ export function FilmPanel({
 }) {
   const approved = Boolean(film.approved_at);
   return (
-    <section className="flex flex-col gap-3 rounded-xl border th-border-success th-bg-card p-4 sm:p-5" aria-label="Phim hoàn chỉnh">
+    <section className="flex flex-col gap-3 rounded-xl border th-border-success th-bg-card p-4 sm:p-5" aria-label="Phim đã xong">
       <h3 className="flex items-center gap-2 text-base font-semibold th-text-primary">
-        <Sparkles className="h-5 w-5 th-text-success" aria-hidden /> Phim hoàn chỉnh
+        <Sparkles className="h-5 w-5 th-text-success" aria-hidden /> Phim đã xong
       </h3>
       <video src={film.url} poster={film.posterUrl} controls playsInline className="w-full rounded-lg bg-black" />
       <div className="flex flex-wrap gap-2">
@@ -673,10 +673,10 @@ export function VoiceSamplePanel({
       <header className="flex items-start justify-between gap-3">
         <div>
           <h3 id="voice-title" className="flex items-center gap-2 text-sm font-semibold th-text-primary">
-            <Mic className="h-4 w-4" aria-hidden /> Giọng của các bé
+            <Mic className="h-4 w-4" aria-hidden /> Giọng nhân vật
           </h3>
           <p className="mt-1 text-xs th-text-secondary">
-            AI tự chọn câu bé nói hay nhất làm giọng chuẩn sau tập đầu; các tập sau bé nói đúng giọng đó. Bạn có thể đổi nếu muốn.
+            Sau tập đầu, câu nói hay nhất của mỗi nhân vật được giữ làm giọng cho các tập sau. Muốn thì đổi.
           </p>
         </div>
         <button
@@ -693,7 +693,7 @@ export function VoiceSamplePanel({
             key={character.id}
             className={`rounded-full border px-3 py-1 text-xs ${character.hasSample ? "th-border-success th-text-success" : "th-border th-text-secondary"}`}
           >
-            {character.name} · {character.hasSample ? "đã có giọng chuẩn" : "AI sẽ chọn sau tập này"}
+            {character.name} · {character.hasSample ? "đã có giọng chuẩn" : "Sẽ chọn sau tập này"}
           </li>
         ))}
       </ul>
@@ -713,7 +713,7 @@ export function VoiceSamplePanel({
       )}
       {expanded && (
         <button onClick={() => setOpen((value) => !value)} className="w-fit text-xs font-medium th-text-accent underline">
-          {open ? "Đóng" : "Hoặc tải file giọng lên"}
+          {open ? "Đóng" : "Hoặc tải giọng thu sẵn lên"}
         </button>
       )}
       {expanded && open && (
@@ -741,12 +741,12 @@ export function VoiceSamplePanel({
             className="text-sm th-text-secondary"
           />
           {file && !lengthOk && (
-            <p className="text-xs th-text-warning">File cần dài 3–12 giây, chỉ có giọng một bé.</p>
+            <p className="text-xs th-text-warning">File dài 3–12 giây, chỉ có giọng một người.</p>
           )}
           <input
             value={direction}
             onChange={(event) => setDirection(event.target.value)}
-            placeholder="Tả giọng, ví dụ: bé trai gần 2 tuổi, giọng cao, hơi ngọng"
+            placeholder="Tả giọng, ví dụ: giọng nữ trẻ, nói nhanh, hơi khàn"
             className="rounded-lg border th-border th-bg-input px-3 py-2 text-sm th-text-primary"
           />
           <label className="flex items-start gap-2 text-xs th-text-secondary">
@@ -790,7 +790,7 @@ export function AutopilotPanel({
         <div>
           <h3 id="autopilot-title" className="text-sm font-semibold th-text-primary">Tự làm phim mỗi ngày</h3>
           <p className="mt-1 text-xs th-text-secondary">
-            AI tự nghĩ ý tưởng mới cho từng tập và làm tới phim hoàn chỉnh. Phim xong nằm trong danh sách tập để bạn xem và đăng.
+            Mỗi ngày tự nghĩ ý mới và làm thành phim. Phim xong nằm trong danh sách tập.
           </p>
         </div>
         <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm th-text-primary">

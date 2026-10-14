@@ -62,7 +62,7 @@ export default function ProjectWalletPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data?.error || "Không thể nạp điểm vào ví kênh");
+        toast.error(data?.error || "Chưa chuyển được điểm. Bạn thử lại nhé.");
       } else {
         trackEvent("project_points_deposit", {
           project_id: project?.id || projectId,
@@ -93,13 +93,13 @@ export default function ProjectWalletPage() {
   return (
     <div className="flex">
       <main className="flex-1 p-4 pt-16 md:p-8">
-        <ChannelSettingsHeader description="Chuyển điểm từ tài khoản của bạn vào kênh để cả nhóm dùng chung." />
+        <ChannelSettingsHeader description="Chuyển điểm từ ví của bạn vào kênh để cả nhóm dùng chung." />
 
         <Card className="mb-6">
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold th-text-primary">Số dư điểm</h2>
-              <span className="text-sm th-text-muted">{projectPoints.toLocaleString("vi-VN")} điểm (cá nhân: {personalPoints.toLocaleString("vi-VN")} điểm)</span>
+              <span className="text-sm th-text-muted">{projectPoints.toLocaleString("vi-VN")} điểm · ví của bạn còn {personalPoints.toLocaleString("vi-VN")} điểm</span>
             </div>
 
             <div className="space-y-2">
@@ -124,7 +124,7 @@ export default function ProjectWalletPage() {
                   style={{ border: "1px solid var(--border-primary)" }}
                 />
                 <Button onClick={deposit} disabled={busy || !depositPoints || Number(depositPoints) <= 0}>
-                  Nạp điểm vào kênh
+                  Chuyển vào kênh
                 </Button>
               </div>
             </div>
@@ -133,7 +133,7 @@ export default function ProjectWalletPage() {
 
         <Card>
           <CardContent className="space-y-2">
-            <h2 className="text-lg font-semibold th-text-primary">Lịch sử ví kênh</h2>
+            <h2 className="text-lg font-semibold th-text-primary">Lịch sử điểm của kênh</h2>
             {projectTx.length === 0 && <p className="text-sm th-text-muted">Chưa có giao dịch.</p>}
             {projectTx.map((tx) => (
               <div key={tx.id} className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: "var(--bg-tertiary)" }}>

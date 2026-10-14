@@ -52,7 +52,7 @@ describe("studio progress", () => {
     expect(runStep(run({ phase: "clip_check" }))).toBe(2);
     expect(runStep(run({ phase: "render" }))).toBe(3);
     expect(runStep(run({ status: "completed", phase: "ready_review" }))).toBe(4);
-    expect(runHeadline(run())).toBe("AI đang quay các cảnh");
+    expect(runHeadline(run())).toBe("Đang quay các cảnh");
   });
 });
 
@@ -123,7 +123,7 @@ describe("episode list", () => {
 describe("readableFailure", () => {
   it("đổi lỗi mạng tiếng Anh thành câu người dùng đọc được", () => {
     expect(readableFailure("This operation was aborted")).toBe(
-      "Lần gọi này quá lâu nên bị ngắt giữa chừng. Bấm tạo lại để thử lần nữa.",
+      "Lần gọi này quá lâu nên bị ngắt giữa chừng. Bấm Làm lại để thử lần nữa.",
     );
   });
 
@@ -134,11 +134,11 @@ describe("readableFailure", () => {
 
   it("nói rõ khi bên tạo media quá tải", () => {
     expect(readableFailure("Provider 429; too many requests")).toBe(
-      "Bên tạo media đang quá tải. Chờ một lát rồi bấm tạo lại.",
+      "Hệ thống đang bận. Chờ một lát rồi bấm Làm lại.",
     );
   });
 
   it("không để trống khi không có thông báo nào", () => {
-    expect(readableFailure(null)).toBe("Bước này không xong. Bấm tạo lại để thử lần nữa.");
+    expect(readableFailure(null)).toBe("Bước này không xong. Bấm Làm lại để thử lần nữa.");
   });
 });

@@ -71,7 +71,7 @@ export default function ProjectsPage() {
           {IS_MOCK_MODE && (
             <div className="mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 th-border-accent th-bg-accent-light">
               <Zap size={18} className="th-text-accent" />
-              <p className="text-sm th-text-accent"><strong>Chế độ Dev</strong> — Đang dùng dữ liệu mẫu. Kết nối database để go live.</p>
+              <p className="text-sm th-text-accent">Đang xem bằng dữ liệu mẫu.</p>
             </div>
           )}
 
@@ -111,8 +111,8 @@ export default function ProjectsPage() {
           ) : projects.length === 0 ? (
             <p className="rounded-2xl border border-dashed px-4 py-8 text-center text-sm th-border th-text-secondary">
               Chưa có kênh nào.{" "}
-              <button type="button" onClick={() => router.push("/projects/new")} className="font-semibold th-text-accent underline-offset-2 hover:underline">Tạo kênh đầu tiên</button>
-              : tả kênh bằng vài câu, AI điền hồ sơ và dựng nhân vật.
+              <button type="button" onClick={() => router.push("/projects/new")} className="font-semibold th-text-accent underline-offset-2 hover:underline">Tạo kênh đầu tiên</button>{" "}
+              — chỉ cần vài câu mô tả.
             </p>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -136,12 +136,12 @@ export default function ProjectsPage() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-semibold th-text-primary">{project.name}</span>
                       <span className="mt-0.5 flex items-center gap-1 truncate text-xs th-text-secondary">
-                        {autopilot ? (<><CalendarClock size={12} className="shrink-0 th-text-accent" /> {autopilot}</>) : "Chưa bật tự làm hằng ngày"}
+                        {autopilot ? (<><CalendarClock size={12} className="shrink-0 th-text-accent" /> {autopilot}</>) : "Chưa bật tự làm mỗi ngày"}
                       </span>
                       <span className="mt-2 flex gap-3 text-xs th-text-muted">
-                        {summary ? (<><span className="flex items-center gap-1"><Users size={12} /> {summary.characterCount} nhân vật</span><span className="flex items-center gap-1"><Images size={12} /> {summary.outputCount} đã làm</span></>) : (<span>{summariesFailed ? "Chưa tải được số liệu" : "Đang tải số liệu"}</span>)}
+                        {summary ? (<><span className="flex items-center gap-1"><Users size={12} /> {summary.characterCount} nhân vật</span><span className="flex items-center gap-1"><Images size={12} /> {summary.outputCount} bài</span></>) : (<span>{summariesFailed ? "Chưa tải được số liệu" : "Đang tải số liệu"}</span>)}
                       </span>
-                      {summary && summary.draftCount > 0 && <span className="mt-1 block text-xs font-medium th-text-warning">{summary.draftCount} bộ nội dung đang làm dở</span>}
+                      {summary && summary.draftCount > 0 && <span className="mt-1 block text-xs font-medium th-text-warning">{summary.draftCount} bài đang làm dở</span>}
                     </span>
                   </button>
                   <div className="relative">
@@ -155,7 +155,7 @@ export default function ProjectsPage() {
                     {menuOpen === project.id && (
                       <div className="absolute right-0 top-10 z-10 w-40 rounded-xl border py-1 shadow-xl" style={{ background: "var(--bg-tertiary)", borderColor: "var(--border-primary)" }}>
                         <button onClick={() => { router.push(`/projects/${projectRef}`); setMenuOpen(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-sm th-text-secondary th-bg-hover"><Edit2 size={14} /> Mở kênh</button>
-                        <button onClick={() => { router.push(`/projects/${projectRef}/short-films`); setMenuOpen(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-sm th-text-secondary th-bg-hover"><ArrowRight size={14} /> Studio phim</button>
+                        <button onClick={() => { router.push(`/projects/${projectRef}/short-films`); setMenuOpen(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-sm th-text-secondary th-bg-hover"><ArrowRight size={14} /> Phim ngắn</button>
                         <button onClick={() => setDeleteTarget(project.id)} className="flex w-full items-center gap-2 px-3 py-2 text-sm th-bg-hover" style={{ color: "var(--danger)" }}><Trash2 size={14} /> Xoá</button>
                       </div>
                     )}
@@ -172,7 +172,7 @@ export default function ProjectsPage() {
           onClose={() => setDeleteTarget(null)}
           onConfirm={handleDelete}
           title="Xoá kênh?"
-          message="Toàn bộ nhân vật, phim, meme và lịch sử tạo trong kênh sẽ bị xoá vĩnh viễn."
+          message="Mọi nhân vật, phim, meme của kênh sẽ mất hẳn, không lấy lại được."
           confirmText="Xoá kênh"
           variant="danger"
         />

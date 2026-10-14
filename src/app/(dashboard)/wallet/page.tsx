@@ -90,7 +90,7 @@ export default function WalletPage() {
       const token = sessionData.session?.access_token;
 
       if (!token) {
-        toast.error("Vui lòng đăng nhập lại.");
+        toast.error("Bạn đăng nhập lại giúp nhé.");
         return;
       }
 
@@ -106,15 +106,15 @@ export default function WalletPage() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Không thể mua điểm");
+        throw new Error(data.error || "Chưa mua được điểm. Bạn thử lại nhé.");
       }
 
-      toast.success(`Đã mua gói ${data.packageName} — +${data.purchased} points!`);
+      toast.success(`Đã mua gói ${data.packageName}: +${data.purchased} điểm`);
       await refreshBalance();
       setBuyingPackage(null);
       setPurchaseKey(null);
     } catch (e: unknown) {
-      toast.error((e as Error).message || "Lỗi mua điểm");
+      toast.error((e as Error).message || "Chưa mua được điểm. Bạn thử lại nhé.");
     } finally {
       setIsBuying(false);
     }
@@ -132,8 +132,8 @@ export default function WalletPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold th-text-primary">Ví tiền</h1>
-            <p className="th-text-tertiary mt-1">Quản lý số dư, điểm và nạp tiền</p>
+            <h1 className="text-2xl font-bold th-text-primary">Ví</h1>
+            <p className="th-text-tertiary mt-1">Nạp tiền, mua điểm, xem lịch sử</p>
           </div>
           <Button
             variant="ghost"
@@ -156,7 +156,7 @@ export default function WalletPage() {
                   <Wallet size={20} className="text-white" />
                 </div>
                 <div>
-                  <p className="text-sm th-text-muted">Số dư tài khoản</p>
+                  <p className="text-sm th-text-muted">Tiền trong ví</p>
                   {isLoading ? (
                     <div className="h-8 w-32 th-bg-tertiary rounded-lg animate-pulse" />
                   ) : (
@@ -178,13 +178,13 @@ export default function WalletPage() {
                   <Zap size={20} className="text-white" />
                 </div>
                 <div>
-                  <p className="text-sm th-text-muted">Points khả dụng</p>
+                  <p className="text-sm th-text-muted">Điểm</p>
                   {isLoading ? (
                     <div className="h-8 w-32 th-bg-tertiary rounded-lg animate-pulse" />
                   ) : (
                     <p className="text-2xl font-black th-text-primary">
                       {points.toLocaleString("vi-VN")}
-                      <span className="text-base th-text-muted ml-1">pts</span>
+                      <span className="text-base th-text-muted ml-1">điểm</span>
                     </p>
                   )}
                 </div>
@@ -198,7 +198,7 @@ export default function WalletPage() {
           <div className="p-5">
             <h3 className="text-sm font-semibold th-text-primary mb-3 flex items-center gap-2">
               <Star size={16} style={{ color: "var(--accent)" }} />
-              Bảng giá sử dụng Points
+              Giá mỗi lần làm
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <PointCostBadge icon={<Sparkles size={16} />} label={POINT_LABELS.content} cost={POINT_COSTS.content} />
@@ -217,9 +217,9 @@ export default function WalletPage() {
               <div className="p-6">
                 <h3 className="text-base font-semibold th-text-primary mb-4 flex items-center gap-2">
                   <ShoppingCart size={18} />
-                  Mua Points
+                  Mua điểm
                 </h3>
-                <p className="mb-4 text-sm th-text-secondary">Mọi gói: 1 điểm = 500đ. Giá tạo nội dung tính từ chi phí AI +30%, làm tròn lên điểm nguyên. Báo giá hiển thị trước khi tạo.</p>
+                <p className="mb-4 text-sm th-text-secondary">1 điểm = 500đ. Giá luôn hiện trước khi bạn bấm làm.</p>
                 <div className="space-y-3">
                   {POINT_PACKAGES.map((pkg) => (
                     <button
@@ -248,7 +248,7 @@ export default function WalletPage() {
                         <div>
                           <p className="text-sm font-bold th-text-primary">{pkg.name}</p>
                           <p className="text-xs th-text-muted mt-0.5">
-                            {pkg.points} points
+                            {pkg.points} điểm
                             {pkg.bonus && (
                               <span className="ml-1.5 font-bold" style={{ color: "var(--success)" }}>
                                 {pkg.bonus}
@@ -265,7 +265,7 @@ export default function WalletPage() {
                   ))}
                 </div>
                 <p className="text-xs th-text-muted mt-3">
-                  Trừ trực tiếp từ số dư tài khoản. Nạp tiền trước nếu chưa đủ.
+                  Trừ thẳng vào tiền trong ví. Chưa đủ thì nạp tiền trước nhé.
                 </p>
               </div>
             </Card>
@@ -299,7 +299,7 @@ export default function WalletPage() {
                       type="text"
                       inputMode="numeric"
                       aria-label="Số tiền muốn nạp"
-                      placeholder="Số tiền khác..."
+                      placeholder="Số tiền khác…"
                       value={customAmount}
                       onChange={(e) => setCustomAmount(formatAmount(e.target.value))}
                       onKeyDown={(e) => e.key === "Enter" && handleCustomTopup()}
@@ -349,7 +349,7 @@ export default function WalletPage() {
                       <Clock size={28} className="th-text-muted" />
                     </div>
                     <p className="th-text-muted text-sm">Chưa có giao dịch nào</p>
-                    <p className="th-text-muted text-xs mt-1">Nạp tiền và mua điểm để bắt đầu sử dụng</p>
+                    <p className="th-text-muted text-xs mt-1">Nạp tiền và mua điểm để bắt đầu nhé.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -381,8 +381,8 @@ export default function WalletPage() {
           }}
           onConfirm={handleBuyPoints}
           title={`Mua gói ${buyingPackage?.name}?`}
-          message={`Bạn sẽ nhận ${buyingPackage?.points} points với giá ${buyingPackage ? formatVND(buyingPackage.price) : ""}. Số tiền sẽ được trừ từ số dư ví (hiện có ${formatVND(balance)}).`}
-          confirmText={isBuying ? "Đang xử lý..." : "Xác nhận mua"}
+          message={`Bạn nhận ${buyingPackage?.points} điểm, trừ ${buyingPackage ? formatVND(buyingPackage.price) : ""} trong ví (đang có ${formatVND(balance)}).`}
+          confirmText={isBuying ? "Đang mua…" : "Mua"}
           variant="default"
         />
       </main>
@@ -407,7 +407,7 @@ function PointCostBadge({ icon, label, cost }: { icon: React.ReactNode; label: s
           {cost === 0 ? (
             <span style={{ color: "var(--success)" }}>Miễn phí</span>
           ) : (
-            <>{cost} pts</>
+            <>{cost} điểm</>
           )}
         </p>
       </div>

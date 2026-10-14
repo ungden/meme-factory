@@ -66,7 +66,7 @@ export function FilmSetupPanel({
       body: JSON.stringify({ workspaceVersion: workspace, ...body }),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "Chưa tạo được ảnh. Hãy thử lại.");
+    if (!response.ok) throw new Error(data.error || "Chưa vẽ được ảnh. Bạn thử lại nhé.");
     return data;
   }
 
@@ -87,7 +87,7 @@ export function FilmSetupPanel({
         for (const view of VIEWS) {
           if (paths[view]) continue;
           step += 1;
-          setProgress(`Đang tạo ${VIEW_LABEL[view]} của ${character.name} (${step}/${total})`);
+          setProgress(`Đang vẽ ${VIEW_LABEL[view]} của ${character.name} (${step}/${total})`);
           try {
             const made = await call({ action: "generate", characterId: character.id, view, facePath: paths.face });
             paths[view] = made.path;
@@ -120,9 +120,9 @@ export function FilmSetupPanel({
   return (
     <section className="flex max-w-2xl flex-col gap-4" aria-labelledby="film-setup-title">
       <header>
-        <h2 id="film-setup-title" className="text-xl font-semibold th-text-primary">Chuẩn bị nhân vật lên phim</h2>
+        <h2 id="film-setup-title" className="text-xl font-semibold th-text-primary">Chọn nhân vật cho phim</h2>
         <p className="mt-1 text-sm th-text-secondary">
-          Mỗi nhân vật cần một bộ ảnh chuẩn (cận mặt, toàn thân, sau lưng) để giữ đúng một khuôn mặt qua mọi cảnh. AI tạo từ ảnh nhân vật bạn đã có.
+          Mỗi nhân vật cần đủ ảnh cận mặt, toàn thân, sau lưng để cảnh nào cũng đúng mặt. Ảnh còn thiếu sẽ được vẽ từ ảnh bạn đã có.
         </p>
       </header>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -156,7 +156,7 @@ export function FilmSetupPanel({
                 <span className={`px-2.5 pb-2 text-xs ${(character.packComplete ?? character.ready) ? "th-text-success" : "th-text-secondary"}`}>
                   {(character.packComplete ?? character.ready) ? (
                     <span className="inline-flex items-center gap-1"><Check className="h-3 w-3" aria-hidden /> Bộ ảnh đầy đủ</span>
-                  ) : !chosen ? "Không dùng trong phim" : character.ready ? "Lên phim được · nên bổ sung bộ ảnh" : "Cần bộ ảnh chuẩn"}
+                  ) : !chosen ? "Không dùng trong phim" : character.ready ? "Dùng được · nên thêm ảnh" : "Còn thiếu ảnh"}
                 </span>
               </label>
             </li>
@@ -168,7 +168,7 @@ export function FilmSetupPanel({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Button size="lg" onClick={run} loading={running} disabled={!selected.length}>
             <Sparkles className="h-5 w-5" aria-hidden />
-            {pending.length ? "AI tạo bộ ảnh chuẩn" : "Lưu nhân vật lên phim"}
+            {pending.length ? "Vẽ ảnh còn thiếu" : "Dùng các nhân vật này"}
           </Button>
           <span className="text-xs th-text-secondary">
             {running && progress
@@ -179,7 +179,7 @@ export function FilmSetupPanel({
           </span>
         </div>
       ) : (
-        <p className="text-sm th-text-secondary">Chủ kênh cần chuẩn bị nhân vật trước khi làm phim.</p>
+        <p className="text-sm th-text-secondary">Chủ kênh cần chọn nhân vật trước khi làm phim.</p>
       )}
     </section>
   );

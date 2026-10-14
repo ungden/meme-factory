@@ -19,7 +19,7 @@ describe("trang chính", () => {
       ],
     );
     expect(items.map((item) => item.id)).toEqual(["f2", "m1", "f1", "m2"]);
-    expect(items[0]).toMatchObject({ title: "Tập do AI tự nghĩ", label: "Cần bạn xem", scheduled: true, href: "/projects/banh-bao/short-films?tap=f2" });
+    expect(items[0]).toMatchObject({ title: "Tập mới", label: "Cần bạn xem", scheduled: true, href: "/projects/banh-bao/short-films?tap=f2" });
     expect(items[2]).toMatchObject({ title: "Lương về ba ngày", format: "talk_to_camera", href: "/projects/banh-bao/short-films?tap=plan1" });
     expect(items[3]).toMatchObject({ title: "Thứ Hai", imageUrl: "https://a/b.png", status: "ready" });
     expect(feedIsBusy(items)).toBe(true);

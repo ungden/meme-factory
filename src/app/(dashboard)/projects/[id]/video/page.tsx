@@ -196,7 +196,7 @@ export default function VideoStudioPage() {
 
   async function assistVideo() {
     if (!prompt.trim()) {
-      setError("Nhập ý tưởng trước để AI soạn video.");
+      setError("Nhập ý tưởng trước rồi bấm Gợi ý kịch bản nhé.");
       return;
     }
     setError("");
@@ -227,7 +227,7 @@ export default function VideoStudioPage() {
       );
       const json = await response.json();
       if (!response.ok)
-        throw new Error(json.error || "Không thể bắt đầu soạn video.");
+        throw new Error(json.error || "Chưa gợi ý được. Bạn thử lại nhé.");
       for (let attempt = 0; attempt < 30; attempt += 1) {
         const resultResponse = await fetch(
           `/api/projects/${projectRef}/creative-assists/${json.jobId}`,
@@ -235,7 +235,7 @@ export default function VideoStudioPage() {
         );
         const result = await resultResponse.json();
         if (!resultResponse.ok)
-          throw new Error(result.error || "Không đọc được kết quả AI.");
+          throw new Error(result.error || "Chưa đọc được gợi ý. Bạn thử lại nhé.");
         if (result.job.status === "completed") {
           setPrompt(result.job.result.prompt);
           setCaption(result.job.result.caption || "");
@@ -245,13 +245,13 @@ export default function VideoStudioPage() {
           return;
         }
         if (result.job.status === "failed")
-          throw new Error(result.job.error?.code || "AI chưa soạn được video.");
+          throw new Error(result.job.error?.code || "Chưa gợi ý được. Bạn thử lại nhé.");
         await new Promise((resolve) => window.setTimeout(resolve, 500));
       }
-      throw new Error("AI đang xử lý lâu hơn bình thường.");
+      throw new Error("Gợi ý đang lâu hơn bình thường. Bạn thử lại sau nhé.");
     } catch (reason) {
       setError(
-        reason instanceof Error ? reason.message : "AI chưa soạn được video.",
+        reason instanceof Error ? reason.message : "Chưa gợi ý được. Bạn thử lại nhé.",
       );
     } finally {
       setAssisting(false);
@@ -311,7 +311,7 @@ export default function VideoStudioPage() {
     setError("");
     if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) return setError("Chọn ảnh PNG, JPG hoặc WEBP.");
     if (file.size > 10 * 1024 * 1024) return setError("Ảnh lớn quá 10 MB.");
-    if (references.length >= 9) return setError("Tối đa 9 ảnh tham chiếu.");
+    if (references.length >= 9) return setError("Tối đa 9 ảnh mẫu.");
     setUploading(true);
     try {
       const supabase = createClient();
@@ -320,7 +320,7 @@ export default function VideoStudioPage() {
       // Kho công khai: gỡ GPS và dấu vết máy chụp trước khi tải lên.
       const clean = await stripImageMetadataFromFile(file);
       const { error: uploadError } = await supabase.storage.from("memes").upload(path, clean, { contentType: file.type });
-      if (uploadError) throw new Error("Chưa tải được ảnh lên. Hãy thử lại.");
+      if (uploadError) throw new Error("Chưa tải được ảnh lên. Bạn thử lại nhé.");
       const url = supabase.storage.from("memes").getPublicUrl(path).data.publicUrl;
       markEdited();
       setReferences((current) => [...current, url]);
@@ -430,7 +430,7 @@ export default function VideoStudioPage() {
                 });
             const json = await response.json().catch(() => ({}));
             if (!response.ok)
-              throw new Error(json.error || "Không thể lưu bản nháp.");
+              throw new Error(json.error || "Chưa lưu được bản nháp.");
             draftRef.current = {
               id: json.draft.id,
               version: json.draft.version,
@@ -466,12 +466,12 @@ export default function VideoStudioPage() {
         });
         const job = await response.json();
         if (!response.ok)
-          throw new Error(job.error || "Không đọc được tiến trình video.");
+          throw new Error(job.error || "Chưa xem được tiến độ video.");
         if (job.phase === "dubbing_needs_review")
           setError(
             typeof job.error?.dubbing === "string"
               ? job.error.dubbing
-              : "Lồng tiếng cần xem lại; clip gốc được giữ.",
+              : "Lồng tiếng cần xem lại; video gốc vẫn còn.",
           );
         if (job.contentOutput)
           setOutput((current) =>
@@ -560,7 +560,7 @@ export default function VideoStudioPage() {
     );
     const outputJson = await outputResponse.json();
     if (!outputResponse.ok)
-      throw new Error(outputJson.error || "Không tạo được đầu ra video.");
+      throw new Error(outputJson.error || "Chưa làm được video. Bạn thử lại nhé.");
     return outputJson.output as Output;
   }
 
@@ -569,8 +569,8 @@ export default function VideoStudioPage() {
     if (!prompt.trim() || (mode === "image" && !image)) {
       setError(
         mode === "image"
-          ? "Chọn ảnh đầu trước khi báo giá."
-          : "Nhập mô tả video trước khi báo giá.",
+          ? "Chọn ảnh mở đầu trước khi xem giá."
+          : "Tả video trước khi xem giá.",
       );
       return;
     }
@@ -639,12 +639,12 @@ export default function VideoStudioPage() {
         <div className="mx-auto max-w-7xl">
           <header className="mb-6">
             <h1 className="text-2xl font-semibold tracking-tight th-text-primary">
-              Video từ ảnh tham chiếu
+              Video
             </h1>
             <p className="mt-1 text-sm th-text-tertiary">
-              Tả cảnh và chọn ảnh tham chiếu: nhân vật của kênh hoặc ảnh của bạn. AI giữ đúng gương mặt, trang phục trong ảnh.
+              Tả cảnh, gắn nhân vật hoặc thêm ảnh của bạn — video giữ đúng gương mặt và trang phục.
             </p>
-            <Link href={`/projects/${projectRef}/brand`} className="mt-2 inline-flex min-h-10 items-center text-sm th-text-accent hover:underline">Dấu bản quyền của kênh ↗</Link>
+            <Link href={`/projects/${projectRef}/brand`} className="mt-2 inline-flex min-h-10 items-center text-sm th-text-accent hover:underline">Logo của kênh ↗</Link>
           </header>
           <div className="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(360px,1.08fr)]">
             <section
@@ -660,8 +660,8 @@ export default function VideoStudioPage() {
               >
                 {(
                   [
-                    ["text", "Ảnh tham chiếu"],
-                    ["image", "Ảnh làm khung hình đầu"],
+                    ["text", "Theo ảnh mẫu"],
+                    ["image", "Mở đầu bằng ảnh"],
                   ] as const
                 ).map(([value, label]) => (
                   <button
@@ -710,7 +710,7 @@ export default function VideoStudioPage() {
               </div>
               <div className="flex items-center justify-between gap-3">
                 <label htmlFor="video-idea" className="block text-sm font-semibold th-text-primary">
-                  Bạn muốn làm nội dung gì?
+                  Video kể gì?
                 </label>
                 <button
                   onClick={assistVideo}
@@ -718,7 +718,7 @@ export default function VideoStudioPage() {
                   className="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold th-text-accent th-bg-accent-light disabled:opacity-50"
                 >
                   <Wand2 size={15} />
-                  {assisting ? "AI đang soạn…" : "AI soạn video"}
+                  {assisting ? "Đang viết…" : "Gợi ý kịch bản"}
                 </button>
               </div>
               <textarea
@@ -733,9 +733,9 @@ export default function VideoStudioPage() {
                 placeholder="Ví dụ: nhân vật chính giấu miếng bánh cuối cùng, bị phát hiện, cả hai cùng cười…"
               />
               <label className="mt-3 block text-xs font-semibold th-text-secondary">
-                Caption bài đăng{" "}
+                Nội dung bài đăng{" "}
                 <span className="font-normal th-text-tertiary">
-                  · tách riêng khỏi lời thoại/video
+                  · không hiện trong video
                 </span>
                 <textarea
                   value={caption}
@@ -745,16 +745,16 @@ export default function VideoStudioPage() {
                   }}
                   className="mt-1.5 min-h-16 w-full rounded-lg border p-2 text-sm th-bg-input th-text-primary"
                   style={{ borderColor: "var(--border-primary)" }}
-                  placeholder="AI sẽ đề xuất caption khi bạn bấm soạn video."
+                  placeholder="Bấm “Gợi ý kịch bản” để có sẵn nội dung bài đăng."
                 />
               </label>
               {mode === "image" ? (
                 <div className="mt-5">
                   <p className="text-sm font-semibold th-text-primary">
-                    Ảnh đầu
+                    Ảnh mở đầu
                   </p>
                   <p className="mt-1 text-xs th-text-tertiary">
-                    Tỷ lệ video sẽ theo ảnh đầu.
+                    Video sẽ cùng khổ với ảnh này.
                   </p>
                   <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {candidateImages.slice(0, 9).map((item) => (
@@ -787,8 +787,7 @@ export default function VideoStudioPage() {
                   ) : (
                     candidateImages.length === 0 && (
                       <p className="mt-3 rounded-xl border border-dashed p-4 text-sm th-text-tertiary">
-                        Chưa có ảnh trong kênh. Tạo ảnh trước hoặc tải ảnh lên
-                        trong phiên bản tiếp theo.
+                        Kênh chưa có ảnh nào. Làm một meme trước rồi quay lại đây.
                       </p>
                     )
                   )}
@@ -796,20 +795,20 @@ export default function VideoStudioPage() {
               ) : (
                 <div className="mt-5">
                   <p className="text-sm font-semibold th-text-primary">
-                    Ảnh tham chiếu{" "}
+                    Ảnh mẫu{" "}
                     <span className="font-normal th-text-tertiary">
                       (tối đa 9)
                     </span>
                   </p>
                   <p className="mt-1 text-xs th-text-tertiary">
-                    Gắn nhân vật của kênh hoặc thêm ảnh của bạn. Ảnh không phải khung hình đầu: AI dựng cảnh mới và giữ đúng người, đồ vật trong ảnh.
+                    Video vẽ cảnh mới nhưng giữ đúng người, đồ vật trong ảnh.
                   </p>
                   {references.length > 0 && (
                     <ul className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
                       {references.map((url) => (
                         <li key={url} className="relative aspect-square overflow-hidden rounded-lg border th-border th-bg-tertiary">
                           {/* eslint-disable-next-line @next/next/no-img-element -- ảnh nằm ở kho lưu trữ của app */}
-                          <img src={url} alt="Ảnh tham chiếu" className="h-full w-full object-cover" />
+                          <img src={url} alt="Ảnh mẫu" className="h-full w-full object-cover" />
                           <button
                             type="button"
                             aria-label="Bỏ ảnh này"
@@ -959,7 +958,7 @@ export default function VideoStudioPage() {
                     }}
                   >
                     <option value="">
-                      Chọn người nói · dùng giọng đã duyệt
+                      Ai nói? Dùng giọng đã chọn của nhân vật
                     </option>
                     {characters.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -979,8 +978,8 @@ export default function VideoStudioPage() {
                     }}
                   />
                   <p className="text-xs th-text-secondary">
-                    Clip đơn có một giọng đọc. Phim nhiều người đối đáp dùng Tạo
-                    phim ngắn. Lồng tiếng không bảo đảm khớp môi.
+                    Video chỉ có một người nói. Cần nhiều người đối đáp thì làm Phim
+                    ngắn. Miệng có thể không khớp lời.
                   </p>
                 </div>
               )}
@@ -1012,16 +1011,16 @@ export default function VideoStudioPage() {
                     <Clapperboard size={17} />
                   )}
                   {quote
-                    ? `Tạo video · ${quote.customerPoints.toLocaleString("vi-VN")} điểm`
+                    ? `Làm video · ${quote.customerPoints.toLocaleString("vi-VN")} điểm`
                     : "Xem giá video"}
                 </button>
                 <p className="mt-2 text-center text-xs th-text-tertiary">
                   {draftState === "saving"
                     ? "Đang lưu bản nháp…"
                     : draftState === "offline"
-                      ? "Chưa đồng bộ; vẫn giữ bản trên thiết bị này"
+                      ? "Chưa lưu lên mạng, bản nháp vẫn còn trên máy này"
                       : quote
-                        ? "Giá đã khoá trong 5 phút"
+                        ? "Giữ giá này trong 5 phút"
                         : `${duration} giây · ${resolution} · ${SEEDANCE_VARIANTS.find((item) => item.id === model)?.customerLabel} · có lồng tiếng`}
                 </p>
               </div>
@@ -1036,7 +1035,7 @@ export default function VideoStudioPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[.14em] th-text-accent">
-                    Kết quả
+                    Xem trước
                   </p>
                   <h2 className="mt-1 text-lg font-semibold th-text-primary">
                     Video của kênh
@@ -1064,11 +1063,10 @@ export default function VideoStudioPage() {
                     <Play size={20} />
                   </span>
                   <strong className="th-text-primary">
-                    Kết quả sẽ xuất hiện ở đây
+                    Video sẽ hiện ở đây
                   </strong>
                   <p className="mt-2 max-w-xs text-sm th-text-tertiary">
-                    Bạn có thể rời trang. Tiến độ và video hoàn tất được
-                    giữ trong thư viện.
+                    Rời trang cũng được — video xong sẽ nằm trong thư viện.
                   </p>
                 </div>
               )}
@@ -1080,14 +1078,14 @@ export default function VideoStudioPage() {
                   download
                   className="mt-5 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white th-bg-accent"
                 >
-                  <Download size={16} /> Tải video về máy
+                  <Download size={16} /> Tải video
                 </a>
               )}
               <Link
                 href={`/projects/${projectRef}/gallery`}
                 className="mt-3 flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold th-text-primary"
               >
-                <ImagePlus size={16} /> Xem nội dung đã lưu
+                <ImagePlus size={16} /> Mở thư viện
               </Link>
             </aside>
           </div>

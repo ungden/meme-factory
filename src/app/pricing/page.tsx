@@ -49,11 +49,11 @@ export default function PricingPage() {
           <div className="mx-auto max-w-[1100px] px-4 pb-12 pt-14 text-center sm:px-6 sm:pt-20 lg:px-8">
             <span className="media-kicker">Bảng giá</span>
             <h1 className="mx-auto mt-4 max-w-[760px] text-[36px] font-extrabold leading-[1.06] tracking-[-0.04em] sm:text-[56px]">
-              Trả theo thứ <span className="th-text-gradient">kênh bạn làm ra.</span>
+              Làm bao nhiêu, <span className="th-text-gradient">trả bấy nhiêu.</span>
             </h1>
             <p className="mx-auto mt-5 max-w-[620px] text-[16px] leading-7 th-text-secondary sm:text-[18px]">
-              Không thuê bao, không ràng buộc tháng. Nạp điểm, mỗi meme, ảnh nhân vật hay phim ngắn trừ đúng số điểm
-              của việc đó — và bạn luôn thấy giá trước khi bấm làm.
+              Không thuê bao, không ràng buộc. Mỗi meme, ảnh nhân vật hay phim ngắn trừ đúng giá của nó — và giá
+              luôn hiện trước khi bạn bấm.
             </p>
             <ul className="mx-auto mt-7 flex max-w-[760px] flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[14px] th-text-secondary">
               {[
@@ -164,8 +164,8 @@ export default function PricingPage() {
               </div>
               <p className="mt-4 text-[13px] leading-5 th-text-tertiary">
                 Ví dụ tính từ giá meme {POINT_COSTS.meme} điểm và phim {FILM_POINTS_RANGE.min.toLocaleString("vi-VN")}–{FILM_POINTS_RANGE.max.toLocaleString("vi-VN")} điểm
-                một tập ~{FILM_POINTS_RANGE.seconds} giây. Phim có mức chi tối đa cho từng tập và cả ngày; AI không tiêu quá
-                mức đó.
+                một tập ~{FILM_POINTS_RANGE.seconds} giây. Bạn đặt mức chi tối đa cho mỗi tập và cả ngày; sắp vượt là dừng lại
+                hỏi bạn.
               </p>
             </div>
           </div>

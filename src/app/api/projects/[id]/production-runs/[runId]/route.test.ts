@@ -148,6 +148,6 @@ describe("control RPC failures", () => {
     });
     const body = await (await patch({ action: "resume" })).json();
     expect(body.error).not.toMatch(/[A-Z][A-Z0-9]*_[A-Z0-9]+/);
-    expect(body.error).toContain("cam kết");
+    expect(body.error).toContain("Mức chi mới thấp hơn");
   });
 });

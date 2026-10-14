@@ -129,7 +129,7 @@ export default function ProjectOverviewPage() {
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 id="cast-title" className="text-[15px] font-semibold th-text-primary">Nhân vật</h2>
             <Link href={`/projects/${projectId}/characters`} className="flex items-center gap-1 text-xs font-medium th-text-accent">
-              {characters.length ? "Quản lý nhân vật" : "Thêm nhân vật"} <ArrowRight size={12} />
+              {characters.length ? "Xem tất cả" : "Thêm nhân vật"} <ArrowRight size={12} />
             </Link>
           </div>
           {overviewFailed ? (
@@ -162,7 +162,7 @@ export default function ProjectOverviewPage() {
               <span className="min-w-0 flex-1">
                 <strong className="block text-sm th-text-primary">Kênh chưa có nhân vật</strong>
                 <small className="mt-0.5 block text-xs th-text-tertiary">
-                  Có nhân vật thì meme, video và phim đều giữ đúng một gương mặt. AIDA vẽ giúp, hoặc bạn dùng ảnh của mình.
+                  Có nhân vật thì bài nào cũng đúng một gương mặt. AIDA vẽ giúp, hoặc dùng ảnh của bạn.
                 </small>
               </span>
               <ArrowRight size={16} className="shrink-0 th-text-accent" />

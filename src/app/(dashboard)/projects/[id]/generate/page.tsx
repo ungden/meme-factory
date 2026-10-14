@@ -20,7 +20,7 @@ import Link from "next/link";
 import OutOfPointsModal from "@/components/wallet/out-of-points-modal";
 import { useToast } from "@/components/ui/toast";
 import { Zap, Sparkles, Download, Save, RotateCcw, ChevronRight, Wand2, ImageIcon, Loader2, Upload, X, Tags, Plus, Clapperboard } from "lucide-react";
-import type { MemeContent, MemeFormat, SelectedCharacter, EmotionTag, ImageGenResponse } from "@/types/database";
+import type { MemeContent, MemeFormat, SelectedCharacter, EmotionTag } from "@/types/database";
 import { FORMAT_DIMENSIONS } from "@/types/database";
 import { POINT_COSTS } from "@/lib/point-pricing";
 import { trackEvent } from "@/lib/analytics";
@@ -72,7 +72,6 @@ export default function GeneratePage() {
   const [aiError, setAiError] = useState<string | null>(null);
   // Hết điểm không phải là một lỗi để đọc rồi thôi: nó là một việc cần làm tiếp.
   const [pointsNeeded, setPointsNeeded] = useState<{ required: number; current: number } | null>(null);
-  const [aiReferenceManifest, setAiReferenceManifest] = useState<ImageGenResponse["reference_manifest"] | null>(null);
 
   // Reference images for meme ideas
   const [refImages, setRefImages] = useState<{ file: File; preview: string; base64: string; mimeType: string }[]>([]);
@@ -198,7 +197,7 @@ export default function GeneratePage() {
       }),
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok || !payload.contentSet?.id) throw new Error(payload.error || "Không lưu được brief.");
+    if (!response.ok || !payload.contentSet?.id) throw new Error(payload.error || "Chưa lưu được. Bạn thử lại nhé.");
     setContentSetId(payload.contentSet.id);
     setContentSetBrief(fingerprint);
     return payload.contentSet.id as string;
@@ -224,8 +223,8 @@ export default function GeneratePage() {
   }, [ensureContentSet, format]);
 
   const getVideoQuote = useCallback(async () => {
-    if (!imageSourceUrl || !variations[selectedVariation]) throw new Error("Ảnh đầu chưa được lưu.");
-    if (format !== "9:16") throw new Error("Video dọc cần ảnh đầu 9:16. Hãy tạo ảnh 9:16 trước khi làm video.");
+    if (!imageSourceUrl || !variations[selectedVariation]) throw new Error("Ảnh mở đầu chưa được lưu.");
+    if (format !== "9:16") throw new Error("Video dọc cần ảnh khổ 9:16. Vẽ lại meme khổ 9:16 trước nhé.");
     setVideoLoading(true);
     try {
       const setId = await ensureContentSet();
@@ -236,7 +235,7 @@ export default function GeneratePage() {
           body: JSON.stringify({ kind: "video", format: "9:16", poster_url: imageSourceUrl, script: videoScript.trim(), duration_seconds: videoDuration, source_snapshot: { image_output_id: imageOutputId, selected_character_ids: [...taggedCharacterIds] } }),
         });
         const createdPayload = await created.json().catch(() => ({}));
-        if (!created.ok || !createdPayload.output?.id) throw new Error(createdPayload.error || "Không tạo được đầu ra video.");
+        if (!created.ok || !createdPayload.output?.id) throw new Error(createdPayload.error || "Chưa làm được video. Bạn thử lại nhé.");
         outputId = createdPayload.output.id;
         setVideoOutputId(outputId);
       }
@@ -260,7 +259,7 @@ export default function GeneratePage() {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Không gửi được video.");
-      toast.success("Đã gửi tạo video. Bạn có thể rời trang, AIDA vẫn theo dõi kết quả.");
+      toast.success("Đang làm video. Rời trang cũng được — video xong sẽ nằm trong thư viện.");
       setShowVideoModal(false);
     } catch (error) { toast.error(error instanceof Error ? error.message : "Không gửi được video."); }
     finally { setVideoLoading(false); }
@@ -283,7 +282,7 @@ export default function GeneratePage() {
   const imageUrlToInlineData = useCallback(async (url: string) => {
     if (imageDataCacheRef.current[url]) return imageDataCacheRef.current[url];
     const response = await fetch(url);
-    if (!response.ok) throw new Error(`Không thể tải ảnh nhân vật (${response.status})`);
+    if (!response.ok) throw new Error(`Chưa tải được ảnh nhân vật (${response.status})`);
     const blob = await response.blob();
     const data = await compressImageToBase64(blob);
     imageDataCacheRef.current[url] = data;
@@ -352,11 +351,11 @@ export default function GeneratePage() {
   const handleWatermarkLogoUpload = async (file: File | null) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("Logo watermark phải là file ảnh");
+      toast.error("Logo phải là file ảnh");
       return;
     }
     if (file.size > MAX_REF_SIZE_MB * 1024 * 1024) {
-      toast.error(`Logo watermark tối đa ${MAX_REF_SIZE_MB}MB`);
+      toast.error(`Logo tối đa ${MAX_REF_SIZE_MB}MB`);
       return;
     }
     const preview = URL.createObjectURL(file);
@@ -428,10 +427,10 @@ export default function GeneratePage() {
         toast.success(`Đã tạo nhanh nhân vật "${created.name}"`);
         setShowQuickCharacterModal(false);
       } else {
-        toast.error("Không thể tạo nhân vật. Vui lòng thử lại.");
+        toast.error("Chưa tạo được nhân vật. Bạn thử lại nhé.");
       }
     } catch {
-      toast.error("Không thể tạo nhân vật. Vui lòng thử lại.");
+      toast.error("Chưa tạo được nhân vật. Bạn thử lại nhé.");
     }
     setQuickCharacterSaving(false);
   };
@@ -593,7 +592,7 @@ export default function GeneratePage() {
       }
     } catch (error) {
       console.error("Generation failed:", error);
-      toast.error("Không thể tạo nội dung. Vui lòng thử lại.");
+      toast.error("Chưa viết được ý tưởng. Bạn thử lại nhé.");
     }
 
     setGenerating(false);
@@ -608,17 +607,17 @@ export default function GeneratePage() {
         body: JSON.stringify({ kind: "image_plan", intent: idea.trim(), selectedCharacterIds: noCharacters ? [] : [...selectedCharacterIds] }),
       });
       const accepted = await response.json();
-      if (!response.ok) throw new Error(accepted.error || "Không thể bắt đầu soạn ảnh.");
+      if (!response.ok) throw new Error(accepted.error || "Chưa gợi ý được. Bạn thử lại nhé.");
       let result: Record<string, unknown> | null = null;
       for (let attempt = 0; attempt < 30; attempt += 1) {
         const jobResponse = await fetch(`/api/projects/${projectId}/creative-assists/${accepted.jobId}`, { cache: "no-store" });
         const job = await jobResponse.json();
-        if (!jobResponse.ok) throw new Error(job.error || "Không đọc được kết quả AI.");
+        if (!jobResponse.ok) throw new Error(job.error || "Chưa đọc được gợi ý. Bạn thử lại nhé.");
         if (job.job.status === "completed") { result = job.job.result; break; }
-        if (job.job.status === "failed") throw new Error(job.job.error?.code || "AI chưa soạn được ảnh.");
+        if (job.job.status === "failed") throw new Error(job.job.error?.code || "Chưa gợi ý được. Bạn thử lại nhé.");
         await new Promise((resolve) => window.setTimeout(resolve, 500));
       }
-      if (!result) throw new Error("AI đang xử lý lâu hơn bình thường.");
+      if (!result) throw new Error("Gợi ý đang lâu hơn bình thường. Bạn thử lại sau nhé.");
       const characterIds = Array.isArray(result.characterIds) ? result.characterIds.filter((value): value is string => typeof value === "string") : [];
       const textPosition = ["top", "bottom", "center", "split"].includes(String(result.textPosition)) ? result.textPosition as "top" | "bottom" | "center" | "split" : "bottom";
       const variation: ContentVariation = {
@@ -627,8 +626,8 @@ export default function GeneratePage() {
         headline: typeof result.headline === "string" ? result.headline : "", subtext: typeof result.subtext === "string" ? result.subtext : undefined, caption: typeof result.caption === "string" ? result.caption : undefined, image_prompt: typeof result.imagePrompt === "string" ? result.imagePrompt : undefined, tone: "natural", text_position: textPosition, visual_direction: { scene: typeof result.visualDirection === "string" ? result.visualDirection : "" },
       };
       setVariations([variation]); setSelectedVariation(0); setHasPickedVariation(true); setTaggedCharacterIds(new Set(characterIds)); setStep(3);
-      toast.success("AI đã soạn ảnh, chú thích và mô tả hình. Duyệt rồi mới tạo ảnh.");
-    } catch (reason) { toast.error(reason instanceof Error ? reason.message : "AI chưa soạn được ảnh."); } finally { setGenerating(false); }
+      toast.success("Đã có chữ và cảnh gợi ý. Xem qua rồi bấm Vẽ meme.");
+    } catch (reason) { toast.error(reason instanceof Error ? reason.message : "Chưa gợi ý được. Bạn thử lại nhé."); } finally { setGenerating(false); }
   };
 
   const handleDirectFlow = async () => {
@@ -638,7 +637,7 @@ export default function GeneratePage() {
     try {
       await ensureContentSet();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Không lưu được brief.");
+      toast.error(error instanceof Error ? error.message : "Chưa lưu được. Bạn thử lại nhé.");
       return;
     }
 
@@ -719,7 +718,6 @@ export default function GeneratePage() {
     setAiError(null);
     setAiImageBase64(null);
     setAiGenerationRequestId(null);
-    setAiReferenceManifest(null);
 
     try {
       const buildFullDescription = (desc?: string, personality?: string) =>
@@ -766,11 +764,11 @@ export default function GeneratePage() {
             const refUrl = selectedPose?.image_url || fullChar?.avatar_url || fullChar?.poses[0]?.image_url;
 
             if (!fullChar) {
-              throw new Error(`Không tìm thấy dữ liệu nhân vật "${item.name}". Vui lòng chọn lại nhân vật.`);
+              throw new Error(`Không tìm thấy nhân vật "${item.name}". Bạn chọn lại nhân vật nhé.`);
             }
 
             if (!refUrl || refUrl.startsWith("/mock/")) {
-              throw new Error(`Nhân vật "${item.name}" chưa có ảnh ref hợp lệ. Vui lòng thêm pose/đặt avatar trước khi tạo ảnh.`);
+              throw new Error(`Nhân vật "${item.name}" chưa có ảnh. Thêm ảnh ở trang Nhân vật trước nhé.`);
             }
 
             const inline = await imageUrlToInlineData(refUrl);
@@ -842,10 +840,9 @@ export default function GeneratePage() {
       } else if (result.image) {
         setAiImageBase64(result.image);
         setAiGenerationRequestId(result.generation_request_id || null);
-        setAiReferenceManifest(result.reference_manifest || null);
         if (result.reference_manifest?.dropped.length) {
           toast.warning(
-            `${result.reference_manifest.dropped.length} ảnh ref không được gửi vì vượt giới hạn provider. Xem Reference manifest để biết chi tiết.`
+            `${result.reference_manifest.dropped.length} ảnh mẫu không dùng được vì quá số lượng cho phép.`
           );
         }
         trackEvent("generate_image_success", {
@@ -883,13 +880,13 @@ export default function GeneratePage() {
             project_id: project?.id || projectId,
             request_id: result.generation_request_id || undefined,
           });
-          toast.success("Đã tự động lưu vào bộ sưu tập");
+          toast.success("Đã lưu vào thư viện");
         } catch (saveErr) {
           trackEvent("save_meme_failed", {
             project_id: project?.id || projectId,
             request_id: result.generation_request_id || undefined,
           });
-          toast.error(saveErr instanceof Error ? saveErr.message : "Tạo ảnh xong nhưng lưu bộ sưu tập thất bại");
+          toast.error(saveErr instanceof Error ? saveErr.message : "Đã vẽ xong nhưng chưa lưu được vào thư viện");
         }
         // Refresh project wallet points
         fetchProjectPoints();
@@ -899,7 +896,7 @@ export default function GeneratePage() {
         action: "meme",
         project_id: project?.id || projectId,
       });
-      setAiError(err instanceof Error ? err.message : "Lỗi không xác định khi tạo ảnh AI");
+      setAiError(err instanceof Error ? err.message : "Chưa vẽ được. Bạn thử lại nhé.");
     }
 
     setAiGenerating(false);
@@ -922,7 +919,7 @@ export default function GeneratePage() {
     setSaving(true);
 
     if (!aiImageBase64) {
-      toast.error("Bạn cần tạo ảnh AI trước khi lưu");
+      toast.error("Vẽ meme xong mới lưu được");
       setSaving(false);
       return;
     }
@@ -941,9 +938,9 @@ export default function GeneratePage() {
         generation_request_id: aiGenerationRequestId,
       });
       await recordImageOutput(savedMeme, v, [...taggedCharacterIds]);
-      toast.success("Đã lưu đầu ra vào thư viện!");
+      toast.success("Đã lưu vào thư viện");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể lưu đầu ra. Vui lòng thử lại.");
+      toast.error(err instanceof Error ? err.message : "Chưa lưu được. Bạn thử lại nhé.");
     }
     setSaving(false);
   };
@@ -979,8 +976,7 @@ export default function GeneratePage() {
           style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
         >
           <p className="text-sm th-text-tertiary">
-            Chỉ muốn đổi chữ trên mascot có sẵn? Dùng Ghép chữ để khỏi tốn điểm — trang này dành cho khi cần
-            dựng ảnh hoàn toàn mới.
+            Chỉ cần đổi chữ trên ảnh có sẵn? Dùng Ghép chữ, không tốn điểm.
           </p>
           <Button size="sm" variant="outline" onClick={() => router.push(`/projects/${projectId}/editor`)}>
             Mở Ghép chữ
@@ -998,8 +994,7 @@ export default function GeneratePage() {
       <main className="flex-1 p-4 pt-16 md:p-8">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight th-text-primary">Tạo ảnh</h1>
-            <p className="mt-1 text-sm th-text-tertiary">Ý tưởng, nhân vật và ảnh tham khảo của kênh này.</p>
+            <h1 className="text-2xl font-semibold tracking-tight th-text-primary">Meme</h1>
           </div>
           {step > 1 && (
             <Button variant="outline" onClick={handleReset}>
@@ -1016,20 +1011,20 @@ export default function GeneratePage() {
               workspaceVersion={(project as { workspace_version?: number } | null)?.workspace_version ?? null}
             />
             <Button variant="outline" onClick={() => setShowManual(true)}>
-              Tự làm từng bước
+              Chỉnh tay từng bước
             </Button>
           </>
         )}
 
         {fromMemeId && fromMode === "regenerate" && (
           <div className="mb-4 p-3 rounded-xl border th-border-accent th-bg-accent-light">
-            <p className="text-sm th-text-accent">Đang tạo biến thể từ đầu ra đã lưu. Bạn có thể chỉnh mô tả ảnh rồi bấm &ldquo;Tạo ảnh bằng AI&rdquo;.</p>
+            <p className="text-sm th-text-accent">Đang làm bản khác từ meme này. Sửa mô tả nếu muốn rồi bấm &ldquo;Vẽ meme&rdquo;.</p>
           </div>
         )}
 
         {fromMemeId && fromMode === "reuse" && (
           <div className="mb-4 p-3 rounded-xl border" style={{ borderColor: "var(--border-primary)", background: "var(--bg-card)" }}>
-            <p className="text-sm th-text-secondary">Đã điền lại ý tưởng từ đầu ra cũ. Bạn có thể sửa rồi tạo lại nội dung AI.</p>
+            <p className="text-sm th-text-secondary">Đã điền lại ý tưởng cũ. Sửa nếu muốn rồi làm lại.</p>
           </div>
         )}
 
@@ -1047,7 +1042,7 @@ export default function GeneratePage() {
                 <Textarea
                   id="idea"
                   aria-label="Ý tưởng"
-                  placeholder='VD: "Khi team dev nói deploy xong rồi nhưng bug vẫn còn nguyên", "Thị trường chứng khoán hôm nay đỏ lửa, anh em ôm nhau khóc"...'
+                  placeholder='Ví dụ: Sếp nhắn "em rảnh không" lúc 10 giờ tối…'
                   value={idea}
                   onChange={(e) => setIdea(e.target.value)}
                   rows={5}
@@ -1065,7 +1060,7 @@ export default function GeneratePage() {
                 <div>
                   <p className="text-xs font-medium th-text-secondary mb-2 flex items-center gap-1.5">
                     <ImageIcon size={12} />
-                    Ảnh tham khảo (tuỳ chọn)
+                    Ảnh mẫu (tuỳ chọn)
                   </p>
                   <div
                     className="border-2 border-dashed rounded-xl p-4 text-center transition-colors cursor-pointer th-border th-bg-hover"
@@ -1080,7 +1075,7 @@ export default function GeneratePage() {
                   >
                     <input
                       ref={refInputRef}
-                      aria-label="Chọn ảnh tham khảo"
+                      aria-label="Chọn ảnh mẫu"
                       type="file"
                       accept="image/*"
                       multiple
@@ -1095,7 +1090,7 @@ export default function GeneratePage() {
                       <div className="py-2">
                         <Upload size={24} className="mx-auto mb-2 th-text-muted" />
                         <p className="text-sm th-text-tertiary">
-                          Click, kéo thả, hoặc Ctrl+V để dán ảnh
+                          Bấm để chọn, kéo thả hoặc dán ảnh vào đây
                         </p>
                         <p className="text-xs th-text-muted mt-1">
                           Tối đa {MAX_REF_IMAGES} ảnh, mỗi ảnh &le; {MAX_REF_SIZE_MB}MB
@@ -1109,7 +1104,7 @@ export default function GeneratePage() {
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={img.preview}
-                                alt={`Reference ${idx + 1}`}
+                                alt={`Ảnh mẫu ${idx + 1}`}
                                 className="w-20 h-20 object-cover rounded-lg border"
                                 style={{ borderColor: "var(--border-primary)" }}
                               />
@@ -1129,7 +1124,7 @@ export default function GeneratePage() {
                           )}
                         </div>
                         <p className="text-xs th-text-muted">
-                          AI sẽ dùng ảnh để hiểu bối cảnh và giữ đúng chủ thể
+                          Meme sẽ bám theo bối cảnh và người, vật trong ảnh
                         </p>
                       </div>
                     )}
@@ -1151,14 +1146,14 @@ export default function GeneratePage() {
                       }}
                       className="w-4 h-4 accent-[var(--accent)]"
                     />
-                    <span className="text-sm th-text-secondary">Không dùng nhân vật thư viện</span>
-                    <span className="text-xs th-text-muted ml-auto">VD: ảnh sự kiện, template có sẵn...</span>
+                    <span className="text-sm th-text-secondary">Không dùng nhân vật của kênh</span>
+                    <span className="text-xs th-text-muted ml-auto">Ví dụ: ảnh sự kiện, ảnh có sẵn…</span>
                   </label>
 
                   {!noCharacters && (
                     <>
                       <div className="flex items-center justify-between">
-                        <p className="text-xs th-text-tertiary">Cast của bộ nội dung (chọn nhân vật sẽ xuất hiện trong bài):</p>
+                        <p className="text-xs th-text-tertiary">Nhân vật có trong meme:</p>
                         <Button size="sm" variant="outline" onClick={openQuickCharacterModal}>
                           <Plus size={14} /> Thêm nhân vật
                         </Button>
@@ -1207,15 +1202,15 @@ export default function GeneratePage() {
                           })}
                         </div>
                       ) : (
-                        <p className="text-xs th-text-muted">Chưa có nhân vật thư viện. Bạn vẫn có thể tạo nội dung ngay, hoặc tạo nhanh ở nút bên trên.</p>
+                        <p className="text-xs th-text-muted">Kênh chưa có nhân vật. Vẫn làm meme được, hoặc tạo nhanh ở nút trên.</p>
                       )}
 
                       <div>
-                        <label htmlFor="one-off-character" className="mb-1.5 block text-xs th-text-tertiary">Nhân vật dùng 1 lần (không lưu thư viện):</label>
+                        <label htmlFor="one-off-character" className="mb-1.5 block text-xs th-text-tertiary">Nhân vật chỉ dùng cho meme này:</label>
                         <div className="flex gap-2">
                           <Input
                             id="one-off-character"
-                            placeholder="VD: Anh xe ôm công nghệ, chú mèo hàng xóm..."
+                            placeholder="Ví dụ: anh xe ôm công nghệ, chú mèo hàng xóm…"
                             value={oneOffInput}
                             onChange={(e) => setOneOffInput(e.target.value)}
                             onKeyDown={(e) => {
@@ -1247,7 +1242,7 @@ export default function GeneratePage() {
                   )}
                 </div>
                 <div>
-                  <p className="text-xs th-text-tertiary mb-2">Định dạng nhanh:</p>
+                  <p className="text-xs th-text-tertiary mb-2">Khổ ảnh:</p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
                     {(Object.entries(FORMAT_DIMENSIONS) as [MemeFormat, { width: number; height: number; label: string }][]).map(([key]) => (
                       <button
@@ -1267,11 +1262,11 @@ export default function GeneratePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Button size="lg" className="w-full" onClick={handleAssistImage} loading={generating} disabled={!idea.trim()}>
                     <Zap size={18} />
-                    {generating ? "AI đang soạn..." : "AI soạn ảnh"}
+                    {generating ? "Đang viết…" : "Gợi ý chữ và cảnh"}
                   </Button>
                   <Button size="lg" variant="outline" className="w-full" onClick={handleDirectFlow} disabled={!idea.trim()}>
                     <Wand2 size={18} />
-                    Tự viết mô tả ảnh
+                    Viết tay mô tả ảnh
                   </Button>
                 </div>
               </CardContent>
@@ -1280,7 +1275,7 @@ export default function GeneratePage() {
               <p className="text-xs font-semibold uppercase tracking-[0.14em] th-text-accent">Xem trước</p>
               <h2 className="mt-1 text-lg font-semibold th-text-primary">Ảnh của bạn sẽ hiện ở đây</h2>
               <div className="mt-5 flex aspect-[4/5] max-h-[620px] items-center justify-center rounded-xl border border-dashed p-7 text-center th-bg-secondary" style={{ borderColor: "var(--border-primary)" }}>
-                <div><span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl th-bg-accent-light th-text-accent"><ImageIcon size={21} /></span><p className="mt-4 text-sm font-medium th-text-primary">Bắt đầu bằng một ý tưởng</p><p className="mt-2 max-w-xs text-sm leading-6 th-text-tertiary">Chọn nhân vật hoặc thêm ảnh tham khảo khi bạn cần giữ chủ thể và bối cảnh.</p></div>
+                <div><span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl th-bg-accent-light th-text-accent"><ImageIcon size={21} /></span><p className="mt-4 text-sm font-medium th-text-primary">Bắt đầu bằng một ý tưởng</p><p className="mt-2 max-w-xs text-sm leading-6 th-text-tertiary">Chọn nhân vật hoặc thêm ảnh mẫu khi cần giữ đúng người, vật và bối cảnh.</p></div>
               </div>
             </aside>
           </div>
@@ -1289,7 +1284,7 @@ export default function GeneratePage() {
         {/* Step 2: Select variation */}
         {step === 2 && (
           <div className="space-y-5">
-            <p className="text-sm th-text-secondary">AI đã tạo {variations.length} phiên bản. Hãy bấm chọn 1 phiên bản trước khi tiếp tục.</p>
+            <p className="text-sm th-text-secondary">Có {variations.length} phương án. Chọn một để vẽ.</p>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {variations.map((v, index) => (
                 <Card key={index} hover onClick={() => { setSelectedVariation(index); setHasPickedVariation(true); }}
@@ -1297,7 +1292,7 @@ export default function GeneratePage() {
                   <CardContent className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className={`px-2 py-1 rounded-lg text-xs ${selectedVariation === index ? "th-bg-accent-light th-text-accent" : "th-bg-tertiary th-text-tertiary"}`}>
-                        Phiên bản {index + 1}
+                        Phương án {index + 1}
                       </span>
                       <span className="px-2 py-1 th-bg-tertiary rounded-lg text-xs th-text-tertiary">{v.tone}</span>
                     </div>
@@ -1307,7 +1302,7 @@ export default function GeneratePage() {
                     </div>
                     {v.caption && (
                       <div className="p-2 rounded-lg" style={{ background: "var(--bg-tertiary)", opacity: 0.5 }}>
-                        <p className="text-xs th-text-tertiary mb-0.5">Caption:</p>
+                        <p className="text-xs th-text-tertiary mb-0.5">Nội dung bài đăng:</p>
                         <p className="text-xs th-text-secondary">{v.caption}</p>
                       </div>
                     )}
@@ -1324,9 +1319,9 @@ export default function GeneratePage() {
                     )}
                     {v.visual_direction && (
                       <div className="p-2 rounded-lg" style={{ background: "var(--bg-tertiary)", opacity: 0.6 }}>
-                        <p className="text-xs th-text-tertiary mb-1">Định hướng hình ảnh của AI:</p>
+                        <p className="text-xs th-text-tertiary mb-1">Cảnh sẽ vẽ:</p>
                         <p className="text-xs th-text-secondary line-clamp-3">
-                          {v.visual_direction.scene || v.visual_direction.character_styling || v.visual_direction.composition || "Đã có chỉ dẫn hình ảnh chi tiết"}
+                          {v.visual_direction.scene || v.visual_direction.character_styling || v.visual_direction.composition || "Đã có mô tả cảnh chi tiết"}
                         </p>
                       </div>
                     )}
@@ -1337,7 +1332,7 @@ export default function GeneratePage() {
             <div className="flex gap-3">
               <Button variant="outline" onClick={() => setStep(1)}>Quay lại</Button>
               <Button variant="outline" onClick={handleGenerate} loading={generating}>
-                <RotateCcw size={16} /> {generating ? "Đang tạo lại..." : "Tạo lại 3 ý tưởng"}
+                <RotateCcw size={16} /> {generating ? "Đang gợi ý…" : "Gợi ý 3 ý khác"}
               </Button>
               <Button onClick={() => setStep(3)} disabled={!hasPickedVariation}>Tiếp tục xem trước <ChevronRight size={16} /></Button>
             </div>
@@ -1359,17 +1354,17 @@ export default function GeneratePage() {
                           <Wand2 size={36} style={{ color: "var(--accent)" }} />
                         </div>
                         <div className="text-center">
-                          <p className="th-text-primary font-semibold text-lg">Tạo hình ảnh bằng AI</p>
+                          <p className="th-text-primary font-semibold text-lg">Vẽ meme</p>
                           <p className="th-text-tertiary text-sm mt-1 max-w-sm">
-                            AIDA sẽ dựng visual 1K hoàn chỉnh từ nội dung, nhân vật và phong cách đã chọn
+                            Vẽ ảnh hoàn chỉnh từ chữ, nhân vật và kiểu ảnh bạn đã chọn.
                           </p>
                         </div>
                         <Button size="lg" onClick={handleAiGenerate}>
                           <Wand2 size={18} />
-                          Tạo ảnh bằng AI ({POINT_COSTS.meme} điểm)
+                          Vẽ meme · {POINT_COSTS.meme} điểm
                         </Button>
                         <p className="text-xs th-text-muted">
-                          Ví kênh còn <strong>{projectPoints}</strong> điểm
+                          Kênh còn <strong>{projectPoints}</strong> điểm
                         </p>
                       </div>
                     )}
@@ -1381,8 +1376,8 @@ export default function GeneratePage() {
                           <Loader2 size={36} className="animate-spin" style={{ color: "var(--accent)" }} />
                         </div>
                         <div className="text-center">
-                          <p className="th-text-primary font-semibold">AI đang tạo ảnh...</p>
-                          <p className="th-text-tertiary text-sm mt-1">Quá trình này có thể mất 10-30 giây</p>
+                          <p className="th-text-primary font-semibold">Đang vẽ…</p>
+                          <p className="th-text-tertiary text-sm mt-1">Mất khoảng 10–30 giây</p>
                         </div>
                       </div>
                     )}
@@ -1391,7 +1386,7 @@ export default function GeneratePage() {
                     {aiError && !aiGenerating && (
                       <div className="space-y-4">
                         <div className="p-4 rounded-xl th-bg-danger-light th-border-danger" style={{ borderWidth: "1px", borderStyle: "solid" }}>
-                          <p className="th-text-danger text-sm font-medium">Lỗi tạo ảnh</p>
+                          <p className="th-text-danger text-sm font-medium">Chưa vẽ được</p>
                           <p className="th-text-danger text-xs mt-1 opacity-80">{aiError}</p>
                         </div>
                         <div className="flex justify-center">
@@ -1410,48 +1405,26 @@ export default function GeneratePage() {
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={`data:image/png;base64,${aiImageBase64}`}
-                              alt="AI generated meme"
+                              alt="Meme vừa vẽ"
                               className="block max-h-[600px] w-auto rounded-2xl"
                             />
                           </div>
                         </div>
                         <div className="flex items-center justify-center gap-3">
                           <Button variant="outline" size="sm" onClick={handleExport}>
-                            <Download size={14} /> Tải xuống
+                            <Download size={14} /> Tải ảnh
                           </Button>
                           <Button variant="outline" size="sm" onClick={handleAiGenerate}>
-                            <RotateCcw size={14} /> Tạo lại ({POINT_COSTS.meme} điểm)
+                            <RotateCcw size={14} /> Vẽ lại ({POINT_COSTS.meme} điểm)
                           </Button>
-                          <Button variant="outline" size="sm" onClick={() => router.push(`/projects/${projectId}/video?image=${encodeURIComponent(imageSourceUrl || "")}`)} disabled={!imageSourceUrl} title={!imageSourceUrl ? "Tạo ảnh trước khi dùng ảnh làm khung hình đầu" : undefined}>
-                            <Clapperboard size={14} /> Dùng ảnh này tạo video
+                          <Button variant="outline" size="sm" onClick={() => router.push(`/projects/${projectId}/video?image=${encodeURIComponent(imageSourceUrl || "")}`)} disabled={!imageSourceUrl} title={!imageSourceUrl ? "Lưu ảnh xong mới làm video được" : undefined}>
+                            <Clapperboard size={14} /> Làm video từ ảnh này
                           </Button>
-                          <span className="text-xs th-text-muted">Ví kênh: {projectPoints} điểm</span>
+                          <span className="text-xs th-text-muted">Kênh còn {projectPoints} điểm</span>
                         </div>
                       </div>
                     )}
 
-                    {aiReferenceManifest && !aiGenerating && (
-                      <div className="mt-4 rounded-xl border th-border th-bg-tertiary p-3 text-xs">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="font-medium th-text-primary">Reference manifest</span>
-                          <span className="th-text-muted font-mono">
-                            {aiReferenceManifest.selected} gửi · {aiReferenceManifest.dropped.length} loại
-                          </span>
-                        </div>
-                        {aiReferenceManifest.dropped.length > 0 && (
-                          <ul className="mt-2 space-y-1 th-text-warning">
-                            {aiReferenceManifest.dropped.map((reference) => (
-                              <li key={`${reference.imageId}:${reference.role}`}>
-                                {reference.role}: {reference.reason}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        <p className="mt-2 font-mono th-text-muted truncate" title={aiReferenceManifest.manifestHash}>
-                          {aiReferenceManifest.manifestHash}
-                        </p>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
             </div>
@@ -1460,7 +1433,7 @@ export default function GeneratePage() {
             <div className="space-y-4">
               {/* Format */}
               <Card>
-                <CardHeader><h3 className="text-sm font-semibold th-text-primary">Định dạng</h3></CardHeader>
+                <CardHeader><h3 className="text-sm font-semibold th-text-primary">Khổ ảnh</h3></CardHeader>
                 <CardContent className="space-y-2">
                   {(Object.entries(FORMAT_DIMENSIONS) as [MemeFormat, { width: number; height: number; label: string }][]).map(([key, val]) => (
                     <button key={key} onClick={() => setFormat(key)}
@@ -1475,10 +1448,10 @@ export default function GeneratePage() {
               </Card>
 
               <Card>
-                <CardHeader><h3 className="text-sm font-semibold th-text-primary">Watermark</h3></CardHeader>
+                <CardHeader><h3 className="text-sm font-semibold th-text-primary">Logo</h3></CardHeader>
                 <CardContent className="space-y-3">
                   <label className="flex items-center justify-between cursor-pointer">
-                    <span className="text-sm th-text-secondary">Bật watermark góc phải dưới</span>
+                    <span className="text-sm th-text-secondary">Đóng logo ở góc dưới bên phải</span>
                     <input
                       type="checkbox"
                       checked={enableWatermark}
@@ -1491,15 +1464,15 @@ export default function GeneratePage() {
                     <>
                       <Input
                         id="watermark-text"
-                        label="Text watermark"
-                        placeholder="VD: Cậu Vàng Finance"
+                        label="Chữ ký kênh"
+                        placeholder="Ví dụ: @tenkenh"
                         value={resolvedWatermarkText}
                         onChange={(e) => setWatermarkText(e.target.value)}
                         className="text-sm"
                       />
 
                       <div>
-                        <p className="text-xs font-medium th-text-secondary mb-1.5">Logo watermark (tuỳ chọn)</p>
+                        <p className="text-xs font-medium th-text-secondary mb-1.5">Logo (tuỳ chọn)</p>
                         <div
                           className="border rounded-xl p-3 text-center cursor-pointer th-border th-bg-hover"
                           onClick={() => watermarkLogoInputRef.current?.click()}
@@ -1518,7 +1491,7 @@ export default function GeneratePage() {
                           {watermarkLogo ? (
                             <div className="flex items-center justify-center gap-2">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={watermarkLogo.preview} alt="Watermark logo" className="w-10 h-10 object-contain rounded" />
+                              <img src={watermarkLogo.preview} alt="Logo" className="w-10 h-10 object-contain rounded" />
                               <Button
                                 type="button"
                                 variant="outline"
@@ -1533,7 +1506,7 @@ export default function GeneratePage() {
                               </Button>
                             </div>
                           ) : (
-                            <p className="text-xs th-text-muted">Tải logo để AI gắn đúng watermark theo brand</p>
+                            <p className="text-xs th-text-muted">Tải logo lên để đóng vào ảnh</p>
                           )}
                         </div>
                       </div>
@@ -1544,11 +1517,11 @@ export default function GeneratePage() {
 
               {/* AI reference and prompt controls */}
                 <Card>
-                  <CardHeader><h3 className="text-sm font-semibold th-text-primary">Ảnh tham chiếu và mô tả cho AI</h3></CardHeader>
+                  <CardHeader><h3 className="text-sm font-semibold th-text-primary">Ảnh mẫu và ghi chú</h3></CardHeader>
                   <CardContent className="space-y-3">
                     <div>
                       <p className="text-xs font-medium th-text-secondary mb-2 flex items-center gap-1.5">
-                        <ImageIcon size={12} /> Ảnh tham khảo cho bước tạo ảnh
+                        <ImageIcon size={12} /> Ảnh mẫu để vẽ theo
                       </p>
                       <div
                         className="border-2 border-dashed rounded-xl p-3 text-center transition-colors cursor-pointer th-border th-bg-hover"
@@ -1575,14 +1548,14 @@ export default function GeneratePage() {
                         {aiRefImages.length === 0 ? (
                           <div className="py-1">
                             <Upload size={18} className="mx-auto mb-1 th-text-muted" />
-                            <p className="text-xs th-text-tertiary">Thả ảnh mẫu để AI hiểu bố cục và phong cách</p>
+                            <p className="text-xs th-text-tertiary">Thả ảnh mẫu để vẽ theo bố cục và kiểu ảnh</p>
                           </div>
                         ) : (
                           <div className="flex gap-2 flex-wrap justify-center">
                             {aiRefImages.map((img, idx) => (
                               <div key={idx} className="relative">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={img.preview} alt={`AI ref ${idx + 1}`} className="w-14 h-14 object-cover rounded-lg border" style={{ borderColor: "var(--border-primary)" }} />
+                                <img src={img.preview} alt={`Ảnh mẫu ${idx + 1}`} className="w-14 h-14 object-cover rounded-lg border" style={{ borderColor: "var(--border-primary)" }} />
                                 <button
                                   onClick={(e) => { e.stopPropagation(); removeAiRefImage(idx); }}
                                   className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-white"
@@ -1600,7 +1573,7 @@ export default function GeneratePage() {
                     {!noCharacters && (
                     <div>
                       <p className="text-xs font-medium th-text-secondary mb-2 flex items-center gap-1.5">
-                        <Tags size={12} /> Tag nhân vật xuất hiện trong ảnh
+                        <Tags size={12} /> Gắn nhân vật có trong ảnh
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {characters.map((char) => {
@@ -1625,10 +1598,10 @@ export default function GeneratePage() {
                     )}
 
                     <div>
-                      <p className="text-xs font-medium th-text-secondary mb-1.5">Mô tả thêm</p>
+                      <p className="text-xs font-medium th-text-secondary mb-1.5">Ghi chú</p>
                       <Textarea
                         id="ai-custom-prompt"
-                        placeholder="VD: Bám bố cục ảnh ref số 1, headline đặt giữa, tone châm biếm nhẹ, nhân vật bên trái nhìn vào chart đỏ..."
+                        placeholder="Ví dụ: theo bố cục ảnh mẫu 1, chữ đặt giữa, giọng châm nhẹ"
                         value={aiCustomPrompt}
                         onChange={(e) => setAiCustomPrompt(e.target.value)}
                         rows={3}
@@ -1644,13 +1617,13 @@ export default function GeneratePage() {
               {/* Caption */}
               {variations[selectedVariation].caption && (
                 <Card>
-                  <CardHeader><h3 className="text-sm font-semibold th-text-primary">Caption mạng xã hội</h3></CardHeader>
+                  <CardHeader><h3 className="text-sm font-semibold th-text-primary">Nội dung bài đăng</h3></CardHeader>
                   <CardContent>
                     <p className="text-sm th-text-secondary whitespace-pre-wrap">{variations[selectedVariation].caption}</p>
                     <Button variant="ghost" size="sm" className="mt-2"
                       onClick={() => {
                         navigator.clipboard.writeText(variations[selectedVariation].caption || "");
-                        toast.success("Đã sao chép caption");
+                        toast.success("Đã chép nội dung bài đăng");
                       }}>
                       Sao chép
                     </Button>
@@ -1666,7 +1639,7 @@ export default function GeneratePage() {
                   onClick={handleExport}
                   disabled={!aiImageBase64}
                 >
-                  <Download size={18} /> Tải xuống PNG
+                  <Download size={18} /> Tải ảnh
                 </Button>
                 <Button
                   variant="secondary"
@@ -1679,7 +1652,7 @@ export default function GeneratePage() {
                   <Save size={18} /> {imageOutputId ? "Đã lưu vào thư viện" : "Lưu vào thư viện"}
                 </Button>
                 <Button variant="outline" className="w-full" onClick={() => setStep(2)}>
-                  Quay lại chọn phiên bản
+                  Chọn phương án khác
                 </Button>
               </div>
             </div>
@@ -1691,7 +1664,7 @@ export default function GeneratePage() {
           onClose={() => setPointsNeeded(null)}
           required={pointsNeeded?.required ?? 0}
           current={pointsNeeded?.current ?? 0}
-          action="Tạo ảnh"
+          action="Vẽ meme"
           onFunded={() => setAiError(null)}
         />
 
@@ -1700,7 +1673,7 @@ export default function GeneratePage() {
             <Input
               id="quick-char-name"
               label="Tên nhân vật"
-              placeholder="VD: Cô chủ quán cà phê"
+              placeholder="Ví dụ: cô chủ quán cà phê"
               value={quickCharacterForm.name}
               onChange={(e) => setQuickCharacterForm((prev) => ({ ...prev, name: e.target.value }))}
               required
@@ -1708,7 +1681,7 @@ export default function GeneratePage() {
             <Textarea
               id="quick-char-desc"
               label="Mô tả ngoại hình (tuỳ chọn)"
-              placeholder="VD: Áo khoác denim, tóc ngắn, đeo kính tròn"
+              placeholder="Ví dụ: áo khoác denim, tóc ngắn, đeo kính tròn"
               value={quickCharacterForm.description}
               onChange={(e) => setQuickCharacterForm((prev) => ({ ...prev, description: e.target.value }))}
               rows={2}
@@ -1716,7 +1689,7 @@ export default function GeneratePage() {
             <Textarea
               id="quick-char-personality"
               label="Tính cách (tuỳ chọn)"
-              placeholder="VD: Nói chuyện hài hước, hơi cà khịa"
+              placeholder="Ví dụ: nói chuyện hài hước, hơi cà khịa"
               value={quickCharacterForm.personality}
               onChange={(e) => setQuickCharacterForm((prev) => ({ ...prev, personality: e.target.value }))}
               rows={2}
@@ -1727,17 +1700,17 @@ export default function GeneratePage() {
             </div>
           </form>
         </Modal>
-        <Modal isOpen={showVideoModal} onClose={() => setShowVideoModal(false)} title="Tạo video từ ảnh đầu">
+        <Modal isOpen={showVideoModal} onClose={() => setShowVideoModal(false)} title="Làm video từ ảnh này">
           <div className="space-y-4">
-            <p className="text-sm th-text-tertiary">Video dùng đúng ảnh này làm khung hình đầu. Video dọc 9:16, âm thanh tiếng Việt được bật mặc định.</p>
-            <Textarea id="video-script" label="Kịch bản video" value={videoScript} onChange={(event) => { setVideoScript(event.target.value); setVideoQuote(null); }} rows={5} placeholder="Mô tả chuyển động, lời thoại và âm thanh bằng tiếng Việt" />
+            <p className="text-sm th-text-tertiary">Video mở đầu bằng đúng ảnh này, khổ dọc 9:16, có tiếng Việt.</p>
+            <Textarea id="video-script" label="Video diễn ra thế nào?" value={videoScript} onChange={(event) => { setVideoScript(event.target.value); setVideoQuote(null); }} rows={5} placeholder="Mô tả chuyển động, lời thoại và âm thanh bằng tiếng Việt" />
             <div className="grid grid-cols-2 gap-2">
               {[15, 30].map((seconds) => <button key={seconds} type="button" onClick={() => { setVideoDuration(seconds as 15 | 30); setVideoQuote(null); }} className={`rounded-xl border px-3 py-2 text-sm ${videoDuration === seconds ? "th-border-accent th-bg-accent-light th-text-accent" : "th-border"}`}>{seconds} giây</button>)}
               {["720p", "1080p"].map((resolution) => <button key={resolution} type="button" onClick={() => { setVideoResolution(resolution as "720p" | "1080p"); setVideoQuote(null); }} className={`rounded-xl border px-3 py-2 text-sm ${videoResolution === resolution ? "th-border-accent th-bg-accent-light th-text-accent" : "th-border"}`}>{resolution}</button>)}
             </div>
             <label className="flex items-center justify-between rounded-xl th-bg-tertiary px-3 py-2 text-sm th-text-secondary"><span>Có tiếng trong video</span><input type="checkbox" checked={videoAudio} onChange={(event) => { setVideoAudio(event.target.checked); setVideoQuote(null); }} /></label>
-            {videoQuote ? <div className="rounded-xl th-bg-accent-light p-3 text-sm th-text-accent">Báo giá đã chốt: <strong>{videoQuote.customerPoints} điểm</strong></div> : <Button className="w-full" disabled={!videoScript.trim()} onClick={() => getVideoQuote().catch((error) => toast.error(error instanceof Error ? error.message : "Không lấy được báo giá."))} loading={videoLoading}>Xem giá video</Button>}
-            {videoQuote && <Button className="w-full" onClick={submitVideo} loading={videoLoading}>Tạo video với giá này</Button>}
+            {videoQuote ? <div className="rounded-xl th-bg-accent-light p-3 text-sm th-text-accent">Giá: <strong>{videoQuote.customerPoints} điểm</strong></div> : <Button className="w-full" disabled={!videoScript.trim()} onClick={() => getVideoQuote().catch((error) => toast.error(error instanceof Error ? error.message : "Không lấy được báo giá."))} loading={videoLoading}>Xem giá video</Button>}
+            {videoQuote && <Button className="w-full" onClick={submitVideo} loading={videoLoading}>Làm video với giá này</Button>}
           </div>
         </Modal>
       </main>

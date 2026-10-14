@@ -84,16 +84,16 @@ describe("tập phim dừng vì điểm", () => {
   it("hết điểm trong ví thì bảo nạp thêm, không bảo nâng giới hạn", () => {
     const item = blocked("INSUFFICIENT_POINTS");
     expect(item.kind).toBe("points");
-    expect(item.title).toBe("Hết điểm — nạp thêm để AI làm tiếp");
+    expect(item.title).toBe("Kênh hết điểm — nạp thêm để làm tiếp");
     expect(item.href).toBe("/wallet");
-    expect(item.detail).not.toMatch(/giới hạn|hạn mức/);
+    expect(item.detail).not.toMatch(/giới hạn|hạn mức|mức chi/);
   });
 
   it("chạm giới hạn tự đặt thì mở đúng tập để nâng giới hạn", () => {
     for (const error of ["PRODUCTION_BUDGET_EXCEEDED", "BUDGET_BELOW_COMMITTED", null]) {
       const item = blocked(error);
       expect(item.kind).toBe("budget");
-      expect(item.title).toBe("Tập phim chạm giới hạn điểm bạn đặt");
+      expect(item.title).toBe("Tập phim chạm mức chi bạn đặt");
       expect(item.href).toBe("/projects/foxy-coffee/short-films?tap=plan-1");
     }
   });
@@ -147,16 +147,16 @@ describe("meme", () => {
   it("meme hỏng vì hết điểm dẫn tới ví", () => {
     const [item] = build([meme({ error: "Không đủ điểm: mỗi meme cần 20 điểm, ví đang có 3 điểm." })]);
     expect(item).toMatchObject({ kind: "points", title: "Meme chưa làm được", href: "/wallet" });
-    expect(item.detail).toBe("Foxy Coffee hết điểm — nạp thêm để AI làm tiếp.");
+    expect(item.detail).toBe("Foxy Coffee hết điểm — nạp thêm để làm tiếp.");
   });
 
   it("meme bỏ cuộc sau ba lần thử, và lỗi khác, dẫn về trang làm meme", () => {
     const [gaveUp] = build([meme({ error: "MEME_RUN_GAVE_UP" })]);
     expect(gaveUp.kind).toBe("failed");
-    expect(gaveUp.detail).toContain("AI thử 3 lần chưa được");
+    expect(gaveUp.detail).toContain("chưa làm được sau 3 lần thử");
     expect(gaveUp.href).toBe("/projects/foxy-coffee/generate");
     const [other] = build([meme({ error: "lỗi lạ" })]);
-    expect(other.detail).toBe("Foxy Coffee — AI chưa làm được meme. Bạn có thể thử lại.");
+    expect(other.detail).toBe("Foxy Coffee — meme chưa làm được. Bạn thử lại nhé.");
   });
 
   it("gom nhiều meme hỏng cùng lý do của một kênh thành một dòng", () => {
@@ -201,7 +201,7 @@ describe("meme", () => {
       {
         id: "meme-digest:p1",
         kind: "done",
-        title: "AI đã làm 2 meme hôm nay cho Foxy Coffee",
+        title: "Foxy Coffee có 2 meme mới hôm nay",
         detail: "Mới nhất: “Thứ Hai lại tới”",
         href: "/projects/foxy-coffee/generate",
         at: "2026-10-09T11:00:00.000Z",

@@ -9,7 +9,7 @@ import { useSignedIn } from "./use-signed-in";
 const LINKS = [
   { href: "/#how", label: "Cách làm", className: "lg:inline-flex" },
   { href: "/pricing", label: "Bảng giá", className: "md:inline-flex" },
-  { href: "/help", label: "Hỗ trợ", className: "lg:inline-flex" },
+  { href: "/help", label: "Trợ giúp", className: "lg:inline-flex" },
 ];
 
 export default function SiteHeader() {

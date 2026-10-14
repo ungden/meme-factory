@@ -52,10 +52,10 @@ export function transactionLabel(type: string) {
 }
 
 export const POINT_LABELS: Record<PointAction, string> = {
-  content: "Tạo nội dung AI",
-  character: "Tạo ảnh nhân vật",
-  background: "Tạo background AI",
-  meme: "Tạo ảnh meme AI",
+  content: "Viết chữ",
+  character: "Vẽ nhân vật",
+  background: "Vẽ nền",
+  meme: "Vẽ meme",
 };
 
 /**

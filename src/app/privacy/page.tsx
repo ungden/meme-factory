@@ -22,7 +22,7 @@ export default function PrivacyPolicy() {
           <ul className="list-disc pl-6 th-text-secondary space-y-2 mb-4">
             <li><strong>Thông tin tài khoản:</strong> Địa chỉ email khi bạn đăng ký và tạo tài khoản (thông qua Supabase hoặc đăng nhập Google).</li>
             <li><strong>Dữ liệu người dùng tạo ra:</strong> Ý tưởng, prompt, kịch bản, hình ảnh và giọng nhân vật, ảnh, video, phụ đề và các bản dựng được tạo ra trong quá trình sử dụng.</li>
-            <li><strong>Thông tin giao dịch:</strong> Lịch sử nạp points và lịch sử giao dịch tiêu dùng points trong hệ thống (chúng tôi KHÔNG lưu trữ trực tiếp số thẻ tín dụng hay thông tin ngân hàng của bạn).</li>
+            <li><strong>Thông tin giao dịch:</strong> Lịch sử nạp điểm và dùng điểm trong hệ thống (chúng tôi KHÔNG lưu trữ trực tiếp số thẻ tín dụng hay thông tin ngân hàng của bạn).</li>
             <li><strong>Dữ liệu sử dụng:</strong> Thông tin về cách bạn tương tác với hệ thống để phục vụ cải thiện tính năng và chất lượng AI.</li>
           </ul>
         </section>
@@ -34,7 +34,7 @@ export default function PrivacyPolicy() {
             <li>Cung cấp, vận hành và duy trì các tính năng của ứng dụng.</li>
             <li>Xử lý các yêu cầu tạo văn bản, hình ảnh, giọng nói và video thông qua các đối tác cung cấp dịch vụ AI.</li>
             <li>Quản lý tài khoản, hỗ trợ khách hàng và giải quyết các vấn đề kỹ thuật.</li>
-            <li>Theo dõi thanh toán và nạp/rút điểm số (points) trên hệ thống.</li>
+            <li>Theo dõi thanh toán và nạp/rút điểm trên hệ thống.</li>
             <li>Phân tích để cải thiện trải nghiệm người dùng.</li>
           </ul>
         </section>

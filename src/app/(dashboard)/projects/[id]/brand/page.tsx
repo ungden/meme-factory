@@ -70,7 +70,7 @@ export default function BrandSettingsPage() {
       setWatermarkUrl(result.url);
       toast.success("Đã tải logo lên, nhớ bấm Lưu");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Tải logo thất bại");
+      toast.error(error instanceof Error ? error.message : "Chưa tải được logo. Bạn thử lại nhé.");
     } finally {
       setUploading(false);
     }
@@ -89,9 +89,9 @@ export default function BrandSettingsPage() {
         audience: audience.trim() || null,
         content_guidelines: contentGuidelines.trim() || null,
       });
-      toast.success("Đã lưu cài đặt thương hiệu");
+      toast.success("Đã lưu");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Lưu thất bại");
+      toast.error(error instanceof Error ? error.message : "Chưa lưu được. Bạn thử lại nhé.");
     } finally {
       setSaving(false);
     }
@@ -100,7 +100,7 @@ export default function BrandSettingsPage() {
   return (
     <div className="flex">
       <main className="min-w-0 flex-1 p-4 pt-16 md:p-8">
-        <ChannelSettingsHeader description="Logo đóng lên mọi ảnh, video và phim của kênh." />
+        <ChannelSettingsHeader description="Logo đóng lên bài và hồ sơ để bài mới đúng chất kênh." />
 
         {loading ? (
           <p className="th-text-tertiary">Đang tải…</p>
@@ -151,7 +151,7 @@ export default function BrandSettingsPage() {
                   </Button>
                 )}
                 <p className="text-xs th-text-tertiary">
-                  PNG hoặc WebP không có nền, tối đa 3 MB. Ảnh nền trắng hoặc nền caro sẽ bị từ chối.
+                  Ảnh PNG hoặc WebP nền trong suốt, tối đa 3 MB. Logo có nền trắng sẽ không dùng được.
                 </p>
                 {project && <WatermarkAi key={`${project.id}:${project.workspace_version}`} projectId={project.id} ownerId={project.user_id} workspaceVersion={project.workspace_version ?? 1} projectName={project.name} onApply={setWatermarkUrl} />}
                 <div aria-label="Xem trước logo trên video" className="relative aspect-video overflow-hidden rounded-lg bg-slate-800">
@@ -163,7 +163,7 @@ export default function BrandSettingsPage() {
                     top: position.includes("top") ? "3%" : !position.includes("bottom") ? "50%" : undefined,
                     bottom: position.includes("bottom") ? "3%" : undefined,
                     transform: `translate(${!position.includes("left") && !position.includes("right") ? "-50%" : "0"}, ${!position.includes("top") && !position.includes("bottom") ? "-50%" : "0"})`,
-                  }}><Image src={watermarkUrl} alt="Watermark xem trước" width={400} height={200} className="h-full w-full object-contain" unoptimized /></div>}
+                  }}><Image src={watermarkUrl} alt="Logo xem trước" width={400} height={200} className="h-full w-full object-contain" unoptimized /></div>}
                 </div>
                 <ControlRow label="Vị trí">
                   <WatermarkGrid value={position} onChange={setPosition} />
@@ -180,7 +180,7 @@ export default function BrandSettingsPage() {
                 </ControlRow>
 
                 <p className="text-xs th-text-tertiary">
-                  Bấm Lưu để áp dụng cho các lượt tạo tiếp theo. Video và ảnh đã hoàn tất vẫn giữ logo cũ.
+                  Lưu xong, bài làm sau sẽ dùng logo mới. Bài cũ giữ nguyên.
                 </p>
               </CardContent>
             </Card>
@@ -188,7 +188,7 @@ export default function BrandSettingsPage() {
             <div className="space-y-4">
               <Card>
                 <CardHeader>
-                  <span className="text-sm font-semibold th-text-primary">Handle nhà sáng tạo</span>
+                  <span className="text-sm font-semibold th-text-primary">Chữ ký kênh (ví dụ @tenkenh)</span>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <Input
@@ -198,18 +198,18 @@ export default function BrandSettingsPage() {
                     onChange={(event) => setHandle(event.target.value)}
                   />
                   <p className="text-xs th-text-tertiary">
-                    Kênh chưa có logo thì đóng dòng chữ này lên ảnh.
+                    Chưa có logo thì đóng chữ này lên ảnh.
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader><span className="text-sm font-semibold th-text-primary">Hướng dẫn nội dung</span></CardHeader>
+                <CardHeader><span className="text-sm font-semibold th-text-primary">Hồ sơ kênh</span></CardHeader>
                 <CardContent className="space-y-3">
-                  <Textarea label="Giọng viết" value={brandVoice} onChange={(event) => setBrandVoice(event.target.value)} placeholder="Ví dụ: gần gũi, vui nhưng không sáo rỗng" rows={2} />
-                  <Textarea label="Độc giả chính" value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="Ví dụ: dân văn phòng 25–35 tuổi tại Hà Nội" rows={2} />
-                  <Textarea label="Quy ước và điều cần tránh" value={contentGuidelines} onChange={(event) => setContentGuidelines(event.target.value)} placeholder="Ví dụ: không hứa hẹn quá mức; luôn có CTA mềm" rows={3} />
-                  <p className="text-xs th-text-tertiary">Các hướng dẫn này được đưa vào brief; bạn vẫn có thể chỉnh cho từng bộ nội dung.</p>
+                  <Textarea label="Giọng kể" value={brandVoice} onChange={(event) => setBrandVoice(event.target.value)} placeholder="Ví dụ: gần gũi, vui nhưng không sáo rỗng" rows={2} />
+                  <Textarea label="Người xem" value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="Ví dụ: dân văn phòng 25–35 tuổi tại Hà Nội" rows={2} />
+                  <Textarea label="Điều nên tránh" value={contentGuidelines} onChange={(event) => setContentGuidelines(event.target.value)} placeholder="Ví dụ: không hứa quá đà; cuối bài rủ người xem bình luận" rows={3} />
+                  <p className="text-xs th-text-tertiary">Bài mới của kênh sẽ theo phần này.</p>
                 </CardContent>
               </Card>
 
@@ -246,7 +246,7 @@ export default function BrandSettingsPage() {
 
         <div className="mt-5 max-w-4xl">
           <Button onClick={save} loading={saving} disabled={loading || uploading || !project}>
-            Lưu cài đặt
+            Lưu
           </Button>
         </div>
       </main>

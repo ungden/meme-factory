@@ -18,7 +18,7 @@ export type FeedItem = {
   label: string;
   href: string;
   imageUrl: string | null;
-  /** Cách quay của tập, để "Làm thêm kiểu này" giữ đúng kiểu. */
+  /** Cách quay của tập, để "Làm bài tương tự" giữ đúng kiểu. */
   format: FilmFormat | null;
   scheduled: boolean;
   at: string;
@@ -63,9 +63,9 @@ function filmStatus(status: string): FeedStatus {
 }
 
 const FILM_LABEL: Record<FeedStatus, string> = {
-  working: "AI đang làm phim",
+  working: "Đang làm phim",
   attention: "Cần bạn xem",
-  ready: "Đã có phim",
+  ready: "Đã xong",
   stopped: "Đã dừng",
 };
 
@@ -76,7 +76,7 @@ function memeStatus(run: FeedMemeRun): FeedStatus {
 }
 
 const MEME_LABEL: Record<FeedStatus, string> = {
-  working: "AI đang làm meme",
+  working: "Đang làm meme",
   attention: "Cần bạn xem",
   ready: "Đã xong",
   stopped: "Chưa làm được",
@@ -112,7 +112,7 @@ export function homeFeed(
       kind: "film",
       projectId: project.id,
       projectName: project.name,
-      title: clip(run.video_plans?.title || intent || "Tập do AI tự nghĩ"),
+      title: clip(run.video_plans?.title || intent || "Tập mới"),
       status,
       label: FILM_LABEL[status],
       href: `/projects/${projectRef(project)}/short-films?tap=${run.plan_id || run.id}`,
@@ -131,7 +131,7 @@ export function homeFeed(
       kind: "meme",
       projectId: project.id,
       projectName: project.name,
-      title: clip(run.memes?.generated_content?.headline || run.intent || "Meme do AI tự nghĩ"),
+      title: clip(run.memes?.generated_content?.headline || run.intent || "Meme mới"),
       status,
       label: MEME_LABEL[status],
       href: `/projects/${projectRef(project)}/generate`,

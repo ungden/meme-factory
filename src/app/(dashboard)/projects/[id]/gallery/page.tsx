@@ -35,8 +35,8 @@ import { createClient } from "@/lib/supabase/client";
 const VIDEO_STATUS_LABELS: Record<string, string> = {
   draft: "Bản nháp",
   queued: "Đang chờ",
-  running: "Đang xử lý",
-  failed: "Chưa tạo được",
+  running: "Đang làm",
+  failed: "Chưa làm được",
 };
 
 export default function GalleryPage() {
@@ -93,7 +93,7 @@ export default function GalleryPage() {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Không lưu được trạng thái duyệt.");
       setContentOutputs((current) => current.map((output) => output.id === outputId ? payload.output : output));
-      toast.success(status === "approved" ? "Đã duyệt đầu ra." : "Đã đánh dấu cần chỉnh sửa.");
+      toast.success(status === "approved" ? "Đã duyệt." : "Đã đánh dấu cần sửa.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Không lưu được trạng thái duyệt.");
     }
@@ -166,7 +166,7 @@ export default function GalleryPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     await remove(deleteTarget);
-    toast.success("Đã xoá đầu ra");
+    toast.success("Đã xoá");
     if (selectedMeme === deleteTarget) setSelectedMeme(null);
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -182,7 +182,7 @@ export default function GalleryPage() {
     link.href = imageUrl;
     link.download = `meme-${id}.png`;
     link.click();
-    toast.success("Đang tải xuống...");
+    toast.success("Đang tải…");
 
     const meme = memes.find((entry) => entry.id === id);
     if (project?.id && meme) {
@@ -266,7 +266,7 @@ export default function GalleryPage() {
 
   const handleBulkDownload = useCallback(async () => {
     if (selectedDownloadable.length === 0) {
-      toast.error("Chưa chọn đầu ra nào có ảnh để tải");
+      toast.error("Chưa chọn ảnh nào để tải");
       return;
     }
 
@@ -332,11 +332,11 @@ export default function GalleryPage() {
       link.click();
       URL.revokeObjectURL(url);
 
-      toast.success(`Đã tải ${selectedDownloadable.length} đầu ra thành file ZIP`);
+      toast.success(`Đã tải ${selectedDownloadable.length} ảnh (file nén)`);
       exitSelectionMode();
     } catch (err) {
       console.error("ZIP download failed:", err);
-      toast.error("Lỗi khi tạo file ZIP. Vui lòng thử lại.");
+      toast.error("Chưa nén được ảnh. Bạn thử lại nhé.");
     }
 
     setIsZipping(false);
@@ -361,12 +361,12 @@ export default function GalleryPage() {
 
         {videoOutputs.length > 0 && (
           <section className="mb-6">
-            <h2 className="mb-3 text-lg font-semibold th-text-primary">Video và phim đã tạo</h2>
+            <h2 className="mb-3 text-lg font-semibold th-text-primary">Video và phim</h2>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {videoOutputs.map((output) => (
                 <Card key={output.id} className="overflow-hidden p-0">
-                  {["completed", "approved", "rejected"].includes(output.status) ? <video controls preload="none" poster={output.poster_url ? `/api/content-outputs/${output.id}/media?artifact=poster` : undefined} className="w-full bg-black object-contain" style={{ aspectRatio: ["16:9", "9:16", "1:1", "4:5"].includes(output.format) ? output.format.replace(":", "/") : "16/9" }} src={`/api/content-outputs/${output.id}/media`} /> : <div className="flex aspect-[9/16] items-center justify-center p-5 text-center text-sm th-text-tertiary">{output.status === "failed" ? "Video chưa tạo được. Hãy tạo đầu ra mới để xem giá và thử lại." : "Video đang được xử lý. Bạn có thể rời trang và quay lại sau."}</div>}
-                  <div className="p-3"><p className="line-clamp-2 text-sm th-text-secondary">{output.caption || output.script || "Video AI"}</p><p className="mt-1 text-xs th-text-muted">{output.duration_seconds ? `${output.duration_seconds} giây` : ""} · {["completed", "approved", "rejected"].includes(output.status) ? (output.status === "approved" ? "Đã duyệt" : output.status === "rejected" ? "Cần chỉnh sửa" : "Sẵn sàng tải MP4") : VIDEO_STATUS_LABELS[output.status] || "Đang xử lý"}</p>{["completed", "approved", "rejected"].includes(output.status) && <div className="mt-2 flex flex-wrap items-center gap-3"><a className="inline-flex text-xs font-semibold th-text-accent" href={`/api/content-outputs/${output.id}/media?download=1`}>Tải MP4</a><SharePost caption={output.caption || output.script || ""} hashtags={postHashtags} />{output.status === "completed" && <><button onClick={() => reviewOutput(output.id, "approved")} className="text-xs font-semibold th-text-success">Duyệt</button><button onClick={() => reviewOutput(output.id, "rejected")} className="text-xs font-semibold th-text-warning">Cần chỉnh</button></>}</div>}</div>
+                  {["completed", "approved", "rejected"].includes(output.status) ? <video controls preload="none" poster={output.poster_url ? `/api/content-outputs/${output.id}/media?artifact=poster` : undefined} className="w-full bg-black object-contain" style={{ aspectRatio: ["16:9", "9:16", "1:1", "4:5"].includes(output.format) ? output.format.replace(":", "/") : "16/9" }} src={`/api/content-outputs/${output.id}/media`} /> : <div className="flex aspect-[9/16] items-center justify-center p-5 text-center text-sm th-text-tertiary">{output.status === "failed" ? "Video chưa làm được. Làm lại để xem giá mới." : "Đang làm video, lát quay lại nhé."}</div>}
+                  <div className="p-3"><p className="line-clamp-2 text-sm th-text-secondary">{output.caption || output.script || "Video"}</p><p className="mt-1 text-xs th-text-muted">{output.duration_seconds ? `${output.duration_seconds} giây` : ""} · {["completed", "approved", "rejected"].includes(output.status) ? (output.status === "approved" ? "Đã duyệt" : output.status === "rejected" ? "Cần sửa" : "Xong") : VIDEO_STATUS_LABELS[output.status] || "Đang làm"}</p>{["completed", "approved", "rejected"].includes(output.status) && <div className="mt-2 flex flex-wrap items-center gap-3"><a className="inline-flex text-xs font-semibold th-text-accent" href={`/api/content-outputs/${output.id}/media?download=1`}>Tải video</a><SharePost caption={output.caption || output.script || ""} hashtags={postHashtags} />{output.status === "completed" && <><button onClick={() => reviewOutput(output.id, "approved")} className="text-xs font-semibold th-text-success">Duyệt</button><button onClick={() => reviewOutput(output.id, "rejected")} className="text-xs font-semibold th-text-warning">Cần sửa</button></>}</div>}</div>
                 </Card>
               ))}
             </div>
@@ -378,12 +378,12 @@ export default function GalleryPage() {
           <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard label="Tổng số ảnh" value={String(memes.length)} hint={`+${memesThisMonth} trong tháng này`} />
             <StatCard
-              label="Ghép chữ tại chỗ"
+              label="Ghép chữ"
               value={String(composedCount)}
-              hint={`${Math.round((composedCount / memes.length) * 100)}% không tốn điểm`}
+              hint={`${Math.round((composedCount / memes.length) * 100)}% miễn phí`}
             />
             <StatCard
-              label="Có watermark"
+              label="Có logo"
               value={`${Math.round((watermarkedCount / memes.length) * 100)}%`}
               hint={`${watermarkedCount} / ${memes.length} ảnh`}
             />
@@ -432,7 +432,7 @@ export default function GalleryPage() {
               <option value="draft">Nháp</option>
             </select>
             <span className="text-xs th-text-tertiary">
-              {visibleMemes.length} / {memes.length} đầu ra
+              {visibleMemes.length} / {memes.length} ảnh
             </span>
           </div>
         )}
@@ -441,10 +441,10 @@ export default function GalleryPage() {
         <div className="grid gap-5 lg:grid-cols-[190px_minmax(0,1fr)]">
           <aside className="space-y-1">
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-xs font-medium th-text-tertiary">Bộ sưu tập</span>
+              <span className="text-xs font-medium th-text-tertiary">Album</span>
               <button
                 type="button"
-                aria-label="Bộ sưu tập mới"
+                aria-label="Album mới"
                 onClick={() => setNewCollectionOpen(true)}
                 className="flex h-11 w-11 items-center justify-center rounded-lg th-text-tertiary th-bg-hover hover:th-text-primary lg:h-8 lg:w-8"
               >
@@ -452,7 +452,7 @@ export default function GalleryPage() {
               </button>
             </div>
             <CollectionRow
-              label="Tất cả đầu ra"
+              label="Tất cả"
               count={memes.length}
               active={activeCollection === null}
               onClick={() => setActiveCollection(null)}
@@ -500,12 +500,12 @@ export default function GalleryPage() {
                 {isZipping ? (
                   <>
                     <Package size={14} />
-                    Đang nén... ({zipProgress.done}/{zipProgress.total})
+                    Đang nén… ({zipProgress.done}/{zipProgress.total})
                   </>
                 ) : (
                   <>
                     <Download size={14} />
-                    Tải xuống ({selectedDownloadable.length})
+                    Tải ảnh ({selectedDownloadable.length})
                   </>
                 )}
               </Button>
@@ -541,7 +541,7 @@ export default function GalleryPage() {
                 <ImageIcon size={32} className="th-text-muted" />
               </div>
               <h3 className="text-lg font-medium th-text-secondary">Thư viện còn trống</h3>
-              <p className="th-text-muted mt-1">Ảnh và phim bạn tạo sẽ xuất hiện ở đây</p>
+              <p className="th-text-muted mt-1">Meme, video, phim bạn làm sẽ nằm ở đây</p>
             </div>
           ) : (
             // Kênh chỉ có phim vẫn là kênh có nội dung; đừng nói "chưa có gì".
@@ -553,7 +553,7 @@ export default function GalleryPage() {
         ) : visibleMemes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <h3 className="text-lg font-medium th-text-secondary">Không có ảnh nào khớp bộ lọc</h3>
-            <p className="th-text-muted mt-1">Hãy bỏ bớt bộ lọc hoặc chọn bộ sưu tập khác.</p>
+            <p className="th-text-muted mt-1">Bỏ bớt bộ lọc hoặc chọn album khác nhé.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -631,24 +631,24 @@ export default function GalleryPage() {
                         style={{ background: "var(--bg-overlay)" }}
                       >
                         <button
-                          aria-label="Tạo biến thể từ meme này"
+                          aria-label="Làm bản khác từ meme này"
                           onClick={(e) => {
                             e.stopPropagation();
                             goRegenerate(meme.id);
                           }}
                           className="p-2 th-bg-accent-medium rounded-xl th-bg-accent-soft-hover transition-colors"
-                          title="Tạo biến thể"
+                          title="Làm bản khác"
                         >
                           <Sparkles size={18} className="text-white" />
                         </button>
                         <button
-                          aria-label="Sửa chữ trên meme này"
+                          aria-label="Ghép chữ lên meme này"
                           onClick={(e) => {
                             e.stopPropagation();
                             goEditText(meme.id);
                           }}
                           className="p-2 th-bg-accent-medium rounded-xl th-bg-accent-soft-hover transition-colors"
-                          title="Sửa chữ (0 điểm)"
+                          title="Ghép chữ (miễn phí)"
                         >
                           <Type size={18} className="text-white" />
                         </button>
@@ -664,7 +664,7 @@ export default function GalleryPage() {
                           <Wand2 size={18} className="text-white" />
                         </button>
                         <button
-                          aria-label="Tải xuống meme"
+                          aria-label="Tải ảnh"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDownload(meme.image_url, meme.id);
@@ -700,7 +700,7 @@ export default function GalleryPage() {
                       </span>
                       {meme.source_meme_id && (
                         <span className="px-1.5 py-0.5 text-xs rounded th-bg-accent-light th-text-accent">
-                          Biến thể
+                          Bản khác
                         </span>
                       )}
                     </div>
@@ -725,7 +725,7 @@ export default function GalleryPage() {
 
 
         {/* Detail Modal */}
-        <Modal isOpen={!!selected} onClose={() => setSelectedMeme(null)} title="Chi tiết đầu ra" size="xl">
+        <Modal isOpen={!!selected} onClose={() => setSelectedMeme(null)} title="Chi tiết meme" size="xl">
           {selected &&
             (() => {
               const content = selected.generated_content as MemeContent;
@@ -749,7 +749,7 @@ export default function GalleryPage() {
                     </div>
                     {content?.headline && (
                       <div>
-                        <p className="text-xs th-text-muted uppercase tracking-wider">Headline</p>
+                        <p className="text-xs th-text-muted uppercase tracking-wider">Chữ trên ảnh</p>
                         <p className="text-lg font-bold th-text-primary mt-1">{content.headline}</p>
                       </div>
                     )}
@@ -772,15 +772,15 @@ export default function GalleryPage() {
                       {new Date(selected.created_at).toLocaleString("vi-VN")}
                       <span className="px-1.5 py-0.5 th-bg-tertiary rounded">{selected.format}</span>
                       {selected.source_meme_id && (
-                        <span className="px-1.5 py-0.5 rounded th-bg-accent-light th-text-accent">Biến thể từ đầu ra cũ</span>
+                        <span className="px-1.5 py-0.5 rounded th-bg-accent-light th-text-accent">Làm từ meme cũ</span>
                       )}
                     </div>
                     <div className="flex gap-2 pt-2">
                       <Button variant="outline" size="sm" onClick={() => goRegenerate(selected.id)}>
-                        <Sparkles size={14} /> Tạo biến thể
+                        <Sparkles size={14} /> Làm bản khác
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => goEditText(selected.id)}>
-                        <Type size={14} /> Sửa chữ
+                        <Type size={14} /> Ghép chữ
                       </Button>
                       <Button
                         variant="outline"
@@ -792,7 +792,7 @@ export default function GalleryPage() {
                       </Button>
                       {collections.length > 0 && (
                         <select
-                          aria-label="Thêm vào bộ sưu tập"
+                          aria-label="Thêm vào album"
                           defaultValue=""
                           onChange={async (event) => {
                             const collectionId = event.target.value;
@@ -802,10 +802,10 @@ export default function GalleryPage() {
                             try {
                               if (already) {
                                 await removeMeme(collectionId, selected.id);
-                                toast.success("Đã bỏ khỏi bộ sưu tập");
+                                toast.success("Đã bỏ khỏi album");
                               } else {
                                 await addMeme(collectionId, selected.id);
-                                toast.success("Đã thêm vào bộ sưu tập");
+                                toast.success("Đã thêm vào album");
                               }
                             } catch (error) {
                               toast.error(error instanceof Error ? error.message : "Không cập nhật được");
@@ -813,7 +813,7 @@ export default function GalleryPage() {
                           }}
                           className="rounded-xl border th-border-secondary th-bg-tertiary px-3 text-sm th-text-primary"
                         >
-                          <option value="">Bộ sưu tập…</option>
+                          <option value="">Album…</option>
                           {collections.map((collection) => (
                             <option key={collection.id} value={collection.id}>
                               {(membership[collection.id] ?? []).includes(selected.id) ? "✓ " : ""}
@@ -823,10 +823,10 @@ export default function GalleryPage() {
                         </select>
                       )}
                       <Button variant="outline" size="sm" onClick={() => goReuseIdea(selected.id)}>
-                        <Wand2 size={14} /> Dùng lại idea
+                        <Wand2 size={14} /> Dùng lại ý tưởng
                       </Button>
                       <Button size="sm" onClick={() => handleDownload(selected.image_url, selected.id)}>
-                        <Download size={14} /> Tải xuống
+                        <Download size={14} /> Tải ảnh
                       </Button>
                       <Button variant="danger" size="sm" onClick={() => setDeleteTarget(selected.id)}>
                         <Trash2 size={14} /> Xoá
@@ -836,7 +836,7 @@ export default function GalleryPage() {
                     {exportHistory.length > 0 && (
                       <div className="pt-2">
                         <p className="text-xs th-text-muted uppercase tracking-wider mb-1.5">
-                          Lịch sử tải xuống
+                          Lịch sử tải
                         </p>
                         <ul className="space-y-1">
                           {exportHistory.slice(0, 6).map((entry) => (
@@ -878,14 +878,14 @@ export default function GalleryPage() {
             setNewCollectionOpen(false);
             try {
               await createCollection(name);
-              toast.success("Đã tạo bộ sưu tập");
+              toast.success("Đã tạo album");
             } catch (error) {
-              toast.error(error instanceof Error ? error.message : "Không tạo được bộ sưu tập");
+              toast.error(error instanceof Error ? error.message : "Chưa tạo được album");
             }
           }}
-          title="Bộ sưu tập mới"
-          label="Tên bộ sưu tập"
-          placeholder="VD: Bài đăng tháng 10"
+          title="Album mới"
+          label="Tên album"
+          placeholder="Ví dụ: Bài đăng tháng 10"
           confirmText="Tạo"
         />
 
@@ -893,9 +893,9 @@ export default function GalleryPage() {
           isOpen={!!deleteTarget}
           onClose={() => setDeleteTarget(null)}
           onConfirm={handleDelete}
-          title="Xoá đầu ra?"
-          message="Đầu ra này sẽ bị xoá vĩnh viễn. Hành động này không thể hoàn tác."
-          confirmText="Xoá đầu ra"
+          title="Xoá meme này?"
+          message="Xoá rồi không lấy lại được."
+          confirmText="Xoá"
           variant="danger"
         />
       </main>

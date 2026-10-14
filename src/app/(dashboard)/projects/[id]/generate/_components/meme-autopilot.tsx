@@ -22,9 +22,9 @@ type MemeRunView = {
 
 const PHASE_LABEL: Record<string, string> = {
   queued: "Đang chờ tới lượt",
-  copy: "AI đang nghĩ ý tưởng và viết chữ",
-  charge: "AI đang chuẩn bị vẽ",
-  image: "AI đang vẽ ảnh",
+  copy: "Đang nghĩ ý tưởng và viết chữ",
+  charge: "Đang chuẩn bị vẽ",
+  image: "Đang vẽ ảnh",
 };
 const FORMATS = [
   { value: "", label: "Theo kênh" },
@@ -42,7 +42,7 @@ async function call(url: string, body?: unknown, method = "POST") {
     cache: "no-store",
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || "Không kết nối được. Hãy thử lại.");
+  if (!response.ok) throw new Error(data.error || "Không kết nối được. Bạn thử lại nhé.");
   return data;
 }
 
@@ -146,10 +146,10 @@ export function MemeAutopilot({ projectId, workspaceVersion }: { projectId: stri
     <section className="mb-8 flex flex-col gap-5" aria-labelledby="meme-autopilot-title">
       <div className="flex flex-col gap-3 rounded-xl border th-border th-bg-card p-4 sm:p-5">
         <h2 id="meme-autopilot-title" className="flex items-center gap-2 text-lg font-semibold th-text-primary">
-          <Sparkles className="h-5 w-5 th-text-accent" aria-hidden /> AI làm meme
+          <Sparkles className="h-5 w-5 th-text-accent" aria-hidden /> Làm meme
         </h2>
         <p className="text-sm th-text-secondary">
-          Viết ý tưởng nếu bạn có, hoặc để trống. AI tự nghĩ chuyện hợp với kênh, viết chữ, vẽ ảnh với nhân vật của kênh và lưu vào thư viện.
+          Có ý tưởng thì viết vào, không thì để trống. Meme xong tự lưu vào thư viện.
         </p>
         <textarea
           value={idea}
@@ -162,7 +162,7 @@ export function MemeAutopilot({ projectId, workspaceVersion }: { projectId: stri
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Button size="lg" onClick={start} loading={busy} disabled={Boolean(written) && written.length < 6}>
             <Wand2 className="h-5 w-5" aria-hidden />
-            {written ? "Làm meme" : "AI tự nghĩ và làm meme"}
+            Làm meme
           </Button>
           <span className="text-xs th-text-secondary">
             {count > 1 ? `${count} meme · ` : ""}khoảng 1 phút mỗi meme · có thể rời trang.
@@ -174,7 +174,7 @@ export function MemeAutopilot({ projectId, workspaceVersion }: { projectId: stri
             aria-expanded={advanced}
             className="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm th-text-secondary"
           >
-            Tự chọn số lượng, khung ảnh
+            Tuỳ chọn thêm
             <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${advanced ? "rotate-180" : ""}`} aria-hidden />
           </button>
           {advanced && (
@@ -206,7 +206,7 @@ export function MemeAutopilot({ projectId, workspaceVersion }: { projectId: stri
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold th-text-primary">Tự làm meme mỗi ngày</h3>
-              <p className="mt-1 text-xs th-text-secondary">AI tự nghĩ ý mới mỗi lần, không lặp các meme gần đây. Meme xong nằm trong thư viện để bạn duyệt và đăng.</p>
+              <p className="mt-1 text-xs th-text-secondary">Mỗi ngày nghĩ ý mới, không lặp meme gần đây. Meme xong nằm trong thư viện.</p>
             </div>
             <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm th-text-primary">
               <input
@@ -263,7 +263,7 @@ export function MemeAutopilot({ projectId, workspaceVersion }: { projectId: stri
                       <img src={meme.image_url} alt={content.headline || "Meme"} className="h-full w-full object-cover" />
                     ) : (
                       <span className="px-3 text-center text-xs th-text-secondary">
-                        {run.status === "failed" ? run.error || "Chưa làm được meme này." : PHASE_LABEL[run.phase] || "AI đang làm"}
+                        {run.status === "failed" ? run.error || "Chưa làm được meme này." : PHASE_LABEL[run.phase] || "Đang làm"}
                       </span>
                     )}
                   </div>
@@ -274,14 +274,14 @@ export function MemeAutopilot({ projectId, workspaceVersion }: { projectId: stri
                         {content.caption && <SharePost caption={content.caption} hashtags={content.hashtags || []} />}
                         {meme.image_url && (
                           <a href={meme.image_url} download className="inline-flex items-center gap-1 text-xs th-text-secondary">
-                            <Download className="h-3.5 w-3.5" aria-hidden /> Tải
+                            <Download className="h-3.5 w-3.5" aria-hidden /> Tải ảnh
                           </a>
                         )}
                       </div>
                     </div>
                   )}
                   {run.source === "scheduled" && (
-                    <span className="px-2.5 pb-2 text-[11px] th-text-muted">Tự làm theo lịch</span>
+                    <span className="px-2.5 pb-2 text-[11px] th-text-muted">Theo lịch</span>
                   )}
                 </li>
               );

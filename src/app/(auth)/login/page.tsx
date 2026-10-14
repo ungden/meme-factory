@@ -44,7 +44,7 @@ export default function LoginPage() {
     if (!errorCode) return;
 
     if (errorCode === "auth_failed") {
-      setError("Đăng nhập thất bại. Vui lòng thử lại.");
+      setError("Chưa đăng nhập được. Bạn thử lại nhé.");
     } else if (errorCode === "oauth_failed") {
       setError("Đăng nhập Google thất bại hoặc đã bị huỷ.");
     }
@@ -54,7 +54,7 @@ export default function LoginPage() {
     e.preventDefault();
 
     if (!configured) {
-      setError("Supabase chưa được cấu hình. Vui lòng thiết lập NEXT_PUBLIC_SUPABASE_URL và NEXT_PUBLIC_SUPABASE_ANON_KEY trong .env.local");
+      setError("Chưa đăng nhập được lúc này. Bạn thử lại sau ít phút.");
       return;
     }
 
@@ -85,7 +85,7 @@ export default function LoginPage() {
           },
         });
         if (error) throw error;
-        setMessage("Kiểm tra email để xác nhận tài khoản!");
+        setMessage("Mở email và bấm link xác nhận để vào tài khoản nhé.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -102,7 +102,7 @@ export default function LoginPage() {
       if (msg.includes("Invalid login credentials")) {
         setError("Email hoặc mật khẩu không đúng");
       } else if (msg.includes("Email not confirmed")) {
-        setError("Vui lòng xác nhận email trước khi đăng nhập");
+        setError("Bạn cần bấm link xác nhận trong email trước đã.");
         setNeedsConfirmation(true);
       } else if (msg.includes("already registered")) {
         setError("Email này đã được đăng ký");
@@ -137,7 +137,7 @@ export default function LoginPage() {
 
   const handleGoogleLogin = () => {
     if (!configured) {
-      setError("Supabase chưa được cấu hình");
+      setError("Chưa đăng nhập được lúc này. Bạn thử lại sau ít phút.");
       return;
     }
 
@@ -162,7 +162,7 @@ export default function LoginPage() {
             {mode === "reset" ? "Đặt lại mật khẩu" : isSignUp ? "Tạo tài khoản AIDA" : "Chào mừng trở lại"}
           </h1>
           <p className="th-text-secondary mt-2 leading-6">
-            Nội dung AI đều đặn cho kênh của bạn: meme, video và phim ngắn với đúng một nhân vật.
+            Meme, video, phim ngắn cho kênh của bạn — đúng nhân vật, ngày nào cũng có.
           </p>
         </div>
 
@@ -174,10 +174,10 @@ export default function LoginPage() {
               className="w-full p-4 th-bg-accent rounded-2xl text-white font-semibold text-base th-bg-accent-hover transition-all shadow-lg th-shadow-accent flex items-center justify-center gap-3"
             >
               <Zap size={20} />
-              Vào chế độ Developer (Bỏ qua đăng nhập)
+              Xem thử bằng dữ liệu mẫu (bỏ qua đăng nhập)
             </button>
             <p className="text-center text-xs th-text-muted mt-2">
-              Sử dụng dữ liệu mẫu — test toàn bộ giao diện không cần Supabase
+              Dùng dữ liệu mẫu để xem thử mọi màn hình
             </p>
           </div>
         )}
@@ -322,7 +322,7 @@ export default function LoginPage() {
               <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
               <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
-            {googleLoading ? "Đang chuyển tới Google..." : "Tiếp tục với Google"}
+            {googleLoading ? "Đang chuyển tới Google…" : "Tiếp tục với Google"}
           </Button>
 
           <p className="text-center text-sm th-text-tertiary mt-5">

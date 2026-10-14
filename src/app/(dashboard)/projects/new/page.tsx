@@ -45,7 +45,7 @@ export default function NewChannelPage() {
         body: JSON.stringify({ description }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload.channel) throw new Error(payload.error || "AI chưa điền được. Hãy thử lại hoặc tự điền.");
+      if (!response.ok || !payload.channel) throw new Error(payload.error || "Chưa điền sẵn được. Bạn thử lại hoặc tự điền nhé.");
       setDraft(payload.channel);
       setFilled(true);
     } catch (cause) {
@@ -67,7 +67,7 @@ export default function NewChannelPage() {
         body: JSON.stringify({ ...draft, positioning: draft.positioning || description }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload.project) throw new Error(payload.error || "Chưa tạo được kênh. Hãy thử lại.");
+      if (!response.ok || !payload.project) throw new Error(payload.error || "Chưa tạo được kênh. Bạn thử lại nhé.");
       invalidateClientCache("/api/projects/summaries");
       router.push(`/projects/${payload.project.slug}/characters?look=${payload.look}&new=1`);
     } catch (cause) {
@@ -86,7 +86,7 @@ export default function NewChannelPage() {
           <header>
             <h1 className="text-2xl font-bold th-text-primary">Kênh mới</h1>
             <p className="mt-1 text-sm th-text-secondary">
-              Tả kênh của bạn bằng vài câu. AI điền hồ sơ kênh; bạn xem lại rồi tạo. Bước sau là dựng nhân vật.
+              Tả kênh trong vài câu, AIDA điền sẵn phần còn lại. Bạn xem lại rồi bấm Tạo kênh.
             </p>
           </header>
 
@@ -102,7 +102,7 @@ export default function NewChannelPage() {
               className="w-full rounded-xl border th-border th-bg-input px-3 py-2.5 text-sm th-text-primary th-ring-accent focus:outline-none focus:ring-2"
             />
             <Button variant={filled ? "outline" : "primary"} onClick={fill} loading={thinking} disabled={description.trim().length < 6} className="w-fit">
-              <Sparkles size={16} aria-hidden /> {filled ? "AI điền lại" : "AI điền hồ sơ kênh"}
+              <Sparkles size={16} aria-hidden /> {filled ? "Điền lại" : "Điền giúp tôi"}
             </Button>
           </div>
 
@@ -110,7 +110,7 @@ export default function NewChannelPage() {
             <Field id="channel-name" label="Tên kênh" value={draft.name} onChange={set("name")} max={60} placeholder="Ví dụ: Nhà Đậu Đỏ" />
             <Field id="channel-audience" label="Người xem" value={draft.audience} onChange={set("audience")} max={240} placeholder="Ví dụ: bố mẹ trẻ 25–35 tuổi" />
             <Field id="channel-tone" label="Giọng kể" value={draft.tone} onChange={set("tone")} max={300} placeholder="Ví dụ: hài đời thường, ấm áp" />
-            <Field id="channel-positioning" label="Kênh tập trung kể chuyện gì" value={draft.positioning} onChange={set("positioning")} max={1000} multiline placeholder="Ví dụ: những tình huống nhỏ trong nhà, các bé nói thẳng điều người lớn ngại nói." />
+            <Field id="channel-positioning" label="Kênh hay kể chuyện gì" value={draft.positioning} onChange={set("positioning")} max={1000} multiline placeholder="Ví dụ: những tình huống nhỏ trong nhà, các bé nói thẳng điều người lớn ngại nói." />
             <fieldset>
               <legend className="mb-2 text-sm font-medium th-text-primary">Nhân vật của kênh trông thế nào?</legend>
               <div className="flex flex-wrap gap-2" role="radiogroup">

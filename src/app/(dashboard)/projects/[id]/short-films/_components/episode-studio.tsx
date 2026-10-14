@@ -295,14 +295,14 @@ export default function EpisodeStudio() {
       const job = await api(`${base}/creative-assists`, { kind: "idea_suggestions", workspaceVersion: workspace });
       for (let n = 0; n < 90; n++) {
         const r = await api(`${base}/creative-assists/${job.jobId}`);
-        if (r.job.status === "failed") throw new Error("Chưa lấy được gợi ý. Hãy thử lại.");
+        if (r.job.status === "failed") throw new Error("Chưa lấy được gợi ý. Bạn thử lại nhé.");
         if (r.job.status === "completed") {
           setSuggestions(r.job.result.ideas || []);
           return;
         }
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
-      throw new Error("Gợi ý đang lâu hơn bình thường. Hãy thử lại sau.");
+      throw new Error("Gợi ý đang lâu hơn bình thường. Bạn thử lại sau nhé.");
     } catch (cause) {
       setError((cause as Error).message);
     } finally {
@@ -322,7 +322,7 @@ export default function EpisodeStudio() {
     filmFormat: FilmFormat | null = format,
     idempotencyKey: string = crypto.randomUUID(),
   ) {
-    if (!channelProfile) throw new Error("Hãy hoàn tất hồ sơ kênh trước khi viết kịch bản.");
+    if (!channelProfile) throw new Error("Bạn hoàn tất hồ sơ kênh trước khi viết kịch bản nhé.");
     const current = runs.find((run) => runIsActive(run));
     const response = await api(`${base}/production-runs`, {
       planId: null,
@@ -474,8 +474,8 @@ export default function EpisodeStudio() {
     // cố định của app shell.
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-6 pt-16 sm:px-6 lg:ml-0 lg:pt-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold th-text-primary">Tạo phim</h1>
-        <p className="text-sm th-text-secondary">Từ ý tưởng tới phim hoàn chỉnh. AI làm từng bước và chỉ hỏi bạn khi cần.</p>
+        <h1 className="text-2xl font-semibold th-text-primary">Phim ngắn</h1>
+        <p className="text-sm th-text-secondary">Gõ ý tưởng, nhận phim làm xong. Chỉ hỏi bạn khi cần.</p>
       </header>
 
       {castGaps.length > 0 && (
@@ -492,7 +492,7 @@ export default function EpisodeStudio() {
               }}
               className="mt-1 inline-block font-semibold underline"
             >
-              Để AI bổ sung bộ ảnh chuẩn
+              Vẽ thêm ảnh còn thiếu
             </button>
           ) : (
             <Link href={`/projects/${ref}/mascots`} className="mt-1 inline-block font-semibold underline">
@@ -524,23 +524,23 @@ export default function EpisodeStudio() {
           ) : !episode && !channelProfile ? (
             <section className="flex max-w-2xl flex-col gap-5" aria-labelledby="channel-setup-title">
               <header>
-                <h2 id="channel-setup-title" className="text-xl font-semibold th-text-primary">Thiết lập kênh trước khi viết</h2>
-                <p className="mt-1 text-sm th-text-secondary">Hồ sơ này là nguồn cho kịch bản. Bạn có thể thay đổi sau; mỗi tập sẽ giữ đúng phiên bản đã dùng.</p>
+                <h2 id="channel-setup-title" className="text-xl font-semibold th-text-primary">Hoàn tất hồ sơ kênh</h2>
+                <p className="mt-1 text-sm th-text-secondary">Kịch bản sẽ bám theo hồ sơ này. Sửa lúc nào cũng được, tập đã làm không bị ảnh hưởng.</p>
               </header>
               <label className="flex flex-col gap-1 text-sm th-text-primary">
                 Người xem
                 <input value={profileAudience} onChange={(event) => setProfileAudience(event.target.value)} maxLength={240} className="rounded-lg border th-border th-bg-input px-3 py-2" />
               </label>
               <label className="flex flex-col gap-1 text-sm th-text-primary">
-                Kênh tập trung vào điều gì?
+                Kênh hay kể chuyện gì?
                 <textarea value={profilePositioning} onChange={(event) => setProfilePositioning(event.target.value)} maxLength={1000} rows={3} placeholder="Ví dụ: những tình huống nhỏ giữa bố và con, có hành động rõ ràng và kết tự nhiên." className="rounded-lg border th-border th-bg-input px-3 py-2" />
               </label>
               <label className="flex flex-col gap-1 text-sm th-text-primary">
-                Sắc thái kể chuyện
+                Giọng kể
                 <textarea value={profileTone} onChange={(event) => setProfileTone(event.target.value)} maxLength={500} rows={2} className="rounded-lg border th-border th-bg-input px-3 py-2" />
               </label>
               <fieldset className="flex flex-col gap-2">
-                <legend className="text-sm font-medium th-text-primary">Thể loại mở bán</legend>
+                <legend className="text-sm font-medium th-text-primary">Thể loại phim</legend>
                 <div className="flex gap-4 text-sm th-text-secondary">
                   {(["comedy", "emotion"] as const).map((genre) => (
                     <label key={genre} className="flex items-center gap-2">
@@ -551,14 +551,14 @@ export default function EpisodeStudio() {
                 </div>
               </fieldset>
               <label className="flex flex-col gap-1 text-sm th-text-primary">
-                Cách nói mặc định
+                Giọng thoại
                 <select value={profileSpeechRegister} onChange={(event) => setProfileSpeechRegister(event.target.value as "child" | "natural")} className="w-fit rounded-lg border th-border th-bg-input px-3 py-2">
-                  <option value="natural">Theo nhân vật và quan hệ</option>
+                  <option value="natural">Theo từng nhân vật</option>
                   <option value="child">Giọng trẻ nhỏ</option>
                 </select>
               </label>
-              <p className="text-xs th-text-secondary">Thêm nhân vật, quan hệ, ảnh và giọng ở trang Nhân vật trước khi dựng. Kịch bản sẽ không bị ép giọng trẻ nếu kênh không chọn điều đó.</p>
-              <button type="button" onClick={() => act(() => saveChannelProfile())} disabled={busy || !profilePositioning.trim() || !profileGenres.length} className="w-fit rounded-lg th-bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Lưu và bắt đầu viết</button>
+              <p className="text-xs th-text-secondary">Nhân vật, ảnh và giọng nói chỉnh ở trang Nhân vật.</p>
+              <button type="button" onClick={() => act(() => saveChannelProfile())} disabled={busy || !profilePositioning.trim() || !profileGenres.length} className="w-fit rounded-lg th-bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Lưu hồ sơ</button>
             </section>
           ) : !episode && setup && (!setup.ready || showSetup) ? (
             <FilmSetupPanel
@@ -745,8 +745,8 @@ export default function EpisodeStudio() {
 
               {!run && !film && plan && (
                 <p className="text-sm th-text-secondary">
-                  Tập này được làm trong trình chỉnh chi tiết.{" "}
-                  <a href={advancedHref} className="th-text-accent underline-offset-2 hover:underline">Mở để làm tiếp</a>
+                  Tập này đang chỉnh tay.{" "}
+                  <a href={advancedHref} className="th-text-accent underline-offset-2 hover:underline">Mở tiếp</a>
                 </p>
               )}
             </>
@@ -763,7 +763,7 @@ export default function EpisodeStudio() {
             void act(async () => void (await api(`${base}/production-runs/${runId}`, { action: "cancel" }, "PATCH")));
         }}
         title="Huỷ tập này?"
-        message="Phần đã làm vẫn được giữ trong trình chỉnh chi tiết."
+        message="Phần đã làm vẫn được giữ lại."
         confirmText="Huỷ tập"
         variant="danger"
       />

@@ -9,7 +9,7 @@
 
 /** Nhãn công đoạn dùng chung cho câu tiếng Việt có nội suy. */
 export const KIND_LABELS: Record<string, string> = {
-  image: "ảnh tham chiếu",
+  image: "ảnh của cảnh",
   voice_design: "thiết kế giọng",
   tts: "giọng nói",
   video: "chuyển động",
@@ -28,7 +28,7 @@ export const STAGE_LABELS: Record<string, string> = {
   selection: "chọn phương án",
   draft: "viết bản đầy đủ",
   review: "biên tập",
-  shots: "dựng storyboard",
+  shots: "lập phân cảnh",
   prepare: "chuẩn bị hình và tiếng",
   video: "tạo chuyển động",
   finish: "lồng tiếng và hoàn thiện cảnh",
@@ -61,6 +61,8 @@ export const INTERNAL_ONLY_CODES = new Set([
   "SUPABASE_NOT_CONFIGURED",
 ]);
 
+const SYSTEM_MAINTENANCE = "Hệ thống đang bảo trì. Bạn thử lại sau ít phút nhé.";
+
 /**
  * Câu tiếng Việt cho từng mã: nói chuyện gì đã xảy ra và người dùng nên làm gì
  * tiếp theo. Không lộ chi tiết nội bộ.
@@ -68,20 +70,20 @@ export const INTERNAL_ONLY_CODES = new Set([
 export const ERROR_MESSAGES: Record<string, string> = {
   // ----- Điểm, ngân sách và hạn mức -----
   INSUFFICIENT_POINTS:
-    "Ví dự án không đủ điểm cho công đoạn này. Hãy nạp thêm điểm rồi tiếp tục.",
+    "Kênh hết điểm. Nạp thêm rồi làm tiếp nhé.",
   PRODUCTION_BUDGET_EXCEEDED:
-    "Lượt làm phim này đã chạm hạn mức điểm bạn đặt. Nâng hạn mức rồi tiếp tục, hoặc dừng lượt.",
+    "Tập này đã chạm mức chi bạn đặt. Nâng mức để làm tiếp, hoặc dừng lại.",
   BUDGET_BELOW_COMMITTED:
-    "Hạn mức mới thấp hơn số điểm đã cam kết cho hôm nay. Hãy đặt hạn mức cao hơn phần đã dùng.",
+    "Mức chi mới thấp hơn số điểm đã dành cho hôm nay. Đặt mức cao hơn phần đó nhé.",
   INVALID_BUDGET:
-    "Hạn mức không hợp lệ. Cần nhập cả hạn mức mỗi phim và hạn mức mỗi ngày, đều là số nguyên dương.",
+    "Mức chi chưa đúng. Cần nhập cả mức chi mỗi phim và mỗi ngày, đều là số nguyên dương.",
   PRODUCTION_RATE_LIMIT_DAY:
-    "Dự án đã đạt số lượt làm phim tối đa trong ngày. Hãy quay lại vào ngày mai.",
+    "Hôm nay kênh đã làm đủ số phim tối đa. Mai quay lại nhé.",
   PRODUCTION_RATE_LIMIT_MINUTE:
-    "Bạn vừa tạo một lượt cách đây không lâu. Chờ một phút rồi thử lại.",
+    "Bạn vừa bắt đầu một tập cách đây không lâu. Chờ một phút rồi thử lại.",
   RATE_LIMIT: "Bạn thao tác hơi nhanh. Chờ một chút rồi thử lại.",
   PRICE_BELOW_COST:
-    "Bảng giá đang thấp hơn chi phí thực của nhà cung cấp. Quản trị viên cần cập nhật giá trước khi chạy tiếp.",
+    "Chưa làm được lúc này, đội AIDA đang cập nhật giá. Bạn thử lại sau nhé.",
   PRICE_CHANGED:
     "Bảng giá vừa thay đổi. Hãy xem lại giá mới rồi xác nhận lại.",
   QUOTE_EXPIRED:
@@ -98,14 +100,14 @@ export const ERROR_MESSAGES: Record<string, string> = {
 
   // ----- Quyền và phạm vi làm việc -----
   AUTH_REQUIRED: "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.",
-  OWNER_REQUIRED: "Chỉ chủ dự án mới thực hiện được thao tác này.",
-  WORKSPACE_FORBIDDEN: "Bạn không có quyền trong dự án này.",
+  OWNER_REQUIRED: "Chỉ chủ kênh mới làm được việc này.",
+  WORKSPACE_FORBIDDEN: "Bạn không có quyền trong kênh này.",
   WORKSPACE_OR_ACCESS_CHANGED:
-    "Dự án đã được đặt lại hoặc quyền của bạn vừa thay đổi. Hãy tải lại trang.",
+    "Kênh vừa được đặt lại hoặc quyền của bạn vừa thay đổi. Tải lại trang nhé.",
   RUN_CONTROL_FORBIDDEN:
-    "Bạn không có quyền điều khiển lượt sản xuất này.",
+    "Bạn không có quyền điều khiển tập này.",
   MEDIA_PROJECT_MISMATCH:
-    "Tệp này không thuộc dự án hiện tại nên không mở được.",
+    "Tệp này không thuộc kênh hiện tại nên không mở được.",
 
   // ----- Phiên bản và xung đột -----
   VERSION_CONFLICT:
@@ -113,7 +115,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   REVIEW_VERSION_CONFLICT:
     "Bản này vừa được duyệt ở nơi khác. Hãy tải lại để xem kết quả mới nhất.",
   RUN_VERSION_CONFLICT:
-    "Lượt sản xuất vừa đổi trạng thái. Hãy tải lại rồi thử lại.",
+    "Tập này vừa đổi trạng thái. Tải lại rồi thử lại nhé.",
   PLAN_VERSION_CHANGED:
     "Kịch bản đã có phiên bản mới. Hãy mở lại tập phim để làm việc trên bản mới nhất.",
   PLAN_OR_SCENE_VERSION_CONFLICT:
@@ -123,18 +125,18 @@ export const ERROR_MESSAGES: Record<string, string> = {
   DUPLICATE_SCENE: "Cảnh này đã tồn tại trong kịch bản.",
 
   // ----- Vòng đời lượt sản xuất -----
-  RUN_NOT_FOUND: "Không tìm thấy lượt sản xuất này.",
-  RUN_NOT_ACTIVE: "Lượt sản xuất này đã kết thúc.",
+  RUN_NOT_FOUND: "Không tìm thấy tập này.",
+  RUN_NOT_ACTIVE: "Tập này đã kết thúc.",
   PRODUCTION_RUN_NOT_ACTIVE:
-    "Lượt sản xuất này đã kết thúc nên không tiếp tục được.",
-  RUN_ACTION_INVALID: "Thao tác không hợp lệ với trạng thái hiện tại của lượt.",
+    "Tập này đã kết thúc nên không làm tiếp được.",
+  RUN_ACTION_INVALID: "Không làm được việc này với trạng thái hiện tại của tập.",
   RUN_QUOTE_MISMATCH:
-    "Báo giá không thuộc lượt sản xuất này. Hãy lấy báo giá mới.",
-  TASK_RUN_MISMATCH: "Công đoạn không thuộc lượt sản xuất này.",
+    "Báo giá không thuộc tập này. Lấy báo giá mới nhé.",
+  TASK_RUN_MISMATCH: "Bước này không thuộc tập này.",
   RUN_LEASE_LOST:
-    "Lượt sản xuất đã được một tiến trình khác tiếp nhận. Hãy tải lại để xem trạng thái mới nhất.",
+    "Tập này đang được xử lý ở nơi khác. Tải lại để xem trạng thái mới nhất nhé.",
   WATERMARK_LEASE_LOST:
-    "Công việc đóng dấu đã được tiến trình khác tiếp nhận. Hãy tải lại trang.",
+    "Việc đóng logo đang được xử lý ở nơi khác. Tải lại trang nhé.",
   STAGE_ALREADY_RUNNING:
     "Công đoạn này đang chạy. Hãy chờ nó xong rồi thao tác tiếp.",
   JOB_ACTIVE: "Đang có một việc chạy dở. Hãy chờ nó hoàn tất.",
@@ -145,23 +147,23 @@ export const ERROR_MESSAGES: Record<string, string> = {
   RENDER_OUTPUT_NOT_LINKED:
     "Phim đã ghép xong nhưng chưa gắn được vào thư viện. Hãy liên hệ hỗ trợ.",
   PRODUCTION_ADVANCE_FAILED:
-    "Lượt sản xuất gặp sự cố kỹ thuật. Hãy thử tiếp tục lại; các kết quả đã xong vẫn được giữ.",
+    "Tập phim gặp trục trặc. Bấm Làm tiếp; phần đã xong vẫn còn.",
   RESULT_NOT_READY: "Kết quả chưa sẵn sàng. Hãy chờ thêm một chút.",
-  OUTPUT_NOT_FOUND: "Không tìm thấy đầu ra này.",
-  OUTPUT_NOT_COMPLETE: "Đầu ra chưa hoàn tất nên chưa duyệt được.",
-  OUTPUT_REQUIRED: "Cần chọn một đầu ra trước khi duyệt.",
+  OUTPUT_NOT_FOUND: "Không tìm thấy bài này.",
+  OUTPUT_NOT_COMPLETE: "Bài chưa xong nên chưa duyệt được.",
+  OUTPUT_REQUIRED: "Chọn một bài trước khi duyệt.",
   INVALID_REVIEW_STATUS: "Trạng thái duyệt không hợp lệ.",
-  INVALID_SETTLEMENT: "Dữ liệu quyết toán không hợp lệ.",
+  INVALID_SETTLEMENT: "Dữ liệu thanh toán không hợp lệ.",
   INVALID_CHECK: "Kết quả kiểm tra không hợp lệ.",
   INVALID_LIMIT: "Giới hạn không hợp lệ.",
   INVALID_BATCH: "Lô công việc không hợp lệ.",
   INVALID_SOURCE: "Nguồn không hợp lệ.",
   INVALID_SCENES: "Danh sách cảnh không hợp lệ.",
   EMPTY_SCRIPT: "Kịch bản đang trống.",
-  SCENE_PROJECT_MISMATCH: "Cảnh này không thuộc dự án hiện tại.",
+  SCENE_PROJECT_MISMATCH: "Cảnh này không thuộc kênh hiện tại.",
   SCENE_EXCEEDS_MODEL_DURATION:
-    "Cảnh dài hơn giới hạn của model video đang chọn. Hãy chia cảnh hoặc đổi model.",
-  INVALID_VIDEO_MODEL: "Model video không hợp lệ.",
+    "Cảnh dài quá mức cho phép. Chia nhỏ cảnh hoặc đổi chất lượng.",
+  INVALID_VIDEO_MODEL: "Chất lượng đã chọn không dùng được.",
 
   // ----- Đoạn phim và biên tập -----
   SEGMENT_INDEX_INVALID: "Vị trí đoạn phim không hợp lệ.",
@@ -188,7 +190,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   STORY_SHOT_LIMIT:
     "Tập này vượt số cảnh tối đa. Hãy cho AI rút bớt lượt thoại hoặc bỏ cảnh phản ứng.",
   STORY_LINES_TOO_ADULT:
-    "Lời thoại đang dài như câu người lớn. Hãy cho AI tách thành nhiều lượt đối đáp ngắn.",
+    "Lời thoại đang quá dài. Hãy cho AI tách thành nhiều lượt đối đáp ngắn.",
   STORY_TOO_FEW_TURNS:
     "Tập còn quá ít lượt đối đáp cho một phim ngắn. Hãy cho AI viết thêm lượt.",
   STORY_GAME_INVALID:
@@ -200,9 +202,9 @@ export const ERROR_MESSAGES: Record<string, string> = {
   FAMILY_EDITORIAL_REVIEW_REQUIRED:
     "Bản chữ cần đi qua tiêu chuẩn biên tập hiện tại trước khi lập phân cảnh.",
   STORY_LINE_ADULT_REGISTER:
-    "Có lượt thoại nói bằng giọng công sở chứ không phải giọng trẻ con. Hãy cho AI viết lại câu đó.",
+    "Có câu thoại sai giọng nhân vật. Hãy cho AI viết lại câu đó.",
   STORY_SHOTS_MISSING: "Thiếu mô tả cảnh cho một số lượt thoại.",
-  STORY_SHOT: "Một cảnh trong storyboard chưa hợp lệ. Hãy cho AI dựng lại.",
+  STORY_SHOT: "Một cảnh trong phân cảnh chưa hợp lệ. Hãy cho AI dựng lại.",
   STORY_ENDING_INVALID:
     "Điểm dừng của tập chưa đúng chỗ. Hãy cho AI chọn lại điểm kết.",
   STORY_ENDING_REQUIRED:
@@ -222,25 +224,25 @@ export const ERROR_MESSAGES: Record<string, string> = {
   STORY_EMOTIONAL_CAUSE_UNGROUNDED:
     "Ba nhịp gieo chi tiết, nhận ra và thay đổi hành động chưa xuất hiện rõ theo đúng thứ tự trong kịch bản. Hãy sửa đúng các nhịp này rồi thử lại.",
   STORY_EMOTIONAL_LANE_REQUIRED:
-    "Bản cảm động phải dùng nhịp diễn cinematic thay vì cấu trúc câu chốt hài.",
+    "Bản cảm động phải dùng nhịp diễn kiểu điện ảnh thay vì cấu trúc câu chốt hài.",
   STORY_COMEDY_LANE_REQUIRED:
-    "Bản hài không thể dùng nhịp cinematic. Hãy chọn nhịp hài phù hợp.",
+    "Bản hài không dùng được nhịp kiểu điện ảnh. Hãy chọn nhịp hài phù hợp.",
   STORY_PERFORMANCE_LANE_INVALID:
     "Kiểu diễn của tập không hợp lệ. Hãy cho AI viết lại.",
   STORY_FILM_FORMAT_INVALID:
     "Cách quay của tập không hợp lệ. Hãy cho AI viết lại.",
   CHARACTER_IMAGE_CHARGE_FAILED: "Chưa trừ được điểm cho ảnh nhân vật. Hãy thử lại.",
   MEME_REFERENCE_FETCH_FAILED: "Không đọc được ảnh nhân vật để làm meme. Hệ thống sẽ tự thử lại.",
-  MEME_COPY_EMPTY: "AI chưa viết được chữ cho meme này. Hệ thống sẽ tự thử lại.",
+  MEME_COPY_EMPTY: "Chưa viết được chữ cho meme này. Hệ thống sẽ tự thử lại.",
   MEME_CHARGE_FAILED: "Chưa trừ được điểm cho meme. Hệ thống sẽ tự thử lại.",
-  MEME_RUN_GAVE_UP: "AI đã thử ba lần mà chưa làm được meme này. Hãy làm lại, có thể với ý tưởng khác.",
-  FILM_PACK_INVALID: "Bộ ảnh chuẩn của nhân vật không hợp lệ. Hãy tạo lại.",
-  FILM_PACK_INCOMPLETE: "Bộ ảnh chuẩn cần ít nhất ảnh cận mặt và ảnh toàn thân.",
+  MEME_RUN_GAVE_UP: "Đã thử ba lần mà chưa làm được meme này. Bạn làm lại nhé, có thể với ý tưởng khác.",
+  FILM_PACK_INVALID: "Bộ ảnh nhân vật chưa dùng được. Vẽ lại nhé.",
+  FILM_PACK_INCOMPLETE: "Bộ ảnh nhân vật cần ít nhất ảnh cận mặt và ảnh toàn thân.",
   CHARACTER_NOT_FOUND: "Không tìm thấy nhân vật trong kênh này.",
   STORY_WARDROBE_INVALID:
     "Trang phục riêng của tập không hợp lệ. Hãy cho AI viết lại.",
   STORY_FILM_FORMAT_GENRE:
-    "Tập cảm động không quay kiểu bé nói với máy hay bé đầu bếp. Hãy cho AI viết lại.",
+    "Tập cảm động không quay kiểu nói với người xem hay vào bếp. Hãy cho AI viết lại.",
   STORY_REPEATED_COMBINATION:
     "Ý tưởng này trùng với một tập đã có. Hãy đổi ý tưởng hoặc để AI tự đề xuất tập mới.",
   STORY_GUESTS_INVALID: "Danh sách khách mời không hợp lệ.",
@@ -272,44 +274,44 @@ export const ERROR_MESSAGES: Record<string, string> = {
   FAMILY_EDITORIAL_REVIEW_INVALID:
     "Kết quả biên tập chưa hợp lệ. Hãy thử lại.",
   FAMILY_DIALOGUE_CHANGED:
-    "AI đã tự đổi lời thoại khi dựng cảnh. Hãy chạy lại bước dựng storyboard.",
+    "AI đã tự đổi lời thoại khi dựng cảnh. Hãy chạy lại bước lập phân cảnh.",
   FAMILY_PLAN_INVALID:
-    "Storyboard AI dựng chưa hợp lệ. Hãy chạy lại bước dựng cảnh.",
+    "Phân cảnh AI dựng chưa hợp lệ. Hãy chạy lại bước dựng cảnh.",
   FAMILY_WRITING_TIMEOUT:
     "Bước viết kịch bản quá thời gian cho phép. Hãy thử lại.",
   FAMILY_CHECKPOINT_SAVE_FAILED:
     "Không lưu được tiến độ viết kịch bản. Hãy thử lại.",
   FAMILY_CHANNEL_PROFILE_MISSING:
-    "Dự án chưa có hồ sơ kênh. Hãy thiết lập hồ sơ kênh trước khi làm phim.",
+    "Kênh chưa có hồ sơ. Hoàn tất hồ sơ kênh trước khi làm phim nhé.",
   FAMILY_CHANNEL_PROFILE_V11_MISMATCH:
     "Hồ sơ kênh đang ở phiên bản cũ. Hãy cập nhật hồ sơ kênh.",
   CHANNEL_PROFILE_REQUIRED:
-    "Dự án chưa có hồ sơ kênh. Hãy thiết lập hồ sơ kênh trước khi làm phim.",
+    "Kênh chưa có hồ sơ. Hoàn tất hồ sơ kênh trước khi làm phim nhé.",
 
-  // ----- Storyboard và chỉ đạo diễn xuất -----
-  STORYBOARD_INVALID: "Storyboard chưa hợp lệ. Hãy cho AI dựng lại.",
+  // ----- Phân cảnh và chỉ đạo diễn xuất -----
+  STORYBOARD_INVALID: "Phân cảnh chưa hợp lệ. Hãy cho AI dựng lại.",
   STORYBOARD_GROUPING_FAILED:
-    "Không chia được storyboard thành các clip hợp lệ. Hãy cho AI dựng lại.",
+    "Không chia được phân cảnh thành các clip hợp lệ. Hãy cho AI dựng lại.",
   STORYBOARD_TIMING_POLICY_INVALID:
-    "Nhịp thời gian của storyboard chưa hợp lệ. Hãy cho AI dựng lại.",
+    "Nhịp thời gian của phân cảnh chưa hợp lệ. Hãy cho AI dựng lại.",
   STORYBOARD_FILM_FORMAT_INVALID:
     "Cách quay của phân cảnh không hợp lệ. Hãy cho AI dựng lại.",
   STORYBOARD_PROP_IDENTITY_CHANGED:
-    "Một đạo cụ đổi hình dạng giữa các cảnh. Hãy cho AI dựng lại storyboard.",
+    "Một đạo cụ đổi hình dạng giữa các cảnh. Hãy cho AI dựng lại phân cảnh.",
   STORYBOARD_SEGMENT_STATE_INVALID:
-    "Trạng thái nối giữa các cảnh chưa khớp. Hãy cho AI dựng lại storyboard.",
+    "Trạng thái nối giữa các cảnh chưa khớp. Hãy cho AI dựng lại phân cảnh.",
   STORYBOARD_LINE_TOO_LONG:
     "Một lượt thoại dài hơn thời lượng clip cho phép. Hãy rút gọn lời hoặc tách cảnh.",
   STORYBOARD_BEAT_INVALID:
-    "Một nhịp trong storyboard chưa hợp lệ: kiểm tra người nói, lời thoại và thời lượng. Hãy cho AI dựng lại.",
+    "Một nhịp trong phân cảnh chưa hợp lệ: kiểm tra người nói, lời thoại và thời lượng. Hãy cho AI dựng lại.",
   STORYBOARD_DURATION_INVALID:
-    "Nhịp nội dung không nằm trọn trong clip nguồn. Hãy cho AI dựng lại storyboard.",
+    "Nhịp nội dung không nằm trọn trong clip nguồn. Hãy cho AI dựng lại phân cảnh.",
   STORYBOARD_GROUP_TOO_LONG:
     "Một clip phải chứa nhiều lời hơn thời lượng cho phép. Hãy cho AI chia thêm clip.",
   STORYBOARD_DERIVED_FIELDS_CONFLICT:
-    "Lời thoại và thời lượng của cảnh không khớp với các nhịp storyboard. Hãy cho AI dựng lại cảnh.",
+    "Lời thoại và thời lượng của cảnh không khớp với các nhịp phân cảnh. Hãy cho AI dựng lại cảnh.",
   STORYBOARD_NATIVE_REQUIRED:
-    "Chế độ âm thanh này cần storyboard dạng khác. Hãy lưu kịch bản sang chế độ lồng tiếng.",
+    "Chế độ âm thanh này cần phân cảnh dạng khác. Hãy lưu kịch bản sang chế độ lồng tiếng.",
   STORYBOARD_SINGLE_SPEAKER_SYNC_UNSUPPORTED:
     "Cảnh nhiều người nói không dùng được đồng bộ môi một người. Hãy tách thành các cận cảnh.",
   PERFORMANCE_DIRECTION_INVALID:
@@ -322,11 +324,11 @@ export const ERROR_MESSAGES: Record<string, string> = {
     "Cảnh thiếu hướng diễn xuất. Hãy cho AI dựng lại.",
   SHOT_DIRECTION_EMPTY: "Cảnh thiếu mô tả hành động. Hãy cho AI dựng lại.",
   REFERENCE_PLAN_INVALID:
-    "Kế hoạch ảnh tham chiếu chưa hợp lệ. Hãy cho AI dựng lại cảnh.",
+    "Kế hoạch ảnh cho cảnh chưa hợp lệ. Hãy cho AI dựng lại cảnh.",
   REFERENCE_PLAN_SHAPE_INVALID:
-    "Kế hoạch ảnh tham chiếu sai cấu trúc. Hãy cho AI dựng lại cảnh.",
+    "Kế hoạch ảnh cho cảnh sai cấu trúc. Hãy cho AI dựng lại cảnh.",
   REFERENCE_PLAN_ITEM_INVALID:
-    "Một ảnh tham chiếu chưa hợp lệ. Hãy cho AI dựng lại cảnh.",
+    "Một ảnh của cảnh chưa hợp lệ. Hãy cho AI dựng lại cảnh.",
   REFERENCE_REQUIREMENT_UNCOVERED:
     "Có bằng chứng hình ảnh mà câu chuyện cần nhưng chưa ảnh nào thể hiện. Hãy cho AI dựng lại cảnh.",
 
@@ -335,7 +337,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
     "AI trả về kết quả không đọc được. Hãy thử lại.",
   CREATIVE_ASSIST_IDEAS_INVALID: "Danh sách ý tưởng chưa hợp lệ. Hãy thử lại.",
   CREATIVE_ASSIST_IDEA_DOMAINS_NARROW:
-    "Ba ý tưởng đang quanh quẩn trong một bối cảnh. Hãy thử lại để mở sang trường học, nơi công cộng, khu phố, cửa hàng hoặc công việc của bố mẹ.",
+    "Ba ý tưởng đang quanh quẩn trong một bối cảnh. Thử lại để có chuyện ở những nơi khác nhau nhé.",
   CREATIVE_ASSIST_IMAGE_INVALID: "Gợi ý ảnh chưa hợp lệ. Hãy thử lại.",
   CREATIVE_ASSIST_CLIP_INVALID: "Gợi ý clip chưa hợp lệ. Hãy thử lại.",
   CREATIVE_ASSIST_PLAN_INVALID: "Kịch bản AI trả về chưa hợp lệ. Hãy thử lại.",
@@ -350,7 +352,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   CREATIVE_REVISION_LOCKED_SCENE_CHANGED:
     "Bản sửa đụng vào cảnh đã khoá. Hãy tải lại rồi thử lại.",
   CREATIVE_REVISION_STORYBOARD_LOST:
-    "Bản sửa làm mất storyboard của một cảnh. Hãy thử lại.",
+    "Bản sửa làm mất phân cảnh của một cảnh. Hãy thử lại.",
 
   // ----- Kiểm tra tự động -----
   AI_QA_INVALID:
@@ -361,38 +363,35 @@ export const ERROR_MESSAGES: Record<string, string> = {
   QA_MEDIA_TOO_LARGE: "Tệp quá lớn để kiểm tra tự động.",
 
   // ----- Nhà cung cấp và cấu hình -----
-  AI_KEY_NOT_CONFIGURED:
-    "Hệ thống chưa cấu hình khoá AI. Hãy báo quản trị viên.",
-  OPENAI_KEY_NOT_CONFIGURED:
-    "Hệ thống chưa cấu hình khoá OpenAI. Hãy báo quản trị viên.",
-  WAVESPEED_API_KEY_NOT_CONFIGURED:
-    "Hệ thống chưa cấu hình khoá dịch vụ video. Hãy báo quản trị viên.",
-  WAVESPEED_WEBHOOK_SECRET_NOT_CONFIGURED:
-    "Hệ thống chưa cấu hình khoá webhook. Hãy báo quản trị viên.",
+  // Người dùng không sửa được thiếu cấu hình; tên khoá chỉ có ích cho log vận hành.
+  AI_KEY_NOT_CONFIGURED: SYSTEM_MAINTENANCE,
+  OPENAI_KEY_NOT_CONFIGURED: SYSTEM_MAINTENANCE,
+  WAVESPEED_API_KEY_NOT_CONFIGURED: SYSTEM_MAINTENANCE,
+  WAVESPEED_WEBHOOK_SECRET_NOT_CONFIGURED: SYSTEM_MAINTENANCE,
   WAVESPEED_PRICE_UNAVAILABLE:
     "Chưa lấy được giá từ nhà cung cấp. Hãy thử lại sau ít phút; bạn chưa bị trừ điểm.",
   PROVIDER_TIMEOUT:
     "Nhà cung cấp phản hồi quá lâu. Hãy thử lại sau ít phút; bạn chưa bị trừ điểm.",
-  GENERATION_FAILED: "Tạo nội dung không thành công. Hãy thử lại.",
+  GENERATION_FAILED: "Chưa làm được. Bạn thử lại nhé.",
   GENERATION_JOB_PERSIST_FAILED:
-    "Không lưu được yêu cầu tạo nội dung. Hãy thử lại.",
+    "Chưa lưu được yêu cầu. Bạn thử lại nhé.",
   SAFETY_BLOCKED:
     "Nội dung bị bộ lọc an toàn của nhà cung cấp từ chối. Hãy đổi mô tả rồi thử lại.",
   MEDIA_SIGN_FAILED: "Không mở được tệp. Hãy tải lại trang rồi thử lại.",
 
-  // ----- Đóng dấu -----
-  WATERMARK_CHECKPOINT_MISSING: "Thiếu dữ liệu tiến độ đóng dấu.",
+  // ----- Đóng logo -----
+  WATERMARK_CHECKPOINT_MISSING: "Thiếu dữ liệu tiến độ đóng logo.",
   WATERMARK_OBJECT_CONFLICT:
-    "Tệp đóng dấu bị ghi đè bởi một tiến trình khác. Hãy thử lại.",
+    "Tệp đóng logo vừa bị ghi đè. Bạn thử lại nhé.",
   WATERMARK_PROVIDER_OUTPUT_INVALID:
-    "Kết quả đóng dấu từ nhà cung cấp không hợp lệ. Hãy thử lại.",
+    "Đóng logo chưa thành. Bạn thử lại nhé.",
   WATERMARK_SETTLEMENT_PENDING:
-    "Khoản phí đóng dấu đang chờ quyết toán. Hãy thử lại sau.",
+    "Phí đóng logo đang chờ xử lý. Bạn thử lại sau nhé.",
   WATERMARK_UPLOAD_UNVERIFIED:
     "Chưa xác nhận được tệp đã tải lên. Hãy thử lại.",
 
   // ----- Nội dung đầu vào -----
-  VALIDATION_HEADLINE_REQUIRED: "Hãy nhập câu chữ chính cho ảnh.",
+  VALIDATION_HEADLINE_REQUIRED: "Nhập chữ trên ảnh trước nhé.",
   VALIDATION_CHARACTER_REQUIRED: "Hãy chọn ít nhất một nhân vật.",
   VALIDATION_BACKGROUND_REQUIRED: "Hãy mô tả bối cảnh.",
 };

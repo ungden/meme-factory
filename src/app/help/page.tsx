@@ -6,7 +6,7 @@ import SiteHeader from "@/components/marketing/site-header";
 import { FREE_TRIAL_POINTS } from "@/lib/point-pricing";
 
 export const metadata: Metadata = {
-  title: "Hỗ trợ",
+  title: "Trợ giúp",
   description: "Câu hỏi thường gặp về kênh, nhân vật, meme, video, phim ngắn và điểm trên AIDA.",
 };
 
@@ -24,7 +24,7 @@ const GROUPS: { title: string; items: Faq[] }[] = [
           <>
             Không cần cài đặt gì trước. Ở <Link href="/projects" className={linkClass}>trang chính</Link>, gõ vài câu
             về kênh của bạn — nói về gì, cho ai xem — hoặc mở <Link href="/projects/new" className={linkClass}>Kênh mới</Link>.
-            AI điền hồ sơ kênh (tên kênh, người xem, giọng kể), bạn xem lại và sửa nếu muốn. Tài khoản mới được tặng{" "}
+            AIDA điền sẵn hồ sơ kênh (tên kênh, người xem, giọng kể), bạn xem lại và sửa nếu muốn. Tài khoản mới được tặng{" "}
             {FREE_TRIAL_POINTS} điểm để làm thử.
           </>
         ),
@@ -32,7 +32,7 @@ const GROUPS: { title: string; items: Faq[] }[] = [
       {
         question: "Một tài khoản có nhiều kênh được không?",
         answer:
-          "Được. Mỗi kênh có hồ sơ, nhân vật và nội dung riêng — một fanpage, một kênh TikTok, mỗi cái một kênh trên AIDA.",
+          "Được. Mỗi kênh có hồ sơ, nhân vật và bài riêng — một fanpage, một kênh TikTok, mỗi cái một kênh trên AIDA.",
       },
     ],
   },
@@ -42,14 +42,14 @@ const GROUPS: { title: string; items: Faq[] }[] = [
       {
         question: "Nhân vật dùng để làm gì?",
         answer:
-          "Nhân vật là gương mặt của kênh. Khi bộ ảnh chuẩn đã khoá, mọi meme, video và phim ngắn của kênh đều lấy đúng nhân vật đó, nên người xem nhận ra ngay dù bài đăng khác nhau.",
+          "Nhân vật là gương mặt của kênh. Khi bộ ảnh nhân vật đã chốt, mọi meme, video và phim ngắn của kênh đều lấy đúng nhân vật đó, nên người xem nhận ra ngay dù bài đăng khác nhau.",
       },
       {
         question: "Làm sao để có nhân vật?",
         answer: (
           <>
-            Mở kênh, vào mục <strong>Nhân vật</strong>. AI vẽ nhân vật theo hồ sơ kênh, hoặc bạn tải ảnh của mình lên làm
-            ảnh gốc. AI dựng thêm các góc (cận mặt, toàn thân, sau lưng); bạn duyệt rồi khoá bộ ảnh chuẩn.
+            Mở kênh, vào mục <strong>Nhân vật</strong>. AIDA vẽ nhân vật theo hồ sơ kênh, hoặc bạn tải ảnh của mình lên làm
+            ảnh gốc. AIDA vẽ thêm các góc (cận mặt, toàn thân, sau lưng); bạn xem rồi chốt bộ ảnh.
           </>
         ),
       },
@@ -61,14 +61,14 @@ const GROUPS: { title: string; items: Faq[] }[] = [
       {
         question: "Làm meme, video hay phim ngắn thế nào?",
         answer:
-          "Ở trang chính, gõ một ý tưởng, chọn kênh, chọn phim ngắn hoặc meme rồi bấm làm. Để trống ý tưởng thì AI tự nghĩ chuyện mới theo hồ sơ kênh. Phim ngắn có thể hỏi bạn giữa chừng khi cần quyết định; meme làm xong là hiện ngay. Video lẻ làm ở mục Tạo video trong kênh.",
+          "Ở trang chính, gõ một ý tưởng, chọn kênh, chọn phim ngắn hoặc meme rồi bấm làm. Để trống ý tưởng thì AIDA tự nghĩ chuyện mới theo hồ sơ kênh. Phim ngắn có thể hỏi bạn giữa chừng khi cần quyết định; meme làm xong là hiện ngay. Video làm ở mục Video trong kênh.",
       },
       {
         question: "Video có dùng ảnh của tôi được không?",
         answer: (
           <>
-            Được. Khi làm một video ngắn trong kênh (mục <strong>Tạo video</strong>), bạn có thể đưa ảnh của mình — sản
-            phẩm, con người, khung cảnh — để AI làm theo cho đúng.
+            Được. Khi làm một video trong kênh (mục <strong>Video</strong>), bạn có thể đưa ảnh của mình — sản
+            phẩm, con người, khung cảnh — để video làm theo cho đúng.
           </>
         ),
       },
@@ -76,8 +76,8 @@ const GROUPS: { title: string; items: Faq[] }[] = [
         question: "“Tự làm mỗi ngày” là gì?",
         answer: (
           <>
-            AI tự nghĩ ý tưởng và làm bài đều đặn cho kênh. Trong kênh, mở <strong>Tạo phim ngắn</strong> để bật tự làm
-            phim mỗi ngày, hoặc <strong>Tạo ảnh</strong> để bật tự làm meme mỗi ngày. Bạn chọn số lượng và mức chi tối đa
+            AIDA tự nghĩ ý tưởng và làm bài đều đặn cho kênh. Trong kênh, mở <strong>Phim ngắn</strong> để bật tự làm
+            phim mỗi ngày, hoặc <strong>Meme</strong> để bật tự làm meme mỗi ngày. Bạn chọn số lượng và mức chi tối đa
             cho mỗi phim; mỗi bài trừ điểm như khi bạn tự làm, tắt lúc nào cũng được.
           </>
         ),
@@ -103,7 +103,7 @@ const GROUPS: { title: string; items: Faq[] }[] = [
       },
       {
         question: "Làm hỏng có mất điểm không?",
-        answer: "Không. Lượt làm thất bại được hoàn điểm tự động, và bạn xem lại được trong lịch sử của ví.",
+        answer: "Không. Làm không thành thì điểm được hoàn tự động, và bạn xem lại được trong lịch sử của ví.",
       },
       {
         question: "Nạp tiền bao lâu thì có điểm?",
@@ -114,7 +114,7 @@ const GROUPS: { title: string; items: Faq[] }[] = [
         question: "Tôi muốn xoá tài khoản và dữ liệu?",
         answer: (
           <>
-            Vào <strong>Cài đặt → Xoá tài khoản</strong>. Chi tiết về dữ liệu nằm trong{" "}
+            Vào <strong>Tài khoản → Xoá tài khoản</strong>. Chi tiết về dữ liệu nằm trong{" "}
             <Link href="/privacy" className={linkClass}>Chính sách bảo mật</Link>.
           </>
         ),
@@ -137,12 +137,12 @@ export default function HelpPage() {
       <main>
         <section className="media-hero">
           <div className="mx-auto max-w-[860px] px-4 pb-10 pt-14 sm:px-6 sm:pt-20">
-            <span className="media-kicker">Hỗ trợ</span>
+            <span className="media-kicker">Trợ giúp</span>
             <h1 className="mt-4 text-[36px] font-extrabold leading-[1.06] tracking-[-0.04em] sm:text-[52px]">
               Cần giúp gì?
             </h1>
             <p className="mt-4 max-w-[620px] text-[16px] leading-7 th-text-secondary sm:text-[18px]">
-              Ba bước dùng AIDA: tạo kênh, dựng nhân vật, rồi làm meme, video, phim ngắn — từng bài hoặc tự làm mỗi
+              Ba bước dùng AIDA: tạo kênh, tạo nhân vật, rồi làm meme, video, phim ngắn — từng bài hoặc tự làm mỗi
               ngày. Phần lớn câu hỏi đã có câu trả lời bên dưới.
             </p>
 

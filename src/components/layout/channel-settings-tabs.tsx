@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 
 const TABS = [
-  { path: "brand", label: "Dấu kênh" },
+  { path: "brand", label: "Logo và hồ sơ" },
   { path: "members", label: "Thành viên" },
   { path: "wallet", label: "Điểm của kênh" },
 ];

@@ -71,7 +71,7 @@ describe("messageForCode", () => {
 
 describe("humanizeError", () => {
   it("translates a known code", () => {
-    expect(humanizeError("INSUFFICIENT_POINTS")).toContain("nạp thêm điểm");
+    expect(humanizeError("INSUFFICIENT_POINTS")).toContain("Kênh hết điểm");
   });
 
   it("translates a code carrying extra detail", () => {

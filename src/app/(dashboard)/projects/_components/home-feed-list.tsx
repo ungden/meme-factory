@@ -25,7 +25,7 @@ export default function HomeFeedList({
 }) {
   return (
     <section aria-labelledby="feed-title" className="flex flex-col gap-3">
-      <h2 id="feed-title" className="text-[15px] font-semibold th-text-primary">Việc của AI</h2>
+      <h2 id="feed-title" className="text-[15px] font-semibold th-text-primary">Gần đây</h2>
       {loading ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {[1, 2, 3, 4].map((item) => <div key={item} className="h-44 animate-pulse rounded-xl th-bg-card" />)}
@@ -34,7 +34,7 @@ export default function HomeFeedList({
         <p className="text-sm th-text-secondary">Chưa tải được danh sách. Trang sẽ thử lại sau ít phút.</p>
       ) : !items.length ? (
         <p className="rounded-2xl border border-dashed th-border px-4 py-10 text-center text-sm th-text-tertiary">
-          Chưa có gì. Gõ một ý tưởng ở trên, AI làm xong sẽ đưa kết quả về đây.
+          Chưa có bài nào. Gõ một ý tưởng ở trên, xong bài sẽ hiện ở đây.
         </p>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -60,7 +60,7 @@ export default function HomeFeedList({
                   <p className="line-clamp-2 text-sm font-medium th-text-primary">{item.title}</p>
                   <p className="mt-auto flex items-center gap-1 truncate text-xs th-text-muted">
                     {item.kind === "film" ? "Phim" : "Meme"} · {item.projectName}
-                    {item.scheduled && <CalendarClock size={12} className="shrink-0" aria-label="Tự làm theo lịch" />}
+                    {item.scheduled && <CalendarClock size={12} className="shrink-0" aria-label="Theo lịch" />}
                   </p>
                 </div>
               </Link>
@@ -70,7 +70,7 @@ export default function HomeFeedList({
                   onClick={() => onRemix(item)}
                   className="flex min-h-9 items-center justify-center gap-1.5 border-t th-border text-xs font-medium th-text-accent th-bg-hover"
                 >
-                  <Repeat2 size={14} aria-hidden /> Làm thêm kiểu này
+                  <Repeat2 size={14} aria-hidden /> Làm bài tương tự
                 </button>
               )}
             </li>

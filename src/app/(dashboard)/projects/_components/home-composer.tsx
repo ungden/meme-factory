@@ -175,9 +175,9 @@ export default function HomeComposer({
         }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "Chưa bắt đầu được. Hãy thử lại.");
+      if (!response.ok) throw new Error(payload.error || "Chưa bắt đầu được. Bạn thử lại nhé.");
       setIdea("");
-      toast.success(`AI đang làm meme cho ${channel.name}. Ảnh sẽ hiện ở bên dưới.`);
+      toast.success(`Đang làm meme cho ${channel.name}. Xong sẽ hiện ngay bên dưới.`);
       onStarted();
     } catch (cause) {
       setError(humanizeError((cause as Error).message));
@@ -188,10 +188,10 @@ export default function HomeComposer({
 
   const placeholder =
     kind === "film"
-      ? "Kể một chuyện nhỏ cho tập phim, hoặc để trống cho AI tự nghĩ…"
+      ? "Phim kể chuyện gì? Để trống thì AIDA tự nghĩ…"
       : kind === "video"
         ? "Tả cảnh trong video: ai, đang làm gì, ở đâu, nói gì…"
-        : "Ví dụ: Thứ Hai đi làm mà lương chưa về… hoặc để trống cho AI tự nghĩ";
+        : "Ví dụ: Thứ Hai đi làm mà lương chưa về… (để trống cũng được)";
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-3" aria-labelledby="home-title">
@@ -252,7 +252,7 @@ export default function HomeComposer({
             })}
             {cast?.channelId === channelId && !characters.length && channel && (
               <Link href={`/projects/${getProjectRouteRef(channel)}/characters`} className="text-xs font-medium th-text-accent underline-offset-2 hover:underline">
-                Kênh chưa có nhân vật · Dựng nhân vật
+                Kênh chưa có nhân vật · Tạo nhân vật
               </Link>
             )}
           </div>
@@ -288,15 +288,15 @@ export default function HomeComposer({
             </select>
           </label>
           )}
-          <Button type="submit" loading={busy} disabled={tooShort} className="ml-auto rounded-full px-4" aria-label={written ? "Bắt đầu làm" : "Để AI tự nghĩ và làm"}>
+          <Button type="submit" loading={busy} disabled={tooShort} className="ml-auto rounded-full px-4" aria-label={written ? "Bắt đầu làm" : "Tự nghĩ ý tưởng rồi làm"}>
             {written ? <ArrowUp size={17} aria-hidden /> : <Sparkles size={17} aria-hidden />}
             {newChannel
               ? "Tạo kênh"
               : kind === "video"
                 ? "Làm video"
-                : written
-                  ? kind === "film" ? "Làm phim" : "Làm meme"
-                  : "AI tự nghĩ"}
+                : kind === "film"
+                  ? "Làm phim"
+                  : "Làm meme"}
           </Button>
         </div>
       </div>
@@ -321,20 +321,20 @@ export default function HomeComposer({
 
       <p className="text-center text-xs th-text-muted">
         {newChannel
-          ? "Kênh mới: AI điền hồ sơ kênh từ ý tưởng này, rồi dựng nhân vật. Xong mới làm nội dung."
+          ? "Kênh mới: điền hồ sơ kênh từ ý tưởng này, rồi tạo nhân vật trước khi làm bài."
           : tooShort
             ? kind === "video"
               ? "Tả cảnh trong video (ít nhất vài chữ)."
-              : "Viết thêm một chút, hoặc xoá hết để AI tự nghĩ."
+              : "Viết thêm vài chữ, hoặc xoá hết để AIDA tự nghĩ."
             : kind === "film"
-              ? `Phim dùng dàn nhân vật của kênh · khoảng ${QUALITY_OPTIONS[0].estimatedPoints.toLocaleString("vi-VN")}–${QUALITY_OPTIONS[1].estimatedPoints.toLocaleString("vi-VN")} điểm · 5–10 phút · AI hỏi bạn trước khi vượt mức.`
+              ? `Dùng nhân vật của kênh · ${QUALITY_OPTIONS[0].estimatedPoints.toLocaleString("vi-VN")}–${QUALITY_OPTIONS[1].estimatedPoints.toLocaleString("vi-VN")} điểm · 5–10 phút · hỏi bạn trước khi chi quá mức.`
               : kind === "video"
                 ? taggedCharacters.length
                   ? `Video tới 30 giây, giữ đúng gương mặt ${taggedCharacters.map((character) => character.name).join(", ")} · xem giá trước khi làm.`
                   : "Video tới 30 giây · gắn nhân vật hoặc thêm ảnh của bạn ở bước sau để giữ đúng gương mặt."
                 : taggedCharacters.length
                   ? `Một meme có ${taggedCharacters.map((character) => character.name).join(", ")} · khoảng 1 phút.`
-                  : "Một meme · AI chọn nhân vật hợp ý tưởng · khoảng 1 phút."}
+                  : "Một meme · tự chọn nhân vật hợp ý · khoảng 1 phút."}
       </p>
       {error && (
         <p role="alert" className="rounded-lg border th-border-danger th-bg-danger-light px-3 py-2 text-sm th-text-danger">{error}</p>

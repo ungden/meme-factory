@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       p_package: pkg.id,
       p_price: pkg.price,
       p_points: pkg.points,
-      p_description: `Mua gói ${pkg.name} (${pkg.points} points)`,
+      p_description: `Mua gói ${pkg.name} (${pkg.points} điểm)`,
     });
 
     if (rpcError) {
@@ -114,7 +114,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       success: true,
       points: result.points,
-      message: `Đã nhận ${FREE_TRIAL_POINTS} points miễn phí!`,
+      message: `Đã nhận ${FREE_TRIAL_POINTS} điểm miễn phí`,
     });
   } catch (error) {
     console.error("Claim free trial error:", error);
