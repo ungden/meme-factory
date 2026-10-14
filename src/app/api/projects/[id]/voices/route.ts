@@ -96,7 +96,7 @@ export async function POST(
         .eq("project_id", a.project.id)
         .is("plan_id", null)
         .maybeSingle();
-      if (!q) throw new FilmError("Báo giá không hợp lệ.");
+      if (!q) throw new FilmError("Giá đã hết hạn. Xem lại giá nhé.");
       const { data, error } = await a.admin.rpc("accept_film_quote", {
         p_quote: q.id,
         p_actor: a.user.id,
@@ -120,7 +120,7 @@ export async function POST(
         ? (body.geminiVoicePreset as GeminiVoicePreset)
         : null;
     if ((geminiModel && !geminiPreset) || (!geminiModel && geminiPreset))
-      throw new FilmError("Chọn đủ model và kiểu giọng Gemini.");
+      throw new FilmError("Chọn đủ kiểu giọng nhé.");
     if (
       !geminiModel &&
       !designedProfile &&
@@ -133,7 +133,7 @@ export async function POST(
       .eq("id", body.characterId)
       .eq("project_id", a.project.id)
       .single();
-    if (!c) throw new FilmError("Nhân vật không thuộc dự án.");
+    if (!c) throw new FilmError("Nhân vật không thuộc kênh này.");
     const { data: last } = await a.admin
       .from("character_voice_versions")
       .select("version")

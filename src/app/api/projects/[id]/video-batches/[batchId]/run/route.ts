@@ -13,7 +13,7 @@ export async function POST(
       .eq("id", p.batchId)
       .eq("project_id", a.project.id)
       .single();
-    if (!batch) throw new FilmError("Không tìm thấy lô.", 404);
+    if (!batch) throw new FilmError("Không tìm thấy nhóm phim này.", 404);
     const ids = batch.quote_snapshot?.quoteIds;
     if (!Array.isArray(ids) || !ids.length)
       throw new FilmError(

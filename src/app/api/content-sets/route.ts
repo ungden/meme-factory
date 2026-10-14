@@ -10,9 +10,9 @@ export async function GET(request: NextRequest) {
   const projectRef = request.nextUrl.searchParams.get("project");
   const { supabase, user } = await getRequestUser(request);
   if (!user) return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
-  if (!projectRef) return NextResponse.json({ error: "Thiếu project." }, { status: 400 });
+  if (!projectRef) return NextResponse.json({ error: "Thiếu kênh." }, { status: 400 });
   const { data: project } = await projectForRef(supabase, projectRef);
-  if (!project) return NextResponse.json({ error: "Không tìm thấy dự án." }, { status: 404 });
+  if (!project) return NextResponse.json({ error: "Không tìm thấy kênh." }, { status: 404 });
   // 24 bộ mới nhất, không phân trang, nghĩa là phim cũ lặng lẽ biến mất khỏi
   // thư viện. Vẫn giữ mặc định cũ để không đổi hành vi trang đầu, nhưng cho
   // phép đi tiếp bằng offset và báo còn dữ liệu hay không.
@@ -38,9 +38,9 @@ export async function POST(request: NextRequest) {
   const { supabase, user } = await getRequestUser(request);
   if (!user) return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
   const body = await request.json();
-  if (typeof body.project_id !== "string" || typeof body.brief !== "string") return NextResponse.json({ error: "Thiếu dự án hoặc ý tưởng." }, { status: 400 });
+  if (typeof body.project_id !== "string" || typeof body.brief !== "string") return NextResponse.json({ error: "Thiếu kênh hoặc ý tưởng." }, { status: 400 });
   const { data: project } = await projectForRef(supabase, body.project_id);
-  if (!project) return NextResponse.json({ error: "Bạn không có quyền với dự án này." }, { status: 403 });
+  if (!project) return NextResponse.json({ error: "Bạn không có quyền với kênh này." }, { status: 403 });
   const selectedCharacterIds = Array.isArray(body.selected_character_ids) ? [...new Set(body.selected_character_ids.filter((id: unknown) => typeof id === "string"))] : [];
   const { data: characterRows, error: characterError } = selectedCharacterIds.length
     ? await supabase
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       .in("id", selectedCharacterIds)
     : { data: [], error: null };
   if (characterError || (characterRows?.length ?? 0) !== selectedCharacterIds.length) {
-    return NextResponse.json({ error: "Một hoặc nhiều nhân vật không thuộc dự án này." }, { status: 400 });
+    return NextResponse.json({ error: "Có nhân vật không thuộc kênh này." }, { status: 400 });
   }
   const assetIds = (characterRows ?? []).flatMap((character) => character.continuity_asset_id ? [character.continuity_asset_id] : []);
   const { data: versions } = assetIds.length

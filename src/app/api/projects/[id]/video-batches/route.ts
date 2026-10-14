@@ -29,7 +29,7 @@ export async function GET(
   const { data: project } = await projectForRef(supabase, id);
   if (!project)
     return NextResponse.json(
-      { error: "Không tìm thấy dự án." },
+      { error: "Không tìm thấy kênh." },
       { status: 404 },
     );
   const { data, error } = await supabase
@@ -57,7 +57,7 @@ export async function POST(
   const { data: project } = await projectForRef(supabase, id);
   if (!project)
     return NextResponse.json(
-      { error: "Không tìm thấy dự án." },
+      { error: "Không tìm thấy kênh." },
       { status: 404 },
     );
   const body: { planIds?: unknown; title?: unknown } = await request
@@ -84,7 +84,7 @@ export async function POST(
     .in("id", planIds);
   if (plansError || (plans ?? []).length !== planIds.length)
     return NextResponse.json(
-      { error: "Một hoặc nhiều kế hoạch không thuộc dự án." },
+      { error: "Có phim không thuộc kênh này." },
       { status: 400 },
     );
   const quotes = [];
@@ -102,7 +102,7 @@ export async function POST(
       .maybeSingle();
     if (!quote)
       return NextResponse.json(
-        { error: `Phim ${plan.title} cần báo giá mới.` },
+        { error: `Phim ${plan.title} cần xem lại giá.` },
         { status: 409 },
       );
     quotes.push(quote);

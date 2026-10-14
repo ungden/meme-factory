@@ -75,7 +75,7 @@ describe("resolveClipDubbing input guards", () => {
     const words = Array.from({ length: 26 }, () => "từ").join(" ");
     await expect(
       resolveClipDubbing("project-1", { text: words, characterId: "c" }, 10),
-    ).rejects.toThrow(/quá dài/);
+    ).rejects.toThrow(/dài quá/);
   });
 
   it("rejects text beyond the hard character cap", async () => {
@@ -86,7 +86,7 @@ describe("resolveClipDubbing input guards", () => {
         { text: "a".repeat(701), characterId: "c" },
         600,
       ),
-    ).rejects.toThrow(/quá dài/);
+    ).rejects.toThrow(/dài quá/);
   });
 });
 
@@ -111,7 +111,7 @@ describe("resolveClipDubbing voice resolution", () => {
     database({ ...approved, characters: { data: null, error: "not found" } });
     await expect(
       resolveClipDubbing("project-1", { text: "Chào", characterId: "c" }, 10),
-    ).rejects.toThrow(/không thuộc dự án/);
+    ).rejects.toThrow(/không thuộc kênh/);
   });
 
   it("refuses when the character has no approved voice", async () => {
@@ -121,7 +121,7 @@ describe("resolveClipDubbing voice resolution", () => {
     });
     await expect(
       resolveClipDubbing("project-1", { text: "Chào", characterId: "c" }, 10),
-    ).rejects.toThrow(/Duyệt một giọng Gemini/);
+    ).rejects.toThrow(/chưa có giọng nói/);
   });
 
   it("refuses an approved voice that is not a Gemini TTS model", async () => {
@@ -139,7 +139,7 @@ describe("resolveClipDubbing voice resolution", () => {
     });
     await expect(
       resolveClipDubbing("project-1", { text: "Chào", characterId: "c" }, 10),
-    ).rejects.toThrow(/Duyệt một giọng Gemini/);
+    ).rejects.toThrow(/chưa có giọng nói/);
   });
 
   it("falls back to a neutral direction when the voice has none", async () => {

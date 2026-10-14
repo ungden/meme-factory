@@ -1,5 +1,6 @@
 import { verifyClipQuote } from "@/lib/clip-quote-auth";
-import { resolveClipDubbing } from "@/lib/clip-dubbing";
+import { ClipDubbingError, resolveClipDubbing } from "@/lib/clip-dubbing";
+import { formatPoints } from "@/lib/format";
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/supabase/request-auth";
 import { getSupabaseAdmin } from "@/lib/admin";
@@ -38,7 +39,7 @@ export async function POST(
       !["9:16", "1:1", "16:9"].includes(body.aspect_ratio ?? "9:16"))
   )
     return NextResponse.json(
-      { error: "Cấu hình video không hợp lệ." },
+      { error: "Thiếu mô tả hoặc ảnh mở đầu cho video." },
       { status: 400 },
     );
   const requestId =
@@ -52,7 +53,7 @@ export async function POST(
     .maybeSingle();
   if (!output || output.kind !== "video")
     return NextResponse.json(
-      { error: "Không tìm thấy đầu ra video." },
+      { error: "Không tìm thấy video này." },
       { status: 404 },
     );
   if (["queued", "running"].includes(output.status) && output.generation_job_id)
@@ -100,7 +101,7 @@ export async function POST(
       video.duration,
     );
     if (body.generate_audio !== false && !dubbing)
-      throw new Error("Chọn người nói và nhập lời lồng tiếng.");
+      throw new ClipDubbingError("Nhập lời lồng tiếng và chọn người nói nhé.");
     const savedConfig = savedQuote?.config;
     const authentic = verifyClipQuote({ outputId: id, expiresAt: output.quote_expires_at ? new Date(output.quote_expires_at).toISOString() : null, customerPoints: savedQuote?.customerPoints, providerCostUsd: savedQuote?.providerCostUsd, config: savedConfig, dubbing: savedQuote?.dubbing }, savedQuote?.signature);
     const quoteIsCurrent =
@@ -127,7 +128,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Báo giá đã hết hạn hoặc cấu hình đã đổi. Hãy xem giá lại trước khi tạo video.",
+            "Giá vừa hết hạn hoặc bạn đã đổi tuỳ chọn. Xem lại giá rồi bấm làm video nhé.",
           code: "QUOTE_EXPIRED",
         },
         { status: 409 },
@@ -141,7 +142,7 @@ export async function POST(
     const { data: brand, error: brandError } = await supabase.from("projects")
       .select("watermark_url,watermark_position,watermark_opacity,name,user_id")
       .eq("id", projectId).single();
-    if (brandError || !brand) throw new Error("Không tải được thương hiệu dự án.");
+    if (brandError || !brand) throw new Error("Không tải được logo của kênh.");
     const manifestHash = await crypto.subtle
       .digest(
         "SHA-256",
@@ -227,7 +228,7 @@ export async function POST(
         projectOwnerId: String(brand.user_id),
         actorUserId: user.id,
         cost: quote.customerPoints,
-        description: `Tạo video ${SEEDANCE_VARIANTS.find((item) => item.id === video.model)?.label} ${video.duration}s ${video.resolution} (-${quote.customerPoints} điểm)`,
+        description: `Làm video ${SEEDANCE_VARIANTS.find((item) => item.id === video.model)?.customerLabel.toLocaleLowerCase("vi")} ${video.duration} giây ${video.resolution} (-${formatPoints(quote.customerPoints)})`,
         requestId,
         aiAction: "video",
         metadata: {
@@ -250,7 +251,7 @@ export async function POST(
       if (spent.code === "FAILED") throw new Error(spent.message);
       return NextResponse.json(
         {
-          error: `Không đủ điểm. Cần ${quote.customerPoints} điểm, bạn đang có ${spent.available} điểm.`,
+          error: `Không đủ điểm. Cần ${formatPoints(quote.customerPoints)}, bạn đang có ${formatPoints(spent.available)}.`,
           code: "INSUFFICIENT_POINTS",
           required: quote.customerPoints,
           current: spent.available,
@@ -303,7 +304,15 @@ export async function POST(
         .from("content_outputs")
         .update({ status: "failed" })
         .eq("id", id);
-      throw error;
+      console.error("Video submission failed:", error);
+      return NextResponse.json(
+        {
+          error:
+            "Chưa gửi được video. Khoản điểm vừa trừ sẽ được kiểm tra và hoàn lại nếu video không về.",
+          code: "SUBMIT_FAILED",
+        },
+        { status: 502 },
+      );
     }
     // A prediction id is durable. Make it immediately claimable by Railway
     // instead of holding a web-function lease for fifteen minutes.
@@ -326,11 +335,89 @@ export async function POST(
       { status: 202 },
     );
   } catch (error) {
+    if (error instanceof ClipDubbingError)
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("Video start failed:", error);
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Không tạo được video.",
-      },
+      { error: "Chưa bắt đầu làm video được. Bạn thử lại sau ít phút nhé." },
       { status: 500 },
     );
   }
+}
+
+type JobRow = {
+  id: string;
+  status: string;
+  phase: string | null;
+  error: Record<string, unknown> | null;
+};
+
+/** Vì sao video hỏng, theo cách trang video cần nói với người dùng. */
+function failureReason(job: JobRow) {
+  if (job.error?.provider_submission) return "submission";
+  if (job.phase === "render_failed") return "render";
+  if (job.status === "failed" || job.status === "cancelled") return "provider";
+  if (job.phase === "dubbing_needs_review") return "dubbing";
+  return null;
+}
+
+/**
+ * GET — trạng thái một video lẻ cho trang Video: đang làm, xong hay hỏng, và đã
+ * hoàn bao nhiêu điểm. Video hỏng mà chưa hoàn thì hoàn ngay tại đây (RPC tự
+ * chặn hoàn hai lần); sweeper vẫn là đường chính khi người dùng không quay lại.
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  if (!UUID.test(id))
+    return NextResponse.json({ error: "Không tìm thấy video này." }, { status: 404 });
+  const { supabase, user } = await getRequestUser(request);
+  if (!user)
+    return NextResponse.json(
+      { error: "Phiên đăng nhập đã hết hạn." },
+      { status: 401 },
+    );
+  const { data: output } = await supabase
+    .from("content_outputs")
+    .select(
+      "id, kind, status, format, media_url, poster_url, duration_seconds, script, caption, generation_job_id, source_snapshot, content_sets!inner(project_id)",
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (!output || output.kind !== "video")
+    return NextResponse.json({ error: "Không tìm thấy video này." }, { status: 404 });
+  const { data: row } = output.generation_job_id
+    ? await supabase
+        .from("generation_jobs")
+        .select("id, status, phase, error")
+        .eq("id", output.generation_job_id)
+        .maybeSingle()
+    : { data: null };
+  let job = null;
+  if (row) {
+    const record = row as JobRow;
+    const recorded = Number(record.error?.refunded_points);
+    let refundedPoints = Number.isFinite(recorded) && recorded > 0 ? recorded : null;
+    if (record.status === "failed" && refundedPoints === null) {
+      const { data: settled, error } = await getSupabaseAdmin().rpc(
+        "settle_failed_content_video",
+        { _job_id: record.id },
+      );
+      if (error) console.error("Video refund failed:", error.message);
+      else if (settled?.settled && Number(settled.points) > 0)
+        refundedPoints = Number(settled.points);
+    }
+    job = {
+      id: record.id,
+      status: record.status,
+      phase: record.phase,
+      reason: failureReason(record),
+      refundedPoints,
+    };
+  }
+  const { content_sets: _parent, ...rest } = output;
+  void _parent;
+  return NextResponse.json({ output: rest, job });
 }

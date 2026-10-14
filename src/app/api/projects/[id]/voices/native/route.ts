@@ -40,21 +40,21 @@ export async function POST(
       .eq("id", String(body.characterId || ""))
       .eq("project_id", a.project.id)
       .maybeSingle();
-    if (!character) throw new FilmError("Chọn nhân vật của dự án.");
+    if (!character) throw new FilmError("Chọn một nhân vật của kênh nhé.");
     const direction = String(body.direction || "").replace(/\s+/g, " ").trim().slice(0, 300);
     let settings: Record<string, unknown>;
     if (form) {
       const file = form.get("file");
       const type = file instanceof File ? AUDIO_TYPES[file.type] : undefined;
       if (!(file instanceof File) || !type || file.size > 4 * 1024 * 1024)
-        throw new FilmError("Chọn file giọng WAV hoặc MP3 tối đa 4 MB.");
+        throw new FilmError("Chọn tệp giọng WAV hoặc MP3, tối đa 4 MB nhé.");
       if (body.rightsConfirmed !== "true")
-        throw new FilmError("Xác nhận bạn có quyền dùng giọng trong file này.");
+        throw new FilmError("Xác nhận bạn có quyền dùng giọng trong tệp này nhé.");
       const bytes = new Uint8Array(await file.arrayBuffer());
       const measured = type.ext === "wav" ? wavDurationSeconds(bytes) : null;
-      if (type.ext === "wav" && measured === null) throw new FilmError("Không đọc được file WAV này.");
+      if (type.ext === "wav" && measured === null) throw new FilmError("Không đọc được tệp WAV này.");
       if (type.ext === "mp3" && bytes.length > MAX_MP3_BYTES)
-        throw new FilmError("File MP3 quá dài; giọng mẫu chỉ cần 3–12 giây.");
+        throw new FilmError("Tệp MP3 dài quá; giọng mẫu chỉ cần 3–12 giây.");
       const seconds = measured ?? Number(body.seconds);
       if (!Number.isFinite(seconds) || seconds < 3 || seconds > 12)
         throw new FilmError("Giọng mẫu cần dài 3–12 giây.");
@@ -62,7 +62,7 @@ export async function POST(
       const { error } = await a.admin.storage
         .from("content-media")
         .upload(path, Buffer.from(bytes), { contentType: type.mime });
-      if (error) throw new FilmError("Không lưu được file giọng.");
+      if (error) throw new FilmError("Chưa lưu được tệp giọng. Bạn thử lại nhé.");
       settings = { samplePath: path, sampleSeconds: Math.round(seconds * 100) / 100, direction };
     } else {
       const { data: clip } = await a.admin
