@@ -25,6 +25,55 @@ describe("trang chính", () => {
     expect(feedIsBusy(items)).toBe(true);
   });
 
+  it("meme xong dẫn về Thư viện, meme đang làm dẫn về trang Meme", () => {
+    const items = homeFeed([project], [], [
+      { id: "m1", project_id: "p1", workspace_version: 2, intent: "", status: "running", source: "manual", created_at: "2026-10-09T09:30:00Z", completed_at: null },
+      { id: "m2", project_id: "p1", workspace_version: 2, intent: "x", status: "completed", source: "manual", created_at: "2026-10-09T06:00:00Z", completed_at: "2026-10-09T06:01:00Z", memes: { image_url: "https://a/b.png" } },
+    ]);
+    expect(items.map((item) => item.href)).toEqual(["/projects/banh-bao/generate", "/projects/banh-bao/gallery"]);
+  });
+
+  it("có cả video lẻ: bỏ bản nháp, mỗi thẻ mở đúng video của nó", () => {
+    const video = (id: string, status: string, extra: Record<string, unknown> = {}) => ({
+      id,
+      status,
+      script: `Cảnh ${id}`,
+      caption: null,
+      poster_url: null,
+      created_at: "2026-10-09T05:00:00Z",
+      updated_at: "2026-10-09T05:00:00Z",
+      content_sets: { project_id: "p1", brief: "" },
+      ...extra,
+    });
+    const items = homeFeed([project], [], [], 12, [
+      video("v1", "running"),
+      video("v2", "completed", { poster_url: "https://kho/anh.png", caption: "Bánh Bao đi chợ" }),
+      video("v3", "approved"),
+      video("v4", "failed"),
+      video("v5", "draft"),
+      video("v6", "rejected"),
+      { ...video("v7", "completed"), content_sets: { project_id: "kênh-khác" } },
+    ]);
+    expect(items.map((item) => [item.id, item.status])).toEqual([
+      ["v6", "attention"],
+      ["v1", "working"],
+      ["v2", "ready"],
+      ["v3", "ready"],
+      ["v4", "stopped"],
+    ]);
+    expect(items.every((item) => item.kind === "video")).toBe(true);
+    expect(items.find((item) => item.id === "v2")).toMatchObject({
+      title: "Bánh Bao đi chợ",
+      label: "Đã xong",
+      href: "/projects/banh-bao/video?video=v2",
+      imageUrl: "https://kho/anh.png",
+      videoUrl: null,
+    });
+    expect(items.find((item) => item.id === "v3")).toMatchObject({ imageUrl: null, videoUrl: "/api/content-outputs/v3/media" });
+    expect(items.find((item) => item.id === "v1")).toMatchObject({ label: "Đang làm video", videoUrl: null });
+    expect(items.find((item) => item.id === "v4")).toMatchObject({ label: "Chưa làm được" });
+  });
+
   it("meme xong mà không có ảnh tính là chưa làm được", () => {
     const [item] = homeFeed([project], [], [
       { id: "m", project_id: "p1", workspace_version: 2, intent: "", status: "completed", source: "manual", created_at: "2026-10-09T06:00:00Z", completed_at: null },

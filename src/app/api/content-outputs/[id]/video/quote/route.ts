@@ -1,5 +1,6 @@
 import { signClipQuote } from "@/lib/clip-quote-auth";
-import { resolveClipDubbing } from "@/lib/clip-dubbing";
+import { ClipDubbingError, resolveClipDubbing } from "@/lib/clip-dubbing";
+import { getSupabaseAdmin } from "@/lib/admin";
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/supabase/request-auth";
 import { quoteSeedanceVideo } from "@/lib/wavespeed";
@@ -37,7 +38,7 @@ export async function POST(
   const body = await request.json();
   if (!validInput(body))
     return NextResponse.json(
-      { error: "Cấu hình video không hợp lệ." },
+      { error: "Thiếu mô tả hoặc ảnh mở đầu cho video." },
       { status: 400 },
     );
   const { data: output } = await supabase
@@ -47,7 +48,7 @@ export async function POST(
     .maybeSingle();
   if (!output || output.kind !== "video")
     return NextResponse.json(
-      { error: "Không tìm thấy đầu ra video." },
+      { error: "Không tìm thấy video này." },
       { status: 404 },
     );
   try {
@@ -79,9 +80,7 @@ export async function POST(
       config.duration,
     );
     if (body.generate_audio !== false && !dubbing)
-      throw new Error(
-        "Chọn người nói và nhập lời lồng tiếng; Seedance không tạo lời thoại tiếng Việt.",
-      );
+      throw new ClipDubbingError("Nhập lời lồng tiếng và chọn người nói nhé.");
     const baseQuote = await quoteSeedanceVideo(config);
     const quote = {
       ...baseQuote,
@@ -101,19 +100,46 @@ export async function POST(
       .eq("id", id);
     if (saveError)
       return NextResponse.json(
-        { error: "Không lưu được báo giá video." },
+        { error: "Chưa tính được giá. Bạn thử lại nhé." },
         { status: 500 },
       );
-    return NextResponse.json({ quote, expiresAt });
+    return NextResponse.json({
+      quote,
+      expiresAt,
+      available: await availablePoints(parent.project_id, user.id),
+    });
   } catch (error) {
+    // Lỗi của nhà cung cấp (mã tiếng Anh, hết thời gian chờ) không nói được gì
+    // với chủ fanpage; chỉ lỗi lồng tiếng là thứ họ tự sửa được.
+    if (error instanceof ClipDubbingError)
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("Video quote failed:", error);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Không lấy được báo giá video.",
-      },
+      { error: "Chưa tính được giá. Bạn thử lại sau ít phút nhé." },
       { status: 503 },
     );
+  }
+}
+
+/**
+ * Số điểm dùng được cho video này: điểm của kênh, cộng điểm ví của chủ kênh vì
+ * lúc trừ điểm sẽ tự chuyển phần thiếu sang (xem `spendProjectPoints`). Không
+ * đọc được thì bỏ trống để dòng giá không báo thiếu sai.
+ */
+async function availablePoints(projectId: string, userId: string) {
+  try {
+    const admin = getSupabaseAdmin();
+    const [{ data: project }, { data: wallet }] = await Promise.all([
+      admin.from("projects").select("user_id").eq("id", projectId).maybeSingle(),
+      admin.from("project_wallets").select("points").eq("project_id", projectId).maybeSingle(),
+    ]);
+    let points = Number(wallet?.points ?? 0);
+    if (project?.user_id === userId) {
+      const { data: own } = await admin.from("wallets").select("points").eq("user_id", userId).maybeSingle();
+      points += Number(own?.points ?? 0);
+    }
+    return points;
+  } catch {
+    return null;
   }
 }

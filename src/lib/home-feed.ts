@@ -1,7 +1,7 @@
 /**
- * Trang chính gom việc của mọi kênh vào một dòng: phim và meme đang làm, cần
- * người dùng xem, hoặc vừa xong. Người dùng không phải mở từng dự án để biết
- * AI đang làm gì cho họ.
+ * Trang chính gom việc của mọi kênh vào một dòng: phim, video và meme đang
+ * làm, cần người dùng xem, hoặc vừa xong. Người dùng không phải mở từng kênh để
+ * biết AIDA đang làm gì cho họ.
  */
 import { stripStoryGenreMarker } from "@/lib/story-genre";
 import { filmFormatFromIntent, stripFilmFormatMarker, type FilmFormat } from "@/lib/film-camera-language";
@@ -10,7 +10,7 @@ export type FeedStatus = "working" | "attention" | "ready" | "stopped";
 
 export type FeedItem = {
   id: string;
-  kind: "film" | "meme";
+  kind: "film" | "video" | "meme";
   projectId: string;
   projectName: string;
   title: string;
@@ -18,6 +18,8 @@ export type FeedItem = {
   label: string;
   href: string;
   imageUrl: string | null;
+  /** Video xong mà không có ảnh mở đầu: thẻ hiện khung hình đầu của chính video. */
+  videoUrl: string | null;
   /** Cách quay của tập, để "Làm bài tương tự" giữ đúng kiểu. */
   format: FilmFormat | null;
   scheduled: boolean;
@@ -48,6 +50,18 @@ export type FeedMemeRun = {
   created_at: string;
   completed_at: string | null;
   memes?: { image_url?: string | null; generated_content?: { headline?: string } | null } | null;
+};
+
+/** Một video lẻ (content_outputs kind video) kèm kênh của nó. */
+export type FeedVideo = {
+  id: string;
+  status: string;
+  script: string | null;
+  caption: string | null;
+  poster_url: string | null;
+  created_at: string;
+  updated_at: string | null;
+  content_sets?: { project_id: string; brief?: string | null } | null;
 };
 
 function clip(text: string, max = 60) {
@@ -82,6 +96,22 @@ const MEME_LABEL: Record<FeedStatus, string> = {
   stopped: "Chưa làm được",
 };
 
+function videoStatus(status: string): FeedStatus | null {
+  if (status === "queued" || status === "running") return "working";
+  if (status === "completed" || status === "approved") return "ready";
+  if (status === "rejected") return "attention";
+  if (status === "failed") return "stopped";
+  // Bản nháp chỉ là ô nhập đang gõ dở, chưa phải bài.
+  return null;
+}
+
+const VIDEO_LABEL: Record<FeedStatus, string> = {
+  working: "Đang làm video",
+  attention: "Cần sửa",
+  ready: "Đã xong",
+  stopped: "Chưa làm được",
+};
+
 function projectRef(project: FeedProject) {
   return project.slug || project.id;
 }
@@ -95,6 +125,7 @@ export function homeFeed(
   films: FeedFilmRun[],
   memes: FeedMemeRun[],
   limit = 12,
+  videos: FeedVideo[] = [],
 ): FeedItem[] {
   const byId = new Map(projects.map((project) => [project.id, project]));
   const current = (projectId: string, version: number) => {
@@ -117,6 +148,7 @@ export function homeFeed(
       label: FILM_LABEL[status],
       href: `/projects/${projectRef(project)}/short-films?tap=${run.plan_id || run.id}`,
       imageUrl: null,
+      videoUrl: null,
       format: filmFormatFromIntent(run.intent),
       scheduled: run.source === "scheduled",
       at: run.updated_at,
@@ -134,11 +166,36 @@ export function homeFeed(
       title: clip(run.memes?.generated_content?.headline || run.intent || "Meme mới"),
       status,
       label: MEME_LABEL[status],
-      href: `/projects/${projectRef(project)}/generate`,
+      // Thư viện chưa mở thẳng được một meme, nên meme xong dẫn về Thư viện; meme
+      // đang làm hoặc hỏng thì trang Meme mới có tiến độ và nút thử lại.
+      href: `/projects/${projectRef(project)}/${status === "ready" ? "gallery" : "generate"}`,
       imageUrl: status === "ready" ? run.memes?.image_url || null : null,
+      videoUrl: null,
       format: null,
       scheduled: run.source === "scheduled",
       at: run.completed_at || run.created_at,
+    });
+  }
+  for (const video of videos) {
+    const project = video.content_sets ? byId.get(video.content_sets.project_id) : null;
+    const status = videoStatus(video.status);
+    if (!project || !status) continue;
+    const done = status === "ready" || status === "attention";
+    const poster = video.poster_url && /^https:\/\//.test(video.poster_url) ? video.poster_url : null;
+    items.push({
+      id: video.id,
+      kind: "video",
+      projectId: project.id,
+      projectName: project.name,
+      title: clip(video.caption || video.script || video.content_sets?.brief || "Video mới"),
+      status,
+      label: VIDEO_LABEL[status],
+      href: `/projects/${projectRef(project)}/video?video=${video.id}`,
+      imageUrl: poster,
+      videoUrl: done && !poster ? `/api/content-outputs/${video.id}/media` : null,
+      format: null,
+      scheduled: false,
+      at: video.updated_at || video.created_at,
     });
   }
   // Việc cần người dùng xem lên đầu, rồi việc đang làm, rồi mới tới cái đã xong.

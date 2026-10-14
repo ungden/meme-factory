@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/supabase/request-auth";
 import { getSupabaseAdmin } from "@/lib/admin";
-import { autopilotLines, homeFeed, type FeedFilmRun, type FeedMemeRun } from "@/lib/home-feed";
+import { autopilotLines, homeFeed, type FeedFilmRun, type FeedMemeRun, type FeedVideo } from "@/lib/home-feed";
 
 /**
- * Việc AI đang làm và vừa làm xong ở mọi kênh của người dùng. Danh sách dự án
- * lấy qua RLS của chính người dùng; bảng lượt chạy chỉ đọc được bằng service
- * role nên lọc theo đúng các dự án đó.
+ * Việc đang làm và vừa làm xong ở mọi kênh của người dùng. Danh sách kênh lấy
+ * qua RLS của chính người dùng; bảng lượt chạy chỉ đọc được bằng service role
+ * nên lọc theo đúng các kênh đó.
  */
 export async function GET(request: NextRequest) {
   const { supabase, user } = await getRequestUser(request);
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   const ids = (projects || []).map((project) => project.id);
   if (!ids.length) return NextResponse.json({ items: [], autopilot: {} });
   const admin = getSupabaseAdmin();
-  const [films, memes, filmAuto, memeAuto] = await Promise.all([
+  const [films, memes, videos, filmAuto, memeAuto] = await Promise.all([
     admin
       .from("short_film_production_runs")
       .select("id,project_id,workspace_version,plan_id,intent,status,source,updated_at,video_plans(title)")
@@ -34,6 +34,14 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(30),
     admin
+      .from("content_outputs")
+      .select("id,status,script,caption,poster_url,created_at,updated_at,content_sets!inner(project_id,brief)")
+      .eq("kind", "video")
+      .neq("status", "draft")
+      .in("content_sets.project_id", ids)
+      .order("updated_at", { ascending: false })
+      .limit(30),
+    admin
       .from("short_film_automation_settings")
       .select("project_id,workspace_version,enabled,local_time,films_per_day")
       .in("project_id", ids),
@@ -42,10 +50,16 @@ export async function GET(request: NextRequest) {
       .select("project_id,workspace_version,enabled,local_time,memes_per_day")
       .in("project_id", ids),
   ]);
-  const failed = [films, memes, filmAuto, memeAuto].find((result) => result.error);
+  const failed = [films, memes, videos, filmAuto, memeAuto].find((result) => result.error);
   if (failed?.error) return NextResponse.json({ error: failed.error.message }, { status: 500 });
   return NextResponse.json({
-    items: homeFeed(projects!, (films.data || []) as unknown as FeedFilmRun[], (memes.data || []) as unknown as FeedMemeRun[]),
+    items: homeFeed(
+      projects!,
+      (films.data || []) as unknown as FeedFilmRun[],
+      (memes.data || []) as unknown as FeedMemeRun[],
+      12,
+      (videos.data || []) as unknown as FeedVideo[],
+    ),
     autopilot: autopilotLines(projects!, filmAuto.data || [], memeAuto.data || []),
   });
 }
