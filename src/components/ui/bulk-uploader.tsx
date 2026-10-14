@@ -192,7 +192,7 @@ export function BulkUploader({
 
           {/* Progress bar */}
           {items.length > 0 && (
-            <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-tertiary)" }}>
+            <div className="w-full h-1.5 rounded-full overflow-hidden th-bg-tertiary">
               <div
                 className="h-full rounded-full transition-all duration-300 th-bg-accent-light0"
                 style={{ width: `${items.length > 0 ? (doneCount / items.length) * 100 : 0}%` }}

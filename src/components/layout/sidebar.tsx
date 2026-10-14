@@ -299,7 +299,7 @@ export default function Sidebar({ projectId }: { projectId?: string }) {
       </button>
 
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm lg:hidden" onClick={() => setMobileOpen(false)} aria-hidden="true" />
+        <div className="fixed inset-0 z-50 th-bg-overlay backdrop-blur-sm lg:hidden" onClick={() => setMobileOpen(false)} aria-hidden="true" />
       )}
 
       <aside

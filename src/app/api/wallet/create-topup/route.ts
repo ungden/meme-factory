@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/admin";
 import { RATE_LIMITS, checkRateLimit, rateLimitMessage } from "@/lib/rate-limit";
+import { POINT_PACKAGES } from "@/lib/point-pricing";
 
 export async function POST(req: Request) {
   try {
@@ -23,12 +24,18 @@ export async function POST(req: Request) {
       );
 
     const body = await req.json();
-    const amount = Number(body?.amount);
+    // Nạp từ hộp "Cần thêm điểm" là mua một gói: số tiền là giá gói, và khi
+    // ngân hàng báo có thì database mua gói luôn (trigger trên topup_orders).
+    const pkg = body?.packageId ? POINT_PACKAGES.find((item) => item.id === body.packageId) : null;
+    if (body?.packageId && !pkg) {
+      return NextResponse.json({ error: "Gói không còn bán. Mở lại trang Ví để chọn gói." }, { status: 400 });
+    }
+    const amount = pkg ? pkg.price : Number(body?.amount);
     if (!Number.isSafeInteger(amount) || amount < 10000) {
-      return NextResponse.json({ error: "Số tiền tối thiểu 10.000đ" }, { status: 400 });
+      return NextResponse.json({ error: "Nạp tối thiểu 10.000đ." }, { status: 400 });
     }
     if (amount > 50000000) {
-      return NextResponse.json({ error: "Số tiền tối đa 50.000.000đ" }, { status: 400 });
+      return NextResponse.json({ error: "Mỗi lần nạp tối đa 50.000.000đ." }, { status: 400 });
     }
 
     // Limit pending orders per user (max 5)
@@ -40,7 +47,7 @@ export async function POST(req: Request) {
 
     if ((pendingCount ?? 0) >= 5) {
       return NextResponse.json({
-        error: "Bạn đang có quá nhiều đơn nạp chờ xử lý. Vui lòng hoàn tất hoặc đợi đơn cũ hết hạn.",
+        error: "Bạn đang có 5 lần nạp chưa chuyển khoản. Chuyển xong một lần, hoặc chờ đơn cũ hết hạn rồi thử lại nhé.",
       }, { status: 429 });
     }
 
@@ -70,12 +77,13 @@ export async function POST(req: Request) {
         amount,
         status: "pending",
         payment_id: paymentId,
+        ...(pkg ? { buy_package_id: pkg.id, buy_points: pkg.points, buy_key: crypto.randomUUID() } : {}),
       })
       .select("id")
       .single();
 
     if (createErr || !newOrder) {
-      throw new Error(createErr?.message || "Không thể tạo đơn nạp tiền");
+      throw new Error(createErr?.message || "Chưa tạo được lần nạp. Bạn thử lại nhé.");
     }
 
     const orderId: string = newOrder.id;
@@ -88,6 +96,7 @@ export async function POST(req: Request) {
       success: true,
       orderId,
       amount,
+      points: pkg?.points ?? null,
       description,
       qrUrl,
       beneficiary: qrAccount,
@@ -98,7 +107,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("Create topup error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Lỗi server" },
+      { error: "Chưa tạo được mã chuyển khoản. Bạn thử lại sau ít phút nhé." },
       { status: 500 }
     );
   }

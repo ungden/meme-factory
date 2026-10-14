@@ -58,10 +58,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   };
 
   const styles = {
-    success: { bg: "var(--success-light)", border: "var(--success)", color: "var(--success)" },
-    error: { bg: "var(--danger-light)", border: "var(--danger)", color: "var(--danger)" },
-    warning: { bg: "var(--warning-light)", border: "var(--warning)", color: "var(--warning)" },
-    info: { bg: "var(--accent-light)", border: "var(--accent)", color: "var(--accent)" },
+    success: "th-bg-success-light th-border-success th-text-success",
+    error: "th-bg-danger-light th-border-danger th-text-danger",
+    warning: "th-bg-warning-light th-border-warning th-text-warning",
+    info: "th-bg-accent-light th-border-accent th-text-accent",
   };
 
   return (
@@ -84,12 +84,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               key={t.id}
               // Lỗi cần được đọc ngay, còn lại đọc khi trình đọc rảnh.
               role={t.type === "error" ? "alert" : undefined}
-              className="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg animate-slide-in min-w-[300px] max-w-[420px]"
-              style={{
-                background: s.bg,
-                borderColor: s.border,
-                color: s.color,
-              }}
+              className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border th-shadow-lg animate-slide-in min-w-[300px] max-w-[420px] ${s}`}
             >
               {icons[t.type]}
               <p className="text-sm font-medium flex-1">{t.message}</p>

@@ -7,6 +7,7 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 
 const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className = "", label, error, id, ...props }, ref) => {
+    const errorId = error && id ? `${id}-error` : undefined;
     return (
       <div className="w-full">
         {label && (
@@ -17,15 +18,18 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         <textarea
           ref={ref}
           id={id}
-          className={`w-full px-4 py-2.5 rounded-xl th-text-primary placeholder:th-text-muted focus:outline-none focus:ring-2 th-ring-accent transition-all resize-y min-h-[100px] border ${
-            error
-              ? "th-border-danger th-ring-danger"
-              : "th-border"
+          aria-invalid={error ? true : undefined}
+          aria-describedby={errorId}
+          className={`w-full px-4 py-2.5 rounded-xl th-bg-input th-text-primary placeholder:th-text-muted focus:outline-none focus-visible:ring-2 th-ring-accent transition-all resize-y min-h-[100px] border ${
+            error ? "th-border-danger th-ring-danger" : "th-border"
           } ${className}`}
-          style={{ background: "var(--bg-input)" }}
           {...props}
         />
-        {error && <p className="mt-1 text-sm" style={{ color: "var(--danger)" }}>{error}</p>}
+        {error && (
+          <p id={errorId} className="mt-1 text-sm th-text-danger">
+            {error}
+          </p>
+        )}
       </div>
     );
   }

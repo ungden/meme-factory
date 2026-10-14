@@ -1,7 +1,7 @@
 {
   "name": "AIDA",
   "short_name": "AIDA",
-  "description": "Giải pháp xây dựng fanpage bằng AI",
+  "description": "Meme, video, phim ngắn cho fanpage và TikTok",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

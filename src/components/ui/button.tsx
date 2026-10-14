@@ -1,56 +1,32 @@
 import { ButtonHTMLAttributes, forwardRef } from "react";
+import { buttonClasses, type ButtonSize, type ButtonVariant } from "./button-classes";
+
+export { buttonClasses } from "./button-classes";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "outline" | "ghost" | "danger";
-  size?: "sm" | "md" | "lg";
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   loading?: boolean;
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className = "", variant = "primary", size = "md", loading, children, disabled, ...props }, ref) => {
-    // focus-visible, không phải focus: vòng sáng chỉ nên xuất hiện khi người
-    // dùng đi bằng bàn phím, chứ không sau mỗi cú bấm chuột.
-    const base = "inline-flex min-h-10 items-center justify-center rounded-xl font-medium tracking-[-0.01em] transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 cursor-pointer";
-
-    const variants = {
-      primary: "text-white th-ring-accent hover:brightness-110",
-      secondary: "th-bg-tertiary th-text-primary hover:opacity-80 th-ring-accent",
-      outline: "border th-border th-text-primary th-bg-card th-shadow-sm th-bg-hover th-ring-accent",
-      ghost: "th-text-tertiary hover:th-text-primary th-bg-hover th-ring-accent",
-      danger: "th-bg-danger text-white hover:opacity-90 th-ring-danger",
-    };
-
-    const sizes = {
-      sm: "min-h-8 px-3 py-1 text-sm gap-1.5",
-      md: "px-4 py-2 text-sm gap-2",
-      lg: "min-h-11 px-5 py-2.5 text-base gap-2.5",
-    };
-
-    return (
-      <button
-        ref={ref}
-        className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
-        style={
-          variant === "primary"
-            ? {
-                backgroundImage: "var(--accent-gradient)",
-                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.22), 0 8px 22px -10px var(--accent-shadow)",
-              }
-            : undefined
-        }
-        disabled={disabled || loading}
-        {...props}
-      >
-        {loading && (
-          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-        )}
-        {children}
-      </button>
-    );
-  }
+  ({ className = "", variant = "primary", size = "md", loading, children, disabled, ...props }, ref) => (
+    <button
+      ref={ref}
+      className={buttonClasses(variant, size, className)}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      {...props}
+    >
+      {loading && (
+        <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" aria-hidden>
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+      )}
+      {children}
+    </button>
+  ),
 );
 
 Button.displayName = "Button";

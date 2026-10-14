@@ -58,8 +58,7 @@ export default function ProjectInvitationsBanner() {
       {invitations.map((inv) => (
         <div
           key={inv.id}
-          className="rounded-xl border px-4 py-3 flex items-center justify-between gap-3"
-          style={{ borderColor: "var(--border-primary)", background: "var(--bg-card)" }}
+          className="rounded-xl border th-border th-bg-card px-4 py-3 flex items-center justify-between gap-3"
         >
           <p className="text-sm th-text-primary">
             <strong>{inv.invited_by_email}</strong> mời bạn tham gia kênh <strong>{inv.project_name}</strong>

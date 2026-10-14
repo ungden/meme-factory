@@ -40,9 +40,6 @@ export default function Card({
       className={`th-bg-card border th-border rounded-2xl th-shadow-sm ${
         hover ? "hover:th-shadow-md cursor-pointer transition-all duration-200" : ""
       } ${interactive ? "cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 th-ring-accent" : ""} ${className}`}
-      style={{
-        borderColor: "var(--border-primary)",
-      }}
     >
       {children}
     </div>
@@ -50,7 +47,7 @@ export default function Card({
 }
 
 export function CardHeader({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`p-5 border-b ${className}`} style={{ borderColor: "var(--border-primary)" }}>{children}</div>;
+  return <div className={`p-5 border-b th-border ${className}`}>{children}</div>;
 }
 
 export function CardContent({ children, className = "" }: { children: ReactNode; className?: string }) {

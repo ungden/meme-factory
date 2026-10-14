@@ -32,11 +32,11 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "AIDA — Nội dung AI đều đặn cho kênh của bạn",
+    default: "AIDA — Meme, video, phim ngắn cho kênh của bạn",
     template: "%s | AIDA",
   },
-  description: "Tạo kênh, dựng nhân vật, rồi để AI làm meme, video và phim ngắn cho fanpage, TikTok… — từng bài hoặc tự làm mỗi ngày.",
-  keywords: ["AIDA", "AI media studio", "fanpage", "character consistency", "content creation", "TikTok", "quảng cáo", "meme", "Việt Nam"],
+  description: "Gõ một ý tưởng, nhận meme, video, phim ngắn cho fanpage và TikTok — đúng nhân vật, đúng giọng kênh, từng bài hoặc tự làm mỗi ngày.",
+  keywords: ["AIDA", "làm meme", "phim ngắn AI", "video TikTok", "fanpage", "nhân vật", "Việt Nam"],
   authors: [{ name: "AIDA" }],
   creator: "AIDA",
   openGraph: {
@@ -51,7 +51,7 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "AIDA Media Studio",
+        alt: "AIDA — meme, video, phim ngắn cho kênh của bạn",
         type: "image/png",
       },
     ],

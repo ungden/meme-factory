@@ -12,11 +12,11 @@ interface Announcement {
   is_active: boolean;
 }
 
-const TYPE_CONFIG: Record<string, { icon: typeof Info; bg: string; border: string; text: string }> = {
-  info: { icon: Info, bg: "rgba(59,130,246,0.08)", border: "rgba(59,130,246,0.3)", text: "#3b82f6" },
-  warning: { icon: AlertTriangle, bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.3)", text: "#f59e0b" },
-  success: { icon: CheckCircle, bg: "rgba(34,197,94,0.08)", border: "rgba(34,197,94,0.3)", text: "#22c55e" },
-  promo: { icon: Gift, bg: "rgba(236,72,153,0.08)", border: "rgba(236,72,153,0.3)", text: "#ec4899" },
+const TYPE_CONFIG: Record<string, { icon: typeof Info; box: string; text: string }> = {
+  info: { icon: Info, box: "th-bg-accent-light th-border-accent", text: "th-text-accent" },
+  warning: { icon: AlertTriangle, box: "th-bg-warning-light th-border-warning", text: "th-text-warning" },
+  success: { icon: CheckCircle, box: "th-bg-success-light th-border-success", text: "th-text-success" },
+  promo: { icon: Gift, box: "th-bg-accent-soft th-border-accent", text: "th-text-accent" },
 };
 
 export default function AnnouncementBanner() {
@@ -70,15 +70,14 @@ export default function AnnouncementBanner() {
         return (
           <div
             key={ann.id}
-            className="flex items-start gap-3 px-4 py-3 rounded-xl border"
-            style={{ background: config.bg, borderColor: config.border }}
+            className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${config.box}`}
           >
-            <Icon size={18} style={{ color: config.text, marginTop: 1, flexShrink: 0 }} />
+            <Icon size={18} className={`mt-px shrink-0 ${config.text}`} />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium" style={{ color: config.text }}>{ann.title}</p>
-              {ann.content && <p className="text-xs mt-0.5" style={{ color: config.text, opacity: 0.8 }}>{ann.content}</p>}
+              <p className={`text-sm font-medium ${config.text}`}>{ann.title}</p>
+              {ann.content && <p className="text-xs mt-0.5 th-text-secondary">{ann.content}</p>}
             </div>
-            <button onClick={() => dismiss(ann.id)} aria-label="Đóng thông báo" className="p-1 rounded-lg transition-all hover:opacity-70" style={{ color: config.text }}>
+            <button onClick={() => dismiss(ann.id)} aria-label="Đóng thông báo" className={`p-1 rounded-lg transition-all hover:opacity-70 ${config.text}`}>
               <X size={14} />
             </button>
           </div>

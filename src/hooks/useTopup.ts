@@ -15,7 +15,8 @@ export function useTopup() {
 
   const toast = useToast();
 
-  const createTopup = async (amount: number, onSuccess?: () => void) => {
+  /** `packageId`: nạp để mua đúng gói đó, điểm vào ví ngay khi ngân hàng báo có. */
+  const createTopup = async (amount: number, onSuccess?: () => void, packageId?: string) => {
     // Lưu callback để gọi lại sau
     onSuccessRef.current = onSuccess;
 
@@ -29,7 +30,7 @@ export function useTopup() {
       const token = sessionData.session?.access_token;
 
       if (!token) {
-        toast.error("Vui lòng đăng nhập để thực hiện.");
+        toast.error("Bạn đăng nhập lại giúp nhé.");
         return;
       }
 
@@ -39,13 +40,13 @@ export function useTopup() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ amount: finalAmount }),
+        body: JSON.stringify(packageId ? { packageId } : { amount: finalAmount }),
       });
 
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Không thể tạo lệnh nạp");
+        throw new Error(data.error || "Chưa tạo được mã chuyển khoản. Bạn thử lại nhé.");
       }
 
       setTopupInfo({
@@ -60,7 +61,7 @@ export function useTopup() {
       });
       setIsModalOpen(true);
     } catch (e: unknown) {
-      toast.error(`Lỗi tạo mã QR: ${(e as Error).message || "Lỗi không xác định"}`);
+      toast.error((e as Error).message || "Chưa tạo được mã chuyển khoản. Bạn thử lại nhé.");
     } finally {
       setIsLoading(false);
     }

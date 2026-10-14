@@ -192,6 +192,14 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 @utility th-border-warning { border-color: var(--warning); }
 
 @utility th-text-on-primary { color: var(--text-on-primary); }
+/* Nút chính dùng chung cho <Button> và cho link trông như nút: trước đây mỗi
+   màn tự pha dải màu bằng style inline nên có sáu kiểu nút chính khác nhau. */
+@utility th-btn-primary {
+  color: var(--text-on-primary);
+  background-color: var(--accent);
+  background-image: var(--accent-gradient);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 8px 22px -10px var(--accent-shadow);
+}
 
 @utility th-ring-accent { --tw-ring-color: var(--accent); }
 @utility th-ring-danger { --tw-ring-color: var(--danger); }

@@ -52,12 +52,12 @@ export default function OutOfPointsModal({ open, onClose, required, current, act
             </div>
           </div>
 
-          <div className="rounded-2xl border p-4" style={{ borderColor: "var(--border-primary)", background: "var(--bg-card)" }}>
+          <div className="rounded-2xl border th-border th-bg-card p-4">
             <p className="font-semibold th-text-primary">
               Gói {pkg.name} — {pkg.points} điểm
             </p>
             <p className="mt-1 text-sm th-text-tertiary">
-              {formatVND(pkg.price)} · chuyển khoản quét QR, điểm vào ngay khi ngân hàng báo có.
+              {formatVND(pkg.price)} · quét QR chuyển khoản, ngân hàng báo có là điểm vào ví và việc này tự làm tiếp.
             </p>
           </div>
 
@@ -67,11 +67,15 @@ export default function OutOfPointsModal({ open, onClose, required, current, act
               loading={isLoading}
               onClick={async () => {
                 setStarted(true);
-                await createTopup(pkg.price, () => {
-                  setStarted(false);
-                  onClose();
-                  onFunded?.();
-                });
+                await createTopup(
+                  pkg.price,
+                  () => {
+                    setStarted(false);
+                    onClose();
+                    onFunded?.();
+                  },
+                  pkg.id,
+                );
               }}
             >
               Nạp {formatVND(pkg.price)}

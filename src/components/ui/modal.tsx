@@ -80,14 +80,13 @@ export default function Modal({ isOpen, onClose, title, children, size = "md" }:
       aria-modal="true"
       aria-labelledby="modal-title"
     >
-      <div className="fixed inset-0 backdrop-blur-sm" style={{ background: "var(--bg-overlay)" }} onClick={onClose} />
+      <div className="fixed inset-0 backdrop-blur-sm th-bg-overlay" onClick={onClose} />
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className={`relative w-full ${sizes[size]} rounded-2xl th-shadow-lg border outline-none`}
-        style={{ background: "var(--bg-card)", borderColor: "var(--border-primary)" }}
+        className={`relative w-full ${sizes[size]} rounded-2xl th-bg-card th-border th-shadow-lg border outline-none`}
       >
-        <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: "var(--border-primary)" }}>
+        <div className="flex items-center justify-between p-5 border-b th-border">
           <h2 id="modal-title" className="text-lg font-semibold th-text-primary">{title}</h2>
           <button
             onClick={onClose}
