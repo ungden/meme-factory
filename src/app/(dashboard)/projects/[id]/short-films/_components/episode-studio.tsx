@@ -184,7 +184,11 @@ export default function EpisodeStudio() {
     // Chỉ chủ kênh bật được lịch; người cùng kênh không thấy thẻ này.
     setAutopilot(
       automation?.owner
-        ? scheduleFromApi(automation.automation, { maxPointsPerFilm: preferred.defaultLimit, videoModel: preferred.model })
+        ? scheduleFromApi(
+            automation.automation,
+            { maxPointsPerFilm: preferred.defaultLimit, videoModel: preferred.model },
+            automation.queue || [],
+          )
         : null,
     );
     if (planList.nativeVoice && !qualityTouched.current) {
@@ -693,6 +697,7 @@ export default function EpisodeStudio() {
                   <AutopilotPanel
                     key={JSON.stringify(autopilot)}
                     settings={autopilot}
+                    episodes={episodes}
                     saving={busy}
                     onSave={(next) =>
                       act(async () => {

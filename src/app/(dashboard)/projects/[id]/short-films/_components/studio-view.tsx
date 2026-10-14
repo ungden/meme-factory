@@ -4,12 +4,15 @@ import Link from "next/link";
 import { useState } from "react";
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
   Check,
   ChevronDown,
   Clapperboard,
   Coins,
   Download,
   Lightbulb,
+  ListOrdered,
   Mic,
   Pause,
   Play,
@@ -19,7 +22,9 @@ import {
   X,
 } from "lucide-react";
 import Button, { buttonClasses } from "@/components/ui/button";
+import Card from "@/components/ui/card";
 import Chip from "@/components/ui/chip";
+import EmptyState from "@/components/ui/empty-state";
 import Input from "@/components/ui/input";
 import JobStatus from "@/components/ui/job-status";
 import PriceLine from "@/components/ui/price-line";
@@ -45,7 +50,8 @@ import {
   type StudioTask,
   FORMAT_CHOICES,
 } from "../_lib/studio";
-import type { FilmSchedule } from "../_lib/schedule";
+import { QUEUE_LIMIT } from "@/app/api/projects/[id]/film-automation/queue";
+import { moveInQueue, queueCandidates, scheduleChanged, type FilmSchedule } from "../_lib/schedule";
 
 const STATUS_CLASS: Record<EpisodeSummary["status"], string> = {
   draft: "th-bg-tertiary th-text-secondary",
@@ -810,83 +816,162 @@ export function VoiceSamplePanel({
 /**
  * Lựa chọn thứ hai sau "làm một tập": để kênh tự ra phim đều đặn. Ý tưởng mỗi
  * tập tự nghĩ (chống lặp các tập gần đây), nên người dùng chỉ chọn nhịp và mức
- * chi. Đây là nơi duy nhất sửa lịch phim.
+ * chi; hàng chờ chỉ dành cho ai đã có sẵn tập muốn làm trước. Đây là nơi duy
+ * nhất sửa lịch phim.
  */
 export function AutopilotPanel({
   settings,
+  episodes,
   saving,
   onSave,
 }: {
   settings: FilmSchedule;
+  episodes: EpisodeSummary[];
   saving: boolean;
   onSave: (next: FilmSchedule) => void;
 }) {
   const [draft, setDraft] = useState(settings);
-  const dirty =
-    draft.enabled !== settings.enabled ||
-    draft.filmsPerDay !== settings.filmsPerDay ||
-    draft.localTime !== settings.localTime ||
-    draft.maxPointsPerFilm !== settings.maxPointsPerFilm;
+  const dirty = scheduleChanged(draft, settings);
+  const candidates = draft.queue.length < QUEUE_LIMIT ? queueCandidates(episodes, draft.queue) : [];
+  const setQueue = (queue: FilmSchedule["queue"]) => setDraft({ ...draft, queue });
   return (
-    <section aria-labelledby="autopilot-title" className="flex flex-col gap-3 rounded-2xl border th-border th-bg-card p-4">
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <h3 id="autopilot-title" className="text-sm font-semibold th-text-primary">Tự làm mỗi ngày</h3>
-          <p className="mt-1 text-xs th-text-secondary">
-            Mỗi ngày tự nghĩ ý mới và làm thành phim. Phim xong nằm trong danh sách tập.
-          </p>
-        </div>
-        <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm th-text-primary">
-          <input
-            type="checkbox"
-            checked={draft.enabled}
-            onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })}
-            className="th-accent-control h-4 w-4"
+    <Card className="p-4">
+      <section aria-labelledby="autopilot-title" className="flex flex-col gap-3">
+        <header className="flex items-start justify-between gap-3">
+          <div>
+            <h3 id="autopilot-title" className="text-sm font-semibold th-text-primary">Tự làm mỗi ngày</h3>
+            <p className="mt-1 text-xs th-text-secondary">
+              Mỗi ngày tự nghĩ ý mới và làm thành phim. Phim xong nằm trong danh sách tập.
+            </p>
+          </div>
+          <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm th-text-primary">
+            <input
+              type="checkbox"
+              checked={draft.enabled}
+              onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })}
+              className="th-accent-control h-4 w-4"
+            />
+            {draft.enabled ? "Đang bật" : "Tắt"}
+          </label>
+        </header>
+        {draft.enabled && (
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Select
+              id="autopilot-count"
+              label="Mỗi ngày"
+              value={draft.filmsPerDay}
+              onChange={(event) => setDraft({ ...draft, filmsPerDay: Number(event.target.value) })}
+            >
+              {[1, 2, 3, 4, 5, 6].map((count) => (
+                <option key={count} value={count}>{count} phim</option>
+              ))}
+            </Select>
+            <Input
+              id="autopilot-time"
+              label="Bắt đầu lúc"
+              type="time"
+              value={draft.localTime}
+              onChange={(event) => setDraft({ ...draft, localTime: event.target.value })}
+            />
+            <Input
+              id="autopilot-limit"
+              label="Chi tối đa mỗi phim"
+              type="number"
+              min={50}
+              step={50}
+              value={draft.maxPointsPerFilm}
+              onChange={(event) => setDraft({ ...draft, maxPointsPerFilm: Number(event.target.value) || 0 })}
+            />
+          </div>
+        )}
+        {draft.enabled && (
+          <PriceLine
+            points={draft.maxPointsPerFilm * draft.filmsPerDay}
+            note="mức chi tối đa cả ngày, các phim làm lần lượt"
           />
-          {draft.enabled ? "Đang bật" : "Tắt"}
-        </label>
-      </header>
-      {draft.enabled && (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Select
-            id="autopilot-count"
-            label="Mỗi ngày"
-            value={draft.filmsPerDay}
-            onChange={(event) => setDraft({ ...draft, filmsPerDay: Number(event.target.value) })}
-          >
-            {[1, 2, 3, 4, 5, 6].map((count) => (
-              <option key={count} value={count}>{count} phim</option>
-            ))}
-          </Select>
-          <Input
-            id="autopilot-time"
-            label="Bắt đầu lúc"
-            type="time"
-            value={draft.localTime}
-            onChange={(event) => setDraft({ ...draft, localTime: event.target.value })}
-          />
-          <Input
-            id="autopilot-limit"
-            label="Chi tối đa mỗi phim"
-            type="number"
-            min={50}
-            step={50}
-            value={draft.maxPointsPerFilm}
-            onChange={(event) => setDraft({ ...draft, maxPointsPerFilm: Number(event.target.value) || 0 })}
-          />
-        </div>
-      )}
-      {draft.enabled && (
-        <PriceLine
-          points={draft.maxPointsPerFilm * draft.filmsPerDay}
-          note="mức chi tối đa cả ngày, các phim làm lần lượt"
-        />
-      )}
-      {dirty && (
-        <Button size="sm" className="w-fit" loading={saving} disabled={draft.maxPointsPerFilm < 50} onClick={() => onSave(draft)}>
-          Lưu
-        </Button>
-      )}
-    </section>
+        )}
+        {draft.enabled && (
+          <div className="flex flex-col gap-2 border-t th-border pt-3">
+            <div>
+              <h4 className="text-sm font-medium th-text-primary">Hàng chờ</h4>
+              <p className="mt-0.5 text-xs th-text-secondary">
+                Lịch mỗi ngày sẽ làm các tập này trước, hết hàng chờ thì AIDA tự nghĩ ý mới.
+              </p>
+            </div>
+            {draft.queue.length ? (
+              <ol className="flex flex-col gap-1.5" aria-label="Các tập trong hàng chờ">
+                {draft.queue.map((item, index) => {
+                  const title = item.title || "Tập chưa đặt tên";
+                  return (
+                    <li key={item.id} className="flex items-center gap-1 rounded-xl border th-border py-1 pl-3 pr-1">
+                      <span className="w-5 shrink-0 text-xs th-text-muted">{index + 1}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm th-text-primary" title={title}>{title}</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="px-2"
+                        aria-label={`Đưa “${title}” lên trước`}
+                        disabled={index === 0}
+                        onClick={() => setQueue(moveInQueue(draft.queue, index, -1))}
+                      >
+                        <ArrowUp size={16} aria-hidden />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="px-2"
+                        aria-label={`Đưa “${title}” xuống sau`}
+                        disabled={index === draft.queue.length - 1}
+                        onClick={() => setQueue(moveInQueue(draft.queue, index, 1))}
+                      >
+                        <ArrowDown size={16} aria-hidden />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="px-2"
+                        aria-label={`Bỏ “${title}” khỏi hàng chờ`}
+                        onClick={() => setQueue(draft.queue.filter((other) => other.id !== item.id))}
+                      >
+                        <X size={16} aria-hidden />
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : (
+              <EmptyState
+                icon={ListOrdered}
+                title="Chưa xếp tập nào"
+                hint={
+                  candidates.length
+                    ? "Không xếp cũng được: AIDA tự nghĩ ý mới mỗi ngày."
+                    : "Tập đã có kịch bản mà chưa thành phim sẽ hiện ở đây để bạn xếp trước."
+                }
+                className="py-6"
+              />
+            )}
+            {candidates.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-xs th-text-secondary">Thêm vào hàng chờ:</p>
+                <div className="flex flex-wrap gap-2">
+                  {candidates.map((item) => (
+                    <Chip key={item.id} title={item.title} onClick={() => setQueue([...draft.queue, item])}>
+                      <Plus size={12} aria-hidden />
+                      <span className="max-w-48 truncate">{item.title || "Tập chưa đặt tên"}</span>
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {dirty && (
+          <Button size="sm" className="w-fit" loading={saving} disabled={draft.maxPointsPerFilm < 50} onClick={() => onSave(draft)}>
+            Lưu
+          </Button>
+        )}
+      </section>
+    </Card>
   );
 }

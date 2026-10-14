@@ -6,6 +6,23 @@ import {
   nativeSpeechAllowed,
 } from "@/lib/short-film/features";
 import { seedanceReferenceModel } from "@/lib/video-models";
+import { parseQueuedPlanIds, queryableIds, resolveQueue, type QueuePlanRow } from "./queue";
+
+type Access = Awaited<ReturnType<typeof access>>;
+
+/** Đọc các kịch bản trong hàng chờ, giới hạn trong kênh và workspace hiện tại. */
+async function queueRows(a: Access, ids: string[]): Promise<QueuePlanRow[]> {
+  const lookup = queryableIds(ids);
+  if (!lookup.length) return [];
+  const { data, error } = await a.admin
+    .from("video_plans")
+    .select("id,title,status,archived_at,audio_mode,video_model")
+    .eq("project_id", a.project.id)
+    .eq("workspace_version", a.project.workspace_version)
+    .in("id", lookup);
+  if (error) throw error;
+  return data || [];
+}
 
 export async function GET(
   request: NextRequest,
@@ -18,8 +35,13 @@ export async function GET(
       .select("*")
       .eq("project_id", a.project.id)
       .maybeSingle();
+    const saved = (data?.queued_plan_ids as string[] | undefined) || [];
+    const queue = resolveQueue(saved, await queueRows(a, saved), { strict: false });
     return NextResponse.json({
       automation: data || null,
+      // Chỉ những tập lịch còn làm được, theo đúng thứ tự, kèm tên để Studio
+      // hiện được cả tập cũ không nằm trong danh sách tập vừa tải.
+      queue: queue.ok ? queue.plans.map((plan) => ({ id: plan.id, title: plan.title || "" })) : [],
       owner: a.project.user_id === a.user.id,
     });
   } catch (error) {
@@ -53,44 +75,28 @@ export async function PUT(
       .select("queued_plan_ids,films_per_day")
       .eq("project_id", a.project.id)
       .maybeSingle();
-    // Studio chỉ bật/tắt và chỉnh nhịp; không gửi hàng đợi thì giữ hàng đợi đã
-    // xếp ở trình chỉnh nâng cao thay vì xoá trắng.
-    const ids = Array.isArray(body.queuedPlanIds)
-      ? body.queuedPlanIds
-          .filter((x: unknown): x is string => typeof x === "string")
-          .slice(0, 24)
-      : (existing?.queued_plan_ids as string[] | undefined) || [];
+    const sent = parseQueuedPlanIds(body.queuedPlanIds);
+    const ids = sent ?? ((existing?.queued_plan_ids as string[] | undefined) || []);
     const filmsPerDay = Number(body.filmsPerDay ?? existing?.films_per_day ?? 1);
     if (!Number.isInteger(filmsPerDay) || filmsPerDay < 1 || filmsPerDay > 6)
       throw new FilmError("Mỗi ngày làm từ 1 đến 6 phim.");
-    let queuedPlans: Array<{ id: string; audio_mode: string; video_model: string }> = [];
-    if (ids.length) {
-      const { data, count } = await a.admin
-        .from("video_plans")
-        .select("id,audio_mode,video_model", { count: "exact" })
-        .eq("project_id", a.project.id)
-        .eq("workspace_version", a.project.workspace_version)
-        .in("id", ids);
-      if (count !== ids.length)
-        throw new FilmError("Hàng đợi có kịch bản không thuộc kênh này. Tải lại trang nhé.");
-      queuedPlans = data || [];
-      if (
-        queuedPlans.some(
-          (plan) => plan.audio_mode === "native" && !nativeSpeechAllowed(a.project.id, plan.video_model),
-        )
+    const resolved = resolveQueue(ids, await queueRows(a, ids), { strict: sent !== null });
+    if (!resolved.ok)
+      throw new FilmError("Hàng chờ có tập không thuộc kênh này. Tải lại trang nhé.");
+    const queuedPlans = resolved.plans;
+    if (
+      queuedPlans.some(
+        (plan) => plan.audio_mode === "native" && !nativeSpeechAllowed(a.project.id, plan.video_model),
       )
-        throw new FilmError(
-          "Đổi các tập trong hàng đợi sang lồng tiếng trước khi bật lịch nhé.",
-          409,
-        );
-    }
+    )
+      throw new FilmError("Đổi các tập trong hàng chờ sang lồng tiếng trước khi bật lịch nhé.", 409);
     if (body.enabled) {
       if (
         queuedPlans.some((plan) => plan.audio_mode === "fixed") &&
         !fixedVoiceEnabled(a.project.id)
       )
         throw new FilmError(
-          "Hàng đợi có tập dùng kiểu một giọng đọc, kiểu này chưa mở. Đổi sang lồng tiếng theo từng nhân vật nhé.",
+          "Hàng chờ có tập dùng kiểu một giọng đọc, kiểu này chưa mở. Đổi sang lồng tiếng theo từng nhân vật nhé.",
           409,
         );
     }
@@ -105,7 +111,7 @@ export async function PUT(
         films_per_day: filmsPerDay,
         max_points_per_film: maxFilm,
         max_points_per_day: maxDay,
-        queued_plan_ids: ids,
+        queued_plan_ids: queuedPlans.map((plan) => plan.id),
         // Khung phim lấy từ hồ sơ kênh (mặc định 9:16); các khoá này chỉ còn để
         // hiển thị lịch, không quyết định khung của lượt chạy.
         default_config: {
