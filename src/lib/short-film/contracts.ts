@@ -789,7 +789,7 @@ export function filmVideoInputs(
       `Clip ${duration} giây vượt giới hạn ${seedanceMaxDuration(videoModel)} giây của model đã chọn. Hãy soạn lại storyboard.`,
     );
   if (!references.urls.length || references.urls.length !== references.bindings.length)
-    throw new Error("Bộ ảnh tham chiếu video không hợp lệ.");
+    throw new Error("Bộ ảnh mẫu của cảnh chưa dùng được. Bấm Làm lại cảnh này nhé.");
   const voiceSamples =
     mode === "native" && nativeSpeechSupported(videoModel) ? nativeVoiceSamples(scene) : [];
   return {

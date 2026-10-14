@@ -566,7 +566,7 @@ export async function savePlan(
       coreIds,
     );
   } catch {
-    throw new FilmError("Trang phục của tập không hợp lệ. Hãy cho AI viết lại.");
+    throw new FilmError("Kịch bản tập này chưa ổn. Bấm Viết lại kịch bản nhé.");
   }
   const outfitOf = (id: string) => wardrobe.find((item) => item.characterId === id)?.outfit;
   // Người đã mặc đồ của bản trước mà bản này đổi/bỏ đồ phải được dựng lại từ
@@ -977,7 +977,7 @@ async function loadReferenceImage(a: Access, source: string) {
 }
 export async function signed(a: Access, path: string) {
   if (!isProjectMediaPath(a.project.id, path))
-    throw new FilmError("Media không thuộc dự án.", 403);
+    throw new FilmError("Tệp này không thuộc kênh hiện tại.", 403);
   const { data, error } = await a.admin.storage
     .from("content-media")
     .createSignedUrl(path, 3600);
@@ -1127,7 +1127,7 @@ export async function storeQuote(
   plan?: FilmPlan,
   productionRunId?: string,
 ) {
-  if (!tasks.length) throw new FilmError("Không có bước mới cần tạo.");
+  if (!tasks.length) throw new FilmError("Không còn bước nào cần làm.");
   const points = tasks.reduce((s, t) => s + t.points, 0);
   const { data, error } = await a.admin
     .from("short_film_quotes")

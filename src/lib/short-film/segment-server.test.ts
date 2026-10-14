@@ -242,7 +242,7 @@ describe("saveFilmSegment validation", () => {
         segmentId,
         patch({ sourceTaskId: "task-video", outSeconds: 9 }),
       ),
-    ).rejects.toThrow(/không còn hợp lệ/);
+    ).rejects.toThrow(/đoạn cắt vừa đổi/);
   });
 
   it("refuses a source task that is not a clip", async () => {
@@ -254,7 +254,7 @@ describe("saveFilmSegment validation", () => {
         segmentId,
         patch({ sourceTaskId: "task-video" }),
       ),
-    ).rejects.toThrow(/không còn hợp lệ/);
+    ).rejects.toThrow(/đoạn cắt vừa đổi/);
   });
 
   it("saves a valid edit through the guarded RPC with an input hash", async () => {

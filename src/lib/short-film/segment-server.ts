@@ -243,7 +243,7 @@ export async function saveFilmSegment(
       !["video", "dub", "lip_sync"].includes(source.kind) ||
       Number(source.result?.duration || 0) + 0.05 < patch.outSeconds
     )
-      throw new FilmError("Clip nguồn hoặc khoảng cắt không còn hợp lệ.", 409);
+      throw new FilmError("Cảnh hoặc đoạn cắt vừa đổi. Tải lại trang nhé.", 409);
   }
   const payload = {
     ...patch,
@@ -447,7 +447,7 @@ export async function quoteFilmSegment(
   }
 
   const sourceTask = segment.selectedTaskId || segment.sourceTaskId;
-  if (!sourceTask) throw new FilmError("Đoạn chưa có clip nguồn để lấy khung mở.");
+  if (!sourceTask) throw new FilmError("Cảnh này chưa quay xong nên chưa lấy được ảnh mở đầu.");
   const sourceClip = tasks.find((candidate) => candidate.id === sourceTask);
   if (
     !sourceClip ||
@@ -455,7 +455,7 @@ export async function quoteFilmSegment(
     (!sourceClip.approved_at && !sourceClip.auto_accepted_at) ||
     !sourceClip.result?.path
   )
-    throw new FilmError("Clip nguồn của đoạn chưa sẵn sàng hoặc chưa được duyệt.");
+    throw new FilmError("Cảnh này chưa quay xong hoặc chưa được duyệt.");
   const frame = approvedSegmentImage
     ? null
     : task(
@@ -553,7 +553,7 @@ export async function quoteFilmSegment(
     }
   }
   if (references.length > seedanceReferenceLimit(plan.video_model))
-    throw new FilmError("Bộ ảnh tham chiếu của đoạn vượt giới hạn model.", 422);
+    throw new FilmError("Cảnh này có nhiều ảnh mẫu quá. Bớt vài ảnh rồi thử lại nhé.", 422);
   const packet = {
     urls: references.map((reference) => reference.url),
     bindings: references.map(
