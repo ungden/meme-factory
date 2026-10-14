@@ -45,7 +45,7 @@ export default function SafeZoneEditor({ open, onClose, baseImage, onSave }: Saf
       toast.success("Đã lưu vùng chữ cho ảnh này");
       onClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Lưu thất bại");
+      toast.error(error instanceof Error ? error.message : "Chưa lưu được. Bạn thử lại nhé.");
     } finally {
       setSaving(false);
     }
@@ -66,14 +66,14 @@ export default function SafeZoneEditor({ open, onClose, baseImage, onSave }: Saf
             avoid={initial?.avoid}
             onChange={setZones}
           >
-            <Image src={baseImage.image_url} alt="Ảnh nền" fill className="object-cover" unoptimized />
+            <Image src={baseImage.image_url} alt="Mẫu meme" fill className="object-cover" unoptimized />
           </ZoneCanvas>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <ZoneToggles zones={zones} onChange={setZones} />
-          <span className="ml-auto flex items-center gap-1 text-[11px] th-text-tertiary">
-            <span className="inline-block h-2 w-2 rounded-full bg-pink-400" /> vùng không được che
+          <span className="ml-auto flex items-center gap-1 text-xs th-text-tertiary">
+            <span className="inline-block h-2 w-2 rounded-full th-bg-danger" /> vùng không được che
           </span>
         </div>
 

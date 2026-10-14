@@ -35,7 +35,7 @@ export default function WatermarkGrid({
   onChange: (position: WatermarkPosition) => void;
 }) {
   return (
-    <div role="group" aria-label="Vị trí watermark" className="grid w-fit grid-cols-3 gap-1">
+    <div role="group" aria-label="Vị trí logo" className="grid w-fit grid-cols-3 gap-1">
       {WATERMARK_GRID.map((position) => {
         const active = value === position;
         return (

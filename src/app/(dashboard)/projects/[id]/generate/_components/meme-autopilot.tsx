@@ -419,7 +419,7 @@ export function MemeAutopilot({
                         <Repeat2 size={14} aria-hidden /> Làm bài tương tự
                       </button>
                       <Link
-                        href={`/projects/${projectId}/video?image=${encodeURIComponent(meme.image_url!)}`}
+                        href={`/projects/${projectId}/video?from=${encodeURIComponent(meme.id)}`}
                         className="inline-flex min-h-8 items-center gap-1.5 text-xs font-medium th-text-secondary hover:th-text-primary"
                       >
                         <Clapperboard size={14} aria-hidden /> Làm video từ ảnh này

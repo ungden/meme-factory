@@ -28,7 +28,7 @@ function Row({
       <div className="min-w-0">
         <p className="text-xs font-medium th-text-primary">{title}</p>
         <p className="text-xs th-text-secondary">{value}</p>
-        {hint && <p className="text-[11px] th-text-tertiary">{hint}</p>}
+        {hint && <p className="text-xs th-text-tertiary">{hint}</p>}
       </div>
     </div>
   );
@@ -71,7 +71,7 @@ export default function TemplateInfo({ doc, style }: { doc: MemeDoc; style?: Tex
       />
       <Row
         icon={<Stamp size={14} />}
-        title="Vùng watermark"
+        title="Vùng logo"
         value={
           watermarkRect
             ? `${Math.round(watermarkRect.x * 100)}%, ${Math.round(watermarkRect.y * 100)}% · rộng ${Math.round(

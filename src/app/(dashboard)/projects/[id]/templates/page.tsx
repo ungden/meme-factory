@@ -5,8 +5,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
 import { Crop, ImagePlus, Trash2, Type, Upload } from "lucide-react";
-import Button from "@/components/ui/button";
+import Button, { buttonClasses } from "@/components/ui/button";
 import Card, { CardContent } from "@/components/ui/card";
+import Chip from "@/components/ui/chip";
+import Select from "@/components/ui/select";
+import EmptyState from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/page";
+import { PageContainer } from "@/components/ui/page";
+import MemeAreaHeader from "@/components/meme/meme-area-header";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { useToast } from "@/components/ui/toast";
 import SafeZoneEditor from "@/components/templates/safe-zone-editor";
@@ -62,42 +68,33 @@ export default function MemeTemplatesPage() {
   );
 
   return (
-    <div className="flex">
-      <main className="flex-1 p-4 pt-16 md:p-8">
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold th-text-primary">Mẫu meme</h1>
-            <p className="th-text-tertiary mt-1">
-              Ảnh dùng để ghép chữ. Tải ảnh của bạn lên là dùng được ngay, không cần tạo mascot.
-            </p>
-          </div>
+    <PageContainer>
+      <MemeAreaHeader
+        projectRef={projectRef}
+        mode="templates"
+        actions={
           <Button onClick={() => setUploadOpen(true)}>
-            <ImagePlus size={16} />
+            <ImagePlus size={16} aria-hidden />
             Thêm mẫu
           </Button>
+        }
+      />
+
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div role="radiogroup" aria-label="Trạng thái" className="flex flex-wrap gap-1.5">
+          {(Object.keys(STATUS_LABELS) as BaseImageStatus[]).map((status) => (
+            <Chip key={status} role="radio" selected={statusFilter === status} onClick={() => setStatusFilter(status)}>
+              {STATUS_LABELS[status]} ({counts[status]})
+            </Chip>
+          ))}
         </div>
 
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          {(Object.keys(STATUS_LABELS) as BaseImageStatus[]).map((status) => (
-            <button
-              key={status}
-              type="button"
-              onClick={() => setStatusFilter(status)}
-              className={`rounded-full border px-3 py-1 text-xs ${
-                statusFilter === status
-                  ? "th-border-accent th-text-accent th-bg-accent-light"
-                  : "th-border-secondary th-text-tertiary"
-              }`}
-            >
-              {STATUS_LABELS[status]} ({counts[status]})
-            </button>
-          ))}
-
-          <select
+        <div className="grid grid-cols-2 gap-2 sm:ml-auto sm:w-80">
+          <Select
             aria-label="Lọc theo khổ ảnh"
             value={ratioFilter}
             onChange={(event) => setRatioFilter(event.target.value as MemeFormat | "all")}
-            className="ml-auto rounded-xl border th-border-secondary th-bg-tertiary px-3 py-1.5 text-xs th-text-primary"
+            className="py-2 text-sm"
           >
             <option value="all">Mọi khổ ảnh</option>
             {["1:1", "4:5", "9:16", "16:9"].map((ratio) => (
@@ -105,13 +102,13 @@ export default function MemeTemplatesPage() {
                 {ratio}
               </option>
             ))}
-          </select>
+          </Select>
 
-          <select
+          <Select
             aria-label="Lọc theo biểu cảm"
             value={expressionFilter}
             onChange={(event) => setExpressionFilter(event.target.value)}
-            className="rounded-xl border th-border-secondary th-bg-tertiary px-3 py-1.5 text-xs th-text-primary"
+            className="py-2 text-sm"
           >
             <option value="all">Mọi biểu cảm</option>
             {usedExpressions.map((slug) => (
@@ -119,92 +116,97 @@ export default function MemeTemplatesPage() {
                 {labelBySlug.get(slug) ?? slug}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
+      </div>
 
-        {loading ? (
-          <p className="th-text-tertiary">Đang tải…</p>
-        ) : visible.length === 0 ? (
-          <Card>
-            <CardContent className="space-y-3 py-12 text-center">
-              <p className="th-text-tertiary">
-                {statusFilter === "ready"
-                  ? "Chưa có mẫu nào dùng được. Tải ảnh lên và khoanh vùng chữ là xong."
-                  : "Không có mẫu nào ở trạng thái này."}
-              </p>
-              {statusFilter === "ready" && (
-                <Button variant="outline" onClick={() => setUploadOpen(true)}>
-                  <Upload size={15} /> Thêm mẫu đầu tiên
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {visible.map((image) => (
-              <Card key={image.id} className="flex flex-col">
-                <div className="relative aspect-square overflow-hidden rounded-t-2xl th-bg-tertiary">
-                  <Image
-                    src={image.image_url}
-                    alt={image.title ?? image.expression_slug}
-                    fill
-                    sizes="200px"
-                    className="object-cover"
-                    unoptimized
-                  />
-                  {image.status !== "ready" && (
-                    <span className="absolute left-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
-                      {STATUS_LABELS[image.status]}
-                    </span>
+      {loading ? (
+        <div role="status" aria-label="Đang tải" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {Array.from({ length: 10 }, (_, index) => (
+            <Skeleton key={index} className="aspect-[4/5]" />
+          ))}
+        </div>
+      ) : visible.length === 0 ? (
+        <EmptyState
+          icon={ImagePlus}
+          title={statusFilter === "ready" ? "Chưa có mẫu nào dùng được" : "Không có mẫu nào ở trạng thái này"}
+          hint={statusFilter === "ready" ? "Thêm ảnh rồi khoanh vùng chữ là xong. Hoặc vẽ bộ biểu cảm ở trang Nhân vật." : undefined}
+          action={
+            statusFilter === "ready" ? (
+              <Button variant="outline" onClick={() => setUploadOpen(true)}>
+                <Upload size={16} aria-hidden /> Thêm mẫu đầu tiên
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {visible.map((image) => (
+            <Card key={image.id} className="flex flex-col overflow-hidden">
+              <div className="relative aspect-square th-bg-tertiary">
+                <Image
+                  src={image.image_url}
+                  alt={image.title ?? image.expression_slug}
+                  fill
+                  sizes="200px"
+                  className="object-cover"
+                  unoptimized
+                />
+                {image.status !== "ready" && (
+                  <span className="absolute left-1.5 top-1.5 rounded-full px-2 py-0.5 text-xs th-bg-card th-text-secondary">
+                    {STATUS_LABELS[image.status]}
+                  </span>
+                )}
+              </div>
+              <CardContent className="flex flex-1 flex-col gap-1 p-2.5">
+                <p className="truncate text-xs font-medium th-text-primary">
+                  {image.title || labelBySlug.get(image.expression_slug) || image.expression_slug}
+                </p>
+                <p className="truncate text-xs th-text-tertiary">
+                  {image.aspect_ratio} · {layoutLabel(image.layout_preset_id)}
+                  {image.character_id && image.character_name ? ` · ${image.character_name}` : ""}
+                </p>
+                <div className="mt-auto flex gap-1 pt-1">
+                  {image.status === "ready" ? (
+                    <Link
+                      href={`/projects/${projectRef}/editor?base=${image.id}`}
+                      className={buttonClasses("outline", "sm", "flex-1 px-2")}
+                    >
+                      <Type size={14} aria-hidden /> Ghép chữ
+                    </Link>
+                  ) : (
+                    <Button size="sm" variant="outline" className="flex-1 px-2" onClick={() => setZoneTarget(image.id)}>
+                      <Crop size={14} aria-hidden /> Khoanh chữ
+                    </Button>
                   )}
-                </div>
-                <CardContent className="flex flex-1 flex-col gap-1.5 py-2">
-                  <p className="truncate text-xs font-medium th-text-primary">
-                    {image.title || labelBySlug.get(image.expression_slug) || image.expression_slug}
-                  </p>
-                  <p className="truncate text-[10px] th-text-tertiary">
-                    {image.aspect_ratio} · {layoutLabel(image.layout_preset_id)}
-                    {image.character_name !== "Không gắn mascot" ? ` · ${image.character_name}` : ""}
-                  </p>
-                  <div className="mt-auto flex gap-1 pt-1">
-                    {image.status === "ready" ? (
-                      <Link href={`/projects/${projectRef}/editor?base=${image.id}`} className="flex-1">
-                        <Button size="sm" variant="outline" className="w-full">
-                          <Type size={12} /> Ghép chữ
-                        </Button>
-                      </Link>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => setZoneTarget(image.id)}
-                      >
-                        <Crop size={12} /> Khoanh chữ
-                      </Button>
-                    )}
+                  {image.status === "ready" && (
                     <Button
                       size="sm"
                       variant="ghost"
+                      className="px-2"
                       aria-label="Chỉnh vùng chữ"
+                      title="Chỉnh vùng chữ"
                       onClick={() => setZoneTarget(image.id)}
                     >
-                      <Crop size={12} />
+                      <Crop size={14} aria-hidden />
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label="Xoá mẫu"
-                      onClick={() => setDeleteTarget(image.id)}
-                    >
-                      <Trash2 size={12} />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="px-2"
+                    aria-label="Xoá mẫu"
+                    title="Xoá mẫu"
+                    onClick={() => setDeleteTarget(image.id)}
+                  >
+                    <Trash2 size={14} aria-hidden />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
         {project && (
           <TemplateUploadDialog
@@ -244,16 +246,15 @@ export default function MemeTemplatesPage() {
               await deleteBaseImage(deleteTarget);
               toast.success("Đã xoá mẫu");
             } catch (error) {
-              toast.error(error instanceof Error ? error.message : "Xoá thất bại");
+              toast.error(error instanceof Error ? error.message : "Chưa xoá được. Bạn thử lại nhé.");
             }
             setDeleteTarget(null);
           }}
           title="Xoá mẫu meme?"
-          message="Mẫu này sẽ bị xoá khỏi thư viện. Meme đã tạo từ nó vẫn giữ nguyên."
+          message="Mẫu này sẽ mất hẳn, không lấy lại được. Meme đã làm từ nó vẫn giữ nguyên."
           confirmText="Xoá mẫu"
           variant="danger"
         />
-      </main>
-    </div>
+    </PageContainer>
   );
 }

@@ -126,7 +126,7 @@ export default function ZoneCanvas({
       {(avoid ?? []).map((rect, index) => (
         <div
           key={`avoid-${index}`}
-          className="pointer-events-none absolute border-2 border-dashed border-pink-400/70"
+          className="pointer-events-none absolute border-2 border-dashed th-border-danger opacity-70"
           style={{
             left: `${rect.x * 100}%`,
             top: `${rect.y * 100}%`,
@@ -144,7 +144,7 @@ export default function ZoneCanvas({
             key={zone}
             onPointerDown={(event) => onPointerDown(event, zone, "move")}
             className={`absolute cursor-move border-2 ${
-              active === zone ? "th-border-accent th-bg-accent-soft" : "border-sky-400/80 bg-sky-400/10"
+              active === zone ? "th-border-accent th-bg-accent-soft" : "th-border-accent th-bg-accent-subtle opacity-80"
             }`}
             style={{
               left: `${rect.x * 100}%`,
@@ -153,7 +153,7 @@ export default function ZoneCanvas({
               height: `${rect.h * 100}%`,
             }}
           >
-            <span className="absolute left-1 top-1 rounded bg-black/60 px-1 text-[10px] text-white">
+            <span className="absolute left-1 top-1 rounded bg-black/60 px-1 text-xs text-white">
               {ZONE_LABELS[zone]}
             </span>
             <span

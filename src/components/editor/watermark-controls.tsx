@@ -43,31 +43,31 @@ export default function WatermarkControls({
 
   return (
     <div className="space-y-4">
-      <Toggle label="Bật watermark" checked={watermark.enabled} onChange={(enabled) => onChange({ enabled })} />
+      <Toggle label="Đóng logo" checked={watermark.enabled} onChange={(enabled) => onChange({ enabled })} />
 
-      <ControlRow label="Kiểu watermark">
+      <ControlRow label="Kiểu logo">
         <SegmentedControl
-          ariaLabel="Kiểu watermark"
+          ariaLabel="Kiểu logo"
           value={mode}
           onChange={setMode}
           options={[
             { value: "project", label: "Logo kênh", title: projectWatermarkUrl ? "Dùng logo đã lưu của kênh" : "Kênh chưa có logo" },
-            { value: "text", label: "Chữ" },
-            { value: "custom", label: "Tải lên" },
+            { value: "text", label: "Chữ ký kênh" },
+            { value: "custom", label: "Ảnh khác" },
             { value: "off", label: "Tắt" },
           ]}
         />
       </ControlRow>
 
       {watermark.enabled && watermark.source === "text" && (
-        <ControlRow label="Chữ watermark">
+        <ControlRow label="Chữ ký kênh">
           <input
             type="text"
             value={watermark.text ?? ""}
             maxLength={40}
             placeholder={projectName}
             onChange={(event) => onChange({ text: event.target.value })}
-            className="w-full rounded-lg border th-border-secondary th-bg-tertiary px-3 py-2 text-sm th-text-primary outline-none"
+            className="w-full rounded-xl border th-border th-bg-input px-3 py-2 text-sm th-text-primary focus:outline-none focus-visible:ring-2 th-ring-accent"
           />
         </ControlRow>
       )}
@@ -86,10 +86,10 @@ export default function WatermarkControls({
             }}
           />
           {watermark.imageUrl ? (
-            <div className="flex items-center gap-2 rounded-lg border th-border-secondary p-2">
+            <div className="flex items-center gap-2 rounded-xl border th-border p-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={watermark.imageUrl} alt="Watermark" className="h-8 w-8 object-contain" />
-              <span className="flex-1 truncate text-xs th-text-tertiary">Logo đã tải lên</span>
+              <img src={watermark.imageUrl} alt="Logo" className="h-8 w-8 object-contain" />
+              <span className="flex-1 truncate text-xs th-text-tertiary">Logo đã chọn</span>
               <button
                 type="button"
                 aria-label="Bỏ logo"
@@ -103,10 +103,10 @@ export default function WatermarkControls({
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="flex w-full flex-col items-center gap-1 rounded-lg border border-dashed th-border-secondary p-4 th-text-tertiary th-bg-hover"
+              className="flex w-full flex-col items-center gap-1 rounded-xl border border-dashed th-border p-4 th-text-tertiary th-bg-hover"
             >
               <Upload size={16} />
-              <span className="text-xs">Tải logo PNG / JPG / SVG</span>
+              <span className="text-xs">Chọn ảnh logo (PNG, JPG, SVG)</span>
             </button>
           )}
         </div>
@@ -116,7 +116,7 @@ export default function WatermarkControls({
         <>
           <ControlRow label="Độ mờ" value={`${Math.round(watermark.opacity * 100)}%`}>
             <Slider
-              ariaLabel="Độ mờ watermark"
+              ariaLabel="Độ mờ logo"
               min={10}
               max={100}
               value={watermark.opacity * 100}
@@ -126,7 +126,7 @@ export default function WatermarkControls({
 
           <ControlRow label="Kích thước" value={`${Math.round(watermark.scale * 100)}%`}>
             <Slider
-              ariaLabel="Kích thước watermark"
+              ariaLabel="Kích thước logo"
               min={5}
               max={40}
               value={watermark.scale * 100}

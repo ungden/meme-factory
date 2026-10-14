@@ -35,7 +35,7 @@ export default function TextControls({
     <div className="space-y-4">
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium th-text-tertiary">Nội dung text</span>
+          <span className="text-xs font-medium th-text-tertiary">Chữ trên ảnh</span>
           <span className={`text-xs tabular-nums ${overflowing ? "th-text-danger" : "th-text-tertiary"}`}>
             {layer.text.length} / {MAX_TEXT_LENGTH}
           </span>
@@ -57,7 +57,7 @@ export default function TextControls({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <ControlRow label="Cỡ chữ" value={layer.style.autoFit ? "auto" : Math.round(layer.style.fontSize * 1000) / 10}>
+        <ControlRow label="Cỡ chữ" value={layer.style.autoFit ? "tự động" : Math.round(layer.style.fontSize * 1000) / 10}>
           <Slider
             ariaLabel="Cỡ chữ"
             min={2}

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
+import Chip from "@/components/ui/chip";
 import type { BaseImageWithCharacter } from "@/lib/use-templates";
 import type { ExpressionTag } from "@/types/database";
 
@@ -24,7 +25,7 @@ export default function BaseImagePicker({
 
   const characters = useMemo(() => {
     const seen = new Map<string, string>();
-    // A template need not belong to a mascot; those group under "Không gắn mascot".
+    // A template need not belong to a mascot; those group under "Không gắn nhân vật".
     for (const image of baseImages) {
       seen.set(image.character_id ?? UNASSIGNED, image.character_name);
     }
@@ -44,7 +45,7 @@ export default function BaseImagePicker({
   if (baseImages.length === 0) {
     return (
       <p className="text-sm th-text-tertiary">
-        Kênh chưa có ảnh mascot nào. Vào Tài nguyên để thêm pose hoặc tạo bộ biểu cảm trước.
+        Kênh chưa có mẫu meme nào. Thêm ảnh ở trang Mẫu meme, hoặc vẽ bộ biểu cảm cho một nhân vật.
       </p>
     );
   }
@@ -52,29 +53,14 @@ export default function BaseImagePicker({
   return (
     <div className="space-y-3">
       {characters.length > 1 && (
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            onClick={() => setCharacterId("all")}
-            className={`rounded-full border px-3 py-1 text-xs ${
-              characterId === "all" ? "th-border-accent th-text-accent th-bg-accent-light" : "th-border-secondary th-text-tertiary"
-            }`}
-          >
+        <div role="radiogroup" aria-label="Nhân vật" className="flex flex-wrap gap-1.5">
+          <Chip role="radio" selected={characterId === "all"} onClick={() => setCharacterId("all")}>
             Tất cả
-          </button>
+          </Chip>
           {characters.map((character) => (
-            <button
-              key={character.id}
-              type="button"
-              onClick={() => setCharacterId(character.id)}
-              className={`rounded-full border px-3 py-1 text-xs ${
-                characterId === character.id
-                  ? "th-border-accent th-text-accent th-bg-accent-light"
-                  : "th-border-secondary th-text-tertiary"
-              }`}
-            >
+            <Chip key={character.id} role="radio" selected={characterId === character.id} onClick={() => setCharacterId(character.id)}>
               {character.name}
-            </button>
+            </Chip>
           ))}
         </div>
       )}
@@ -102,7 +88,7 @@ export default function BaseImagePicker({
                   unoptimized
                 />
               </div>
-              <span className="block truncate px-1.5 py-1 text-[10px] th-text-tertiary">{label}</span>
+              <span className="block truncate px-1.5 py-1 text-xs th-text-tertiary">{label}</span>
             </button>
           );
         })}

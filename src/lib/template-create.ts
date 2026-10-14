@@ -55,7 +55,7 @@ export async function createTemplateFromFile(input: CreateTemplateInput): Promis
   const { error: uploadError } = await supabase.storage
     .from("meme-templates")
     .upload(storagePath, clean, { contentType: clean.type || "image/png", upsert: false });
-  if (uploadError) throw new Error(`Tải ảnh lên thất bại: ${uploadError.message}`);
+  if (uploadError) throw new Error("Chưa lưu được ảnh. Bạn thử lại nhé.");
 
   const { data: urlData } = supabase.storage.from("meme-templates").getPublicUrl(storagePath);
   const hasZones = Object.keys(input.safeZones.zones ?? {}).length > 0;
@@ -115,7 +115,7 @@ export async function fetchPoseAsFile(imageUrl: string, name: string): Promise<F
 
 /** Reverse direction: publish a template as an AI identity reference. */
 export async function promoteTemplateToPose(template: MascotBaseImage, poseName: string) {
-  if (!template.character_id) throw new Error("Mẫu này chưa gắn mascot nào");
+  if (!template.character_id) throw new Error("Mẫu này chưa gắn nhân vật nào.");
   const supabase = createClient();
 
   const { error } = await supabase.from("character_poses").insert({

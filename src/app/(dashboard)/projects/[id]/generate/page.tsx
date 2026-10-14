@@ -1324,9 +1324,9 @@ export default function GeneratePage() {
                       <Button variant="outline" size="sm" onClick={handleAiGenerate}>
                         <RotateCcw size={14} aria-hidden /> Vẽ lại
                       </Button>
-                      {imageSourceUrl ? (
+                      {savedMemeId ? (
                         <Link
-                          href={`/projects/${projectId}/video?image=${encodeURIComponent(imageSourceUrl)}`}
+                          href={`/projects/${projectId}/video?from=${encodeURIComponent(savedMemeId)}`}
                           className={buttonClasses("outline", "sm")}
                         >
                           <Clapperboard size={14} aria-hidden /> Làm video từ ảnh này

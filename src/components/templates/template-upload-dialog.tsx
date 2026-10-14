@@ -6,6 +6,8 @@ import { AlertTriangle, Check, Loader2, Upload, X } from "lucide-react";
 import Button from "@/components/ui/button";
 import Modal from "@/components/ui/modal";
 import Input from "@/components/ui/input";
+import Chip from "@/components/ui/chip";
+import Select from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { ControlRow, SegmentedControl, Slider } from "@/components/editor/control-primitives";
 import { createTemplateFromFile } from "@/lib/template-create";
@@ -191,7 +193,7 @@ export default function TemplateUploadDialog({
           current.map((row) => (row.id === item.id ? { ...row, saved: true, error: undefined } : row))
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Lưu thất bại";
+        const message = error instanceof Error ? error.message : "Chưa lưu được. Bạn thử lại nhé.";
         setItems((current) => current.map((row) => (row.id === item.id ? { ...row, error: message } : row)));
         toast.error(`${item.title}: ${message}`);
       }
@@ -241,10 +243,10 @@ export default function TemplateUploadDialog({
             {(initialFiles?.length ?? 0) > 0 && (
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border th-border-secondary p-3">
                 <p className="text-xs th-text-tertiary">
-                  Có {initialFiles!.length} ảnh gốc của mascot này chưa thành mẫu.
+                  Có {initialFiles!.length} ảnh của nhân vật này chưa thành mẫu meme.
                 </p>
                 <Button size="sm" variant="outline" loading={reading} onClick={() => addFiles(initialFiles!)}>
-                  Nạp {initialFiles!.length} ảnh gốc
+                  Thêm {initialFiles!.length} ảnh này
                 </Button>
               </div>
             )}
@@ -266,24 +268,24 @@ export default function TemplateUploadDialog({
                     <div className="relative aspect-square th-bg-tertiary">
                       <Image src={item.previewUrl} alt={item.title} fill className="object-cover" unoptimized />
                       {item.saved && (
-                        <span className="absolute right-1 top-1 rounded-full th-bg-accent p-0.5 text-white">
+                        <span className="absolute right-1 top-1 rounded-full th-bg-accent p-0.5 th-text-on-primary">
                           <Check size={10} />
                         </span>
                       )}
                       {item.error && (
-                        <span className="absolute right-1 top-1 rounded-full bg-red-600 p-0.5 text-white">
+                        <span className="absolute right-1 top-1 rounded-full th-bg-danger p-0.5 th-text-on-primary">
                           <AlertTriangle size={10} />
                         </span>
                       )}
                     </div>
-                    <span className="block truncate px-1 py-0.5 text-[10px] th-text-tertiary">
+                    <span className="block truncate px-1 py-0.5 text-xs th-text-tertiary">
                       {item.width}×{item.height}
                     </span>
                   </button>
                 ))}
               </div>
               <Button size="sm" variant="outline" className="w-full" onClick={() => fileRef.current?.click()}>
-                <Upload size={13} /> Thêm ảnh
+                <Upload size={14} /> Thêm ảnh
               </Button>
             </div>
 
@@ -317,7 +319,7 @@ export default function TemplateUploadDialog({
                 <ZoneToggles zones={active.zones} onChange={(zones) => patchActive({ zones })} />
 
                 {Object.keys(active.zones).length === 0 && (
-                  <p className="text-xs th-text-danger">
+                  <p className="text-xs th-text-warning">
                     Chưa khoanh vùng chữ nên mẫu sẽ lưu ở dạng nháp, chưa dùng để ghép chữ được.
                   </p>
                 )}
@@ -336,11 +338,12 @@ export default function TemplateUploadDialog({
                 />
 
                 <ControlRow label="Khổ ảnh" value={`cắt ${Math.round(active.cropLoss * 100)}%`}>
-                  <div className="grid grid-cols-4 gap-1">
+                  <div role="radiogroup" aria-label="Khổ ảnh" className="flex flex-wrap gap-1">
                     {(Object.keys(FORMAT_DIMENSIONS) as MemeFormat[]).map((format) => (
-                      <button
+                      <Chip
                         key={format}
-                        type="button"
+                        role="radio"
+                        selected={active.aspectRatio === format}
                         onClick={() => {
                           const suggestion = suggestAspect(active.width, active.height);
                           patchActive({
@@ -349,14 +352,9 @@ export default function TemplateUploadDialog({
                             zones: { bottom: FALLBACK_SAFE_ZONES[format].zones.bottom! },
                           });
                         }}
-                        className={`rounded-lg border px-1.5 py-1 text-[11px] ${
-                          active.aspectRatio === format
-                            ? "th-border-accent th-text-accent th-bg-accent-light"
-                            : "th-border-secondary th-text-tertiary"
-                        }`}
                       >
                         {format}
-                      </button>
+                      </Chip>
                     ))}
                   </div>
                 </ControlRow>
@@ -408,18 +406,18 @@ export default function TemplateUploadDialog({
                 </ControlRow>
 
                 <ControlRow label="Biểu cảm">
-                  <select
+                  <Select
                     aria-label="Biểu cảm"
                     value={active.expressionSlug}
                     onChange={(event) => patchActive({ expressionSlug: event.target.value })}
-                    className="w-full rounded-lg border th-border-secondary th-bg-tertiary px-2 py-1.5 text-xs th-text-primary"
+                    className="py-2 text-sm"
                   >
                     {expressionTags.map((tag) => (
                       <option key={tag.slug} value={tag.slug}>
                         {tag.label_vi}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </ControlRow>
 
                 {items.length > 1 && (

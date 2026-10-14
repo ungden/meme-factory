@@ -85,7 +85,7 @@ export function useBaseImages(projectRef: string, status: BaseImageStatus | "all
     setBaseImages(
       rows.map((row) => ({
         ...row,
-        character_name: row.character_id ? nameById.get(row.character_id) ?? "Mascot" : "Không gắn mascot",
+        character_name: row.character_id ? nameById.get(row.character_id) ?? "Nhân vật" : "Không gắn nhân vật",
       }))
     );
     setLoading(false);
@@ -179,7 +179,7 @@ export async function saveGeneratedBaseImage(input: SaveBaseImageInput) {
     .select("id, project_id, avatar_url")
     .eq("id", input.characterId)
     .single();
-  if (!character) throw new Error("Không tìm thấy mascot");
+  if (!character) throw new Error("Không tìm thấy nhân vật này.");
 
   const blob = await (await fetch(`data:image/png;base64,${input.imageBase64}`)).blob();
   // First path segment is the user id so the bucket delete policy matches.
@@ -187,7 +187,7 @@ export async function saveGeneratedBaseImage(input: SaveBaseImageInput) {
   const { error: uploadError } = await supabase.storage
     .from("base-images")
     .upload(storagePath, blob, { contentType: "image/png", upsert: false });
-  if (uploadError) throw new Error(`Tải ảnh lên thất bại: ${uploadError.message}`);
+  if (uploadError) throw new Error("Chưa lưu được ảnh. Bạn thử lại nhé.");
 
   const { data: urlData } = supabase.storage.from("base-images").getPublicUrl(storagePath);
   const dimensions = FORMAT_DIMENSIONS[input.aspectRatio];
@@ -319,7 +319,7 @@ export function useMemeCollections(projectRef: string) {
   const create = useCallback(
     async (name: string) => {
       const projectId = await resolveProjectId(projectRef);
-      if (!projectId) throw new Error("Không tìm thấy dự án");
+      if (!projectId) throw new Error("Không tìm thấy kênh.");
       const supabase = createClient();
       const { data: userData } = await supabase.auth.getUser();
       const { error } = await supabase

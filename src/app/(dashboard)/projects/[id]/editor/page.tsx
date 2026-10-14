@@ -3,6 +3,9 @@
 import { useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import MemeEditor from "@/components/editor/meme-editor";
+import MemeAreaHeader from "@/components/meme/meme-area-header";
+import Alert from "@/components/ui/alert";
+import { PageContainer } from "@/components/ui/page";
 import { createDocForRawImage, validateMemeDoc } from "@/lib/meme-doc/schema";
 import { useMemes, useProject } from "@/lib/use-store";
 import type { MemeDoc } from "@/lib/meme-doc/types";
@@ -44,34 +47,24 @@ export default function MemeEditorPage() {
   }, [sourceMeme, project]);
 
   return (
-    <div className="flex">
-      <main className="flex-1 p-4 pt-16 md:p-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold th-text-primary">Ghép chữ</h1>
-          <p className="th-text-tertiary mt-1">
-            Chọn ảnh mascot có sẵn rồi đặt chữ lên. Không gọi AI, không trừ điểm.
-          </p>
-        </div>
+    <PageContainer>
+      <MemeAreaHeader projectRef={projectRef} mode="text" />
 
-        {isLegacyOverlay && (
-          <div
-            className="mb-4 rounded-xl border p-3 text-sm"
-            style={{ background: "var(--bg-card)", borderColor: "var(--warning, #d97706)" }}
-          >
-            Meme này được tạo trước khi có trình ghép chữ, nên chữ cũ đã nằm sẵn trong ảnh: bạn chỉ có thể
-            đặt chữ mới đè lên, không sửa được chữ cũ.
-          </div>
-        )}
+      {isLegacyOverlay && (
+        <Alert tone="warning" className="mb-4">
+          Meme này làm trước khi có Ghép chữ, nên chữ cũ đã nằm sẵn trong ảnh. Bạn chỉ đặt được chữ mới đè lên, không
+          sửa được chữ cũ.
+        </Alert>
+      )}
 
-        <MemeEditor
-          projectRef={projectRef}
-          project={project}
-          initialDoc={initialDoc}
-          initialBaseImageId={baseImageId}
-          initialText={initialText}
-          sourceMemeId={sourceMemeId}
-        />
-      </main>
-    </div>
+      <MemeEditor
+        projectRef={projectRef}
+        project={project}
+        initialDoc={initialDoc}
+        initialBaseImageId={baseImageId}
+        initialText={initialText}
+        sourceMemeId={sourceMemeId}
+      />
+    </PageContainer>
   );
 }

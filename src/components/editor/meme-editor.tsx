@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Download, Eye, EyeOff, Loader2, Save, Undo2 } from "lucide-react";
-import Button from "@/components/ui/button";
+import { Download, Eye, EyeOff, ImagePlus, Save, Undo2 } from "lucide-react";
+import Button, { buttonClasses } from "@/components/ui/button";
+import Chip from "@/components/ui/chip";
+import EmptyState from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/page";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import MemeCanvas, { type MemeCanvasHandle } from "@/components/meme/meme-canvas";
 import { useToast } from "@/components/ui/toast";
@@ -31,7 +34,7 @@ interface MemeEditorProps {
   project: Project | null;
   initialDoc: MemeDoc | null;
   initialBaseImageId: string | null;
-  /** Caption handed over from the AI Meme page. */
+  /** Chữ truyền sẵn qua đường dẫn (`?text=`). */
   initialText?: string | null;
   sourceMemeId?: string | null;
 }
@@ -175,6 +178,20 @@ export default function MemeEditor({
     [doc, project, commit]
   );
 
+  // Câu gợi ý kèm biểu cảm: chỉ đề xuất ảnh khi kênh có đúng biểu cảm đó, để
+  // không gợi một ảnh ngẫu nhiên trông như đã chọn có chủ ý.
+  const matchImage = useCallback(
+    (emotion: string | undefined, index: number) => {
+      if (!emotion) return null;
+      const matches = baseImages.filter((image) => image.expression_slug === emotion);
+      const image = matches[index % Math.max(1, matches.length)];
+      if (!image) return null;
+      const label = image.expression_label || expressionTags.find((tag) => tag.slug === emotion)?.label_vi || emotion;
+      return { id: image.id, image_url: image.image_url, label };
+    },
+    [baseImages, expressionTags]
+  );
+
   const uploadWatermark = useCallback(
     async (file: File) => {
       try {
@@ -190,9 +207,9 @@ export default function MemeEditor({
 
         const { data } = supabase.storage.from("watermarks").getPublicUrl(path);
         patchWatermark({ enabled: true, source: "custom", imageUrl: data.publicUrl, text: null });
-        toast.success("Đã tải logo watermark");
+        toast.success("Đã thêm logo");
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Không tải được logo");
+        toast.error(error instanceof Error ? error.message : "Chưa thêm được logo. Bạn thử lại nhé.");
       }
     },
     [patchWatermark, toast]
@@ -226,7 +243,7 @@ export default function MemeEditor({
     if (!doc) return;
     const dataUrl = canvasRef.current?.exportImage();
     if (!dataUrl) {
-      toast.error("Chưa render được ảnh. Thử lại sau giây lát.");
+      toast.error("Ảnh chưa sẵn sàng. Bạn thử lại sau giây lát nhé.");
       return;
     }
 
@@ -261,9 +278,9 @@ export default function MemeEditor({
         fileSizeBytes: Math.round(((dataUrl.length - (dataUrl.indexOf(",") + 1)) * 3) / 4),
         hadWatermark: Boolean(doc.watermark?.enabled),
       });
-      toast.success("Đã lưu vào Thư viện — không tốn điểm nào");
+      toast.success("Đã lưu vào Thư viện, không tốn điểm.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Lưu thất bại");
+      toast.error(error instanceof Error ? error.message : "Chưa lưu được. Bạn thử lại nhé.");
     } finally {
       setSaving(false);
     }
@@ -279,27 +296,28 @@ export default function MemeEditor({
 
   if (!doc) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center">
-          {baseImagesLoading ? (
-            <Loader2 className="mx-auto animate-spin th-text-tertiary" size={22} />
-          ) : (
-            <div className="space-y-3">
-              <p className="th-text-tertiary">
-                Chưa có mẫu meme nào dùng được. Tải ảnh của bạn lên, hoặc sinh bộ biểu cảm cho một mascot.
-              </p>
-              <div className="flex justify-center gap-2">
-                <Link href={`/projects/${projectRef}/templates`}>
-                  <Button>Thêm mẫu meme</Button>
-                </Link>
-                <Link href={`/projects/${projectRef}/mascots`}>
-                  <Button variant="outline">Tạo mascot</Button>
-                </Link>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      baseImagesLoading ? (
+        <div role="status" aria-label="Đang tải" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <Skeleton className="h-96" />
+          <Skeleton className="h-64" />
+        </div>
+      ) : (
+        <EmptyState
+          icon={ImagePlus}
+          title="Chưa có mẫu meme nào dùng được"
+          hint="Thêm ảnh của bạn, hoặc vẽ bộ biểu cảm cho một nhân vật."
+          action={
+            <>
+              <Link href={`/projects/${projectRef}/templates`} className={buttonClasses("primary", "md")}>
+                Thêm mẫu meme
+              </Link>
+              <Link href={`/projects/${projectRef}/characters`} className={buttonClasses("outline", "md")}>
+                Mở Nhân vật
+              </Link>
+            </>
+          }
+        />
+      )
     );
   }
 
@@ -336,7 +354,7 @@ export default function MemeEditor({
               </Button>
               <Button variant="outline" onClick={handleDownload}>
                 <Download size={16} />
-                Tải PNG
+                Tải ảnh
               </Button>
               <span className="text-xs th-text-tertiary">Ghép chữ không tốn điểm.</span>
             </div>
@@ -345,7 +363,7 @@ export default function MemeEditor({
 
         <Card>
           <CardHeader>
-            <span className="text-sm font-semibold th-text-primary">Cần một câu?</span>
+            <span className="text-sm font-semibold th-text-primary">Gợi ý câu</span>
           </CardHeader>
           <CardContent>
             <CaptionSuggestions
@@ -353,13 +371,19 @@ export default function MemeEditor({
               seed={activeLayer?.text ?? ""}
               recommendedChars={doc.meta.recommendedChars}
               onPick={(text) => patchLayer({ text })}
+              matchImage={matchImage}
+              onPickImage={(id) => {
+                const image = baseImages.find((item) => item.id === id);
+                if (image) selectBaseImage(image);
+              }}
+              selectedImageId={doc.base?.baseImageId ?? null}
             />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <span className="text-sm font-semibold th-text-primary">Chọn ảnh nền</span>
+            <span className="text-sm font-semibold th-text-primary">Chọn mẫu meme</span>
           </CardHeader>
           <CardContent>
             <BaseImagePicker
@@ -377,20 +401,11 @@ export default function MemeEditor({
           <CardHeader className="flex items-center justify-between">
             <span className="text-sm font-semibold th-text-primary">Chữ trên ảnh</span>
             {doc.layers.length > 1 && (
-              <div className="flex gap-1">
+              <div role="radiogroup" aria-label="Dòng chữ" className="flex gap-1">
                 {doc.layers.map((layer, index) => (
-                  <button
-                    key={layer.id}
-                    type="button"
-                    onClick={() => setActiveLayerId(layer.id)}
-                    className={`rounded-lg border px-2 py-1 text-xs ${
-                      activeLayer?.id === layer.id
-                        ? "th-border-accent th-text-accent th-bg-accent-light"
-                        : "th-border-secondary th-text-tertiary"
-                    }`}
-                  >
+                  <Chip key={layer.id} role="radio" selected={activeLayer?.id === layer.id} onClick={() => setActiveLayerId(layer.id)}>
                     {index === 0 ? "Dòng chính" : "Dòng phụ"}
-                  </button>
+                  </Chip>
                 ))}
               </div>
             )}
@@ -410,7 +425,7 @@ export default function MemeEditor({
 
         <Card>
           <CardHeader>
-            <span className="text-sm font-semibold th-text-primary">Watermark</span>
+            <span className="text-sm font-semibold th-text-primary">Logo</span>
           </CardHeader>
           <CardContent>
             {doc.watermark && (
@@ -439,20 +454,11 @@ export default function MemeEditor({
             <span className="text-sm font-semibold th-text-primary">Khổ ảnh</span>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-4 gap-1">
+            <div role="radiogroup" aria-label="Khổ ảnh" className="flex flex-wrap gap-1.5">
               {(["1:1", "4:5", "9:16", "16:9"] as MemeFormat[]).map((format) => (
-                <button
-                  key={format}
-                  type="button"
-                  onClick={() => changeFormat(format)}
-                  className={`rounded-lg border px-2 py-1.5 text-xs ${
-                    doc.canvas.format === format
-                      ? "th-border-accent th-text-accent th-bg-accent-light"
-                      : "th-border-secondary th-text-tertiary"
-                  }`}
-                >
+                <Chip key={format} role="radio" selected={doc.canvas.format === format} onClick={() => changeFormat(format)}>
                   {format}
-                </button>
+                </Chip>
               ))}
             </div>
           </CardContent>
