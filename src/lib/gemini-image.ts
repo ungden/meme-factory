@@ -553,7 +553,7 @@ YÊU CẦU BẮT BUỘC:
 export async function generateFilmReferenceView(params: {
   prompt: string;
   identityImages: Array<{ mimeType: string; base64: string }>;
-  aspectRatio: "4:5" | "9:16";
+  aspectRatio: "4:5" | "9:16" | "16:9" | "1:1";
 }): Promise<GeneratedImageResult> {
   const ai = await getClient();
   const response = await ai.models.generateContent({

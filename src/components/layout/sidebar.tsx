@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Mic2,
   Moon,
   Plus,
   Settings,
@@ -46,6 +47,7 @@ export function channelNav(ref: string): NavLink[] {
   return [
     { href: base, label: "Tổng quan", icon: LayoutDashboard, exact: true },
     { href: `${base}/short-films`, label: "Phim ngắn", icon: Clapperboard, aliases: [`${base}/video/multiscene`] },
+    { href: `${base}/battle-rap`, label: "Rap đối kháng", icon: Mic2 },
     {
       href: `${base}/generate`,
       label: "Meme",

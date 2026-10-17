@@ -14,8 +14,9 @@
     "test:coverage": "vitest run --coverage",
     "test:sql": "node scripts/run-sql-tests.mjs",
     "video-worker": "node scripts/wavespeed-worker.mjs",
+    "test:battle-rap": "vitest run src/lib/battle-rap && node --test scripts/tests/battle-rap-media.mjs",
     "check:migrations": "node scripts/check-migrations.mjs",
-    "test:node": "node --test scripts/tests/dubbing.integration.mjs scripts/tests/short-film-edit-range.mjs scripts/tests/short-film-media.mjs scripts/tests/speech-pace.mjs scripts/tests/smoke.mjs scripts/tests/character-references.mjs",
+    "test:node": "node --test scripts/tests/dubbing.integration.mjs scripts/tests/short-film-edit-range.mjs scripts/tests/short-film-media.mjs scripts/tests/speech-pace.mjs scripts/tests/smoke.mjs scripts/tests/character-references.mjs scripts/tests/battle-rap-media.mjs",
     "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
@@ -32,6 +33,7 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

@@ -1,6 +1,7 @@
 import { applyVideoWatermark } from "./short-film/watermark.mjs";
 import { dubStandaloneClip } from "./short-film/clip-dubbing.mjs";
 import { makeFilmWorker } from "./short-film/worker.mjs";
+import { makeBattleRapWorker } from "./battle-rap/worker.mjs";
 import { download as downloadMedia } from "./short-film/media.mjs";
 import {
   ensureDiskSpace,
@@ -664,11 +665,13 @@ async function heartbeatTick() {
   if (!response.ok) throw new Error(`Heartbeat ${response.status}`);
 }
 const film = directMode ? makeFilmWorker(supabase) : null;
+const battle = directMode ? makeBattleRapWorker(supabase, { appUrl, workerToken }) : null;
 await Promise.all([
   loop(directMode ? directTick : proxyTick, 10000, directMode ? "direct" : "proxy"),
   loop(productionTick, 5000, "production"),
   loop(watermarkTick, 5000, "watermark"),
   loop(heartbeatTick, 30000, "heartbeat"),
+  ...(battle ? [loop(() => battle.tick(), 5000, "battle-rap")] : []),
   ...(film
     ? [
         loop(() => film.tick(false), 3000, "film"),

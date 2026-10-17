@@ -158,6 +158,18 @@ export async function getWaveSpeedPrediction(id: string) {
   });
 }
 
+/** MV giữ nhạc master riêng, nên không thêm chỉ dẫn thoại lồng của video lẻ. */
+export async function quoteReferenceVideo(model: string, inputs: Record<string, unknown>) {
+  const data = await request("/model/price", { method: "POST", body: JSON.stringify({ model_id: model, inputs }) });
+  const usd = Number(data.discounted_price ?? data.price);
+  if (!Number.isFinite(usd) || usd <= 0) throw new Error("WAVESPEED_PRICE_UNAVAILABLE");
+  return Math.ceil(usd * AI_PRICE_MARKUP_MULTIPLIER * AI_PRICING_USD_VND / BILLING_POINT_FLOOR_VND);
+}
+
+export async function submitReferenceVideo(model: string, inputs: Record<string, unknown>, callback: string) {
+  return request(`/${model}?webhook=${encodeURIComponent(callback)}`, { method: "POST", body: JSON.stringify(inputs) }, SUBMIT_TIMEOUT_MS);
+}
+
 export function verifyWaveSpeedWebhook(headers: Headers, rawBody: string) {
   const secret = process.env.WAVESPEED_WEBHOOK_SECRET?.replace(/^whsec_/, "");
   if (!secret) throw new Error("WAVESPEED_WEBHOOK_SECRET_NOT_CONFIGURED");

@@ -78,6 +78,17 @@ const PROFILE_MISSING = "Kênh chưa có hồ sơ. Điền hồ sơ kênh trư�
  * tiếp theo. Không lộ chi tiết nội bộ.
  */
 export const ERROR_MESSAGES: Record<string, string> = {
+  BATTLE_ACCESS_CHANGED: "Quyền vào kênh đã thay đổi. Tải lại trang nhé.",
+  BATTLE_REQUEST_REUSED: "Mã yêu cầu này đã được dùng. Tải lại trang rồi thử lại nhé.",
+  BATTLE_BUDGET_INVALID: "Mức chi cho bài rap chưa hợp lệ.",
+  BATTLE_LEASE_LOST: "Bài đang được xử lý ở lượt khác. Tiến độ đã lưu vẫn được giữ.",
+  BATTLE_BUDGET_EXCEEDED: "Bài đã chạm mức chi. Tăng mức chi để làm tiếp phần còn lại.",
+  BATTLE_STEP_STATUS_INVALID: "Công đoạn của bài chưa hợp lệ. Tải lại trang nhé.",
+  BATTLE_STEP_MISSING: "Chưa tìm thấy công đoạn của bài. Tải lại trang nhé.",
+  BATTLE_BUSY: "Công đoạn đang nhận kết quả. Chờ một chút rồi thử lại nhé.",
+  BATTLE_RESUME_INVALID: "Bài này chưa cần làm tiếp.",
+  BATTLE_SUBMISSION_UNCERTAIN: "Cần đối chiếu lần gửi trước khi làm tiếp để tránh tính phí hai lần.",
+  BATTLE_ACTION_INVALID: "Thao tác chưa phù hợp với bài rap.",
   // ----- Điểm, ngân sách và hạn mức -----
   INSUFFICIENT_POINTS:
     "Kênh hết điểm. Nạp thêm rồi làm tiếp nhé.",

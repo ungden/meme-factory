@@ -74,6 +74,11 @@ export async function POST(request: NextRequest) {
       await reportError(new Error(videoError.message), { scope: "refund.sweeper.video" });
     refunded += Number(videos || 0);
 
+    const { data: battles, error: battleError } = await admin.rpc("sweep_battle_rap_runs");
+    if (battleError)
+      await reportError(new Error(battleError.message), { scope: "refund.sweeper.battle" });
+    refunded += Number(battles || 0);
+
     return NextResponse.json({ scanned: jobs?.length || 0, refunded });
   } catch (error) {
     await reportError(error, { scope: "refund.sweeper" });
