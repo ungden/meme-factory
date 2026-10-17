@@ -1,12 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, readFile } from "node:fs/promises";
+import { mkdtemp, rm, readFile, copyFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { execFile } from "node:child_process";
 import { ffmpeg, probe } from "../short-film/media.mjs";
 import { assDocument, normalizeClip, renderBattle } from "../battle-rap/media.mjs";
+import { makeBattleRapWorker } from "../battle-rap/worker.mjs";
 const exec = promisify(execFile);
 
 test("ASS safely displays Vietnamese lyrics and cannot inject styling commands", () => {
@@ -42,4 +43,36 @@ test("ffmpeg assembles clips with readable title/lyrics and only the master soun
     const frame = await exec("ffmpeg", ["-hide_banner", "-loglevel", "error", "-ss", "0.5", "-i", result.output, "-frames:v", "1", "-vf", "scale=180:320", "-f", "rawvideo", "-pix_fmt", "gray", "pipe:1"], { encoding: "buffer", maxBuffer: 1024 ** 2 });
     assert.ok([...frame.stdout].filter(pixel => pixel > 150).length > 100, "Expected visible text over the dark test frame");
   } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("worker measures uploaded audio then waits for selection; unapproved clips cannot render", { timeout: 30000 }, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "battle-review-test-"));
+  try {
+    const audio = path.join(dir, "master.wav");
+    await ffmpeg(["-f", "lavfi", "-i", "sine=frequency=440:duration=10.4", audio]);
+    const mediaUrl = "https://media.example.invalid/master.wav";
+    const run = { id: "run", project_id: "project", phase: "ingest", lease_owner: "worker", input: { aspectRatio: "9:16" }, state: { music: { path: "project/input.audio", duration: 0 }, review: { version: 1, stage: "lyrics", revision: 2, approved: ["lyrics"], attempts: {}, notes: {}, variants: {}, selected: {} } } };
+    const checkpoints = [];
+    const db = {
+      rpc: async (name, args) => {
+        if (name === "claim_battle_rap_run") return { data: [run], error: null };
+        if (name === "checkpoint_battle_rap_run") checkpoints.push(args);
+        return { data: 0, error: null };
+      },
+      storage: { from: () => ({ createSignedUrl: async () => ({ data: { signedUrl: mediaUrl }, error: null }) }) },
+    };
+    const worker = makeBattleRapWorker(db, { appUrl: "https://example.invalid", workerToken: "test", downloadImpl: async (url, file) => { assert.equal(url, mediaUrl); await copyFile(audio, file); }, fetchImpl: () => { throw new Error("Unexpected API generation"); } });
+    await worker.tick();
+    assert.equal(checkpoints.at(-1).p_status, "awaiting_review");
+    assert.equal(checkpoints.at(-1).p_phase, "timing");
+    assert.equal(run.state.review.stage, "music");
+    assert.ok(Math.abs(run.state.music.duration - 10.4) < 0.1);
+    run.phase = "render";
+    await worker.tick();
+    assert.equal(checkpoints.at(-1).p_status, "awaiting_review");
+    assert.equal(run.state.review.stage, "clips");
+    assert.equal(run.state.output, undefined);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

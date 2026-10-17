@@ -33,7 +33,20 @@ export type Shot = {
 export type Storyboard = { shots: Shot[] };
 export type Reference = { id: string; prompt: string; dependsOn: string[] };
 export type Music = { sourceUrl?: string; path?: string; duration: number; taskId?: string; audioId?: string };
+export type ReviewStage = "lyrics" | "music" | "storyboard" | "cast" | "stage" | "scenes" | "clips";
+export type ReviewState = {
+  version: 1;
+  revision: number;
+  stage: ReviewStage;
+  approved: ReviewStage[];
+  attempts: Record<string, number>;
+  notes: Record<string, string>;
+  variants: Record<string, { id: string; path: string; note?: string }[]>;
+  selected: Record<string, string>;
+  musicMode?: "upload" | "auto";
+};
 export type BattleState = {
+  review?: ReviewState;
   brief?: BattleBrief;
   music?: Music;
   rawTiming?: unknown;
@@ -52,7 +65,7 @@ export type BattlePhase = "writing" | "music" | "ingest" | "timing" | "storyboar
 export type BattleRun = {
   id: string; project_id: string; workspace_version: number; created_by: string;
   input: BattleInput; state: BattleState; phase: BattlePhase;
-  status: "queued" | "running" | "awaiting_music" | "awaiting_lyrics" | "needs_review" | "failed" | "cancelled" | "completed";
+  status: "queued" | "running" | "awaiting_music" | "awaiting_lyrics" | "awaiting_review" | "needs_review" | "failed" | "cancelled" | "completed";
   budget_points: number; points_used: number; refunded_points: number;
   error: string | null; lease_owner: string | null; lease_expires_at: string | null;
   created_at: string; updated_at: string;

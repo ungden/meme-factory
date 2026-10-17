@@ -2,6 +2,23 @@
 
 Catalogue **Rap đối kháng** nằm ở `/projects/[id]/battle-rap`, trong menu của từng kênh. Người dùng nhập một ý tưởng; tên hai nhân vật cũng đủ. Các tuỳ chọn về nhân vật, người dẫn, người chơi nhạc, sân khấu, chất nhạc và hình ảnh đều có thể bỏ trống để bộ viết tự chọn một lần cho cả bài.
 
+## Chọn từng giai đoạn
+
+Bài mới dừng ở bảy bước: **lời bài → bản nhạc → kịch bản hình → nhân vật → sân khấu → ảnh từng đoạn → video từng đoạn**. Chỉ khi người dùng bấm giữ lựa chọn và làm tiếp, công đoạn sau mới chạy. Ghép MV bắt đầu sau khi đã chọn xong video. Bài tạo trước migration giai đoạn vẫn tiếp tục theo cách cũ để không làm mất tiến độ.
+
+- Lời bài và kịch bản hình: đọc bản hiện tại, nhập góp ý hoặc dùng gợi ý hỗ trợ rồi viết lại. Lần viết lại nhận cả bản cũ và góp ý để sửa đúng chỗ.
+- Bản nhạc: nghe trước khi căn lời; chọn làm nhạc tự động hoặc tải bản đã chọn lên. Có thể đổi bản nhạc tại bước chọn nhạc. Việc chọn tải nhạc được giữ khi nối lại bài sau gián đoạn.
+- Nhân vật: chọn đủ A/B/MC/DJ trước khi vẽ sân khấu. Sân khấu được chọn trước khi vẽ ảnh từng đoạn; ảnh từng đoạn được chọn trước khi làm video.
+- Ảnh và video: xem từng mục, thêm góp ý và chỉ làm lại mục đó. Các bản cũ được giữ riêng, có thể chọn lại trước khi chốt bước. Các mục khác không bị gọi lại hoặc tính điểm thêm. Giá ảnh là ước tính; giá làm lại video tham khảo lượt trước, worker hỏi giá hiện tại và vẫn bị chặn bởi mức chi chung.
+- Bước đã chốt chỉ xem lại; khoá lựa chọn ở bước trước giúp ảnh và video phía sau luôn dùng đúng bộ đã chọn.
+- “Gợi ý giúp tôi” có ở ý tưởng và các bước chọn. Mỗi lần trả về các hướng cụ thể; chọn một hướng chỉ điền nội dung góp ý, không tự vẽ ảnh, làm nhạc, làm video hoặc duyệt bước. Gợi ý cho ảnh nhận chính ảnh đang chọn. Gợi ý cho nhạc/video/kết quả dựa trên nội dung bài, không được coi là đã nghe hoặc xem media thật.
+
+`state.review` lưu bước, số phiên bản, các bước đã chốt, số lần làm lại, góp ý và các bản đã lưu. Mỗi lần làm lại có step key và đường dẫn riêng, ví dụ `image:cast-A:v1` / `cast-A-v1.png`, nên không ghi đè ảnh cũ. Chỉ video đã lưu vào kho riêng mới được đưa vào danh sách chọn.
+
+RPC `edit_battle_rap_review` khoá bài, kiểm quyền, phiên bản và mã thao tác; bấm hai lần hoặc thử lại sau mất mạng không tạo thêm lượt. Worker không nhận bài đang `awaiting_review`; nút làm tiếp hoặc tăng mức chi không vượt qua bước chờ chọn. Chờ chọn/chờ nhạc/chờ lời tối đa bảy ngày kể từ cập nhật cuối, sau đó hoàn phần điểm chưa dùng; các phần đã làm vẫn được giữ để nối lại. Lỗi chạy thật vẫn có thời hạn 24 giờ.
+
+Áp thêm migration `20261017105212_battle_rap_stage_reviews.sql` trước khi chạy phiên bản có bước chọn. Luồng này chưa thay thế bằng nhánh nhập một bài nhạc bất kỳ từ đầu: nhạc tải lên vẫn cần lời đúng với bản bài đang có và SRT để căn thời gian.
+
 ## Luồng làm bài
 
 1. Bộ viết riêng cho rap tạo concept, mâu thuẫn, bốn vai A/B/MC/DJ, sân khấu đông khán giả, các lượt phản đòn và ba trường Suno: Title, Lyrics, Style. Lời được tạo trực tiếp từ các câu đã gắn người nói; nhãn biểu diễn dùng tiếng Anh, lời dùng tiếng Việt hoặc tiếng Anh theo lựa chọn.
@@ -42,9 +59,9 @@ Khi thiếu khoá hoặc giá dịch vụ nhạc, bài chờ ở bước thêm n
 
 Mức chi tối đa được giữ trước bằng RPC cùng giao dịch tạo run. Mỗi công đoạn giữ phần chi phí của nó trước khi gọi provider, không vượt tổng mức chi. Công đoạn đã hoàn thành được dùng lại khi làm tiếp. Thất bại được provider xác nhận giải phóng chi phí công đoạn; xong hoặc dừng bài thì hoàn phần mức chi còn dư bằng mã hoàn duy nhất. Có thể tăng mức chi khi bài chạm giới hạn.
 
-Một lần gửi chưa rõ đã đến provider hay chưa chuyển sang chờ đối chiếu, không tự gửi lại. Callback có chữ ký có thể khôi phục mã theo dõi và cho chạy tiếp. Ảnh đã upload nhưng chưa ghi kết quả có thể được nhận lại khi bấm làm tiếp. Công đoạn văn bản không tính điểm có thể thử lại sau khi worker chết. Những lần gửi có trả tiền chưa xác nhận được vẫn được giữ để đối chiếu, không đổi thành lần gửi mới.
+Một lần gửi chưa rõ đã đến provider hay chưa chuyển sang chờ đối chiếu, không tự gửi lại. Callback có chữ ký có thể khôi phục mã theo dõi và cho chạy tiếp. Ảnh đã upload nhưng chưa ghi kết quả có thể được nhận lại khi bấm làm tiếp, kể cả bản vẽ lại. Công đoạn văn bản không tính điểm có thể thử lại sau khi worker chết. Những lần gửi có trả tiền chưa xác nhận được vẫn được giữ để đối chiếu, không đổi thành lần gửi mới.
 
-Heartbeat gia hạn lease; mọi checkpoint quan trọng kiểm chủ lease. Vòng quét ở worker và refund sweeper đóng việc quá 24 giờ không tiến triển hoặc đã mất quyền vào kênh, đồng thời hoàn phần chưa thực hiện. Tệp đã có kết quả được giữ trong state để tiếp tục sau lỗi; phần đã làm xong vẫn tính điểm. Việc không còn kết quả sau thời hạn đối chiếu không giữ phí công đoạn chưa hoàn thành.
+Heartbeat gia hạn lease; mọi checkpoint quan trọng kiểm chủ lease. Vòng quét ở worker và refund sweeper đóng việc quá 24 giờ không tiến triển (bảy ngày với các bước đang chờ người dùng chọn hoặc thêm tệp) hoặc đã mất quyền vào kênh, đồng thời hoàn phần chưa thực hiện. Tệp đã có kết quả được giữ trong state để tiếp tục sau lỗi; phần đã làm xong vẫn tính điểm. Việc không còn kết quả sau thời hạn đối chiếu không giữ phí công đoạn chưa hoàn thành.
 
 ## Kiểm tra trước lần test idea
 
@@ -58,6 +75,8 @@ npm run build
 ```
 
 `test:battle-rap` chạy các kiểm thử hợp đồng, adapter, điều phối có provider giả, PostgreSQL trong bộ nhớ và FFmpeg thật với tín hiệu media tổng hợp. PGlite chỉ là dependency kiểm thử, không thay thế Supabase của app và không tạo container hay stack mới. Kiểm thử PostgreSQL chạy migration mới cùng các RPC ví thực tế của repo và kiểm tra RLS, trừ/hoàn điểm, tính lặp an toàn, lease, mức chi và giữ checkpoint.
+
+Bộ kiểm thử giai đoạn kiểm tra cả bảy điểm dừng, không gọi bước trả phí trước khi chốt, chỉ làm lại tài sản đã chọn, dùng lại bản cũ, đường dẫn phiên bản riêng, retry sau thất bại được xác nhận, CAS và mã thao tác trùng. Gợi ý được kiểm bằng model giả, gồm quyền vào kênh, ảnh thật được gửi vào model, giới hạn kích thước, giới hạn lượt và dữ liệu cũ. Giao diện 375×812 đã được thử với API giả qua cả bảy bước: gợi ý chỉ điền góp ý, chọn lại ảnh, vẽ lại riêng ảnh, duyệt video trước khi ghép; không tràn ngang hoặc lỗi trang. Kiểm tra này không gọi provider để đánh giá chất lượng gợi ý hoặc media thật.
 
 `npm run test:sql` chạy thêm trên database kiểm thử đầy đủ khi có `SUPABASE_DB_URL`; thiếu biến thì runner hiện tại bỏ qua. Không dùng chuỗi kết nối production để chạy bộ SQL.
 

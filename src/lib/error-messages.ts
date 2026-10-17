@@ -89,6 +89,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
   BATTLE_RESUME_INVALID: "Bài này chưa cần làm tiếp.",
   BATTLE_SUBMISSION_UNCERTAIN: "Cần đối chiếu lần gửi trước khi làm tiếp để tránh tính phí hai lần.",
   BATTLE_ACTION_INVALID: "Thao tác chưa phù hợp với bài rap.",
+  BATTLE_REVIEW_INVALID: "Lựa chọn chưa hợp lệ. Tải lại bài nhé.",
+  BATTLE_REVIEW_STALE: "Bài vừa được cập nhật. Tải lại để chọn trên bản mới nhé.",
   // ----- Điểm, ngân sách và hạn mức -----
   INSUFFICIENT_POINTS:
     "Kênh hết điểm. Nạp thêm rồi làm tiếp nhé.",

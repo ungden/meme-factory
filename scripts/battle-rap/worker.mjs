@@ -10,9 +10,14 @@ async function checked(promise) {
   if (result.error) throw new Error(result.error.message);
   return result.data;
 }
-export function makeBattleRapWorker(db, { appUrl, workerToken, fetchImpl = fetch } = {}) {
+export function makeBattleRapWorker(db, { appUrl, workerToken, fetchImpl = fetch, downloadImpl = download } = {}) {
   async function checkpoint(run, phase, status = "queued", error = null) {
     await checked(db.rpc("checkpoint_battle_rap_run", { p_id: run.id, p_owner: run.lease_owner, p_state: run.state, p_phase: phase, p_status: status, p_error: error }));
+  }
+  async function reviewGate(run, stage, phase) {
+    run.state.review.stage = stage;
+    run.state.review.revision++;
+    await checkpoint(run, phase, "awaiting_review");
   }
   async function persist(run, file, name, mime) {
     const saved = await uploadMedia({ db, prefix: `${run.project_id}/battle-rap/${run.id}`, file, name, mime,
@@ -31,7 +36,7 @@ export function makeBattleRapWorker(db, { appUrl, workerToken, fetchImpl = fetch
     const music = run.state.music;
     if (!music?.path && !music?.sourceUrl) throw new Error("Chưa có bản nhạc master.");
     const file = path.join(dir, "master.audio");
-    await download(music.path ? await signed(run, music.path) : music.sourceUrl, file, 30 * 1024 ** 2);
+    await downloadImpl(music.path ? await signed(run, music.path) : music.sourceUrl, file, 30 * 1024 ** 2);
     return file;
   }
   async function mediaStep(run) {
@@ -53,8 +58,10 @@ export function makeBattleRapWorker(db, { appUrl, workerToken, fetchImpl = fetch
           music.duration = (await probe(normalized)).duration;
         } else music.duration = info.duration;
         delete music.sourceUrl;
-        await checkpoint(run, "timing");
+        if (run.state.review && !run.state.review.approved.includes("music")) await reviewGate(run, "music", "timing");
+        else await checkpoint(run, "timing");
       } else if (run.phase === "excerpts") {
+        if (run.state.review && !run.state.review.approved.includes("scenes")) { await reviewGate(run, "scenes", "excerpts"); return; }
         run.state.excerpts ||= {};
         const block = run.state.blocks?.find(block => !run.state.excerpts[block.id]);
         if (!block) { await checkpoint(run, "video"); return; }
@@ -68,16 +75,25 @@ export function makeBattleRapWorker(db, { appUrl, workerToken, fetchImpl = fetch
         run.state.clipFiles ||= {};
         const block = run.state.blocks.find(block => run.state.clips?.[block.id] && !run.state.clipFiles[block.id]);
         const source = path.join(dir, "source.mp4"), target = path.join(dir, "clip.mp4");
-        await download(run.state.clips[block.id], source, 256 * 1024 ** 2);
+        await downloadImpl(run.state.clips[block.id], source, 256 * 1024 ** 2);
         await normalizeClip(source, target, block.end - block.start, run.input.aspectRatio);
-        run.state.clipFiles[block.id] = await persist(run, target, `clips/${block.id}.mp4`, "video/mp4");
+        const review = run.state.review, key = `video:${block.id}`, attempt = review?.attempts[key] || 0;
+        const file = await persist(run, target, `clips/${block.id}${attempt ? `-v${attempt}` : ""}.mp4`, "video/mp4");
+        run.state.clipFiles[block.id] = file;
+        if (review) {
+          const id = attempt ? `${key}:v${attempt}` : key;
+          const variants = review.variants[key] ||= [];
+          if (!variants.some(variant => variant.id === id)) variants.push({ id, path: file, ...(review.notes[key] ? { note: review.notes[key] } : {}) });
+          review.selected[key] = id;
+        }
         await checkpoint(run, "video");
       } else if (run.phase === "render") {
+        if (run.state.review && !run.state.review.approved.includes("clips")) { await reviewGate(run, "clips", "render"); return; }
         const audio = await master(run, dir), clips = [];
         for (const block of run.state.blocks || []) {
           const file = path.join(dir, `${block.id}.mp4`), storagePath = run.state.clipFiles?.[block.id];
           if (!storagePath) throw new Error("Có cảnh chưa được lưu hoàn chỉnh.");
-          await download(await signed(run, storagePath), file, 256 * 1024 ** 2);
+          await downloadImpl(await signed(run, storagePath), file, 256 * 1024 ** 2);
           clips.push(file);
         }
         const result = await renderBattle({ clips, audio, cues: run.state.cues, title: run.state.brief.suno.title, names: Object.fromEntries(run.state.brief.cast.map(c => [c.role, c.name])), duration: run.state.music.duration, format: run.input.aspectRatio, dir });

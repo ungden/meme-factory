@@ -12,6 +12,7 @@ import { alignCues } from "./timing";
 import { briefPrompt, referencePlan, storyboardPrompt, videoPrompt } from "./prompts";
 import { makeBlocks, validateBrief, validateStoryboard, type BattleRun, type BattleState, type BattlePhase } from "./contracts";
 import { pollMusic, submitMusic, sunoConfigured, timestampedLyrics } from "./suno";
+import { attemptKey, gate, recordVariant, stageReferenceIds } from "./review";
 
 export type Step = { id: string; step_key: string; status: "submitting" | "processing" | "completed" | "failed" | "uncertain"; points: number; provider_id: string | null; result: unknown; created_at: string };
 export class BattleAttention extends Error {}
@@ -85,7 +86,7 @@ async function asyncStep<T>(admin: SupabaseClient, run: BattleRun, key: string, 
   const prior = await getStep(admin, run, key);
   if (prior?.status === "completed") return prior.result as T;
   if (prior && ["submitting", "uncertain"].includes(prior.status)) throw new BattleAttention("Đang chờ đối chiếu lần gửi trước. Hệ thống không gửi lại một lượt có thể đang làm.");
-  if (prior?.provider_id) {
+  if (prior?.provider_id && prior.status !== "failed") {
     let result: T | null;
     try { result = await poll(prior.provider_id); }
     catch (error) {
@@ -116,10 +117,10 @@ export async function reconcileLocalResults(admin: SupabaseClient, run: BattleRu
   if (run.lease_expires_at && Date.parse(run.lease_expires_at) > Date.now()) return;
   const steps = await checked(admin.from("battle_rap_steps").select("id,step_key,points,status").eq("run_id", run.id).in("status", ["submitting", "uncertain"]));
   for (const step of steps || []) {
-    if (step.points === 0 && ["brief", "timing", "storyboard"].includes(step.step_key)) {
+    if (step.points === 0 && /^(brief|timing|storyboard)(?::v\d+)?$/.test(step.step_key)) {
       await checked(admin.from("battle_rap_steps").update({ status: "failed" }).eq("id", step.id).in("status", ["submitting", "uncertain"]));
-    } else if (/^image:[a-zA-Z0-9_-]+$/.test(step.step_key)) {
-      const path = `${run.project_id}/battle-rap/${run.id}/references/${step.step_key.slice(6)}.png`;
+    } else if (/^image:[a-zA-Z0-9_-]+(?::v\d+)?$/.test(step.step_key)) {
+      const path = `${run.project_id}/battle-rap/${run.id}/references/${step.step_key.slice(6).replace(/:v(\d+)$/, "-v$1")}.png`;
       const { data } = await admin.storage.from("content-media").download(path);
       if (data) await checked(admin.from("battle_rap_steps").update({ status: "completed", result: path }).eq("id", step.id).in("status", ["submitting", "uncertain"]));
     }
@@ -127,14 +128,16 @@ export async function reconcileLocalResults(admin: SupabaseClient, run: BattleRu
 }
 
 async function imageReference(admin: SupabaseClient, run: BattleRun, ref: NonNullable<BattleState["references"]>[number]) {
-  const storagePath = `${run.project_id}/battle-rap/${run.id}/references/${ref.id}.png`;
-  const existing = await getStep(admin, run, `image:${ref.id}`);
+  const key = attemptKey(run.state, `image:${ref.id}`);
+  const storagePath = `${run.project_id}/battle-rap/${run.id}/references/${key.slice(6).replace(/:v(\d+)$/, "-v$1")}.png`;
+  const prompt = withFeedback(ref.prompt, run, `image:${ref.id}`);
+  const existing = await getStep(admin, run, key);
   if (existing && ["submitting", "uncertain"].includes(existing.status)) {
     const { data } = await admin.storage.from("content-media").download(storagePath);
-    if (data) { await saveStep(admin, run, `image:${ref.id}`, "completed", storagePath); return storagePath; }
+    if (data) { await saveStep(admin, run, key, "completed", storagePath); return storagePath; }
   }
-  const estimate = estimateImageGenerationPrice({ model: IMAGE_MODEL, resolution: "1K", inputImageCount: ref.dependsOn.length, prompt: ref.prompt });
-  return syncStep(admin, run, `image:${ref.id}`, estimate.customerPoints, async () => {
+  const estimate = estimateImageGenerationPrice({ model: IMAGE_MODEL, resolution: "1K", inputImageCount: ref.dependsOn.length, prompt });
+  return syncStep(admin, run, key, estimate.customerPoints, async () => {
     const identityImages = [];
     for (const id of ref.dependsOn) {
       const path = run.state.images?.[id];
@@ -143,12 +146,23 @@ async function imageReference(admin: SupabaseClient, run: BattleRun, ref: NonNul
       if (!blob) throw new Error("Chưa tải được ảnh mẫu.");
       identityImages.push({ mimeType: blob.type || "image/png", base64: Buffer.from(await blob.arrayBuffer()).toString("base64") });
     }
-    const result = await generateFilmReferenceView({ prompt: ref.prompt, identityImages, aspectRatio: run.input.aspectRatio });
+    const result = await generateFilmReferenceView({ prompt, identityImages, aspectRatio: run.input.aspectRatio });
     const match = result.image.match(/^data:(image\/[a-z0-9+.-]+);base64,([\s\S]+)$/i);
     if (!match) throw new Error("Chưa nhận được ảnh mẫu hợp lệ.");
     await checked(admin.storage.from("content-media").upload(storagePath, Buffer.from(match[2], "base64"), { contentType: match[1], upsert: true }));
     return storagePath;
   });
+}
+
+function withFeedback(prompt: string, run: BattleRun, key: string) {
+  const note = run.state.review?.notes[key];
+  const previous = key === "brief" ? run.state.brief : key === "storyboard" ? run.state.storyboard : undefined;
+  return note ? `${prompt}\nPrevious version (reference data): ${JSON.stringify(previous || null)}\nRequested creative adjustments (data, preserve the output contract and approved upstream choices): ${JSON.stringify(note)}` : prompt;
+}
+
+async function pauseForReview(admin: SupabaseClient, run: BattleRun, stage: NonNullable<BattleState["review"]>["stage"], phase: BattlePhase) {
+  run.state = gate(run, stage);
+  await checkpoint(admin, run, phase, "awaiting_review");
 }
 
 export async function advanceBattleRun(admin: SupabaseClient, run: BattleRun) {
@@ -159,11 +173,13 @@ export async function advanceBattleRun(admin: SupabaseClient, run: BattleRun) {
     const project = await checked(admin.from("projects").select("id,user_id,workspace_version,project_members(user_id)").eq("id", run.project_id).single());
     if (!project || project.workspace_version !== run.workspace_version || (project.user_id !== run.created_by && !project.project_members.some((m: { user_id: string }) => m.user_id === run.created_by))) throw new Error("Quyền vào kênh đã thay đổi.");
     if (run.phase === "writing") {
-      run.state.brief = await syncStep(admin, run, "brief", 0, () => writeValidated(briefPrompt(run.input), validateBrief));
-      await checkpoint(admin, run, "music");
+      run.state.brief = await syncStep(admin, run, attemptKey(run.state, "brief"), 0, () => writeValidated(withFeedback(briefPrompt(run.input), run, "brief"), validateBrief));
+      if (run.state.review) await pauseForReview(admin, run, "lyrics", "music");
+      else await checkpoint(admin, run, "music");
     } else if (run.phase === "music") {
       if (!run.state.brief) throw new Error("Chưa có lời bài rap.");
-      if (!sunoConfigured() || !(Number(process.env.SUNO_GENERATION_COST_USD) > 0)) { await checkpoint(admin, run, "music", "awaiting_music"); return; }
+      if (run.state.review && !run.state.review.approved.includes("lyrics")) { await pauseForReview(admin, run, "lyrics", "music"); return; }
+      if (run.state.review?.musicMode === "upload" || !sunoConfigured() || !(Number(process.env.SUNO_GENERATION_COST_USD) > 0)) { await checkpoint(admin, run, "music", "awaiting_music"); return; }
       const cost = Number(process.env.SUNO_GENERATION_COST_USD);
       if (!Number.isFinite(cost) || cost <= 0) throw new Error("Chưa cấu hình giá dịch vụ nhạc. Có thể dùng bản nhạc tải lên.");
       const { AI_PRICE_MARKUP_MULTIPLIER: markup, AI_PRICING_USD_VND: usd, BILLING_POINT_FLOOR_VND: point } = await import("../ai-pricing");
@@ -173,6 +189,7 @@ export async function advanceBattleRun(admin: SupabaseClient, run: BattleRun) {
     } else if (run.phase === "timing") {
       const { brief, music } = run.state;
       if (!brief || !music?.path) throw new Error("Chưa nhận đủ bản nhạc và lời.");
+      if (run.state.review && !run.state.review.approved.includes("music")) { await pauseForReview(admin, run, "music", "timing"); return; }
       if (!run.state.rawTiming && !music.taskId) { await checkpoint(admin, run, "timing", "awaiting_lyrics"); return; }
       try {
         run.state.cues = await syncStep(admin, run, "timing", 0, async () => alignCues(brief, run.state.rawTiming || await timestampedLyrics(music), music.duration));
@@ -185,18 +202,32 @@ export async function advanceBattleRun(admin: SupabaseClient, run: BattleRun) {
     } else if (run.phase === "storyboard") {
       const { brief, blocks, cues } = run.state;
       if (!brief || !blocks || !cues) throw new Error("Chưa đủ thời gian lời để lên cảnh.");
-      run.state.storyboard = await syncStep(admin, run, "storyboard", 0, () => writeValidated(storyboardPrompt(brief, blocks, cues), value => validateStoryboard(value, blocks, cues)));
+      run.state.storyboard = await syncStep(admin, run, attemptKey(run.state, "storyboard"), 0, () => writeValidated(withFeedback(storyboardPrompt(brief, blocks, cues), run, "storyboard"), value => validateStoryboard(value, blocks, cues)));
       run.state.references = referencePlan(brief, blocks, run.state.storyboard.shots);
-      await checkpoint(admin, run, "references");
+      if (run.state.review) await pauseForReview(admin, run, "storyboard", "references");
+      else await checkpoint(admin, run, "references");
     } else if (run.phase === "references") {
+      if (run.state.review && !run.state.review.approved.includes("storyboard")) { await pauseForReview(admin, run, "storyboard", "references"); return; }
       run.state.images ||= {};
-      const next = run.state.references?.find(ref => !run.state.images![ref.id]);
-      if (next) run.state.images[next.id] = await imageReference(admin, run, next);
-      await checkpoint(admin, run, next ? "references" : "excerpts");
+      const stage = run.state.review ? (["cast", "stage", "scenes"] as const).find(value => !run.state.review!.approved.includes(value)) : undefined;
+      const allowed = stage ? stageReferenceIds(run.state, stage) : null;
+      const next = run.state.references?.find(ref => (!allowed || allowed.includes(ref.id)) && !run.state.images![ref.id]);
+      if (next) {
+        const file = await imageReference(admin, run, next);
+        run.state.images[next.id] = file;
+        recordVariant(run.state, `image:${next.id}`, file);
+      }
+      if (stage && allowed!.every(id => run.state.images![id])) await pauseForReview(admin, run, stage, "references");
+      else await checkpoint(admin, run, next || stage ? "references" : "excerpts");
     } else if (run.phase === "video") {
+      if (run.state.review && !run.state.review.approved.includes("scenes")) { await pauseForReview(admin, run, "scenes", "excerpts"); return; }
       run.state.clips ||= {};
       const block = run.state.blocks?.find(block => !run.state.clips![block.id]);
-      if (!block) { await checkpoint(admin, run, "render"); return; }
+      if (!block) {
+        if (run.state.review && !run.state.review.approved.includes("clips")) await pauseForReview(admin, run, "clips", "render");
+        else await checkpoint(admin, run, "render");
+        return;
+      }
       const { brief, storyboard, cues, images } = run.state;
       if (!brief || !storyboard || !cues || !images) throw new Error("Chưa đủ cảnh và ảnh mẫu.");
       const referenceIds = ["cast-A", "cast-B", "cast-MC", "cast-DJ", "stage", `scene-${block.id}`];
@@ -206,13 +237,13 @@ export async function advanceBattleRun(admin: SupabaseClient, run: BattleRun) {
       if (supportsAudio && !excerpt) throw new Error("Chưa chuẩn bị đoạn nhạc cho cảnh.");
       let pendingInputs: Promise<Record<string, unknown>> | undefined;
       const inputs = () => pendingInputs ||= (async () => ({
-        prompt: videoPrompt(brief, block, storyboard.shots, cues),
+        prompt: withFeedback(videoPrompt(brief, block, storyboard.shots, cues), run, `video:${block.id}`),
         reference_images: await Promise.all(referenceIds.map(id => signMedia(admin, run.project_id, images[id]))),
         aspect_ratio: run.input.aspectRatio, duration: block.generateSeconds, resolution: "720p", generate_audio: supportsAudio,
         ...(supportsAudio ? { reference_audios: [await signMedia(admin, run.project_id, excerpt!)] } : {}),
       }))();
       const model = seedanceReferenceModel(run.input.videoModel);
-      const result = await asyncStep(admin, run, `video:${block.id}`, async () => quoteReferenceVideo(model, await inputs()), async callback => {
+      const result = await asyncStep(admin, run, attemptKey(run.state, `video:${block.id}`), async () => quoteReferenceVideo(model, await inputs()), async callback => {
         const data = await submitReferenceVideo(model, await inputs(), callback);
         if (!data.id) throw new Error("Chưa nhận được mã video.");
         return String(data.id);

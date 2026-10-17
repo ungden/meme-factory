@@ -24,6 +24,7 @@ describe("battle rap PostgreSQL transactions", () => {
     await db.exec(chargeSql.slice(start, end));
     await db.exec(read("/supabase/migrations/20260918034431_make_project_refund_idempotent.sql"));
     await db.exec(read("/supabase/migrations/20261017100759_free_battle_rap_pipeline.sql"));
+    await db.exec(read("/supabase/migrations/20261017105212_battle_rap_stage_reviews.sql"));
   }, 30000);
   afterAll(async () => { await db?.close(); });
   it("charges, resumes, fences leases and refunds atomically using the real ledger functions", async () => {
@@ -31,9 +32,14 @@ describe("battle rap PostgreSQL transactions", () => {
     try { await db.exec(read("/scripts/tests/battle-rap-transaction.sql")); }
     finally { await db.exec("rollback"); }
   });
+  it("reviews use atomic revisions, preserve reservations and cannot skip gates", async () => {
+    await db.exec("begin");
+    try { await db.exec(read("/scripts/tests/battle-rap-review.sql")); }
+    finally { await db.exec("rollback"); }
+  });
   it("only exposes reads under RLS and denies anonymous access", async () => {
-    const result = await db.query<{ relname: string; relrowsecurity: boolean }>("select relname,relrowsecurity from pg_class where relname in ('battle_rap_runs','battle_rap_steps')");
-    expect(result.rows).toHaveLength(2);
+    const result = await db.query<{ relname: string; relrowsecurity: boolean }>("select relname,relrowsecurity from pg_class where relname in ('battle_rap_runs','battle_rap_steps','battle_rap_review_actions')");
+    expect(result.rows).toHaveLength(3);
     expect(result.rows.every(row => row.relrowsecurity)).toBe(true);
     const grants = await db.query<{ allowed: boolean }>("select has_table_privilege('anon','public.battle_rap_runs','SELECT') as allowed");
     expect(grants.rows[0].allowed).toBe(false);
